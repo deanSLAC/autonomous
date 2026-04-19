@@ -38,6 +38,8 @@ class SlackBridge:
         self._on_dm_message: Callable[[str, str, str], None] | None = None
         # callback(dir_name) for !setdir command
         self._on_setdir: Callable[[str], str] | None = None
+        # callback(intervention_id, status, staff_name) for !resume / !deny
+        self._on_intervention_resolve: Callable[[str, str, str], None] | None = None
         self._app: App | None = None
         self._handler: SocketModeHandler | None = None
         self._bot_user_id: str | None = None
@@ -57,6 +59,12 @@ class SlackBridge:
     def set_setdir_callback(self, callback: Callable[[str], str]):
         """Set callback for !setdir command. Returns status message."""
         self._on_setdir = callback
+
+    def set_intervention_resolve_callback(
+        self, callback: Callable[[str, str, str], None]
+    ):
+        """Set callback for !resume / !deny commands. Signature: (id, status, staff_name)."""
+        self._on_intervention_resolve = callback
 
     def start(self):
         """Start Slack bot in a background thread."""
@@ -113,6 +121,28 @@ class SlackBridge:
             user_id = event.get("user", "")
 
             if not text:
+                return
+
+            # --- !resume / !deny <intervention_id> (any channel) ---
+            if text.startswith("!resume") or text.startswith("!deny"):
+                parts = text.split(maxsplit=1)
+                status = "resolved" if parts[0] == "!resume" else "denied"
+                if len(parts) > 1 and self._on_intervention_resolve:
+                    iid = parts[1].strip()
+                    staff_name = self._resolve_staff_name(user_id, client)
+                    try:
+                        self._on_intervention_resolve(iid, status, staff_name)
+                        client.chat_postMessage(
+                            channel=channel,
+                            text=f"Intervention `{iid}` marked {status} by {staff_name}.",
+                            thread_ts=thread_ts or event.get("ts"),
+                        )
+                    except Exception as e:
+                        client.chat_postMessage(
+                            channel=channel,
+                            text=f"Error: {e}",
+                            thread_ts=thread_ts or event.get("ts"),
+                        )
                 return
 
             # --- !setdir command (any channel) ---
@@ -259,3 +289,44 @@ class SlackBridge:
         """Start new Slack threads for the next conversation."""
         self._llm_thread_ts = None
         self._staff_thread_ts = None
+
+    # --- Autonomy extensions ----------------------------------------
+
+    def post_status_update(self, text: str) -> None:
+        """Periodic autonomous-run progress post. Ignored if no channel configured."""
+        if not self._app or not SLACK_LLM_CHANNEL_ID:
+            logger.info("[slack/status] %s", text[:200])
+            return
+        try:
+            display_text = text if len(text) <= 3000 else text[:3000] + "\n\n_(truncated)_"
+            self._app.client.chat_postMessage(
+                channel=SLACK_LLM_CHANNEL_ID,
+                text=f":robot_face: *Autonomy status update*\n{display_text}",
+                thread_ts=self._llm_thread_ts,
+            )
+        except Exception as e:
+            logger.error("Failed to post status update: %s", e)
+
+    def post_intervention(self, intervention_id: str, kind: str, detail: str) -> None:
+        """Post an intervention request so staff can resolve it.
+
+        Staff can reply `!resume <intervention_id>` in the thread, or
+        resolve via the UI — both land in StaffCoordinator.resolve().
+        """
+        if not self._app or not SLACK_LLM_CHANNEL_ID:
+            logger.info("[slack/intervention] %s %s", kind, detail)
+            return
+        try:
+            body = (
+                f":pause_button: *Human intervention required* ({kind})\n"
+                f"{detail}\n\n"
+                f"Reply in this thread with `!resume {intervention_id}` when ready, "
+                f"or `!deny {intervention_id}` to cancel."
+            )
+            self._app.client.chat_postMessage(
+                channel=SLACK_LLM_CHANNEL_ID,
+                text=body,
+                thread_ts=self._llm_thread_ts,
+            )
+        except Exception as e:
+            logger.error("Failed to post intervention request: %s", e)

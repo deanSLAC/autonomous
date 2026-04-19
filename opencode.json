@@ -1,0 +1,33 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "share": "disabled",
+  "autoupdate": false,
+  "experimental": {
+    "openTelemetry": false
+  },
+  "model": "slac/us.anthropic.claude-opus-4-6-v1",
+  "provider": {
+    "slac": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "SLAC AI Gateway",
+      "options": {
+        "baseURL": "https://ai-api.slac.stanford.edu/v1",
+        "apiKey": "{env:SLAC_API_KEY}"
+      },
+      "models": {
+        "us.anthropic.claude-opus-4-6-v1": {
+          "name": "Claude Opus 4.6",
+          "limit": { "context": 1000000, "output": 65536 }
+        },
+        "us.anthropic.claude-sonnet-4-6": {
+          "name": "Claude Sonnet 4.6",
+          "limit": { "context": 200000, "output": 65536 }
+        },
+        "us.anthropic.claude-haiku-4-5-20251001-v1:0": {
+          "name": "Claude Haiku 4.5",
+          "limit": { "context": 200000, "output": 32768 }
+        }
+      }
+    }
+  }
+}
