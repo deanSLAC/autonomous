@@ -1,0 +1,115 @@
+"""Orchestrator control + intervention resolution API."""
+
+from __future__ import annotations
+
+import logging
+
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
+
+from db.autonomy_client import get_intervention
+from db.client import get_experiment
+from orchestrator import planner
+from orchestrator.loop import get_orchestrator
+from orchestrator.staff_guidance import coordinator
+from spec import spec_cmd
+
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/api/orchestrator", tags=["orchestrator"])
+
+
+@router.post("/start")
+async def start(payload: dict):
+    experiment_id = payload.get("experiment_id") or ""
+    if not experiment_id:
+        return JSONResponse({"success": False, "error": "experiment_id required"}, status_code=400)
+    exp = get_experiment(experiment_id)
+    if exp is None:
+        return JSONResponse({"success": False, "error": "experiment not found"}, status_code=404)
+
+    # Build plan
+    beamtime_hours = float(payload.get("beamtime_hours", 48))
+    try:
+        planner.build_initial_plan(experiment_id, beamtime_hours=beamtime_hours)
+    except Exception as e:
+        return JSONResponse({"success": False, "error": f"plan build failed: {e}"}, status_code=500)
+
+    orch = get_orchestrator()
+    if orch is None:
+        return JSONResponse({"success": False, "error": "orchestrator not initialized"}, status_code=503)
+    orch.start(experiment_id)
+    return {"success": True, "experiment_id": experiment_id, "phase": spec_cmd.get_phase()}
+
+
+@router.post("/pause")
+def pause():
+    orch = get_orchestrator()
+    if orch is None:
+        raise HTTPException(503, "orchestrator not initialized")
+    orch.pause()
+    return {"ok": True}
+
+
+@router.post("/resume")
+def resume():
+    orch = get_orchestrator()
+    if orch is None:
+        raise HTTPException(503, "orchestrator not initialized")
+    orch.resume()
+    return {"ok": True}
+
+
+@router.post("/stop")
+def stop():
+    orch = get_orchestrator()
+    if orch is None:
+        raise HTTPException(503, "orchestrator not initialized")
+    orch.stop()
+    return {"ok": True}
+
+
+@router.get("/status")
+def status():
+    orch = get_orchestrator()
+    if orch is None:
+        return {"initialized": False}
+    return {"initialized": True, **orch.snapshot()}
+
+
+@router.post("/guidance")
+async def submit_guidance(payload: dict):
+    """Users / staff submit steering text via web UI — joins the staff-guidance queue."""
+    text = (payload.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "text required")
+    author = (payload.get("author") or "web-user").strip()
+    experiment_id = payload.get("experiment_id") or spec_cmd.get_experiment_id()
+    coordinator.record_guidance(
+        experiment_id=experiment_id, source="web", author=author, text=text,
+    )
+    return {"ok": True}
+
+
+@router.post("/intervention/{intervention_id}/resolve")
+async def resolve_intervention(intervention_id: str, payload: dict):
+    status = (payload.get("status") or "resolved").strip()
+    if status not in ("resolved", "denied"):
+        raise HTTPException(400, "status must be 'resolved' or 'denied'")
+    row = get_intervention(intervention_id)
+    if row is None:
+        raise HTTPException(404, "intervention not found")
+    resolver = (payload.get("resolver") or "web-user").strip()
+    note = payload.get("note")
+    await coordinator.resolve(intervention_id, status=status, resolver=resolver, note=note)
+    return {"ok": True, "status": status}
+
+
+@router.post("/phase")
+async def force_phase(payload: dict):
+    """Operator override — set the active phase directly (no agent loop involved)."""
+    target = payload.get("phase")
+    if not target:
+        raise HTTPException(400, "phase required")
+    experiment_id = payload.get("experiment_id") or spec_cmd.get_experiment_id()
+    spec_cmd.set_phase(target, experiment_id=experiment_id)
+    return {"ok": True, "phase": spec_cmd.get_phase()}

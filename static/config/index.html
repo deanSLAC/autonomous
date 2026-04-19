@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BL15-2 Experiment Configuration</title>
+    <link rel="stylesheet" href="/static/config/style.css">
+</head>
+<body>
+    <div class="form-container">
+        <h1>BL15-2 Experiment Configuration</h1>
+
+        <!-- Tab Bar -->
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab('experiment')">Experiment Setup</button>
+            <button class="tab-btn" onclick="switchTab('samples')">Sample Holder</button>
+        </div>
+
+        <!-- Messages -->
+        <div class="message-area" id="message-area"></div>
+
+        <!-- Hidden field for experiment ID -->
+        <input type="hidden" id="experiment_id" name="experiment_id" value="">
+
+        <!-- ==================== TAB 1: EXPERIMENT ==================== -->
+        <div id="tab-experiment" class="tab-content">
+            <form id="experiment-form" onsubmit="return false;">
+
+                <!-- ========== EXPERIMENT SECTION ========== -->
+                <div class="section">
+                    <div class="section-header">
+                        <h2>Experiment</h2>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group wide">
+                            <label>Experiment Name <span class="required">*</span></label>
+                            <input type="text" id="experiment_name" placeholder="e.g. 2026-04_George" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Experimenter <span class="required">*</span></label>
+                            <input type="text" id="experimenter" placeholder="PI or lead" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group medium">
+                            <label>Mono Crystal <span class="required">*</span></label>
+                            <select id="mono_crystal">
+                                <option value="A">A - Si(111)</option>
+                                <option value="B">B - Si(311)</option>
+                            </select>
+                        </div>
+                        <div class="form-group medium">
+                            <label>Horizontal Beam <span class="required">*</span></label>
+                            <select id="beam_size_h" name="beam_size_h">
+                                <option value="big">Big</option>
+                                <option value="focused">Focused</option>
+                            </select>
+                        </div>
+                        <div class="form-group medium">
+                            <label>Vertical Beam <span class="required">*</span></label>
+                            <select id="beam_size_v" name="beam_size_v">
+                                <option value="big">Big</option>
+                                <option value="focused">Focused</option>
+                            </select>
+                        </div>
+                        <div class="form-group medium">
+                            <label>Sample Environment <span class="required">*</span></label>
+                            <select id="sample_env">
+                                <option value="ambient">Ambient</option>
+                                <option value="cryostat">Cryostat</option>
+                                <option value="operando">Operando</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group medium">
+                            <label>
+                                <input type="checkbox" id="mirrors_out" name="mirrors_out">
+                                Mirrors out
+                            </label>
+                            <small class="form-hint">Check when working above ~15 keV where mirrors must be removed. Beam size controls are disabled.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group wide">
+                            <label>Data Directory</label>
+                            <input type="text" id="data_directory" placeholder="Auto-filled: /data/fifteen/{name}">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========== ELEMENTS SECTION ========== -->
+                <div class="section">
+                    <div class="section-header">
+                        <h2>Elements</h2>
+                        <button type="button" class="btn btn-add" onclick="addElement()">+ Add Element</button>
+                    </div>
+
+                    <div id="elements-container">
+                        <!-- Element cards inserted here by JS -->
+                    </div>
+                </div>
+
+                <!-- ========== ADVANCED SECTION (collapsible) ========== -->
+                <div class="section">
+                    <div class="collapsible-header collapsed" onclick="toggleAdvanced()">
+                        <h2>Advanced Settings</h2>
+                    </div>
+                    <div class="collapsible-content collapsed" id="advanced-content">
+                        <div class="form-row" style="margin-top: 12px;">
+                            <div class="form-group medium">
+                                <label>I0 Gain</label>
+                                <select id="i0_gain">
+                                    <option value="">Default (auto)</option>
+                                    <option value="1 nA/V">1 nA/V</option>
+                                    <option value="2 nA/V">2 nA/V</option>
+                                    <option value="5 nA/V">5 nA/V</option>
+                                    <option value="10 nA/V">10 nA/V</option>
+                                    <option value="20 nA/V">20 nA/V</option>
+                                    <option value="50 nA/V">50 nA/V</option>
+                                    <option value="100 nA/V">100 nA/V</option>
+                                    <option value="200 nA/V">200 nA/V</option>
+                                    <option value="500 nA/V">500 nA/V</option>
+                                </select>
+                            </div>
+                            <div class="form-group medium">
+                                <label>I0 Offset</label>
+                                <select id="i0_offset">
+                                    <option value="">Default (auto)</option>
+                                    <option value="1 pA">1 pA</option>
+                                    <option value="2 pA">2 pA</option>
+                                    <option value="5 pA">5 pA</option>
+                                    <option value="10 pA">10 pA</option>
+                                    <option value="20 pA">20 pA</option>
+                                    <option value="50 pA">50 pA</option>
+                                    <option value="100 pA">100 pA</option>
+                                </select>
+                            </div>
+                            <div class="form-group medium">
+                                <label>I1 Gain</label>
+                                <select id="i1_gain">
+                                    <option value="">Default (auto)</option>
+                                    <option value="100 uA/V">100 uA/V</option>
+                                    <option value="200 uA/V">200 uA/V</option>
+                                    <option value="500 uA/V">500 uA/V</option>
+                                    <option value="1 mA/V">1 mA/V</option>
+                                    <option value="2 mA/V">2 mA/V</option>
+                                    <option value="5 mA/V">5 mA/V</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <hr class="section-sep">
+
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="llm_enabled" checked>
+                            <label for="llm_enabled">LLM advisory enabled (alignment analysis + quality checks)</label>
+                        </div>
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="llm_decide_enabled" checked>
+                            <label for="llm_decide_enabled">LLM decision-making enabled (active participation in alignment)</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========== SUBMIT EXPERIMENT ========== -->
+                <div class="submit-area">
+                    <button type="button" class="btn btn-submit" id="submit-experiment-btn" onclick="submitExperiment()">
+                        Save Experiment
+                    </button>
+                </div>
+
+            </form>
+        </div>
+
+        <!-- ==================== TAB 2: SAMPLE HOLDER ==================== -->
+        <div id="tab-samples" class="tab-content hidden">
+            <form id="samples-form" onsubmit="return false;">
+
+                <!-- Experiment summary banner (read-only) -->
+                <div class="experiment-summary-banner" id="experiment-summary-banner">
+                    <p class="banner-placeholder">No experiment configured yet. Save an experiment in the Experiment Setup tab first.</p>
+                </div>
+
+                <!-- ========== SAMPLE HOLDER SECTION ========== -->
+                <div class="section" id="sample-holder-section" style="display: none;">
+                    <div class="section-header">
+                        <h2>Sample Holder</h2>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group wide">
+                            <label>Sample Holder Name <span class="required">*</span></label>
+                            <input type="text" id="sample_holder_name" placeholder="e.g. sample_holder_1" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========== SAMPLES SECTION ========== -->
+                <div class="section" id="samples-section" style="display: none;">
+                    <div class="section-header">
+                        <h2>Samples</h2>
+                        <button type="button" class="btn btn-add" onclick="addSample()">+ Add Sample</button>
+                    </div>
+
+                    <div id="samples-container">
+                        <!-- Sample cards inserted here by JS -->
+                    </div>
+                </div>
+
+                <!-- ========== SUBMIT SAMPLE HOLDER ========== -->
+                <div class="submit-area" id="submit-samples-area" style="display: none;">
+                    <button type="button" class="btn btn-submit" id="submit-samples-btn" onclick="submitSampleHolder()">
+                        Save Sample Holder
+                    </button>
+                </div>
+
+            </form>
+        </div>
+
+        <!-- ========== HAND OFF TO AGENT ========== -->
+        <div class="section" id="autonomy-handoff" style="display: none;">
+            <div class="section-header"><h2>Start Autonomous Run</h2></div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Beamtime (hours)</label>
+                    <input type="number" id="beamtime_hours" step="0.5" min="0" value="48">
+                </div>
+                <div class="form-group" style="flex: 1; display: flex; align-items: end;">
+                    <button type="button" class="btn btn-submit" id="start-autonomy-btn"
+                            onclick="startAutonomy()">
+                        🚀 Start Autonomous Run
+                    </button>
+                </div>
+            </div>
+            <div style="font-size: 0.9em; color: #666; margin-top: 0.5em;">
+                Hands the experiment to the agent. You can track progress on the
+                <a href="/dashboard">dashboard</a>.
+            </div>
+        </div>
+
+    </div>
+
+    <script src="/static/config/form.js"></script>
+    <script>
+        async function startAutonomy() {
+            const expId = document.getElementById("experiment_id").value;
+            if (!expId) { alert("Save the experiment first."); return; }
+            const hours = parseFloat(document.getElementById("beamtime_hours").value || "48");
+            const btn = document.getElementById("start-autonomy-btn");
+            btn.disabled = true; btn.textContent = "Starting…";
+            try {
+                const r = await fetch("/api/orchestrator/start", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ experiment_id: expId, beamtime_hours: hours }),
+                });
+                const j = await r.json();
+                if (j.success) {
+                    window.location.href = "/dashboard";
+                } else {
+                    alert("Failed: " + (j.error || "unknown"));
+                    btn.disabled = false;
+                    btn.textContent = "🚀 Start Autonomous Run";
+                }
+            } catch (e) {
+                alert("Failed: " + e);
+                btn.disabled = false;
+                btn.textContent = "🚀 Start Autonomous Run";
+            }
+        }
+        // Reveal the handoff panel once a sample holder has been saved
+        document.addEventListener("autonomy-ready", () => {
+            document.getElementById("autonomy-handoff").style.display = "block";
+        });
+    </script>
+    <script>
+        // Initialize: try to load active experiment
+        document.addEventListener('DOMContentLoaded', function() {
+            loadActiveExperiment();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BL15-2 Autonomous Beamline</title>
+    <link rel="stylesheet" href="/static/dashboard/static/dashboard.css">
+    <link rel="stylesheet" href="/static/dashboard/autonomy.css">
+</head>
+<body>
+
+<div class="topbar">
+    <div class="topbar-left">
+        <div class="topbar-logo">
+            <img src="/static/dashboard/static/ssrl-logo.png" alt="SSRL">
+            <span class="topbar-logo-text">BL15-2</span>
+        </div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-title">Autonomous Beamline</div>
+    </div>
+    <div class="topbar-right">
+        <div class="topbar-status">
+            <div class="status-dot" id="server-dot"></div>
+            <span id="server-status">connecting</span>
+        </div>
+        <select class="experiment-select" id="experiment-select">
+            <option value="">No experiments</option>
+        </select>
+        <a href="/config" class="theme-toggle" title="Experiment config" style="text-decoration:none;">⚙</a>
+        <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode">&#9790;</button>
+    </div>
+</div>
+
+<div class="exp-info" id="exp-info">
+    <div><span class="label">Experimenter</span><span class="value" id="exp-experimenter">--</span></div>
+    <div><span class="label">Crystal</span><span class="value" id="exp-crystal">--</span></div>
+    <div><span class="label">Beam</span><span class="value" id="exp-beam">--</span></div>
+    <div><span class="label">Environment</span><span class="value" id="exp-env">--</span></div>
+    <div><span class="label">Phase</span><span class="value" id="cur-phase">setup</span></div>
+    <div><span class="label">Status</span><span class="value" id="exp-status">--</span></div>
+</div>
+
+<!-- Autonomy control strip -->
+<div class="autonomy-bar">
+    <div class="autonomy-bar-left">
+        <button class="btn-autonomy" id="btn-start" onclick="autonomyAction('start')">▶ Start</button>
+        <button class="btn-autonomy" id="btn-pause" onclick="autonomyAction('pause')">⏸ Pause</button>
+        <button class="btn-autonomy" id="btn-resume" onclick="autonomyAction('resume')">▶ Resume</button>
+        <button class="btn-autonomy" id="btn-stop" onclick="autonomyAction('stop')">⏹ Stop</button>
+    </div>
+    <div class="autonomy-bar-center">
+        <span class="metric-pill"><span class="label">Turn</span> <span id="orc-turn">–</span></span>
+        <span class="metric-pill"><span class="label">Beamtime</span>
+            <span id="orc-elapsed">–</span>h / <span id="orc-total">–</span>h</span>
+        <span class="metric-pill"><span class="label">Samples</span>
+            <span id="orc-samples-done">–</span> / <span id="orc-samples-total">–</span></span>
+    </div>
+    <div class="autonomy-bar-right">
+        <span class="metric-pill"><span class="label">Running</span>
+            <span id="orc-running" class="dot-bad">no</span></span>
+    </div>
+</div>
+
+<!-- Interventions (only visible if there are any) -->
+<div id="interventions-banner" class="interventions" style="display:none;"></div>
+
+<div class="main-grid">
+    <!-- LEFT COLUMN -->
+    <div class="col-left">
+        <div class="phase-grid" id="phase-grid">
+            <div class="phase-tile" data-status="pending" data-phase="beamline_alignment" onclick="openPhase(this)">
+                <div class="tile-header">
+                    <div class="tile-phase-name">Beamline Alignment</div>
+                    <div class="tile-status-badge badge-pending">pending</div>
+                </div>
+                <div class="tile-body">
+                    <div class="tile-metric"><span class="metric-value" data-field="scan_count">--</span><span class="metric-label">scans</span></div>
+                    <div class="tile-details">
+                        <div class="tile-detail"><span class="detail-label">iter</span><span data-field="iterations">--</span></div>
+                        <div class="tile-detail"><span class="detail-label">LLM</span><span data-field="llm_count">0</span></div>
+                    </div>
+                </div>
+                <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
+            </div>
+            <div class="phase-tile" data-status="pending" data-phase="xes_alignment" onclick="openPhase(this)">
+                <div class="tile-header">
+                    <div class="tile-phase-name">Spectrometer Alignment</div>
+                    <div class="tile-status-badge badge-pending">pending</div>
+                </div>
+                <div class="tile-body">
+                    <div class="tile-metric"><span class="metric-value" data-field="scan_count">--</span><span class="metric-label">scans</span></div>
+                    <div class="tile-details">
+                        <div class="tile-detail"><span class="detail-label">crystals</span><span data-field="crystal_count">--</span></div>
+                        <div class="tile-detail"><span class="detail-label">anom</span><span data-field="anomaly_count">0</span></div>
+                    </div>
+                </div>
+                <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
+            </div>
+            <div class="phase-tile" data-status="pending" data-phase="sample_alignment" onclick="openPhase(this)">
+                <div class="tile-header">
+                    <div class="tile-phase-name">Sample Alignment</div>
+                    <div class="tile-status-badge badge-pending">pending</div>
+                </div>
+                <div class="tile-body">
+                    <div class="tile-metric"><span class="metric-value" data-field="scan_count">--</span><span class="metric-label">scans</span></div>
+                    <div class="tile-details">
+                        <div class="tile-detail"><span class="detail-label">samples</span><span data-field="sample_count">--</span></div>
+                        <div class="tile-detail"><span class="detail-label">LLM</span><span data-field="llm_count">0</span></div>
+                    </div>
+                </div>
+                <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
+            </div>
+            <div class="phase-tile" data-status="pending" data-phase="collection" onclick="openPhase(this)">
+                <div class="tile-header">
+                    <div class="tile-phase-name">Data Collection</div>
+                    <div class="tile-status-badge badge-pending">pending</div>
+                </div>
+                <div class="tile-body">
+                    <div class="tile-metric"><span class="metric-value" data-field="scan_count">--</span><span class="metric-label">scans</span></div>
+                    <div class="tile-details">
+                        <div class="tile-detail"><span class="detail-label">samples</span><span data-field="sample_count">--</span></div>
+                        <div class="tile-detail"><span class="detail-label">techniques</span><span data-field="technique_count">--</span></div>
+                    </div>
+                </div>
+                <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
+            </div>
+        </div>
+
+        <div class="panel panel-plan">
+            <div class="panel-header">
+                Sample plan
+                <span class="panel-sub" id="plan-summary">—</span>
+            </div>
+            <table class="plan-table">
+                <thead>
+                    <tr>
+                        <th>#</th><th>Sample</th><th>Element</th>
+                        <th>Status</th><th>Reps</th><th>SNR</th><th>Verdict</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="plan-tbody"><tr><td colspan="8" style="text-align:center;color:#888">—</td></tr></tbody>
+            </table>
+
+            <div class="plan-steer-bar" id="plan-steer-bar">
+                <button class="btn-steer" onclick="autonomyAction('pause')">⏸ Pause run</button>
+                <button class="btn-steer" onclick="extendBudget(1)">Extend budget +1h</button>
+                <button class="btn-steer" onclick="extendBudget(-0.5)">Trim −0.5h</button>
+                <button class="btn-steer btn-primary" onclick="openAddSample()">+ Add sample</button>
+                <div style="flex:1;"></div>
+                <span class="muted" id="plan-author" title="Acting on behalf of">as web-user</span>
+            </div>
+
+            <div id="add-sample-inline" class="add-sample-inline" style="display:none;">
+                <div class="add-sample-row">
+                    <input type="text" id="add-sample-name" placeholder="Sample name (e.g. Fe-oxide-ref)">
+                    <input type="text" id="add-sample-element" placeholder="Element symbol" style="max-width:120px;">
+                    <input type="number" id="add-sample-reps" placeholder="Reps" value="6" min="1" style="max-width:90px;">
+                    <input type="number" id="add-sample-time" placeholder="Count (s)" value="0.5" step="0.1" min="0.1" style="max-width:110px;">
+                    <input type="number" id="add-sample-pos" placeholder="At position (blank = end)" style="max-width:170px;">
+                </div>
+                <div class="add-sample-row">
+                    <input type="text" id="add-sample-reason" placeholder="Why add this sample? (optional, logged)">
+                    <button class="btn-steer btn-primary" onclick="submitAddSample()">Add</button>
+                    <button class="btn-steer" onclick="closeAddSample()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Plan history</div>
+            <div id="plan-edits" class="plan-edits-feed"><div class="muted">No edits yet.</div></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Action log (most recent)</div>
+            <div id="action-tape" class="action-tape"><div class="muted">No actions yet.</div></div>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="col-right">
+        <div class="panel">
+            <div class="panel-header">Latest agent output</div>
+            <div id="latest-summary" class="agent-summary"><div class="muted">Waiting for the agent…</div></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Staff guidance feed</div>
+            <div id="guidance-feed" class="guidance-feed"><div class="muted">No guidance yet.</div></div>
+            <div class="guidance-compose">
+                <input type="text" id="guidance-input" placeholder="Steer the agent (e.g. 'prioritize the Cu samples')">
+                <button onclick="submitGuidance()">Send</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Chat with the agent</div>
+            <div id="chat-log" class="chat-log"></div>
+            <div class="chat-compose">
+                <input type="text" id="chat-input" placeholder="Ask the agent anything…"
+                       onkeydown="if(event.key==='Enter')sendChat()">
+                <button onclick="sendChat()">Send</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/dashboard/static/dashboard.js"></script>
+<script src="/static/dashboard/autonomy.js"></script>
+</body>
+</html>

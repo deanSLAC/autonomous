@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BL15-2 — Phase Detail</title>
+    <link rel="stylesheet" href="/static/dashboard.css">
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+    <div class="topbar-left">
+        <div class="topbar-logo">
+            <img src="/static/ssrl-logo.png" alt="SSRL">
+            <span class="topbar-logo-text">BL15-2</span>
+        </div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-title" id="page-title">Phase Detail</div>
+    </div>
+    <div class="topbar-right">
+        <div class="topbar-status">
+            <div class="status-dot" id="server-dot"></div>
+            <span id="server-status">connecting</span>
+        </div>
+        <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode">&#9790;</button>
+    </div>
+</div>
+
+<div class="detail-container">
+    <!-- Back link -->
+    <a class="detail-back" href="/">&larr; Back to dashboard</a>
+
+    <!-- Header -->
+    <div class="detail-header">
+        <h1 class="detail-title" id="detail-title">--</h1>
+        <div class="tile-status-badge badge-pending" id="detail-badge">--</div>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="detail-summary" id="detail-summary">
+        <div class="summary-item">
+            <div class="summary-label">Started</div>
+            <div class="summary-value" id="sum-started">--</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">Duration</div>
+            <div class="summary-value" id="sum-duration">--</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">Scans</div>
+            <div class="summary-value" id="sum-scans">--</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">LLM Consulted</div>
+            <div class="summary-value" id="sum-llm">--</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">Anomalies</div>
+            <div class="summary-value" id="sum-anomalies">--</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">Datafile</div>
+            <div class="summary-value" id="sum-datafile">--</div>
+        </div>
+    </div>
+
+    <!-- LLM Assessment (if present) -->
+    <div class="assessment-box" id="assessment-box" style="display: none;">
+        <div class="assessment-title">LLM Assessment</div>
+        <div class="assessment-text" id="assessment-text"></div>
+    </div>
+
+    <!-- Report image (if present) -->
+    <div class="report-image-container" id="report-image-container" style="display: none;">
+        <img id="report-image" src="" alt="Phase report">
+        <div class="report-image-label">Phase summary report</div>
+    </div>
+
+    <!-- Collection progress (for collection phase) -->
+    <div id="collection-progress" style="display: none;">
+        <div class="scan-table-title">Sample Progress</div>
+        <div class="collection-grid" id="collection-grid"></div>
+    </div>
+
+    <!-- Scan table -->
+    <div class="scan-table-container" id="scan-table-container">
+        <div class="scan-table-title">Scan Records</div>
+        <table class="scan-table">
+            <thead>
+                <tr>
+                    <th>Scan #</th>
+                    <th>Motor</th>
+                    <th>Iter</th>
+                    <th>Action</th>
+                    <th>Command</th>
+                    <th>Position</th>
+                    <th>FWHM</th>
+                    <th>Conf</th>
+                    <th>LLM</th>
+                </tr>
+            </thead>
+            <tbody id="scan-tbody">
+                <tr><td colspan="9" class="loading-state">
+                    <div class="loading-spinner"></div><br>Loading scans...
+                </td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="/static/dashboard.js"></script>
+<script>
+    // Phase detail page initialization
+    (function() {
+        const params = new URLSearchParams(window.location.search);
+        const phaseRunId = params.get("id");
+        const phase = params.get("phase");
+        if (phaseRunId) {
+            loadPhaseDetail(phaseRunId);
+        } else if (phase) {
+            // Will be resolved by the dashboard status endpoint
+            loadPhaseByName(phase);
+        }
+    })();
+</script>
+</body>
+</html>
