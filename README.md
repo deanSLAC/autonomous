@@ -1,173 +1,187 @@
-# BeamtimeHero
+# Autonomous Beamline Agent — SSRL BL15-2
 
-Chat interface for synchrotron beamline users at SSRL BL15-2. Users ask questions about their experiment through a web UI. Questions are answered by an LLM (via Stanford AI API Gateway) that can query beamline scans, search logs, read/write macros, send commands to SPEC, and generate plots. Conversations are mirrored to Slack where staff can monitor, respond, and collaborate in real time.
+An LLM-driven agent that runs the BL15-2 X-ray beamline end-to-end: beamline
+alignment → spectrometer crystal alignment → sample holder alignment → data
+collection → real-time analysis → experiment steering — with every SPEC
+action logged to sqlite and a web UI that keeps users and staff informed.
 
-Runs locally on the beamline computer for direct access to SPEC data files, logs, the SPEC config, and the running SPEC session.
+**LLM backend:** [opencode](https://opencode.ai) server bound to the SLAC AI
+Gateway (Claude Opus 4.6 by default). opencode runs the tool-calling loop
+and the ~60 autonomous-beamline tools are exposed to it via
+auto-generated `.opencode/tools/*.ts` wrappers that shell into
+`scripts/tool_dispatcher.py`.
 
-## Architecture
+This project merges three prior efforts:
 
-```
-User (Browser)  <-->  FastAPI Server  <-->  Stanford AI API (LLM)
-                           |                       |
-                       Slack Bridge           Tool System
-                      /           \          (22 tools)
-              #beamtimehero    #users            |
-              (LLM log)     (staff-user    beamline_lib/
-                             relay)       (scans, logs, plots,
-                                          files, SPEC config,
-                          Staff DMs        SPEC commands)
-                       (independent
-                        sessions)
-```
+- **`../beamtimehero/`** — LLM tool-calling loop + Slack 3-channel bridge + read-only beamline analysis tools.
+- **`../beamline/`** — phased dashboard UI, experiment-configuration form, SQLModel schema, decision / fitter / LLM-advisor layer.
+- **`../design_handoff_autonomous_beamline_agent/needed-tools-for-autonomy.md`** — authoritative spec for the new `spec_cmd` CLI, CAT-0..CAT-8 tool surface, phase allowlists, action_log schema, and `transition_phase` orchestration.
 
-All data access is local filesystem -- no database required. SPEC data files are read directly via silx, with scan metadata cached in a JSON sidecar for performance. Logs are parsed on demand from SPEC log files.
+## What the agent does
 
-## Tool System
+1. **Setup.** User submits the experiment config form at `/config`. Orchestrator builds a per-sample plan + budget.
+2. **Beamline alignment.** Agent calls `align_beamline` (high-level procedural macro) and/or diagnostic shortcuts (`vvv`, `m1m1`, …) as fallbacks.
+3. **Spectrometer alignment.** `align_xes_spectrometer` — per-crystal `c#y`/`c#p` peaking + mono elastic scan.
+4. **Sample alignment.** `run_sample_alignment` — wide Sz survey → per-sample fine centering + Sx/Sy boundaries.
+5. **Collection.** `run_collection` (multi-sample XAS/RIXS loop) *or* element-specific `<element>_xas` / `<element>_cee` loops under agent control.
+6. **Real-time analysis.** After each scan, the agent uses `analyze_efficiency`, `analyze_convergence`, `plot_scan`, and the planner's thresholds (SNR target, min-reps) to decide: more reps? skip? next sample? revise plan?
+7. **Budget.** Every turn, the agent sees remaining beamtime + sample queue state and trims accordingly.
+8. **Pause-for-human.** `request_human_intervention(kind, detail)` blocks until staff resolves (Slack `!resume <id>`, UI "Mark complete" button, or timeout).
+9. **Slack.** Periodic progress posts to `#beamtimehero`. Pause requests posted with resume instructions. Staff messages become `[STEERING]` input on the next agent turn.
 
-The LLM has access to 22 beamline tools:
+## Key invariants
 
-### Data & Logs
-| Tool | Purpose |
-|------|---------|
-| `get_latest_scan` | Most recent scan metadata + data preview |
-| `list_scans` | Browse processed scan history |
-| `read_scan` | Read a specific scan's data |
-| `get_latest_log_entries` | Recent beamline control log output |
-| `search_logs` | Search logs for errors or strings |
-| `list_logs` | List available log files |
+- **Nothing reaches SPEC without a justification.** `spec_cmd` rejects action calls without a non-empty `justification` string and writes every action to the `action_log` table *before* dispatch. Even if SPEC hangs, the record exists.
+- **No free-form SPEC strings.** The agent chooses from a whitelist of ~40 commands (read-only + action) and the phase-allowlisted motors. Everything else is refused in Python before anything touches SPEC.
+- **Forward-only phase machine with gated transitions.** `setup → beamline_alignment → [xes_alignment] → sample_alignment → collection → complete`. Backward transitions require Slack approval with default-deny.
+- **High-level first, primitives as fallback.** The agent is told to prefer CAT-0 procedural macros (`align_beamline`, `run_collection`, etc.) over motor/scan primitives.
 
-### Analysis
-| Tool | Purpose |
-|------|---------|
-| `get_active_counter` | Detect active fluorescence counter |
-| `get_scan_deadtime` | Scan overhead/efficiency stats |
-| `normalize_scan` | Edge-step normalize a scan |
-| `average_scans` | Average energy scans with std dev |
-| `analyze_convergence` | Check if repeated scans have converged |
-| `analyze_efficiency` | Full efficiency report with optimal scan count |
-
-### Plotting
-| Tool | Purpose |
-|------|---------|
-| `plot_scan` | Generate and display a scan plot |
-| `plot_averaged_scans` | Overlay averaged scans for multiple samples |
-| `plot_data` | General-purpose line chart |
-
-### File Access
-| Tool | Purpose |
-|------|---------|
-| `list_files` | List non-SPEC files in the scan directory (macros, configs) |
-| `read_file` | Read a text file from the scan directory |
-| `write_summary` | Save a conversation summary as timestamped .txt |
-| `write_macro` | Save an edited macro as `<name>_hero-edit_<timestamp>.mac` |
-
-### SPEC Integration
-| Tool | Purpose |
-|------|---------|
-| `get_motor_config` | Motor configuration from SPEC config file |
-| `get_counter_config` | Counter configuration from SPEC config file |
-| `spec_command` | Send whitelisted commands to the running SPEC session (wa, pwd, fon, get_S) |
-
-### Two Tool Modes
-
-Set `TOOLS_MODE` to choose how tools are presented to the LLM:
-
-- **`cli`** (default) -- A single `run_command` tool is defined. The LLM discovers available commands progressively via `beamtimehero --help`. Large reference documents are served on-demand instead of in the system prompt.
-
-- **`mcp`** -- All tool schemas are included in every API request via native function-calling. All context documents are loaded into the system prompt.
-
-## Slack Integration
-
-Three-channel architecture with a single Slack bot:
-
-- **#beamtimehero** (LLM channel) -- User questions and LLM responses are mirrored here. Staff can reply in thread to join the conversation -- their messages go to the LLM and responses appear in the web UI.
-- **#users** (relay channel) -- Pure relay between web app users and staff. No LLM involvement. Users see these in the "Staff Chat" pane.
-- **Staff DMs** -- Staff can DM the bot for independent chat sessions, each DM thread gets its own conversation.
-
-Staff can change the active scan directory at runtime via `!setdir 2026-04_Username` in either channel. `!setdir auto` re-detects the newest experiment folder.
-
-## Project Structure
+## Directory layout
 
 ```
-beamline_lib/         Beamline data packages (self-contained)
-  blmcp/              Tool implementations (scan, log, plot operations)
-  bldata_analysis/    Data analysis layer (scans, logs, plotting)
-  bllogs_converter/   Log parsing (log_parser.py used for on-demand parsing)
-  local_data.py       Local filesystem data access via silx (reads SPEC files directly)
-  bl_config.py        Beamline configuration (data paths, mutable scan dir)
-  spec_client.py      SPEC session commands via GNU screen injection
-  spec_config.py      SPEC motor/counter config file parser
-server/               Python FastAPI backend
-  app.py              Main server (REST + WebSocket + Slack callbacks)
-  api_client.py       Stanford AI API Gateway client
-  conversation.py     LLM conversation management + tool loop
-  slack_bridge.py     Three-channel Slack bridge + !setdir + staff DMs
-  config.py           App configuration (API keys, paths, modes)
-  tools/              Tool system
-    definitions.py    MCP tool schemas + CLI tool definition
-    executor.py       Tool dispatch (calls blmcp.tools + file/spec tools)
-    cli.py            Argparse CLI for progressive discovery mode
-static/               Plain JavaScript frontend
-  index.html          Split-pane chat interface (AI + Staff) with sidebar
-  css/style.css       SSRL theme (beige + red accents)
-  js/app.js           Chat client with WebSocket + markdown/image rendering
-  js/marked.min.js    Markdown parser library
-  images/             SSRL logo
-context/              Beamline reference documents (system prompt + on-demand)
+autonomous/
+├── opencode.json              SLAC AI Gateway provider + model list
+├── .opencode/tools/*.ts       AUTOGENERATED tool wrappers (~60) — one per Python tool
+├── server/
+│   ├── app.py                 FastAPI hub (chat, config, dashboard, orchestrator, plan, WS)
+│   ├── config.py              env + paths + timeouts
+│   ├── opencode_client.py     HTTP client for the local opencode server
+│   ├── conversation.py        thin facade over one opencode session
+│   ├── slack_bridge.py        Slack 3-channel bridge + !resume / !deny
+│   ├── config_generator.py    SPEC .mac generator from experiment config
+│   ├── spec_reader.py         silx-based SPEC data reader
+│   ├── reports.py             Per-phase report PNGs
+│   ├── slack_notify.py        (compat) legacy slack/notify helper
+│   ├── tools/
+│   │   ├── definitions.py         beamtimehero read-only tool schemas
+│   │   ├── autonomy_definitions.py CAT-0..CAT-8 tool schemas
+│   │   ├── autonomy_tools.py       CAT-0..CAT-8 implementations
+│   │   ├── executor.py             merged dispatcher
+│   │   └── cli.py                  CLI-mode progressive discovery
+│   ├── spec/
+│   │   ├── phase_allowlist.py     per-phase motor allowlists
+│   │   ├── screen_client.py       GNU-screen SPEC injection + prompt-poll + mock
+│   │   └── spec_cmd.py            whitelisted dispatcher with action_log
+│   ├── action_log/
+│   │   └── db.py                  writer / reader for action_log + query_log
+│   ├── orchestrator/
+│   │   ├── loop.py                outer agent loop
+│   │   ├── planner.py             experiment plan + beamtime budget
+│   │   ├── phase.py               transition_phase + preconditions
+│   │   └── staff_guidance.py      Slack-guidance queue + intervention waiters
+│   ├── analysis/                  decision layer (fitter, strategies, decisions)
+│   ├── llm/                       beamline phase advisor + prompts
+│   ├── db/
+│   │   ├── models.py              SQLModel tables (base + autonomy extensions)
+│   │   ├── client.py              CRUD helpers
+│   │   ├── autonomy_client.py     plan / guidance / intervention CRUD
+│   │   └── init_db.py             initialize the sqlite file
+│   └── ui/
+│       ├── config_api.py          form endpoints (was beamline/web/app.py)
+│       ├── dashboard_api.py       phase dashboard API
+│       ├── orchestrator_api.py    start / pause / resume / intervene / steer
+│       └── plan_api.py            steerable plan: add/remove/reorder/skip/extend_budget
+├── beamline_lib/                  beamtimehero scan-read + log tools
+├── static/
+│   ├── index.html                 legacy chat UI (served at /)
+│   ├── config/                    experiment configuration form (/config)
+│   └── dashboard/                 themed SSRL dashboard (/dashboard)
+├── context/                       system prompt + BL15-2 reference docs
+├── config/defaults.yaml           motor limits, crystal-cut table, common elements
+├── data/                          runtime sqlite DB + report PNGs
+├── scripts/
+│   ├── start.sh                   venv + deps + launch
+│   └── smoke_test.py              end-to-end mock test (SPEC_MOCK=1)
+└── plan.md                        the plan used to build this
 ```
 
-## Setup (Beamline Computer)
+## URLs (default port 8080)
 
-### Prerequisites
+| Path | What |
+|------|------|
+| `/` | Legacy beamtimehero chat UI (good for ad-hoc questions) |
+| `/config` | Experiment configuration form (two-tab: Experiment + Samples) → "🚀 Start Autonomous Run" hands off to the orchestrator |
+| `/dashboard` | Live autonomy dashboard: phase tiles, sample plan, action tape, interventions banner, guidance feed, chat |
+| `/history` | Scrollable action_log viewer |
+| `/api/chat` | POST — free-form chat with the agent |
+| `/api/submit_experiment` · `/api/submit_sample_holder` · `/api/load_experiment/{id}` · `/api/lookup_energy` · `/api/defaults` | Form backends |
+| `/api/dashboard/experiments` · `/api/dashboard/status?experiment_id=…` · `/api/dashboard/phase/{run_id}` · `/api/dashboard/action_log` · `/api/dashboard/image?path=…` | Dashboard API |
+| `/api/orchestrator/start` · `/pause` · `/resume` · `/stop` · `/status` · `/guidance` · `/intervention/{id}/resolve` · `/phase` | Orchestrator control |
+| `/api/plan/{id}` (GET) · `/api/plan/add_sample` · `/remove_sample` · `/skip_sample` · `/reorder` · `/update_sample` · `/extend_budget` · `/update_thresholds` · `/api/plan/{id}/edits` | Plan steering — every edit is attributed + logged to PlanEdit |
+| `/ws` | WebSocket: phase events, action updates, interventions, staff messages |
 
-- Python 3.9+
-- Access to SPEC data files and logs on the local filesystem
-- GNU screen with a SPEC session named `spec` (for SPEC command tools)
-
-### Install
+## Setup
 
 ```bash
-git clone <this-repo>
-cd beamtimehero
+# 1. Install opencode (one-time, bundles Bun runtime)
+curl -fsSL https://opencode.ai/install | bash
+
+# 2. Create venv + install deps
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+
+# 3. Init DB (idempotent) + generate opencode tool wrappers
+python server/db/init_db.py
+python scripts/generate_opencode_tools.py
+
+# 4. Copy env template
+cp .env.example .env          # fill in SLAC_API_KEY, Slack tokens, etc.
+
+# 5. Launch — start.sh starts opencode + FastAPI in one shot
+./scripts/start.sh
 ```
 
-### Configure
+`scripts/start.sh` regenerates the TS tool wrappers from the Python
+tool registry, launches `opencode serve` on `:4096` (reading
+`opencode.json`), and then `python server/app.py` on `:8080`. Set
+`START_OPENCODE=0` to run FastAPI alone (useful for UI work).
+
+## Running without SPEC (dev / demo)
+
+Set `SPEC_MOCK=1` to use the in-memory SPEC simulator (random but plausible
+positions, synthesized scan numbers, instant prompt-returns on macros). This
+lets you exercise the phase state machine, action_log writing, intervention
+flow, and dashboard without a live beamline.
 
 ```bash
-cp .env.example .env
+SPEC_MOCK=1 PORT=8080 ./scripts/start.sh
 ```
 
-Edit `.env` and set:
-- `API_KEY` -- your Stanford AI API Gateway key (required)
-- `BL_SCAN_DIR` -- path to SPEC data root (default: `/data/fifteen`, auto-detects newest subfolder)
-- `BL_LOGS_DIR` -- path to SPEC log files (default: `/usr/local/lib/spec.log/logfiles`)
-- Slack tokens and channel IDs (optional, for staff bridge)
+## Smoke test
 
-### Run
+The included smoke test drives the dispatcher + orchestrator end-to-end:
 
 ```bash
-source venv/bin/activate
-python server/app.py
+SPEC_MOCK=1 python scripts/smoke_test.py
 ```
 
-The app serves at `http://localhost:8080/`.
+Covers: database init, experiment + sample creation, plan build, phase
+allowlist enforcement, justification enforcement, action_log writes, CAT-0
+procedural macro dispatch, forward-transition preconditions, backward
+transition gating (with / without an approver), staff-guidance drain, and
+intervention block/unblock.
 
-## Environment Variables
+## Slack behavior
 
-| Variable | Required | Description |
-|---|---|---|
-| `API_KEY` | Yes | Stanford AI API Gateway key |
-| `STANFORD_MODEL` | No | LLM model (default: `claude-4-5-sonnet`) |
-| `BL_SCAN_DIR` | No | Path to SPEC data root (default: `/data/fifteen`) |
-| `BL_LOGS_DIR` | No | Path to SPEC log files |
-| `SLACK_BOT_TOKEN` | No | Slack bot token (`xoxb-...`) |
-| `SLACK_APP_TOKEN` | No | Slack app-level token (`xapp-...`, for Socket Mode) |
-| `SLACK_LLM_CHANNEL_ID` | No | Slack channel for user-LLM conversation log |
-| `SLACK_USERS_CHANNEL_ID` | No | Slack channel for staff-user communication |
-| `BASE_PATH` | No | URL base path (default: empty, i.e. served at `/`) |
-| `TOOLS_MODE` | No | `cli` (default) or `mcp` |
+The Slack bridge is the beamtimehero 3-channel pattern plus two autonomy
+additions:
 
-Slack integration is optional -- without tokens, the app still works as a standalone LLM chat.
+- **Status updates**: posted to `#beamtimehero` on a configurable cadence (default 15 min) from the orchestrator loop.
+- **Interventions**: when the agent calls `request_human_intervention`, a message is posted with instructions to reply `!resume <id>` (resolve) or `!deny <id>` (cancel). Either also resolvable from the dashboard "Mark complete" / "Cancel" buttons.
+
+Staff messages in the LLM thread become `[STEERING]` entries on the agent's
+next turn, so free-text guidance steers the experiment without interrupting
+the current tool call.
+
+## What we could not test outside production
+
+- Real GNU-screen SPEC injection / prompt polling — `SPEC_MOCK=1` is exercised; live SPEC requires a running `spec` screen session.
+- Actual alignment convergence, scan quality, beam stability — the planner logic, thresholds, and tool surface are wired, but the feedback loop's *quality* can only be judged on real data.
+- The Stanford AI Gateway round-trip — the app boots without `API_KEY`; the agent loop is only activated if a key is present.
+- Slack Socket Mode — the bridge imports cleanly but requires real bot + app tokens to connect.
+
+## Ports
+
+Default is **8080**. The user-level CLAUDE.md rule forbids 5000 (macOS
+AirPlay Receiver). Override via `PORT`.

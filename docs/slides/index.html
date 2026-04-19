@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Autonomous Beamline Agent — SSRL BL 15-2</title>
+<link rel="icon" href="assets/favicon.ico">
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+  :root {
+    --beige: #f9f6ef;
+    --card: #ffffff;
+    --border: #e0dbd2;
+    --border-soft: #f1ece2;
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --oxblood: #8B1538;
+    --red: #9b1b30;
+    --blue: #0072B5;
+    --green: #28a745;
+    --green-dk: #1b7a1b;
+    --danger: #dc3545;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  html, body { margin: 0; padding: 0; background: #000; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: var(--ink); }
+
+  section.slide {
+    background: var(--beige);
+    color: var(--ink);
+    padding: 72px 96px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+  section.slide.white { background: #fff; color: var(--ink); }
+  section.slide.dark  { background: #1a1a1a; color: #f0f0f0; }
+
+  .eyebrow { font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .dark .eyebrow { color: #9a9a9a; }
+
+  h1.big    { font-size: 92px; font-weight: 600; line-height: 1.02; letter-spacing: -0.02em; margin: 18px 0 0 0; max-width: 1500px; }
+  h1.title  { font-size: 60px; font-weight: 600; line-height: 1.08; letter-spacing: -0.015em; margin: 14px 0 0 0; }
+  h2.sec    { font-size: 44px; font-weight: 600; line-height: 1.1;  letter-spacing: -0.01em; margin: 8px 0 24px 0; }
+  .lead     { font-size: 28px; line-height: 1.4; color: var(--muted); max-width: 1400px; }
+  .dark .lead { color: #c8c8c8; }
+
+  .brand-row { display: flex; align-items: center; gap: 20px; }
+  .brand-row img { height: 38px; }
+  .brand-row .sep { width: 1px; height: 26px; background: var(--border); }
+  .dark .brand-row .sep { background: #3a3a3a; }
+  .brand-row .meta { font-family: var(--mono); font-size: 14px; color: var(--muted); letter-spacing: 0.04em; }
+  .dark .brand-row .meta { color: #9a9a9a; }
+
+  .rule { height: 2px; background: var(--ink); margin: 24px 0 36px; width: 100%; }
+  .rule.accent { background: var(--oxblood); }
+  .dark .rule  { background: #f0f0f0; }
+
+  .foot { position: absolute; left: 96px; right: 96px; bottom: 40px; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 14px; color: var(--muted); }
+  .dark .foot { color: #7a7a7a; }
+  .foot .pg { letter-spacing: 0.06em; }
+
+  /* cards */
+  .card {
+    background: #fff; border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 28px 32px;
+    display: flex; flex-direction: column;
+  }
+  .card.dense { border-radius: 6px; padding: 20px 24px; }
+  .dark .card { background: #2d2d2d; border-color: #3a3a3a; box-shadow: none; color: #f0f0f0; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 8px 14px; border-radius: 4px; font-size: 16px;
+    font-weight: 600; border: 1px solid;
+  }
+  .chip .dot { width: 9px; height: 9px; border-radius: 50%; }
+
+  /* Slack/notification surface */
+  .slack {
+    background: #fff; border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .slack-hdr {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 22px; border-bottom: 1px solid var(--border-soft);
+    font-size: 16px;
+  }
+  .slack-hdr .hash { font-family: var(--mono); color: var(--muted); }
+  .slack-hdr .name { font-weight: 600; }
+  .slack-msg { padding: 18px 22px; border-bottom: 1px solid var(--border-soft); display: grid; grid-template-columns: 44px 1fr auto; gap: 14px; }
+  .slack-msg:last-child { border-bottom: 0; }
+  .slack-ava { width: 44px; height: 44px; border-radius: 6px; background: var(--oxblood); color: #fff; font-family: var(--mono); font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 14px; letter-spacing: 0.02em; }
+  .slack-who { font-weight: 600; font-size: 15px; }
+  .slack-bot { display: inline-block; font-size: 10px; font-weight: 700; background: #1a1a1a; color: #fff; padding: 2px 6px; border-radius: 3px; margin-left: 6px; letter-spacing: 0.04em; vertical-align: 1px; }
+  .slack-time { font-size: 13px; color: var(--muted); font-family: var(--mono); }
+  .slack-body { font-size: 16px; line-height: 1.5; margin-top: 4px; }
+  .slack-body .mono { font-family: var(--mono); font-size: 14px; background: #f3efe7; padding: 1px 6px; border-radius: 3px; }
+  .slack-body p { margin: 4px 0; }
+
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-size: 15px; }
+  .kv .k { color: var(--muted); font-family: var(--mono); font-size: 13px; padding-top: 3px; }
+
+  /* terminal-style log */
+  .log { font-family: var(--mono); font-size: 14px; line-height: 1.55; background: #1a1a1a; color: #e8e8e8; border-radius: 8px; padding: 22px 24px; }
+  .log .t { color: #9a9a9a; }
+  .log .ok { color: #7cd992; }
+  .log .warn { color: #ffb74a; }
+  .log .err { color: #ff6b6b; }
+  .log .acc { color: #f6a5b2; }
+  .log .hl { color: #fff; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<deck-stage width="1920" height="1080">
+
+  <!-- 01 TITLE -->
+  <section class="slide" style="justify-content: center;">
+    <div class="brand-row">
+      <img src="assets/ssrl-logo.png" alt="SSRL">
+      <span class="sep"></span>
+      <span class="meta">BEAMLINE 15-2 · SPEAR3</span>
+    </div>
+    <div class="rule accent"></div>
+    <div class="eyebrow">Overview</div>
+    <h1 class="big">Autonomous beamline agent.</h1>
+    <p class="lead" style="margin-top: 28px; max-width: 1300px;">
+      A system that takes an experiment configuration, operates the beamline end-to-end,
+      evaluates data as it collects, and reports progress to the user over Slack.
+    </p>
+    <div class="foot">
+      <span>SSRL · BL 15-2</span>
+      <span class="pg">01</span>
+    </div>
+  </section>
+
+  <!-- 02 SCOPE -->
+  <section class="slide">
+    <div class="eyebrow">Scope</div>
+    <h1 class="title">What the agent does.</h1>
+    <div class="rule"></div>
+    <p class="lead" style="font-size: 26px; max-width: 1500px;">
+      Given an experiment configuration, the agent configures the beamline,
+      aligns the spectrometer, aligns the user's sample holder, and runs the
+      scan queue. It evaluates each scan as it collects, makes beamline
+      corrections to maintain data quality, and keeps the user informed over
+      Slack. At the end of the run it posts a summary report.
+    </p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 40px;">
+      <div class="card">
+        <div style="font-weight: 600; font-size: 22px;">Operates unattended</div>
+        <div style="color: var(--muted); font-size: 17px; margin-top: 8px;">Runs overnight without a scientist on the floor.</div>
+      </div>
+      <div class="card">
+        <div style="font-weight: 600; font-size: 22px;">Keeps the user informed</div>
+        <div style="color: var(--muted); font-size: 17px; margin-top: 8px;">Slack updates on signal-to-noise and progress; morning report summarizing overnight collections.</div>
+      </div>
+    </div>
+    <div class="foot"><span>Scope</span><span class="pg">02</span></div>
+  </section>
+
+  <!-- 03 END-TO-END FLOW -->
+  <section class="slide">
+    <div class="eyebrow">End-to-end flow</div>
+    <h1 class="title">From experiment config to morning report.</h1>
+    <div class="rule"></div>
+    <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-top: 4px;">
+      <div class="card dense">
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--oxblood); letter-spacing: 0.06em; font-weight: 600;">01 · INPUT</div>
+        <div style="font-weight: 600; font-size: 17px; margin-top: 8px;">Experiment config</div>
+        <div style="color: var(--muted); font-size: 14px; margin-top: 4px;">Samples, edge, quality targets.</div>
+      </div>
+      <div class="card dense">
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--oxblood); letter-spacing: 0.06em; font-weight: 600;">02 · SETUP</div>
+        <div style="font-weight: 600; font-size: 17px; margin-top: 8px;">Configure beamline</div>
+        <div style="color: var(--muted); font-size: 14px; margin-top: 4px;">Mono, slits, filters, detector.</div>
+      </div>
+      <div class="card dense">
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--oxblood); letter-spacing: 0.06em; font-weight: 600;">03 · ALIGN</div>
+        <div style="font-weight: 600; font-size: 17px; margin-top: 8px;">Spectrometer &amp; sample</div>
+        <div style="color: var(--muted); font-size: 14px; margin-top: 4px;">Peak I₀, center each sample.</div>
+      </div>
+      <div class="card dense">
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--oxblood); letter-spacing: 0.06em; font-weight: 600;">04 · COLLECT</div>
+        <div style="font-weight: 600; font-size: 17px; margin-top: 8px;">Run scan queue</div>
+        <div style="color: var(--muted); font-size: 14px; margin-top: 4px;">Scans per sample, top-off aware.</div>
+      </div>
+      <div class="card dense">
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--oxblood); letter-spacing: 0.06em; font-weight: 600;">05 · EVALUATE</div>
+        <div style="font-weight: 600; font-size: 17px; margin-top: 8px;">Inspect &amp; correct</div>
+        <div style="color: var(--muted); font-size: 14px; margin-top: 4px;">Check SNR, drift; re-tune as needed.</div>
+      </div>
+      <div class="card dense">
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--oxblood); letter-spacing: 0.06em; font-weight: 600;">06 · REPORT</div>
+        <div style="font-weight: 600; font-size: 17px; margin-top: 8px;">Slack updates</div>
+        <div style="color: var(--muted); font-size: 14px; margin-top: 4px;">Live notifications; morning summary.</div>
+      </div>
+    </div>
+    <p class="lead" style="margin-top: 40px; max-width: 1500px; font-size: 22px;">
+      The agent iterates between collect and evaluate until the run's quality targets are met
+      or the allocated beam time is exhausted.
+    </p>
+    <div class="foot"><span>End-to-end flow</span><span class="pg">03</span></div>
+  </section>
+
+  <!-- 04 WHAT IT DOES (PIPELINE) -->
+  <section class="slide">
+    <div class="eyebrow">Capabilities</div>
+    <h1 class="title">Capabilities, in detail.</h1>
+    <div class="rule"></div>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+      <div class="card dense">
+        <div style="font-family: var(--mono); color: var(--oxblood); font-weight: 600; font-size: 14px; letter-spacing: 0.06em;">STEP 01</div>
+        <div style="font-size: 26px; font-weight: 600; margin-top: 6px;">Configure the beamline</div>
+        <div style="color: var(--muted); font-size: 17px; margin-top: 8px;">Reads the experiment config, sets mono energy, slits, filters, detector mode.</div>
+      </div>
+      <div class="card dense">
+        <div style="font-family: var(--mono); color: var(--oxblood); font-weight: 600; font-size: 14px; letter-spacing: 0.06em;">STEP 02</div>
+        <div style="font-size: 26px; font-weight: 600; margin-top: 6px;">Align the spectrometer</div>
+        <div style="color: var(--muted); font-size: 17px; margin-top: 8px;">Peaks up I₀, tunes the monochromator, resolves Bragg offsets.</div>
+      </div>
+      <div class="card dense">
+        <div style="font-family: var(--mono); color: var(--oxblood); font-weight: 600; font-size: 14px; letter-spacing: 0.06em;">STEP 03</div>
+        <div style="font-size: 26px; font-weight: 600; margin-top: 6px;">Align the sample holder</div>
+        <div style="color: var(--muted); font-size: 17px; margin-top: 8px;">Finds each sample on the wheel, centers it in the beam, stores positions.</div>
+      </div>
+      <div class="card dense">
+        <div style="font-family: var(--mono); color: var(--oxblood); font-weight: 600; font-size: 14px; letter-spacing: 0.06em;">STEP 04</div>
+        <div style="font-size: 26px; font-weight: 600; margin-top: 6px;">Collect data</div>
+        <div style="color: var(--muted); font-size: 17px; margin-top: 8px;">Queues scans, manages detector saturation, handles top-off gaps.</div>
+      </div>
+      <div class="card dense">
+        <div style="font-family: var(--mono); color: var(--oxblood); font-weight: 600; font-size: 14px; letter-spacing: 0.06em;">STEP 05</div>
+        <div style="font-size: 26px; font-weight: 600; margin-top: 6px;">Reason about results</div>
+        <div style="color: var(--muted); font-size: 17px; margin-top: 8px;">Inspects each scan live. Judges SNR, edge shape, reproducibility.</div>
+      </div>
+      <div class="card dense">
+        <div style="font-family: var(--mono); color: var(--oxblood); font-weight: 600; font-size: 14px; letter-spacing: 0.06em;">STEP 06</div>
+        <div style="font-size: 26px; font-weight: 600; margin-top: 6px;">Change course</div>
+        <div style="color: var(--muted); font-size: 17px; margin-top: 8px;">More averages on noisy samples. Re-align when drift detected. Re-prioritize.</div>
+      </div>
+    </div>
+    <div class="foot"><span>Capabilities</span><span class="pg">04</span></div>
+  </section>
+
+  <!-- 05 INPUT: EXPERIMENT CONFIG -->
+  <section class="slide">
+    <div class="eyebrow">Input</div>
+    <h1 class="title">Experiment configuration.</h1>
+    <div class="rule"></div>
+    <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: start;">
+      <div class="log">
+        <div><span class="t"># experiment.yaml</span></div>
+        <div><span class="acc">proposal:</span>     <span class="hl">2026-A-2044</span></div>
+        <div><span class="acc">pi:</span>           K. Weber · Catalyst group</div>
+        <div><span class="acc">beamline:</span>     <span class="hl">BL 15-2</span></div>
+        <div>&nbsp;</div>
+        <div><span class="acc">edge:</span>         Fe K   <span class="t"># E₀ = 7112 eV</span></div>
+        <div><span class="acc">mode:</span>         transmission + fluorescence</div>
+        <div><span class="acc">detector:</span>     Lytle, 100-element</div>
+        <div>&nbsp;</div>
+        <div><span class="acc">samples:</span></div>
+        <div>&nbsp;&nbsp;- id: S-A1  <span class="t"># pristine catalyst</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;position: wheel.1</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;scans: 6</div>
+        <div>&nbsp;&nbsp;- id: S-A2  <span class="t"># reduced, 300 °C</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;position: wheel.2</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;scans: 6</div>
+        <div>&nbsp;&nbsp;- id: S-A3  <span class="t"># reduced, 500 °C</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;position: wheel.3</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;scans: 6</div>
+        <div>&nbsp;</div>
+        <div><span class="acc">quality:</span></div>
+        <div>&nbsp;&nbsp;target_snr: <span class="hl">> 250</span></div>
+        <div>&nbsp;&nbsp;max_drift:  <span class="hl">0.2 eV</span></div>
+      </div>
+      <div>
+        <div style="font-size: 22px; color: var(--muted); margin-bottom: 18px;">
+          The agent reads the config and composes a run plan:
+        </div>
+        <div class="card dense" style="margin-bottom: 14px;">
+          <div style="font-weight: 600; font-size: 20px;">Time budget</div>
+          <div style="color: var(--muted); font-size: 16px; margin-top: 4px;">18 scans × ~10 min, plus alignment and scheduled top-offs. ≈ 3h 40m.</div>
+        </div>
+        <div class="card dense" style="margin-bottom: 14px;">
+          <div style="font-weight: 600; font-size: 20px;">Drift-aware ordering</div>
+          <div style="color: var(--muted); font-size: 16px; margin-top: 4px;">Sample wheel re-alignment scheduled based on drift detected in the data.</div>
+        </div>
+        <div class="card dense">
+          <div style="font-weight: 600; font-size: 20px;">Quality target</div>
+          <div style="color: var(--muted); font-size: 16px; margin-top: 4px;">SNR > 250 at the edge. Additional averages added until target is met.</div>
+        </div>
+      </div>
+    </div>
+    <div class="foot"><span>How it starts</span><span class="pg">05</span></div>
+  </section>
+
+  <!-- 06 THE LOOP: reasoning about data -->
+  <section class="slide">
+    <div class="eyebrow">Per-scan evaluation</div>
+    <h1 class="title">How the agent judges each scan.</h1>
+    <div class="rule"></div>
+    <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 32px;">
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <div style="padding: 16px 22px; border-bottom: 1px solid var(--border-soft); display: flex; justify-content: space-between;">
+          <div style="font-weight: 600; font-size: 18px;">S-A2 · Fe K-edge · scan 3 of 6</div>
+          <div style="font-family: var(--mono); font-size: 14px; color: var(--muted);">SNR = 284 · E₀ drift +0.04 eV</div>
+        </div>
+        <svg viewBox="0 0 800 360" style="width: 100%; height: 360px; display: block;">
+          <!-- gridlines -->
+          <g stroke="#f1ece2" stroke-width="1">
+            <line x1="40" x2="780" y1="60"  y2="60"/>
+            <line x1="40" x2="780" y1="130" y2="130"/>
+            <line x1="40" x2="780" y1="200" y2="200"/>
+            <line x1="40" x2="780" y1="270" y2="270"/>
+            <line x1="40" x2="780" y1="340" y2="340"/>
+            <line y1="40" y2="340" x1="188" x2="188"/>
+            <line y1="40" y2="340" x1="336" x2="336"/>
+            <line y1="40" y2="340" x1="484" x2="484"/>
+            <line y1="40" y2="340" x1="632" x2="632"/>
+          </g>
+          <line x1="40" x2="780" y1="340" y2="340" stroke="#1a1a1a"/>
+          <line x1="40" x2="40"  y1="40"  y2="340" stroke="#1a1a1a"/>
+          <!-- XAS-like curve -->
+          <path d="M40,322 L140,318 L220,312 L280,300 L330,240 L360,132 L390,90 L420,110 L450,130 L490,112 L530,140 L580,122 L630,142 L680,128 L730,140 L780,132"
+                fill="none" stroke="#0072B5" stroke-width="2.4"/>
+          <!-- E0 marker -->
+          <line x1="360" x2="360" y1="40" y2="340" stroke="#dc3545" stroke-dasharray="4 4" stroke-width="1.5"/>
+          <text x="366" y="56" font-family="ui-monospace, Menlo, monospace" font-size="13" fill="#dc3545">E₀ 7112.04 eV</text>
+          <!-- SNR annotation -->
+          <rect x="596" y="56" width="168" height="56" rx="4" fill="#fbf7ee" stroke="#e0dbd2"/>
+          <text x="606" y="76"  font-family="ui-monospace, Menlo, monospace" font-size="12" fill="#6b6b6b">AGENT READ</text>
+          <text x="606" y="98"  font-family="-apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#1b7a1b">SNR 284 · pass ✓</text>
+          <text x="40" y="356" font-size="12" fill="#6b6b6b">6912</text>
+          <text x="760" y="356" font-size="12" fill="#6b6b6b">7512 eV</text>
+          <text x="8"  y="60"  font-size="12" fill="#6b6b6b">μ(E)</text>
+        </svg>
+      </div>
+
+      <div>
+        <div style="font-size: 22px; color: var(--muted); line-height: 1.5; margin-bottom: 18px;">
+          After every scan the agent checks three things and acts on the result.
+        </div>
+        <div class="card dense" style="margin-bottom: 12px;">
+          <div style="font-weight: 600; font-size: 19px;">Signal quality</div>
+          <div style="color: var(--muted); font-size: 15px;">Computes SNR, edge-step ratio, post-edge flatness. If below target, adds averages.</div>
+        </div>
+        <div class="card dense" style="margin-bottom: 12px;">
+          <div style="font-weight: 600; font-size: 19px;">Beamline stability</div>
+          <div style="color: var(--muted); font-size: 15px;">Checks E₀ drift against the reference foil. If above 0.2 eV, re-tunes the mono.</div>
+        </div>
+        <div class="card dense">
+          <div style="font-weight: 600; font-size: 19px;">Sample position</div>
+          <div style="color: var(--muted); font-size: 15px;">Watches I₀ and fluorescence stability. If drifting, re-centers the holder.</div>
+        </div>
+      </div>
+    </div>
+    <div class="foot"><span>The inner loop</span><span class="pg">06</span></div>
+  </section>
+
+  <!-- 07 SLACK PUSH NOTIFICATIONS (signal-to-noise updates) -->
+  <section class="slide">
+    <div class="eyebrow">Slack notifications</div>
+    <h1 class="title">Live updates during the run.</h1>
+    <div class="rule"></div>
+    <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: start;">
+      <div class="slack">
+        <div class="slack-hdr">
+          <span class="hash">#</span><span class="name">bl15-2-agent</span>
+          <span style="color: var(--muted); font-size: 14px;">· 4 new messages tonight</span>
+        </div>
+        <div class="slack-msg">
+          <div class="slack-ava">BL</div>
+          <div>
+            <div><span class="slack-who">Beamline Agent</span><span class="slack-bot">APP</span></div>
+            <div class="slack-body">
+              <p><strong>S-A1 · pristine catalyst</strong> — scan 6/6 complete.</p>
+              <p>SNR <span class="mono">312</span> (target 250). Edge step <span class="mono">1.08</span>. No drift flagged.</p>
+              <p style="color: var(--green-dk);">✓ Done. Moving to S-A2.</p>
+            </div>
+          </div>
+          <div class="slack-time">22:41</div>
+        </div>
+        <div class="slack-msg">
+          <div class="slack-ava" style="background: var(--blue);">BL</div>
+          <div>
+            <div><span class="slack-who">Beamline Agent</span><span class="slack-bot">APP</span></div>
+            <div class="slack-body">
+              <p><strong>S-A2 · reduced 300 °C</strong> — scan 4/6, SNR trending low (<span class="mono">198</span>).</p>
+              <p>Adding 3 extra averages. Still on budget.</p>
+            </div>
+          </div>
+          <div class="slack-time">00:12</div>
+        </div>
+        <div class="slack-msg" style="background: #fbf7ee;">
+          <div class="slack-ava" style="background: var(--danger);">BL</div>
+          <div>
+            <div><span class="slack-who">Beamline Agent</span><span class="slack-bot">APP</span> <span style="color: var(--danger); font-size: 13px; font-weight: 600; margin-left: 6px;">needs decision</span></div>
+            <div class="slack-body">
+              <p>E₀ drifted <span class="mono">+0.31 eV</span> on the reference foil. Re-tuning mono (≈4 min).</p>
+              <p style="color: var(--muted); font-size: 14px;">Reply <span class="mono">hold</span> to pause, <span class="mono">go</span> to continue. Auto-continue in 60s.</p>
+            </div>
+          </div>
+          <div class="slack-time">02:48</div>
+        </div>
+        <div class="slack-msg">
+          <div class="slack-ava" style="background: var(--green);">BL</div>
+          <div>
+            <div><span class="slack-who">Beamline Agent</span><span class="slack-bot">APP</span></div>
+            <div class="slack-body">
+              <p>Mono re-tuned. Back on plan. <span class="mono">S-A3</span> starting.</p>
+            </div>
+          </div>
+          <div class="slack-time">02:54</div>
+        </div>
+      </div>
+      <div>
+        <h2 class="sec" style="font-size: 32px;">Three message classes.</h2>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; gap: 14px; align-items: flex-start;">
+            <span class="chip" style="color: var(--green-dk); background: #eef8ef; border-color: #bfe3c6;"><span class="dot" style="background: var(--green);"></span>pass</span>
+            <div style="font-size: 18px; color: var(--muted);">Scan met its quality target. Logged only.</div>
+          </div>
+          <div style="display: flex; gap: 14px; align-items: flex-start;">
+            <span class="chip" style="color: var(--blue); background: #eaf3fa; border-color: #b7d5ea;"><span class="dot" style="background: var(--blue);"></span>watching</span>
+            <div style="font-size: 18px; color: var(--muted);">Marginal quality. Agent is adjusting; informational.</div>
+          </div>
+          <div style="display: flex; gap: 14px; align-items: flex-start;">
+            <span class="chip" style="color: var(--danger); background: #fbeaec; border-color: #edc1c6;"><span class="dot" style="background: var(--danger);"></span>decision</span>
+            <div style="font-size: 18px; color: var(--muted);">Auto-recovery in progress. User can veto; default action continues after 60s.</div>
+          </div>
+        </div>
+        <div style="margin-top: 32px; padding: 20px 24px; background: #fbf7ee; border-left: 3px solid var(--oxblood); border-radius: 4px; font-size: 17px; color: var(--ink);">
+          Users are only paged when the agent cannot resolve a condition on its own.
+        </div>
+      </div>
+    </div>
+    <div class="foot"><span>Slack notifications</span><span class="pg">07</span></div>
+  </section>
+
+  <!-- 08 ON-DEMAND PROGRESS REPORT -->
+  <section class="slide">
+    <div class="eyebrow">On-demand progress report</div>
+    <h1 class="title">Ask the agent what's been happening.</h1>
+    <div class="rule"></div>
+    <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 36px; align-items: start;">
+      <div class="slack">
+        <div class="slack-hdr">
+          <span class="hash">#</span><span class="name">bl15-2-agent</span>
+          <span style="color: var(--muted); font-size: 14px;">· thread with Kim</span>
+        </div>
+        <div class="slack-msg" style="grid-template-columns: 44px 1fr auto;">
+          <div class="slack-ava" style="background: var(--blue);">KW</div>
+          <div>
+            <div><span class="slack-who">Kim Weber</span></div>
+            <div class="slack-body">
+              <p>@agent what's been happening?</p>
+            </div>
+          </div>
+          <div class="slack-time">06:52</div>
+        </div>
+        <div class="slack-msg" style="grid-template-columns: 44px 1fr;">
+          <div class="slack-ava">BL</div>
+          <div>
+            <div><span class="slack-who">Beamline Agent</span><span class="slack-bot">APP</span></div>
+            <div class="slack-body">
+              <p style="font-size: 20px;"><strong>Run 2026-A-2044 · 9h 38m in, 3 samples, 21 scans.</strong></p>
+              <p style="color: var(--muted); margin-top: 2px;">21:14 → now · 2h 22m remaining in budget</p>
+
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0;">
+                <div style="border: 1px solid var(--border-soft); border-radius: 6px; padding: 12px 14px;">
+                  <div style="font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.04em;">S-A1 · PRISTINE</div>
+                  <div style="font-size: 22px; font-weight: 600; color: var(--green-dk); margin-top: 2px;">✓ complete</div>
+                  <div style="font-size: 13px; color: var(--muted); font-family: var(--mono);">6 scans · SNR 312</div>
+                </div>
+                <div style="border: 1px solid var(--border-soft); border-radius: 6px; padding: 12px 14px;">
+                  <div style="font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.04em;">S-A2 · 300 °C</div>
+                  <div style="font-size: 22px; font-weight: 600; color: var(--green-dk); margin-top: 2px;">✓ complete</div>
+                  <div style="font-size: 13px; color: var(--muted); font-family: var(--mono);">9 scans · SNR 268</div>
+                </div>
+                <div style="border: 1px solid var(--border-soft); border-radius: 6px; padding: 12px 14px;">
+                  <div style="font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.04em;">S-A3 · 500 °C</div>
+                  <div style="font-size: 22px; font-weight: 600; color: var(--oxblood); margin-top: 2px;">◑ partial</div>
+                  <div style="font-size: 13px; color: var(--muted); font-family: var(--mono);">6/6 · SNR 241 (below)</div>
+                </div>
+              </div>
+
+              <p style="font-weight: 600; margin-top: 10px;">What I've been doing</p>
+              <p>— Ran alignment + XES calibration at start; re-aligned the sample wheel once at 02:12 when drift crossed threshold.</p>
+              <p>— Mono drift event at 02:48 resolved via auto re-tune. 6 min lost.</p>
+              <p>— I₀ dropped 4% after top-off — below flagging threshold, logged only.</p>
+
+              <p style="font-weight: 600; margin-top: 10px;">What I'd suggest next</p>
+              <p>— Repeat S-A3 with 12 scans to pull SNR up. Budget: ≈ 2h if you approve.</p>
+              <p style="margin-top: 10px;">
+                <span class="mono">📎 progress.pdf</span> &nbsp;
+                <span class="mono">📎 athena-project.prj</span> &nbsp;
+                <span class="mono">📎 raw/S-A*.hdf5</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h2 class="sec" style="font-size: 32px;">Ask anytime, get everything.</h2>
+        <p class="lead" style="font-size: 20px; margin-bottom: 20px;">
+          The agent composes the same report on demand — at any hour, from Slack or the web UI.
+          Ask "what's been happening" or "how are things going" and you get the full picture.
+        </p>
+        <div class="kv" style="font-size: 18px; row-gap: 10px;">
+          <div class="k">SUMMARY</div>   <div>Run window, samples touched, pass/partial/fail.</div>
+          <div class="k">METRICS</div>   <div>SNR, edge step, drift, I₀ stability per sample.</div>
+          <div class="k">EVENTS</div>    <div>Every auto-recovery, with duration and outcome.</div>
+          <div class="k">OBSERVATIONS</div><div>What the agent saw in the data so far.</div>
+          <div class="k">NEXT</div>      <div>Suggested re-collects, with time estimates to approve.</div>
+          <div class="k">DATA</div>      <div>Athena project, raw HDF5, processed CSV.</div>
+        </div>
+      </div>
+    </div>
+    <div class="foot"><span>Progress report</span><span class="pg">08</span></div>
+  </section>
+
+  <!-- 09 SHARED PLAN (web UI + Slack, steerable) -->
+  <section class="slide">
+    <div class="eyebrow">Shared plan</div>
+    <h1 class="title">The experiment plan is always visible — and steerable.</h1>
+    <div class="rule"></div>
+    <div style="display: grid; grid-template-columns: 1.35fr 1fr; gap: 36px; align-items: start;">
+
+      <!-- Web UI mock: plan board -->
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <div style="padding: 14px 20px; border-bottom: 1px solid var(--border-soft); display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <span style="font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: 0.04em;">BL 15-2 · PLAN</span>
+            <span style="font-weight: 600; font-size: 16px;">Run 2026-A-2044 · K. Weber</span>
+          </div>
+          <div style="font-family: var(--mono); font-size: 13px; color: var(--muted);">03:14 · 5h 22m remaining</div>
+        </div>
+
+        <!-- timeline strip -->
+        <div style="padding: 18px 20px 10px;">
+          <div style="display: grid; grid-template-columns: 44px 1fr 90px; gap: 14px; align-items: center; font-family: var(--mono); font-size: 12px; color: var(--muted);">
+            <div>21:14</div>
+            <div style="height: 10px; background: #f1ece2; border-radius: 4px; position: relative; overflow: hidden;">
+              <div style="position: absolute; inset: 0 58% 0 0; background: var(--green); border-radius: 4px 0 0 4px;"></div>
+              <div style="position: absolute; left: 42%; top: 0; bottom: 0; right: 38%; background: var(--oxblood);"></div>
+              <div style="position: absolute; left: 62%; top: -2px; bottom: -2px; width: 2px; background: #1a1a1a;"></div>
+            </div>
+            <div>06:48 est.</div>
+          </div>
+          <div style="display: grid; grid-template-columns: 44px 1fr 90px; gap: 14px; margin-top: 4px; font-family: var(--mono); font-size: 11px; color: var(--muted);">
+            <div></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--green-dk); font-weight: 600;">done</span><span style="color: var(--oxblood); font-weight: 600;">collecting ▸ S-A2</span><span>queued</span></div>
+            <div></div>
+          </div>
+        </div>
+
+        <!-- plan rows -->
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <thead>
+            <tr style="color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;">
+              <th style="text-align: left; padding: 10px 20px; border-top: 1px solid var(--border-soft); font-weight: 600;">SAMPLE</th>
+              <th style="text-align: left; padding: 10px 8px; border-top: 1px solid var(--border-soft); font-weight: 600;">SCANS</th>
+              <th style="text-align: left; padding: 10px 8px; border-top: 1px solid var(--border-soft); font-weight: 600;">SNR</th>
+              <th style="text-align: left; padding: 10px 8px; border-top: 1px solid var(--border-soft); font-weight: 600;">ETA</th>
+              <th style="text-align: left; padding: 10px 20px; border-top: 1px solid var(--border-soft); font-weight: 600;">STATUS</th>
+            </tr>
+          </thead>
+          <tbody style="font-family: var(--mono);">
+            <tr>
+              <td style="padding: 10px 20px; border-top: 1px solid var(--border-soft);"><span style="color: var(--ink); font-weight: 600;">S-A1</span> <span style="color: var(--muted); font-size: 12px;">pristine</span></td>
+              <td style="padding: 10px 8px; border-top: 1px solid var(--border-soft);">6 / 6</td>
+              <td style="padding: 10px 8px; border-top: 1px solid var(--border-soft);">312</td>
+              <td style="padding: 10px 8px; border-top: 1px solid var(--border-soft); color: var(--muted);">—</td>
+              <td style="padding: 10px 20px; border-top: 1px solid var(--border-soft);"><span style="color: var(--green-dk); font-weight: 600;">✓ complete</span></td>
+            </tr>
+            <tr style="background: #fbf7ee;">
+              <td style="padding: 10px 20px; border-top: 1px solid var(--border-soft);"><span style="color: var(--ink); font-weight: 600;">S-A2</span> <span style="color: var(--muted); font-size: 12px;">reduced 300 °C</span></td>
+              <td style="padding: 10px 8px; border-top: 1px solid var(--border-soft);">4 / 9</td>
+              <td style="padding: 10px 8px; border-top: 1px solid var(--border-soft);">198 ↑</td>
+              <td style="padding: 10px 8px; border-top: 1px solid var(--border-soft);">+52 min</td>
+              <td style="padding: 10px 20px; border-top: 1px solid var(--border-soft);"><span style="color: var(--oxblood); font-weight: 600;">◐ collecting</span></td>
+            </tr>
+            <tr>
+              <td style="padding: 10px 20px; border-top: 1px solid var(--border-soft);"><span style="color: var(--ink); font-weight: 600;">S-A3</span> <span style="color: var(--muted); font-size: 12px;">reduced 500 °C</span></td>
+              <td style="padding: 10px 8px; border-top: 1px solid var(--border-soft);">0 / 6</td>
+              <td style="padding: 10px 8px; border-top: 1px solid var(--border-soft); color: var(--muted);">—</td>
+              <td style="padding: 10px 8px; border-top: 1px solid var(--border-soft);">04:10</td>
+              <td style="padding: 10px 20px; border-top: 1px solid var(--border-soft);"><span style="color: var(--muted); font-weight: 600;">queued</span></td>
+            </tr>
+            <tr style="background: #fafafa;">
+              <td style="padding: 10px 20px; border-top: 1px solid var(--border-soft); color: var(--muted); font-style: italic;">+ add sample</td>
+              <td colspan="4" style="padding: 10px 8px; border-top: 1px solid var(--border-soft); color: var(--muted); font-size: 12px;">staff &amp; users can edit the plan at any time</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- steer bar -->
+        <div style="display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border-soft); background: #fafafa;">
+          <button style="font-size: 13px; padding: 6px 12px; border: 1px solid var(--border); background: #fff; border-radius: 4px; font-family: inherit; cursor: pointer;">Pause run</button>
+          <button style="font-size: 13px; padding: 6px 12px; border: 1px solid var(--border); background: #fff; border-radius: 4px; font-family: inherit; cursor: pointer;">Skip S-A2</button>
+          <button style="font-size: 13px; padding: 6px 12px; border: 1px solid var(--border); background: #fff; border-radius: 4px; font-family: inherit; cursor: pointer;">Extend budget +1h</button>
+          <button style="font-size: 13px; padding: 6px 12px; border: 1px solid var(--border); background: #fff; border-radius: 4px; font-family: inherit; cursor: pointer;">Re-prioritize…</button>
+          <div style="flex: 1;"></div>
+          <button style="font-size: 13px; padding: 6px 14px; border: 1px solid var(--oxblood); background: var(--oxblood); color: #fff; border-radius: 4px; font-family: inherit; font-weight: 600; cursor: pointer;">Apply</button>
+        </div>
+      </div>
+
+      <!-- right column: properties -->
+      <div>
+        <h2 class="sec" style="font-size: 30px;">One plan, two surfaces.</h2>
+        <div class="card dense" style="margin-bottom: 12px;">
+          <div style="font-weight: 600; font-size: 19px;">Web UI</div>
+          <div style="color: var(--muted); font-size: 15px; margin-top: 4px;">Live plan board with timeline, per-sample progress, and steering controls. Same view for the remote user and the floor operator.</div>
+        </div>
+        <div class="card dense" style="margin-bottom: 12px;">
+          <div style="font-weight: 600; font-size: 19px;">Slack mirror</div>
+          <div style="color: var(--muted); font-size: 15px; margin-top: 4px;">A pinned plan message is kept in sync with the web UI. Slash commands (<span style="font-family: var(--mono); font-size: 13px; background: #f3efe7; padding: 1px 5px; border-radius: 3px;">/plan</span>, <span style="font-family: var(--mono); font-size: 13px; background: #f3efe7; padding: 1px 5px; border-radius: 3px;">/skip</span>, <span style="font-family: var(--mono); font-size: 13px; background: #f3efe7; padding: 1px 5px; border-radius: 3px;">/extend</span>) steer from the phone.</div>
+        </div>
+        <div class="card dense" style="margin-bottom: 12px;">
+          <div style="font-weight: 600; font-size: 19px;">Steerable by users and staff</div>
+          <div style="color: var(--muted); font-size: 15px; margin-top: 4px;">Add, remove, or reorder samples. Adjust scan counts and quality targets. The agent re-plans around the edit and posts what changed.</div>
+        </div>
+        <div class="card dense">
+          <div style="font-weight: 600; font-size: 19px;">Every edit is attributed</div>
+          <div style="color: var(--muted); font-size: 15px; margin-top: 4px;">Plan history shows who changed what, when, and why — Slack user, web session, or agent auto-recovery.</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="foot"><span>Shared plan</span><span class="pg">09</span></div>
+  </section>
+
+  <!-- 10 CONSTRAINTS -->
+  <section class="slide">
+    <div class="eyebrow">Operational constraints</div>
+    <h1 class="title">Limits on agent behavior.</h1>
+    <div class="rule"></div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+      <div class="card">
+        <div style="font-size: 22px; font-weight: 600;">Hardware limits enforced externally</div>
+        <div style="color: var(--muted); font-size: 17px; margin-top: 10px;">All motion passes through the existing EPICS soft-limit system. The agent cannot override it.</div>
+      </div>
+      <div class="card">
+        <div style="font-size: 22px; font-weight: 600;">Beam-time budget is hard</div>
+        <div style="color: var(--muted); font-size: 17px; margin-top: 10px;">The agent stops at the allocated end time and escalates before overshooting.</div>
+      </div>
+      <div class="card">
+        <div style="font-size: 22px; font-weight: 600;">Every action logged</div>
+        <div style="color: var(--muted); font-size: 17px; margin-top: 10px;">All corrections, re-alignments, and parameter changes are recorded in the run log with a justification.</div>
+      </div>
+      <div class="card">
+        <div style="font-size: 22px; font-weight: 600;">Floor operator has priority</div>
+        <div style="color: var(--muted); font-size: 17px; margin-top: 10px;">Operator commands from the control room take precedence. The agent yields and resumes afterwards.</div>
+      </div>
+    </div>
+    <div class="foot"><span>Operational constraints</span><span class="pg">10</span></div>
+  </section>
+
+  <!-- 11 SUMMARY -->
+  <section class="slide">
+    <div class="brand-row">
+      <img src="assets/ssrl-logo.png" alt="SSRL">
+      <span class="sep"></span>
+      <span class="meta">BEAMLINE 15-2 · AUTONOMOUS AGENT</span>
+    </div>
+    <div class="rule accent"></div>
+    <div class="eyebrow">Summary</div>
+    <h1 class="title">One input, one output, continuous oversight.</h1>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 40px;">
+      <div class="card">
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--oxblood); letter-spacing: 0.06em; font-weight: 600;">INPUT</div>
+        <div style="font-weight: 600; font-size: 22px; margin-top: 6px;">Experiment configuration</div>
+        <div style="color: var(--muted); font-size: 16px; margin-top: 6px;">Samples, edge, scan counts, quality targets.</div>
+      </div>
+      <div class="card">
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--oxblood); letter-spacing: 0.06em; font-weight: 600;">DURING</div>
+        <div style="font-weight: 600; font-size: 22px; margin-top: 6px;">Slack updates</div>
+        <div style="color: var(--muted); font-size: 16px; margin-top: 6px;">SNR per sample, recoveries, decisions.</div>
+      </div>
+      <div class="card">
+        <div style="font-family: var(--mono); font-size: 12px; color: var(--oxblood); letter-spacing: 0.06em; font-weight: 600;">OUTPUT</div>
+        <div style="font-weight: 600; font-size: 22px; margin-top: 6px;">Morning report + data</div>
+        <div style="color: var(--muted); font-size: 16px; margin-top: 6px;">Athena project, raw HDF5, event log.</div>
+      </div>
+    </div>
+    <div class="foot"><span>SSRL · BL 15-2 · Autonomous Agent</span><span class="pg">11</span></div>
+  </section>
+
+</deck-stage>
+
+<script src="deck-stage.js"></script>
+</body>
+</html>
