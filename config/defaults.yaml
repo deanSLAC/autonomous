@@ -1,0 +1,75 @@
+gains:
+  Si111:  # Crystal A
+    default_i0_gain: "100 nA/V"
+    default_i1_gain: "1 mA/V"
+    default_i0_offset: "10 pA"
+  Si311:  # Crystal B
+    default_i0_gain: "50 nA/V"
+    default_i1_gain: "1 mA/V"
+    default_i0_offset: "10 pA"
+
+motor_limits:
+  Sx: [-10, 50]
+  Sy: [-10, 50]
+  Sz: [0, 50]
+  energy: [4950, 25000]
+  emiss: [2000, 20000]
+
+common_elements:
+  - {symbol: Fe, name: Iron}
+  - {symbol: Cu, name: Copper}
+  - {symbol: Zn, name: Zinc}
+  - {symbol: As, name: Arsenic}
+  - {symbol: Se, name: Selenium}
+  - {symbol: Pb, name: Lead}
+  - {symbol: Mn, name: Manganese}
+  - {symbol: Ni, name: Nickel}
+  - {symbol: Co, name: Cobalt}
+  - {symbol: Cr, name: Chromium}
+
+crystal_cuts:
+  - {hkl: "1 1 1", type: Si, common_for: [Fe, Mn, Cr, Co]}
+  - {hkl: "3 1 1", type: Si, common_for: [Zn, As, Se, Pb, Cu, Ni]}
+  - {hkl: "6 4 2", type: Si, common_for: [Zn]}
+  - {hkl: "9 1 1", type: Si, common_for: [As, Pb]}
+  - {hkl: "8 4 4", type: Si, common_for: [Se]}
+
+filter_options: [0, 1, 2, 3, 4, 8, 16, 32, 64, 128]
+
+gain_options:
+  i0_gain:
+    - "1 nA/V"
+    - "2 nA/V"
+    - "5 nA/V"
+    - "10 nA/V"
+    - "20 nA/V"
+    - "50 nA/V"
+    - "100 nA/V"
+    - "200 nA/V"
+    - "500 nA/V"
+  i1_gain:
+    - "100 uA/V"
+    - "200 uA/V"
+    - "500 uA/V"
+    - "1 mA/V"
+    - "2 mA/V"
+    - "5 mA/V"
+  i0_offset:
+    - "1 pA"
+    - "2 pA"
+    - "5 pA"
+    - "10 pA"
+    - "20 pA"
+    - "50 pA"
+    - "100 pA"
+
+sample_env_options:
+  - ambient
+  - cryostat
+  - operando
+
+edge_options:
+  - K
+  - L1
+  - L2
+  - L3
