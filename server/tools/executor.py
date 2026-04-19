@@ -24,6 +24,20 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
     """
     images_b64: list[str] = []
 
+    # Autonomy tools take priority when registered.
+    try:
+        from tools.autonomy_tools import AUTONOMY_DISPATCH  # lazy to avoid cycles
+    except Exception:
+        AUTONOMY_DISPATCH = {}
+
+    if name in AUTONOMY_DISPATCH:
+        try:
+            text, imgs = AUTONOMY_DISPATCH[name](arguments or {})
+            return text, list(imgs or [])
+        except Exception as e:
+            logger.error("Autonomy tool %s failed: %s", name, e, exc_info=True)
+            return f"Tool error ({name}): {e}", []
+
     try:
         if name == "get_latest_scan":
             result = bl_tools.get_latest_scan()

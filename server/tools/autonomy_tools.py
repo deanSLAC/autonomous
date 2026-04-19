@@ -1,0 +1,531 @@
+"""Autonomy tool surface — wraps spec_cmd + planner + orchestration for the LLM.
+
+Every tool here is exposed to the LLM via tools/definitions.py. Tools
+that invoke SPEC delegate to `spec.spec_cmd.call()` — which writes to
+`action_log` *before* dispatch. Tools that only touch the local DB / web
+state have no SPEC footprint.
+
+A note on the `justification` argument: every SPEC-action tool (not
+read-only ones) requires a non-empty justification. The dispatcher
+refuses to run without it.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from typing import Any, Optional
+
+from action_log.db import recent_actions
+from db.autonomy_client import (
+    add_guidance,
+    get_experiment_plan,
+    list_guidance,
+    list_open_interventions,
+)
+from orchestrator import planner
+from orchestrator.staff_guidance import coordinator
+from spec import phase_allowlist, spec_cmd
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Injection point for the phase-transition approval channel.
+# Set by app.py at startup so this module has no direct Slack dependency.
+# ---------------------------------------------------------------------------
+
+_intervention_notifier = None
+_phase_approval_requester = None
+
+
+def set_intervention_notifier(fn) -> None:
+    global _intervention_notifier
+    _intervention_notifier = fn
+
+
+def set_phase_approval_requester(fn) -> None:
+    global _phase_approval_requester
+    _phase_approval_requester = fn
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _as_json(result: dict | list | str) -> str:
+    if isinstance(result, str):
+        return result
+    return json.dumps(result, indent=2, default=str)
+
+
+# ===========================================================================
+# CAT-0 · High-level procedural macros
+# ===========================================================================
+
+def t_align_beamline(args: dict) -> tuple[str, list[str]]:
+    justification = (args.get("justification") or "").strip()
+    a = [
+        str(args.get("energy", 0)),
+        str(args.get("xtal_chg", 0)),
+        str(args.get("fine_x", 0)),
+        str(args.get("fine_z", 0)),
+    ]
+    res = spec_cmd.call("align_beamline", a, justification=justification)
+    return _as_json(res), []
+
+
+def t_align_xes(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    crystals = str(args.get("crystals", "1234567"))
+    a = [crystals, str(args.get("en_xes", 0)), str(args.get("en_mono", 0))]
+    res = spec_cmd.call("align_xes", a, justification=j)
+    return _as_json(res), []
+
+
+def t_auto_sample_align(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("auto_sample_align", [], justification=j)
+    return _as_json(res), []
+
+
+def t_run_collection(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("run_collection", [], justification=j)
+    return _as_json(res), []
+
+
+def t_select_element(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("select_element", [str(args["element"])], justification=j)
+    return _as_json(res), []
+
+
+def t_peak_mono_pitch(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("peak_mono_pitch", [], justification=j)
+    return _as_json(res), []
+
+
+def t_calibrate_mono(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("calibrate_mono", [str(args["tabulated_edge_ev"])], justification=j)
+    return _as_json(res), []
+
+
+# ===========================================================================
+# CAT-1 · Motor control
+# ===========================================================================
+
+def t_move_motor(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("umv", [str(args["motor"]), str(args["position"])], justification=j)
+    return _as_json(res), []
+
+
+def t_move_motor_relative(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("umvr", [str(args["motor"]), str(args["delta"])], justification=j)
+    return _as_json(res), []
+
+
+def t_read_motor_position(args: dict) -> tuple[str, list[str]]:
+    res = spec_cmd.call("p_motor", [str(args["motor"])], justification="")
+    return _as_json(res), []
+
+
+def t_wa(args: dict) -> tuple[str, list[str]]:
+    res = spec_cmd.call("wa", [], justification="")
+    return _as_json(res), []
+
+
+# ===========================================================================
+# CAT-2 · Scan execution
+# ===========================================================================
+
+def t_run_motor_scan(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    a = [
+        str(args["motor"]),
+        str(args["start"]),
+        str(args["end"]),
+        str(args["npoints"]),
+        str(args["count_time"]),
+    ]
+    res = spec_cmd.call("ascan", a, justification=j)
+    return _as_json(res), []
+
+
+def t_run_motor_scan_relative(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    a = [
+        str(args["motor"]),
+        str(args["delta_start"]),
+        str(args["delta_end"]),
+        str(args["npoints"]),
+        str(args["count_time"]),
+    ]
+    res = spec_cmd.call("dscan", a, justification=j)
+    return _as_json(res), []
+
+
+def t_run_xas(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    a = [
+        str(args["element"]),
+        str(args["count_time"]),
+        str(args["n_reps"]),
+    ]
+    if "emission_ev" in args and args["emission_ev"] is not None:
+        a.append(str(args["emission_ev"]))
+    res = spec_cmd.call("xas", a, justification=j)
+    return _as_json(res), []
+
+
+def t_run_emiss_scan(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    a = [
+        str(args["element"]),
+        str(args["count_time"]),
+        str(args["n_reps"]),
+        str(args["emission_ev"]),
+        str(args.get("filter", 0)),
+    ]
+    res = spec_cmd.call("emiss_scan", a, justification=j)
+    return _as_json(res), []
+
+
+# ===========================================================================
+# CAT-3 · Beamline configuration
+# ===========================================================================
+
+def t_mv_energy(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("mv_energy", [str(args["energy_ev"])], justification=j)
+    return _as_json(res), []
+
+
+def t_shutter(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    a = [str(args["command"])]
+    if "delay_s" in args:
+        a.append(str(args["delay_s"]))
+    res = spec_cmd.call("shutter", a, justification=j)
+    return _as_json(res), []
+
+
+def t_set_filter(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("mv", ["filter", str(args["bitmask"])], justification=j)
+    return _as_json(res), []
+
+
+def t_safely_remove_filters(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("safely_remove_filters", [], justification=j)
+    return _as_json(res), []
+
+
+def t_set_gain(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    which = args["which"]
+    cmd = {"i0": "set_i0_gain", "i1": "set_i1_gain", "i2": "set_i2_gain"}.get(which)
+    if not cmd:
+        return json.dumps({"ok": False, "error": f"invalid gain channel: {which}"}), []
+    res = spec_cmd.call(cmd, [str(args["gain_setting"])], justification=j)
+    return _as_json(res), []
+
+
+def t_set_vortex_roi(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    mode = args.get("mode", "auto")
+    if mode == "auto":
+        a = ["auto", str(args.get("channel", 3))]
+    else:
+        a = [str(args["channel"]), str(args["lo_ev"]), str(args["hi_ev"])]
+    res = spec_cmd.call("set_vortex_roi", a, justification=j)
+    return _as_json(res), []
+
+
+def t_open_data_file(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("newfile", [str(args["filename"])], justification=j)
+    return _as_json(res), []
+
+
+# ===========================================================================
+# CAT-4 · Alignment fallbacks
+# ===========================================================================
+
+def t_run_align_shortcut(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    name = args["name"]
+    allowed = {
+        "vvv", "hhh", "m1m1", "m2m2", "ggg", "bzbz", "bxbx",
+        "dmm", "beamx", "beamz", "cm1m1", "cm2m2", "beamx_fine", "beamz_fine",
+    }
+    if name not in allowed:
+        return json.dumps({"ok": False, "error": f"shortcut '{name}' not allowed"}), []
+    res = spec_cmd.call("run_shortcut", [name], justification=j)
+    return _as_json(res), []
+
+
+def t_post_scan_move(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    mode = args["mode"]
+    if mode not in ("cen", "peak"):
+        return json.dumps({"ok": False, "error": "mode must be 'cen' or 'peak'"}), []
+    res = spec_cmd.call(mode, [], justification=j)
+    return _as_json(res), []
+
+
+# ===========================================================================
+# CAT-6 · Beam monitoring
+# ===========================================================================
+
+def t_get_beam_status(args: dict) -> tuple[str, list[str]]:
+    res = spec_cmd.call("beam_status", [], justification="")
+    return _as_json(res), []
+
+
+def t_get_i0_value(args: dict) -> tuple[str, list[str]]:
+    t = args.get("count_time", 0.5)
+    res_ct = spec_cmd.call("ct", [str(t)], justification="")
+    res_s = spec_cmd.call("p_global", ["S[I0]"], justification="")
+    payload = {"ct": res_ct, "i0": res_s}
+    return _as_json(payload), []
+
+
+def t_request_gap_ownership(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("gaprequest", [], justification=j)
+    return _as_json(res), []
+
+
+# ===========================================================================
+# CAT-7 · Run state
+# ===========================================================================
+
+def t_get_scan_number(args: dict) -> tuple[str, list[str]]:
+    res = spec_cmd.call("scan_n", [], justification="")
+    return _as_json(res), []
+
+
+def t_get_current_datafile(args: dict) -> tuple[str, list[str]]:
+    res = spec_cmd.call("fon", [], justification="")
+    return _as_json(res), []
+
+
+def t_abort_current_scan(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("abort", [], justification=j)
+    return _as_json(res), []
+
+
+# ===========================================================================
+# CAT-8 · Orchestration (no SPEC)
+# ===========================================================================
+
+def t_transition_phase(args: dict) -> tuple[str, list[str]]:
+    """Async tool — run on event loop if available, else new one."""
+    from orchestrator.loop import get_orchestrator
+    from orchestrator import phase as phase_mod
+
+    experiment_id = spec_cmd.get_experiment_id()
+    if not experiment_id:
+        return json.dumps({"allowed": False, "reason": "no active experiment"}), []
+
+    target = args["target_phase"]
+    j = (args.get("justification") or "").strip()
+    if not j:
+        return json.dumps({"allowed": False, "reason": "justification required"}), []
+
+    orch = get_orchestrator()
+    checker = orch.checker if orch else phase_mod.PreconditionChecker()
+
+    async def _go():
+        return await phase_mod.transition_phase(
+            experiment_id=experiment_id,
+            target_phase=target,
+            justification=j,
+            checker=checker,
+            approval_requester=_phase_approval_requester,
+        )
+
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = None
+    if loop and loop.is_running():
+        result = asyncio.run_coroutine_threadsafe(_go(), loop).result(timeout=120)
+    else:
+        result = asyncio.run(_go())
+    return json.dumps({
+        "allowed": result.allowed,
+        "previous_phase": result.previous_phase,
+        "current_phase": result.current_phase,
+        "preconditions": result.preconditions,
+        "human_approval_required": result.human_approval_required,
+        "reason": result.reason,
+    }, indent=2), []
+
+
+def t_request_human_intervention(args: dict) -> tuple[str, list[str]]:
+    kind = args["kind"]
+    detail = args["detail"]
+    timeout_s = float(args.get("timeout_s", 3600))
+    experiment_id = spec_cmd.get_experiment_id()
+
+    notify = _intervention_notifier or (lambda i, d: asyncio.sleep(0))
+
+    async def _go():
+        return await coordinator.request_intervention(
+            experiment_id=experiment_id,
+            kind=kind,
+            detail=detail,
+            timeout_s=timeout_s,
+            notify=notify,
+        )
+
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = None
+    if loop and loop.is_running():
+        result = asyncio.run_coroutine_threadsafe(_go(), loop).result(timeout=timeout_s + 60)
+    else:
+        result = asyncio.run(_go())
+    return _as_json(result), []
+
+
+def t_post_status_update(args: dict) -> tuple[str, list[str]]:
+    from orchestrator.loop import get_orchestrator
+    orch = get_orchestrator()
+    text = args.get("text", "").strip()
+    if not text:
+        return "error: text required", []
+    if orch is not None:
+        orch._safe_invoke(orch.slack_status_post, text)
+        orch._safe_emit({"type": "status_update", "text": text})
+    return json.dumps({"posted": True}), []
+
+
+def t_update_experiment_plan(args: dict) -> tuple[str, list[str]]:
+    experiment_id = spec_cmd.get_experiment_id()
+    if not experiment_id:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+    new_plan = args.get("plan")
+    if not isinstance(new_plan, dict):
+        return json.dumps({"ok": False, "error": "plan must be a JSON object"}), []
+    planner.replace_plan(experiment_id, new_plan)
+    return json.dumps({"ok": True}), []
+
+
+def t_record_sample_progress(args: dict) -> tuple[str, list[str]]:
+    experiment_id = spec_cmd.get_experiment_id()
+    if not experiment_id:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+    planner.record_sample_progress(
+        experiment_id,
+        args["sample_id"],
+        status=args.get("status"),
+        snr_estimate=args.get("snr_estimate"),
+        efficiency_verdict=args.get("efficiency_verdict"),
+        reps_completed=args.get("reps_completed"),
+        note=args.get("note"),
+    )
+    return json.dumps({"ok": True}), []
+
+
+def t_get_experiment_plan(args: dict) -> tuple[str, list[str]]:
+    experiment_id = spec_cmd.get_experiment_id()
+    if not experiment_id:
+        return json.dumps({"error": "no active experiment"}), []
+    plan = get_experiment_plan(experiment_id)
+    return _as_json(plan or {}), []
+
+
+def t_get_remaining_beamtime(args: dict) -> tuple[str, list[str]]:
+    experiment_id = spec_cmd.get_experiment_id()
+    if not experiment_id:
+        return json.dumps({"error": "no active experiment"}), []
+    snap = planner.snapshot(experiment_id)
+    return _as_json({
+        "total_hours": snap.beamtime_total_hours,
+        "elapsed_hours": snap.beamtime_elapsed_hours,
+        "remaining_hours": snap.beamtime_remaining_hours,
+    }), []
+
+
+def t_get_staff_guidance(args: dict) -> tuple[str, list[str]]:
+    experiment_id = spec_cmd.get_experiment_id()
+    rows = list_guidance(experiment_id, limit=int(args.get("limit", 20)))
+    return _as_json(rows), []
+
+
+def t_list_open_interventions(args: dict) -> tuple[str, list[str]]:
+    experiment_id = spec_cmd.get_experiment_id()
+    return _as_json(list_open_interventions(experiment_id)), []
+
+
+def t_recent_actions(args: dict) -> tuple[str, list[str]]:
+    experiment_id = spec_cmd.get_experiment_id()
+    return _as_json(recent_actions(limit=int(args.get("limit", 20)),
+                                   experiment_id=experiment_id)), []
+
+
+# ---------------------------------------------------------------------------
+# Dispatch table
+# ---------------------------------------------------------------------------
+
+AUTONOMY_DISPATCH: dict[str, callable] = {
+    # CAT-0
+    "align_beamline": t_align_beamline,
+    "align_xes_spectrometer": t_align_xes,
+    "run_sample_alignment": t_auto_sample_align,
+    "run_collection": t_run_collection,
+    "select_element": t_select_element,
+    "peak_mono_pitch": t_peak_mono_pitch,
+    "calibrate_mono_from_foil_scan": t_calibrate_mono,
+    # CAT-1
+    "move_motor": t_move_motor,
+    "move_motor_relative": t_move_motor_relative,
+    "read_motor_position": t_read_motor_position,
+    "read_all_positions": t_wa,
+    # CAT-2
+    "run_motor_scan": t_run_motor_scan,
+    "run_motor_scan_relative": t_run_motor_scan_relative,
+    "run_xas": t_run_xas,
+    "run_emiss_scan": t_run_emiss_scan,
+    # CAT-3
+    "mv_energy": t_mv_energy,
+    "shutter": t_shutter,
+    "set_filter": t_set_filter,
+    "safely_remove_filters": t_safely_remove_filters,
+    "set_gain": t_set_gain,
+    "set_vortex_roi": t_set_vortex_roi,
+    "open_data_file": t_open_data_file,
+    # CAT-4
+    "run_align_shortcut": t_run_align_shortcut,
+    "post_scan_move": t_post_scan_move,
+    # CAT-6
+    "get_beam_status": t_get_beam_status,
+    "get_i0_value": t_get_i0_value,
+    "request_gap_ownership": t_request_gap_ownership,
+    # CAT-7
+    "get_scan_number": t_get_scan_number,
+    "get_current_datafile": t_get_current_datafile,
+    "abort_current_scan": t_abort_current_scan,
+    # CAT-8
+    "transition_phase": t_transition_phase,
+    "request_human_intervention": t_request_human_intervention,
+    "post_status_update": t_post_status_update,
+    "update_experiment_plan": t_update_experiment_plan,
+    "record_sample_progress": t_record_sample_progress,
+    "get_experiment_plan": t_get_experiment_plan,
+    "get_remaining_beamtime": t_get_remaining_beamtime,
+    "get_staff_guidance": t_get_staff_guidance,
+    "list_open_interventions": t_list_open_interventions,
+    "recent_actions": t_recent_actions,
+}
