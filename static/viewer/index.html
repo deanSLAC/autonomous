@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BL15-2 · Data Viewer</title>
+    <link rel="stylesheet" href="/static/dashboard/static/dashboard.css?v=4">
+    <link rel="stylesheet" href="/static/dashboard/autonomy.css?v=4">
+    <link rel="stylesheet" href="/static/viewer/viewer.css?v=4">
+</head>
+<body>
+
+<div class="topbar">
+    <div class="topbar-left">
+        <div class="topbar-logo">
+            <img src="/static/dashboard/static/ssrl-logo.png" alt="SSRL">
+            <span class="topbar-logo-text">BL15-2</span>
+        </div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-title">Data Viewer</div>
+        <span id="sim-pill" class="sim-pill" style="display:none;">SIM</span>
+    </div>
+    <div class="topbar-right">
+        <select class="experiment-select" id="experiment-select">
+            <option value="">No experiments</option>
+        </select>
+        <a href="/sample_holders" class="theme-toggle topbar-link" title="Sample holders">Holders</a>
+        <a href="/dashboard" class="theme-toggle topbar-link" title="Dashboard">Dashboard</a>
+        <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode">&#9790;</button>
+    </div>
+</div>
+
+<div class="viewer-layout">
+    <aside class="viewer-sidebar">
+        <div class="panel">
+            <div class="panel-header">
+                File browser
+                <span class="panel-sub" id="viewer-holder-sub">—</span>
+            </div>
+            <div class="viewer-file-list" id="viewer-file-list">
+                <div class="muted">Select an experiment or holder.</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                Scans <span class="panel-sub" id="viewer-file-name">—</span>
+            </div>
+            <div class="viewer-scan-controls">
+                <button class="btn-steer" onclick="viewerSelectAllScans(true)">All</button>
+                <button class="btn-steer" onclick="viewerSelectAllScans(false)">None</button>
+                <button class="btn-steer" onclick="viewerSelectByKeyword('energy')">Energy</button>
+                <button class="btn-steer" onclick="viewerSelectByKeyword('emiss')">Emiss</button>
+                <button class="btn-steer" onclick="viewerSelectByKeyword('sample_align')">Alignment</button>
+            </div>
+            <div class="viewer-scan-list" id="viewer-scan-list">
+                <div class="muted">Pick a file.</div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="viewer-main">
+        <div class="panel">
+            <div class="panel-header">Multi-scan overlay</div>
+            <div class="viewer-axis-row">
+                <label>X <select id="multi-x"></select></label>
+                <label>Y <select id="multi-y"></select></label>
+                <label>Norm by <select id="multi-y2"><option value="">None</option></select></label>
+                <label><input type="checkbox" id="multi-norm"> 0–1 scale</label>
+                <span class="muted" id="multi-status"></span>
+            </div>
+            <canvas id="multi-canvas" width="900" height="420"></canvas>
+            <div class="viewer-legend" id="multi-legend"></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Single-scan detail <span class="panel-sub" id="detail-sub">—</span></div>
+            <div class="viewer-axis-row">
+                <label>Scan <select id="detail-scan"></select></label>
+                <label>X <select id="detail-x"></select></label>
+                <label>Y <select id="detail-y"></select></label>
+                <label>Norm by <select id="detail-y2"><option value="">None</option></select></label>
+                <label><input type="checkbox" id="detail-norm"> 0–1 scale</label>
+            </div>
+            <canvas id="detail-canvas" width="900" height="360"></canvas>
+            <details class="viewer-meta">
+                <summary>Scan metadata</summary>
+                <pre id="detail-meta">—</pre>
+            </details>
+        </div>
+    </main>
+</div>
+
+<script src="/static/dashboard/static/dashboard.js?v=4"></script>
+<script src="/static/viewer/viewer.js?v=4"></script>
+</body>
+</html>

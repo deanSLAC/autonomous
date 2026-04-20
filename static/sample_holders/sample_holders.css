@@ -1,0 +1,77 @@
+/* Sample holders list + editor page */
+
+.holder-list-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+    margin-top: 6px;
+}
+.holder-list-table th,
+.holder-list-table td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-subtle, #ece7dd);
+}
+.holder-list-table th {
+    background: rgba(0,0,0,0.02);
+    font-weight: 600;
+    color: var(--text-dim);
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+[data-theme="dark"] .holder-list-table th { background: rgba(255,255,255,0.03); }
+
+.holder-list-table tr.active-row td { background: rgba(27, 122, 27, 0.08); }
+[data-theme="dark"] .holder-list-table tr.active-row td { background: rgba(61, 214, 140, 0.12); }
+
+.holder-list-table .row-actions {
+    text-align: right;
+    white-space: nowrap;
+}
+.holder-list-table .row-actions button,
+.holder-list-table .row-actions a {
+    background: transparent;
+    border: 1px solid var(--border, #e0dbd2);
+    border-radius: 4px;
+    padding: 3px 8px;
+    margin-left: 4px;
+    font-size: 0.82em;
+    color: var(--text, #1a1a1a);
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+.holder-list-table .row-actions button:hover,
+.holder-list-table .row-actions a:hover {
+    background: rgba(0,0,0,0.05);
+}
+.holder-list-table .row-actions button.danger {
+    color: var(--red, #c0392b);
+    border-color: #eac0c0;
+}
+.holder-list-table .row-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.holder-list-footer {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 4px 4px;
+    border-top: 1px solid var(--border, #e0dbd2);
+    margin-top: 10px;
+}
+
+.holder-status-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.85em;
+    background: #eee;
+    color: #333;
+    text-transform: lowercase;
+}
+.holder-status-pill.configured { background: #eef; color: #445; }
+.holder-status-pill.aligning { background: #fe7; color: #5a3e00; }
+.holder-status-pill.ready { background: #def; color: #2563eb; }
+.holder-status-pill.collecting { background: #dfe; color: #1b7a1b; }
+.holder-status-pill.done { background: #dfd; color: #1b7a1b; }

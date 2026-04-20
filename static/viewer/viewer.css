@@ -1,0 +1,131 @@
+/* Data viewer page */
+
+.viewer-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 16px;
+    padding: 16px 24px;
+}
+.viewer-sidebar, .viewer-main {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.viewer-file-list, .viewer-scan-list {
+    max-height: 320px;
+    overflow-y: auto;
+    font-size: 0.88em;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.viewer-file-list .file-item,
+.viewer-scan-list .scan-item {
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 1.3;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.viewer-file-list .file-item:hover,
+.viewer-scan-list .scan-item:hover {
+    background: rgba(0,0,0,0.05);
+}
+[data-theme="dark"] .viewer-file-list .file-item:hover,
+[data-theme="dark"] .viewer-scan-list .scan-item:hover {
+    background: rgba(255,255,255,0.08);
+}
+.viewer-file-list .file-item.active {
+    background: var(--accent-dim, #d4a0a8);
+    color: var(--text);
+}
+[data-theme="dark"] .viewer-file-list .file-item.active {
+    background: var(--accent-dim, #3d1a22);
+    color: var(--text);
+}
+.viewer-file-list .badge {
+    background: #dfd; color: #1b7a1b;
+    font-size: 0.72em;
+    padding: 1px 6px;
+    border-radius: 999px;
+}
+[data-theme="dark"] .viewer-file-list .badge {
+    background: rgba(61, 214, 140, 0.2);
+    color: #3dd68c;
+}
+
+.viewer-scan-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.viewer-axis-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+}
+.viewer-axis-row label {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.viewer-axis-row select {
+    padding: 4px 6px;
+    border: 1px solid var(--border, #e0dbd2);
+    border-radius: 4px;
+    background: var(--bg-card, #fff);
+    color: var(--text, #1a1a1a);
+    font-family: inherit;
+    font-size: 0.88em;
+}
+
+canvas#multi-canvas, canvas#detail-canvas {
+    width: 100%;
+    max-width: 100%;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border, #e0dbd2);
+    border-radius: 4px;
+    display: block;
+}
+
+.viewer-legend {
+    margin-top: 8px;
+    font-size: 0.8em;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+}
+.viewer-legend .legend-item {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+}
+.viewer-legend .swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+.viewer-meta {
+    margin-top: 8px;
+    font-size: 0.85em;
+}
+.viewer-meta pre {
+    background: rgba(0,0,0,0.04);
+    border-radius: 4px;
+    padding: 10px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+[data-theme="dark"] .viewer-meta pre { background: rgba(255,255,255,0.05); }

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BL15-2 · Sample Holders</title>
+    <link rel="stylesheet" href="/static/dashboard/static/dashboard.css?v=4">
+    <link rel="stylesheet" href="/static/dashboard/autonomy.css?v=4">
+    <link rel="stylesheet" href="/static/config/style.css?v=4">
+    <link rel="stylesheet" href="/static/sample_holders/sample_holders.css?v=4">
+</head>
+<body>
+
+<div class="topbar">
+    <div class="topbar-left">
+        <div class="topbar-logo">
+            <img src="/static/dashboard/static/ssrl-logo.png" alt="SSRL">
+            <span class="topbar-logo-text">BL15-2</span>
+        </div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-title">Sample Holders</div>
+        <span id="sim-pill" class="sim-pill" style="display:none;">SIM</span>
+    </div>
+    <div class="topbar-right">
+        <select class="experiment-select" id="experiment-select">
+            <option value="">No experiments</option>
+        </select>
+        <a href="/dashboard" class="theme-toggle topbar-link" title="Back to dashboard">Dashboard</a>
+        <a href="/sample_planning" class="theme-toggle topbar-link" title="Sample planning">Planning</a>
+        <a href="/config" class="theme-toggle topbar-link" title="Experiment config">⚙</a>
+        <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode">&#9790;</button>
+    </div>
+</div>
+
+<div class="main-grid">
+
+    <div class="panel">
+        <div class="panel-header">
+            Holders for this experiment — first in queue is active
+            <span class="panel-sub" id="holder-summary">—</span>
+        </div>
+        <div id="message-area"></div>
+        <table class="holder-list-table">
+            <thead>
+                <tr>
+                    <th>#</th><th>Name</th><th>Type</th>
+                    <th>Status</th><th># samples</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="holder-tbody"><tr><td colspan="6" style="text-align:center;color:#888">—</td></tr></tbody>
+        </table>
+        <div class="holder-list-footer">
+            <button class="btn btn-submit" onclick="shNewHolder()">+ New holder (at bottom of queue)</button>
+            <span class="muted">Changing the active holder triggers a plan regeneration.</span>
+        </div>
+    </div>
+
+    <div class="panel" id="holder-editor-panel" style="display:none;">
+        <div class="panel-header">
+            <span id="holder-editor-title">Edit holder</span>
+            <span class="panel-sub" id="holder-editor-sub">—</span>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group medium">
+                <label>Holder Name <span class="required">*</span></label>
+                <input type="text" id="sh-holder-name">
+            </div>
+            <div class="form-group medium">
+                <label>Holder Type</label>
+                <select id="sh-holder-type">
+                    <option value="flat">flat</option>
+                    <option value="cryostat">cryostat</option>
+                    <option value="electrode">electrode</option>
+                    <option value="liquid_jet">liquid jet</option>
+                </select>
+            </div>
+            <div class="form-group medium">
+                <label>Status</label>
+                <select id="sh-holder-status">
+                    <option value="configured">configured</option>
+                    <option value="aligning">aligning</option>
+                    <option value="ready">ready</option>
+                    <option value="collecting">collecting</option>
+                    <option value="done">done</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group wide">
+                <label>Notes</label>
+                <input type="text" id="sh-holder-notes" placeholder="Optional free-form notes for staff">
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <h2>Samples in this holder</h2>
+                <button type="button" class="btn btn-add" onclick="addSample()">+ Add Sample</button>
+            </div>
+            <div id="samples-container"></div>
+        </div>
+
+        <div class="submit-area">
+            <button class="btn btn-submit" onclick="shSaveHolder()">Save holder</button>
+            <button class="btn btn-remove" onclick="shDeleteHolder()" id="sh-delete-btn">Delete</button>
+            <button class="btn" onclick="shCloseEditor()">Close</button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/dashboard/static/dashboard.js?v=4"></script>
+<script src="/static/config/form.js?v=4"></script>
+<script src="/static/sample_holders/sample_holders.js?v=4"></script>
+</body>
+</html>

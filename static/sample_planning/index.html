@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BL15-2 · Sample Planning</title>
+    <link rel="stylesheet" href="/static/dashboard/static/dashboard.css?v=4">
+    <link rel="stylesheet" href="/static/dashboard/autonomy.css?v=4">
+    <link rel="stylesheet" href="/static/sample_planning/sample_planning.css?v=4">
+</head>
+<body>
+
+<div class="topbar">
+    <div class="topbar-left">
+        <div class="topbar-logo">
+            <img src="/static/dashboard/static/ssrl-logo.png" alt="SSRL">
+            <span class="topbar-logo-text">BL15-2</span>
+        </div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-title">Sample Planning &amp; Time Budgets</div>
+        <span id="sim-pill" class="sim-pill" style="display:none;">SIM</span>
+    </div>
+    <div class="topbar-right">
+        <div class="topbar-status">
+            <div class="status-dot" id="server-dot"></div>
+            <span id="server-status">connecting</span>
+        </div>
+        <select class="experiment-select" id="experiment-select">
+            <option value="">No experiments</option>
+        </select>
+        <a href="/dashboard" class="theme-toggle topbar-link" title="Back to dashboard">Dashboard</a>
+        <a href="/sample_holders" class="theme-toggle topbar-link" title="Sample holders">Holders</a>
+        <a href="/insight" class="theme-toggle topbar-link" title="Agent insight">Insight</a>
+        <a href="/config" class="theme-toggle topbar-link" title="Experiment config">⚙</a>
+        <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode">&#9790;</button>
+    </div>
+</div>
+
+<div class="autonomy-bar">
+    <div class="autonomy-bar-left">
+        <button class="btn-autonomy" id="btn-start" onclick="autonomyAction('start')">▶ Start</button>
+        <button class="btn-autonomy" id="btn-pause" onclick="autonomyAction('pause')">⏸ Pause</button>
+        <button class="btn-autonomy" id="btn-resume" onclick="autonomyAction('resume')">▶ Resume</button>
+        <button class="btn-autonomy" id="btn-stop" onclick="autonomyAction('stop')">⏹ Stop</button>
+    </div>
+    <div class="autonomy-bar-center">
+        <span class="metric-pill"><span class="label">Phase</span> <span id="cur-phase">–</span></span>
+        <span class="metric-pill"><span class="label">Turn</span> <span id="orc-turn">–</span></span>
+        <span class="metric-pill"><span class="label">Beamtime</span>
+            <span id="orc-elapsed">–</span>h / <span id="orc-total">–</span>h</span>
+        <span class="metric-pill"><span class="label">Samples</span>
+            <span id="orc-samples-done">–</span> / <span id="orc-samples-total">–</span></span>
+    </div>
+    <div class="autonomy-bar-right">
+        <span class="metric-pill"><span class="label">Running</span>
+            <span id="orc-running" class="dot-bad">no</span></span>
+    </div>
+</div>
+
+<div id="interventions-banner" class="interventions" style="display:none;"></div>
+
+<div class="main-grid">
+
+    <!-- Budget + thresholds editor -->
+    <div class="panel panel-budget">
+        <div class="panel-header">
+            Beamtime budget &amp; thresholds
+            <span class="panel-sub" id="plan-author-sp" title="Acting on behalf of">as web-user</span>
+        </div>
+        <div class="budget-grid">
+            <div class="budget-cell">
+                <label>Total budget (hours)</label>
+                <div class="budget-row">
+                    <input type="number" id="budget-hours" step="0.5" min="0">
+                    <button class="btn-steer" onclick="spSetBudget()">Set</button>
+                    <button class="btn-steer" onclick="spExtendBudget(1)">+1 h</button>
+                    <button class="btn-steer" onclick="spExtendBudget(-0.5)">−0.5 h</button>
+                </div>
+            </div>
+            <div class="budget-cell">
+                <label>SNR target</label>
+                <div class="budget-row">
+                    <input type="number" id="snr-target" step="0.5" min="0" placeholder="e.g. 8">
+                    <button class="btn-steer" onclick="spUpdateThresholds()">Apply</button>
+                </div>
+            </div>
+            <div class="budget-cell">
+                <label>Min reps per sample</label>
+                <div class="budget-row">
+                    <input type="number" id="min-reps" step="1" min="1" placeholder="e.g. 3">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Per-holder bulk edit -->
+    <div class="panel panel-holder-budget">
+        <div class="panel-header">Per-holder time budget (applies to samples on one holder)</div>
+        <div class="budget-grid">
+            <div class="budget-cell">
+                <label>Holder</label>
+                <select id="holder-budget-select">
+                    <option value="">All holders</option>
+                </select>
+            </div>
+            <div class="budget-cell">
+                <label>Mode</label>
+                <select id="holder-budget-mode">
+                    <option value="">All modes</option>
+                    <option value="xas">XAS</option>
+                    <option value="emiss">RIXS / emiss</option>
+                </select>
+            </div>
+            <div class="budget-cell">
+                <label>Count time (s)</label>
+                <input type="number" id="holder-budget-ct" step="0.1" min="0.1" placeholder="e.g. 0.5">
+            </div>
+            <div class="budget-cell">
+                <label>Reps</label>
+                <input type="number" id="holder-budget-reps" step="1" min="1" placeholder="e.g. 6">
+            </div>
+            <div class="budget-cell">
+                <label>&nbsp;</label>
+                <div class="budget-row">
+                    <label class="inline-check"><input type="checkbox" id="holder-budget-apply" checked> apply to existing samples</label>
+                    <button class="btn-steer btn-primary" onclick="spSetHolderBudget()">Apply holder budget</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plan table + per-sample editing -->
+    <div class="panel panel-plan">
+        <div class="panel-header">
+            Sample plan — click a row to edit its per-sample time budget
+            <span class="panel-sub" id="plan-summary">—</span>
+        </div>
+        <table class="plan-table plan-table-wide">
+            <thead>
+                <tr>
+                    <th>#</th><th>Sample</th><th>Element</th><th>Holder</th>
+                    <th>Mode</th><th>Count (s)</th><th>Reps</th>
+                    <th>Status</th><th>SNR</th><th>Verdict</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="plan-tbody-sp"><tr><td colspan="11" style="text-align:center;color:#888">—</td></tr></tbody>
+        </table>
+
+        <div class="plan-steer-bar">
+            <button class="btn-steer btn-primary" onclick="spOpenAddSample()">+ Add sample</button>
+            <button class="btn-steer" onclick="spRegeneratePlan()">⟳ Regenerate plan</button>
+            <div style="flex:1;"></div>
+            <span class="muted">Tip: the agent has tools for these same edits — use the chat on the right if you prefer.</span>
+        </div>
+
+        <div id="add-sample-inline-sp" class="add-sample-inline" style="display:none;">
+            <div class="add-sample-row">
+                <input type="text" id="sp-add-sample-name" placeholder="Sample name">
+                <input type="text" id="sp-add-sample-element" placeholder="Element" style="max-width:120px;">
+                <input type="number" id="sp-add-sample-reps" placeholder="Reps" value="6" min="1" style="max-width:90px;">
+                <input type="number" id="sp-add-sample-time" placeholder="Count (s)" value="0.5" step="0.1" min="0.1" style="max-width:110px;">
+                <input type="number" id="sp-add-sample-pos" placeholder="Position (blank = end)" style="max-width:170px;">
+            </div>
+            <div class="add-sample-row">
+                <input type="text" id="sp-add-sample-reason" placeholder="Why add this sample? (optional)">
+                <button class="btn-steer btn-primary" onclick="spSubmitAddSample()">Add</button>
+                <button class="btn-steer" onclick="spCloseAddSample()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Per-sample time budget editor (reveals on row click) -->
+    <div class="panel panel-sample-editor" id="sample-editor-panel" style="display:none;">
+        <div class="panel-header">
+            Per-sample time budget
+            <span class="panel-sub" id="sample-editor-sub">—</span>
+        </div>
+        <div class="budget-grid">
+            <div class="budget-cell">
+                <label>Mode</label>
+                <select id="sample-budget-mode">
+                    <option value="">All modes</option>
+                    <option value="xas">XAS</option>
+                    <option value="emiss">RIXS / emiss</option>
+                </select>
+            </div>
+            <div class="budget-cell">
+                <label>Count time (s)</label>
+                <input type="number" id="sample-budget-ct" step="0.1" min="0.1">
+            </div>
+            <div class="budget-cell">
+                <label>Reps</label>
+                <input type="number" id="sample-budget-reps" step="1" min="1">
+            </div>
+            <div class="budget-cell">
+                <label>Reason (optional)</label>
+                <input type="text" id="sample-budget-reason" placeholder="e.g. low SNR — give it 2× more">
+            </div>
+            <div class="budget-cell">
+                <label>&nbsp;</label>
+                <div class="budget-row">
+                    <button class="btn-steer btn-primary" onclick="spApplySampleBudget()">Apply</button>
+                    <button class="btn-steer" onclick="spCloseSampleEditor()">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staff guidance feed + chat (identical capability to dashboard) -->
+    <div class="agent-row">
+        <div class="panel">
+            <div class="panel-header">Latest agent output</div>
+            <div id="latest-summary" class="agent-summary"><div class="muted">Waiting for the agent…</div></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">Staff guidance feed</div>
+            <div id="guidance-feed" class="guidance-feed"><div class="muted">No guidance yet.</div></div>
+            <div class="guidance-compose">
+                <input type="text" id="guidance-input" placeholder="Steer the agent (e.g. 'give Cu samples 2× count time')">
+                <button onclick="submitGuidance()">Send</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                Chat with the agent
+                <span class="panel-sub" id="chat-status"></span>
+            </div>
+            <div id="chat-log" class="chat-log"><div class="muted">No messages yet.</div></div>
+            <div class="chat-compose">
+                <textarea id="chat-input" rows="3"
+                          placeholder="Ask the agent to adjust the plan…"
+                          onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+                <button onclick="sendChat()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">Plan history</div>
+        <div id="plan-edits" class="plan-edits-feed"><div class="muted">No edits yet.</div></div>
+    </div>
+</div>
+
+<script src="/static/dashboard/static/dashboard.js?v=4"></script>
+<script src="/static/dashboard/autonomy.js?v=4"></script>
+<script src="/static/sample_planning/sample_planning.js?v=4"></script>
+</body>
+</html>
