@@ -415,7 +415,12 @@ function renderAutonomy(orc, dash) {
             if (el) el.textContent = val;
         };
         setText("exp-experimenter", dash.experiment.experimenter || "--");
-        setText("exp-crystal", dash.experiment.mono_crystal || "--");
+        setText(
+            "exp-crystal",
+            (typeof formatCrystal === "function"
+                ? formatCrystal(dash.experiment.mono_crystal)
+                : (dash.experiment.mono_crystal || "--")),
+        );
         setText(
             "exp-beam",
             `H:${dash.experiment.beam_size_h || "?"} V:${dash.experiment.beam_size_v || "?"}`,

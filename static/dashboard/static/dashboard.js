@@ -162,6 +162,14 @@ async function refreshDashboard() {
     } catch { /* ignore */ }
 }
 
+function formatCrystal(code) {
+    if (!code) return "--";
+    if (code === "A") return "A Si(111)";
+    if (code === "B") return "B Si(311)";
+    return code;
+}
+window.formatCrystal = formatCrystal;
+
 function renderExperimentInfo(exp) {
     if (!exp) return;
     const set = (id, val) => {
@@ -169,7 +177,7 @@ function renderExperimentInfo(exp) {
         if (el) el.textContent = val || "--";
     };
     set("exp-experimenter", exp.experimenter);
-    set("exp-crystal", exp.mono_crystal === "A" ? "Si(111)" : exp.mono_crystal === "B" ? "Si(311)" : exp.mono_crystal);
+    set("exp-crystal", formatCrystal(exp.mono_crystal));
     set("exp-beam", exp.mirrors_out ? "Mirrors out" : ("H:" + (exp.beam_size_h || "?") + " V:" + (exp.beam_size_v || "?")));
     set("exp-env", exp.sample_env || "ambient");
     set("exp-status", exp.status);
