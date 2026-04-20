@@ -30,24 +30,35 @@ OPENCODE_TOOLS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _schema_for(prop: dict) -> str:
-    """Turn a JSONSchema property into a `tool.schema.*` fragment."""
+    """Turn a JSONSchema property into a `tool.schema.*` fragment.
+
+    Note: opencode (zod v4) chokes on `tool.schema.any()` when it tries
+    to JSON-Schema-ify the args, and on the v3-style `record(value)`
+    one-arg form. We avoid both: arrays use a typed item schema (default
+    `string()`) and objects are sent as JSON-encoded strings (the Python
+    side parses them).
+    """
     t = prop.get("type", "string")
     if "enum" in prop:
-        # opencode-ai schema accepts string enums via .string().
         return "tool.schema.string()"
-    if t == "integer":
-        base = "tool.schema.number()"
-    elif t == "number":
-        base = "tool.schema.number()"
-    elif t == "boolean":
-        base = "tool.schema.boolean()"
-    elif t == "array":
-        base = "tool.schema.array(tool.schema.any())"
-    elif t == "object":
-        base = "tool.schema.record(tool.schema.any())"
-    else:
-        base = "tool.schema.string()"
-    return base
+    if t == "integer" or t == "number":
+        return "tool.schema.number()"
+    if t == "boolean":
+        return "tool.schema.boolean()"
+    if t == "array":
+        items = prop.get("items") or {}
+        item_t = items.get("type", "string")
+        if item_t in ("integer", "number"):
+            return "tool.schema.array(tool.schema.number())"
+        if item_t == "boolean":
+            return "tool.schema.array(tool.schema.boolean())"
+        # Default to string-typed arrays; numeric series can be passed
+        # as ["1.2", "3.4"] and parsed Python-side.
+        return "tool.schema.array(tool.schema.string())"
+    if t == "object":
+        # Pass arbitrary objects as a JSON string; Python decodes them.
+        return "tool.schema.string()"
+    return "tool.schema.string()"
 
 
 def render_tool_ts(name: str, description: str, params: dict) -> str:

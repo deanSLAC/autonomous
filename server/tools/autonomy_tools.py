@@ -374,7 +374,6 @@ def t_transition_phase(args: dict) -> tuple[str, list[str]]:
 def t_request_human_intervention(args: dict) -> tuple[str, list[str]]:
     kind = args["kind"]
     detail = args["detail"]
-    timeout_s = float(args.get("timeout_s", 3600))
     experiment_id = spec_cmd.get_experiment_id()
 
     notify = _intervention_notifier or (lambda i, d: asyncio.sleep(0))
@@ -384,16 +383,17 @@ def t_request_human_intervention(args: dict) -> tuple[str, list[str]]:
             experiment_id=experiment_id,
             kind=kind,
             detail=detail,
-            timeout_s=timeout_s,
             notify=notify,
         )
 
+    # The agent's own tool: blocks until staff resolves the request.
+    # No timeout — see config.py / orchestrator/staff_guidance.py.
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = None
     if loop and loop.is_running():
-        result = asyncio.run_coroutine_threadsafe(_go(), loop).result(timeout=timeout_s + 60)
+        result = asyncio.run_coroutine_threadsafe(_go(), loop).result()
     else:
         result = asyncio.run(_go())
     return _as_json(result), []
@@ -416,6 +416,12 @@ def t_update_experiment_plan(args: dict) -> tuple[str, list[str]]:
     if not experiment_id:
         return json.dumps({"ok": False, "error": "no active experiment"}), []
     new_plan = args.get("plan")
+    # opencode wraps object args as JSON-encoded strings; accept either.
+    if isinstance(new_plan, str):
+        try:
+            new_plan = json.loads(new_plan)
+        except json.JSONDecodeError as e:
+            return json.dumps({"ok": False, "error": f"plan is not valid JSON: {e}"}), []
     if not isinstance(new_plan, dict):
         return json.dumps({"ok": False, "error": "plan must be a JSON object"}), []
     planner.replace_plan(experiment_id, new_plan)

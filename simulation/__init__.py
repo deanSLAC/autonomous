@@ -29,7 +29,11 @@ LOGS_DIR = ROOT / "logs"
 
 
 def is_enabled() -> bool:
-    return os.getenv("SIMULATION_MODE", "0") == "1"
+    """Default ON. Flip SPEC_MOCK=0 (or SIMULATION_MODE=0) on the real beamline."""
+    if os.getenv("SIMULATION_MODE", "").strip() != "":
+        return os.getenv("SIMULATION_MODE") == "1"
+    # No explicit SIMULATION_MODE: tie to SPEC_MOCK so the two stay in sync.
+    return os.getenv("SPEC_MOCK", "1") == "1"
 
 
 def bootstrap(force: bool = False) -> dict:

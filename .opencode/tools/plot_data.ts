@@ -4,15 +4,15 @@ import { tool } from "@opencode-ai/plugin"
 export default tool({
   description: "General-purpose plotting tool. Plot any data as a line chart. Use this to visualize results from other tools (e.g. read_scan). Supports multiple series on one plot.",
   args: {
-    "x": tool.schema.array(tool.schema.any()).describe("X-axis values."),
-"y": tool.schema.array(tool.schema.any()).describe("Y-axis values (same length as x)."),
-"y2": tool.schema.array(tool.schema.any()).optional().describe("Optional second series Y values."),
-"y3": tool.schema.array(tool.schema.any()).optional().describe("Optional third series Y values."),
-"y4": tool.schema.array(tool.schema.any()).optional().describe("Optional fourth series Y values."),
+    "x": tool.schema.array(tool.schema.number()).describe("X-axis values."),
+"y": tool.schema.array(tool.schema.number()).describe("Y-axis values (same length as x)."),
+"y2": tool.schema.array(tool.schema.number()).optional().describe("Optional second series Y values."),
+"y3": tool.schema.array(tool.schema.number()).optional().describe("Optional third series Y values."),
+"y4": tool.schema.array(tool.schema.number()).optional().describe("Optional fourth series Y values."),
 "xlabel": tool.schema.string().optional().describe("X-axis label."),
 "ylabel": tool.schema.string().optional().describe("Y-axis label."),
 "title": tool.schema.string().optional().describe("Plot title."),
-"labels": tool.schema.array(tool.schema.any()).optional().describe("Legend labels for each series."),
+"labels": tool.schema.array(tool.schema.string()).optional().describe("Legend labels for each series."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})

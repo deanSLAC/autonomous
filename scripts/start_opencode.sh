@@ -32,8 +32,5 @@ if [[ ! -x "$OPENCODE_BIN" ]]; then
     exit 2
 fi
 
-HOST="${OPENCODE_HOST:-127.0.0.1}"
-PORT="${OPENCODE_PORT:-4096}"
-
-echo "[opencode] starting server on ${HOST}:${PORT} (model=${OPENCODE_MODEL:-slac/us.anthropic.claude-opus-4-6-v1})"
-exec "$OPENCODE_BIN" serve --hostname "$HOST" --port "$PORT"
+echo "[opencode] starting server on 127.0.0.1:4096 (model=${OPENCODE_MODEL:-slac/us.anthropic.claude-opus-4-6-v1})"
+exec "$OPENCODE_BIN" serve --hostname 127.0.0.1 --port 4096

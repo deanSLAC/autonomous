@@ -4,7 +4,7 @@ import { tool } from "@opencode-ai/plugin"
 export default tool({
   description: "Replace the live experiment plan JSON (structure decided by the agent).",
   args: {
-    "plan": tool.schema.record(tool.schema.any()),
+    "plan": tool.schema.string(),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})

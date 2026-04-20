@@ -25,10 +25,8 @@ from typing import Any, Optional
 import requests
 
 from config import (
-    OPENCODE_PASSWORD,
-    OPENCODE_TIMEOUT_S,
+    OPENCODE_MESSAGE_TIMEOUT_S,
     OPENCODE_URL,
-    OPENCODE_USERNAME,
     OPENCODE_MODEL,
     SLAC_API_KEY,
     CONTEXT_DIR,
@@ -46,12 +44,6 @@ class OpenCodeResult:
     messages: list[dict] = field(default_factory=list)
     session_id: Optional[str] = None
     thoughts: list[str] = field(default_factory=list)
-
-
-def _auth() -> Optional[tuple[str, str]]:
-    if OPENCODE_USERNAME and OPENCODE_PASSWORD:
-        return (OPENCODE_USERNAME, OPENCODE_PASSWORD)
-    return None
 
 
 def _url(path: str) -> str:
@@ -136,16 +128,25 @@ def _extract_tool_calls(messages: list[dict]) -> list[dict]:
                 continue
             t = part.get("type") or ""
             if t in ("tool", "tool-call", "tool_use", "function-call"):
+                # opencode shape: {type:"tool", tool:"<name>", callID, state:{input,output,status,time}}
+                state = part.get("state") if isinstance(part.get("state"), dict) else {}
+                name = (part.get("tool") or part.get("toolName")
+                        or part.get("name") or "?")
+                input_ = (state.get("input") or part.get("input")
+                          or part.get("arguments") or {})
+                output = (state.get("output") or part.get("output")
+                          or part.get("result") or "")
+                status = state.get("status") or part.get("status")
+                time_ = state.get("time") or {}
                 _record({
-                    "id": part.get("id") or part.get("toolCallId")
-                          or part.get("callID") or part.get("call_id"),
-                    "name": part.get("name") or part.get("toolName") or "?",
-                    "input": part.get("input") or part.get("arguments") or {},
-                    "output": _truncate(_stringify(
-                        part.get("output") or part.get("result") or "")),
-                    "status": part.get("status"),
-                    "started_at": part.get("startedAt") or part.get("started"),
-                    "completed_at": part.get("completedAt") or part.get("ended"),
+                    "id": part.get("callID") or part.get("id")
+                          or part.get("toolCallId") or part.get("call_id"),
+                    "name": name,
+                    "input": input_,
+                    "output": _truncate(_stringify(output)),
+                    "status": status,
+                    "started_at": time_.get("start") or part.get("startedAt"),
+                    "completed_at": time_.get("end") or part.get("completedAt"),
                     "role": role,
                 })
             elif t in ("tool-result", "tool_result", "function-result"):
@@ -200,7 +201,7 @@ class OpenCodeClient:
 
     def health_check(self) -> bool:
         try:
-            r = requests.get(_url("/session"), auth=_auth(), timeout=5)
+            r = requests.get(_url("/session"), timeout=5)
             return r.status_code == 200
         except requests.RequestException:
             return False
@@ -210,16 +211,11 @@ class OpenCodeClient:
     def ensure_session(self) -> str:
         if self.session_id:
             return self.session_id
-        body = {
-            "title": "autonomous-beamline",
-            # Opencode accepts an initial system message via /session.
-            # We forward the full system prompt so the agent always has it.
-            "system": self._system_prompt or None,
-            "model": self.model,
-        }
-        # The API tolerates extra keys but requires something; if `system`
-        # isn't accepted we send prompt via the first message.
-        r = requests.post(_url("/session"), json=body, auth=_auth(), timeout=30)
+        # opencode picks its default model + provider from opencode.json
+        # (the project's `model` key). Specifying `model` here as a bare
+        # string fails their schema; we just don't bother.
+        r = requests.post(_url("/session"), json={"title": "autonomous-beamline"},
+                          timeout=30)
         r.raise_for_status()
         data = r.json()
         sid = data.get("id") or data.get("sessionID")
@@ -227,16 +223,17 @@ class OpenCodeClient:
             raise RuntimeError(f"opencode: unexpected create-session body: {data!r}")
         self.session_id = sid
 
-        # If opencode didn't honor `system`, seed the session with a system message.
-        if self._system_prompt and not (isinstance(data, dict) and data.get("system")):
+        # Seed the session with the system prompt as the first user-side
+        # primer (opencode's session-create body doesn't accept a system
+        # field directly).
+        if self._system_prompt:
             try:
                 self._post_message(
                     sid,
                     text=f"[SYSTEM PRIMER]\n{self._system_prompt}",
-                    role="system",
                 )
-            except requests.HTTPError:
-                pass
+            except requests.HTTPError as e:
+                logger.warning("system primer post failed: %s", e)
         return sid
 
     def reset_session(self) -> str:
@@ -247,24 +244,26 @@ class OpenCodeClient:
         if not self.session_id:
             return
         try:
-            requests.post(_url(f"/session/{self.session_id}/abort"),
-                          auth=_auth(), timeout=10)
+            requests.post(_url(f"/session/{self.session_id}/abort"), timeout=10)
         except requests.RequestException as e:
             logger.warning("opencode abort failed: %s", e)
 
     # ---- Send + read --------------------------------------------------
 
     def _post_message(self, session_id: str, text: str, role: str = "user") -> dict:
-        body = {
-            "parts": [{"type": "text", "text": text}],
-            "role": role,
-            "model": self.model,
-        }
+        # opencode's message endpoint takes only `parts`. The session was
+        # bound to a model when it was created; sending `model` again as a
+        # bare string fails the schema (it expects {providerID, modelID}).
+        body: dict = {"parts": [{"type": "text", "text": text}]}
+        if role and role != "user":
+            body["role"] = role
+        # No timeout — a 48-hour run_collection must not be killed by
+        # an HTTP-level deadline. Health/session-create above keep their
+        # short timeouts; this is the long-running tool-loop call.
         r = requests.post(
             _url(f"/session/{session_id}/message"),
             json=body,
-            auth=_auth(),
-            timeout=OPENCODE_TIMEOUT_S,
+            timeout=OPENCODE_MESSAGE_TIMEOUT_S,
         )
         r.raise_for_status()
         return r.json()
@@ -282,7 +281,6 @@ class OpenCodeClient:
         try:
             r = requests.get(
                 _url(f"/session/{sid}/message"),
-                auth=_auth(),
                 timeout=30,
             )
             messages = r.json() if r.ok else []

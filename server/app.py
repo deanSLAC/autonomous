@@ -136,7 +136,7 @@ def on_dm_message(text: str, staff_name: str, dm_thread_key: str):
     global _dm_conversations
     if dm_thread_key not in _dm_conversations:
         if not llm_enabled():
-            logger.warning("Cannot handle DM: SLAC_API_KEY + OPENCODE_URL required")
+            logger.warning("Cannot handle DM: SLAC_API_KEY required")
             return
         client = OpenCodeClient()
         _dm_conversations[dm_thread_key] = ConversationService(client)
@@ -187,10 +187,10 @@ async def _notify_intervention(intervention_id: str, detail: str) -> None:
         logger.error("Slack post_intervention failed: %s", e)
 
 
-async def _phase_approval_requester(kind: str, detail: str, timeout_s: float) -> dict:
+async def _phase_approval_requester(kind: str, detail: str) -> dict:
     experiment_id = spec_cmd.get_experiment_id()
     return await coordinator.request_approval(
-        kind=kind, detail=detail, timeout_s=timeout_s,
+        kind=kind, detail=detail,
         experiment_id=experiment_id,
         notify=_notify_intervention,
     )
@@ -350,7 +350,7 @@ async def chat(payload: dict):
     if not conversation:
         if not llm_enabled():
             return JSONResponse(
-                {"error": "LLM disabled: SLAC_API_KEY + OPENCODE_URL required"},
+                {"error": "LLM disabled: SLAC_API_KEY required"},
                 status_code=503,
             )
         client = OpenCodeClient()

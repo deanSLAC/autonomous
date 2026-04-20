@@ -17,7 +17,6 @@ import time
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
 
-from config import BACKWARD_ONE_TIMEOUT_S, BACKWARD_MANY_TIMEOUT_S
 from db.autonomy_client import (
     record_phase_transition,
     upsert_experiment_plan,
@@ -112,8 +111,10 @@ class PreconditionChecker:
 # Approval callback types
 # ---------------------------------------------------------------------------
 
-ApprovalRequester = Callable[[str, str, float], Awaitable[dict]]
-"""async (kind, detail, timeout_s) → {'status': 'approved'|'denied'|'timeout', 'resolver': str}"""
+ApprovalRequester = Callable[[str, str], Awaitable[dict]]
+"""async (kind, detail) → {'status': 'approved'|'denied', 'resolver': str}.
+
+Blocks until staff resolves the request — there is no timeout."""
 
 
 # ---------------------------------------------------------------------------
@@ -173,14 +174,13 @@ async def transition_phase(
             human_approval_required=False,
         )
 
-    # Backward: must go through Slack approval
-    steps_back = phase_allowlist.backward_steps(prev, target_phase)
-    timeout_s = BACKWARD_ONE_TIMEOUT_S if steps_back == 1 else BACKWARD_MANY_TIMEOUT_S
+    # Backward: must go through Slack approval. We wait indefinitely —
+    # if rolling back a phase requires a human, the agent waits for one.
     kind = "backward_transition"
     detail = (
         f"Agent requesting backward phase transition: {prev} → {target_phase}. "
         f"Reason: {justification}. "
-        f"Reply 'approve' within {int(timeout_s)} s to allow, or 'deny' to keep current phase."
+        f"Reply 'approve' to allow, or 'deny' to keep current phase."
     )
 
     intervention = create_intervention(
@@ -205,7 +205,7 @@ async def transition_phase(
         )
 
     try:
-        resp = await approval_requester(kind, detail, timeout_s)
+        resp = await approval_requester(kind, detail)
     except Exception as e:
         resolve_intervention(intervention.id, status="denied", resolver="system",
                              note=f"approval channel error: {e}")

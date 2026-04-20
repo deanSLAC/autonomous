@@ -36,6 +36,18 @@ def main() -> None:
     root = here.parent
     sys.path.insert(0, str(root / "server"))
     sys.path.insert(0, str(root / "beamline_lib"))
+    sys.path.insert(0, str(root))
+
+    # Bootstrap simulation BEFORE bl_config is imported, because bl_config
+    # reads BL_SCAN_DIR / BL_LOGS_DIR at import time. opencode spawns this
+    # script in a fresh process every tool call, so the env vars set by
+    # the FastAPI parent process don't reach us — bootstrap re-applies
+    # them here. Idempotent (no-op if SIMULATION_MODE / SPEC_MOCK are off).
+    try:
+        import simulation  # type: ignore
+        simulation.bootstrap()
+    except Exception as e:
+        print(f"warning: simulation bootstrap failed: {e}", file=sys.stderr)
 
     # Importing config first sets BEAMLINE_DB_PATH for the db client,
     # so the subprocess reads the same sqlite file the main server uses.

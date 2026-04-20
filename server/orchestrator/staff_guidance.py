@@ -68,10 +68,15 @@ class StaffCoordinator:
         experiment_id: Optional[str],
         kind: str,
         detail: str,
-        timeout_s: float,
         notify: "callable",  # called with (intervention_id, detail)
+        timeout_s: Optional[float] = None,
     ) -> dict:
-        """Create an intervention, notify staff, block until resolution."""
+        """Create an intervention, notify staff, block until resolution.
+
+        With `timeout_s=None` (the default) this waits indefinitely.
+        Pass a positive number only if you have a real reason for the
+        agent to give up on its own (smoke tests do this).
+        """
         row = create_intervention(experiment_id, kind, detail)
         waiter = InterventionWaiter()
         async with self._lock:
@@ -83,12 +88,16 @@ class StaffCoordinator:
             logger.error("intervention notify failed: %s", e)
 
         try:
-            await asyncio.wait_for(waiter.event.wait(), timeout=timeout_s)
-            return waiter.outcome
-        except asyncio.TimeoutError:
-            resolve_intervention(row.id, status="timed_out", resolver="system",
-                                 note=f"no response within {timeout_s}s")
-            return {"id": row.id, "status": "timed_out", "resolver": "system"}
+            if timeout_s is None:
+                await waiter.event.wait()
+                return waiter.outcome
+            try:
+                await asyncio.wait_for(waiter.event.wait(), timeout=timeout_s)
+                return waiter.outcome
+            except asyncio.TimeoutError:
+                resolve_intervention(row.id, status="timed_out", resolver="system",
+                                     note=f"no response within {timeout_s}s")
+                return {"id": row.id, "status": "timed_out", "resolver": "system"}
         finally:
             async with self._lock:
                 self._waiters.pop(row.id, None)
@@ -120,23 +129,19 @@ class StaffCoordinator:
 
     # ---- Simple approval requester for phase transitions --------------
 
-    async def request_approval(self, kind: str, detail: str, timeout_s: float,
+    async def request_approval(self, kind: str, detail: str,
                                experiment_id: Optional[str] = None,
                                notify=None) -> dict:
+        """Block until staff approves or denies. No timeout."""
         if notify is None:
-            # Without a notify callback, default deny after timeout.
-            notify = lambda i, d: _noop_notify(i, d)
+            notify = _noop_notify
         result = await self.request_intervention(
             experiment_id=experiment_id, kind=kind, detail=detail,
-            timeout_s=timeout_s, notify=notify,
+            notify=notify,
         )
-        # Normalize for callers expecting {"status": "approved"|"denied"|"timeout"}.
-        status = result.get("status", "timed_out")
-        out_status = {
-            "resolved": "approved",
-            "denied": "denied",
-            "timed_out": "timeout",
-        }.get(status, status)
+        # Normalize for callers expecting {"status": "approved"|"denied"}.
+        status = result.get("status", "denied")
+        out_status = {"resolved": "approved", "denied": "denied"}.get(status, status)
         return {**result, "status": out_status}
 
 

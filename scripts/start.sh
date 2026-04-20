@@ -5,8 +5,8 @@
 #   1. Python venv + dependencies
 #   2. SQLite tables
 #   3. .opencode/tools/*.ts (regenerated from the Python tool registry)
-#   4. opencode server (SLAC AI Gateway provider)
-#   5. FastAPI application on $PORT (default 8080)
+#   4. opencode server on 127.0.0.1:4096 (no auth — loopback only)
+#   5. FastAPI application on :5005
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -35,6 +35,9 @@ python server/db/init_db.py
 echo "[start] regenerating opencode tool wrappers…"
 python scripts/generate_opencode_tools.py
 
+# opencode lives at a fixed loopback address — we set it up, we know
+# where it is. OPENCODE_BIN is the only escape hatch (different dev
+# machines may install it in different places).
 OPENCODE_BIN="${OPENCODE_BIN:-$HOME/.opencode/bin/opencode}"
 START_OPENCODE="${START_OPENCODE:-1}"
 OPENCODE_PID=""
@@ -47,17 +50,13 @@ if [[ "$START_OPENCODE" == "1" ]]; then
         echo "          curl -fsSL https://opencode.ai/install | bash"
         echo "        Continuing without agent."
     else
-        HOST="${OPENCODE_HOST:-127.0.0.1}"
-        OC_PORT="${OPENCODE_PORT:-4096}"
-        echo "[start] launching opencode on ${HOST}:${OC_PORT}"
-        "$OPENCODE_BIN" serve --hostname "$HOST" --port "$OC_PORT" &
+        echo "[start] launching opencode on 127.0.0.1:4096"
+        "$OPENCODE_BIN" serve --hostname 127.0.0.1 --port 4096 &
         OPENCODE_PID=$!
         trap 'echo "[start] stopping opencode ($OPENCODE_PID)"; kill "$OPENCODE_PID" 2>/dev/null || true' EXIT
-        # Give opencode a moment to bind
         sleep 2
     fi
 fi
 
-PORT="${PORT:-8080}"
-echo "[start] launching FastAPI on :${PORT}"
+echo "[start] launching FastAPI on :5005"
 exec python server/app.py

@@ -509,7 +509,6 @@ AUTONOMY_TOOL_DEFINITIONS = [
                         ],
                     },
                     "detail": {"type": "string", "description": "What you want the human to do."},
-                    "timeout_s": {"type": "number", "description": "Default 3600"},
                 },
                 "required": ["kind", "detail"],
             },

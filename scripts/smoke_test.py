@@ -172,7 +172,7 @@ async def run() -> None:
     assert_true(not r_back.allowed, "backward without channel is denied")
 
     banner("backward transition approved via stub requester")
-    async def approver(kind, detail, timeout):
+    async def approver(kind, detail):
         return {"status": "approved", "resolver": "stub"}
     r_back2 = await transition_phase(
         exp.id, phase_allowlist.PHASE_BL_ALIGN,

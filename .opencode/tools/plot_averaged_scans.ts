@@ -4,7 +4,7 @@ import { tool } from "@opencode-ai/plugin"
 export default tool({
   description: "Plot averaged energy scans for multiple samples overlaid on one plot. Each sample is edge-step normalized and averaged, then plotted with standard deviation shading.",
   args: {
-    "file_names": tool.schema.array(tool.schema.any()).describe("List of SPEC file names (one per sample) to compare."),
+    "file_names": tool.schema.array(tool.schema.string()).describe("List of SPEC file names (one per sample) to compare."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})

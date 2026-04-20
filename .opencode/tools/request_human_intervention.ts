@@ -6,7 +6,6 @@ export default tool({
   args: {
     "kind": tool.schema.string(),
 "detail": tool.schema.string().describe("What you want the human to do."),
-"timeout_s": tool.schema.number().optional().describe("Default 3600"),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
