@@ -207,12 +207,17 @@ function renderAutonomy(orc, dash) {
     // Buttons
     const running = !!(orc && orc.running);
     const paused = !!(orc && orc.paused);
-    const agentReady = !!(orc && orc.initialized);
+    // `agent_reachable` is a live probe; `initialized` only flips at
+    // FastAPI startup. Prefer the live value when it's present so the
+    // pill + button react if opencode dies mid-run.
+    const agentReady = orc
+        ? (orc.agent_reachable !== undefined ? !!orc.agent_reachable : !!orc.initialized)
+        : false;
     const startBtn = document.getElementById("btn-start");
     startBtn.disabled = running || !agentReady;
     startBtn.title = agentReady
         ? "Start the autonomous run"
-        : "Agent backend offline — start opencode (scripts/start_opencode.sh)";
+        : "Agent backend offline — start it with scripts/start.sh";
     document.getElementById("btn-pause").disabled = !running || paused;
     document.getElementById("btn-resume").disabled = !running || !paused;
     document.getElementById("btn-stop").disabled = !running;

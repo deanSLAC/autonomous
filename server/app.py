@@ -290,12 +290,29 @@ app.include_router(sample_holders_api.router)
 app.include_router(viewer_api.router)
 
 
+def _opencode_reachable() -> bool:
+    if not llm_enabled():
+        return False
+    try:
+        return OpenCodeClient().health_check()
+    except Exception:
+        return False
+
+
 @app.get(f"{BASE_PATH}/health")
 async def health():
+    try:
+        import bl_config
+        scan_dir = str(bl_config.BL_SCAN_DIR)
+    except Exception:
+        scan_dir = None
     return {
         "status": "ok",
         "phase": spec_cmd.get_phase(),
         "simulation": bool(_SIM_INFO.get("enabled")),
+        "opencode_reachable": _opencode_reachable(),
+        "orchestrator_initialized": orchestrator is not None,
+        "bl_scan_dir": scan_dir,
     }
 
 

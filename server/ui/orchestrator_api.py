@@ -7,8 +7,10 @@ import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
+from config import llm_enabled
 from db.autonomy_client import get_intervention
 from db.client import get_experiment
+from opencode_client import OpenCodeClient
 from orchestrator import planner
 from orchestrator.loop import get_orchestrator
 from orchestrator.staff_guidance import coordinator
@@ -16,6 +18,17 @@ from spec import spec_cmd
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/orchestrator", tags=["orchestrator"])
+
+
+def _agent_reachable() -> bool:
+    """Live probe of the opencode backend — used by the dashboard
+    pill so a mid-run crash shows up without a page reload."""
+    if not llm_enabled():
+        return False
+    try:
+        return OpenCodeClient().health_check()
+    except Exception:
+        return False
 
 
 @router.post("/start")
@@ -80,10 +93,11 @@ def stop():
 
 @router.get("/status")
 def status():
+    reachable = _agent_reachable()
     orch = get_orchestrator()
     if orch is None:
-        return {"initialized": False}
-    return {"initialized": True, **orch.snapshot()}
+        return {"initialized": False, "agent_reachable": reachable}
+    return {"initialized": True, "agent_reachable": reachable, **orch.snapshot()}
 
 
 @router.post("/guidance")
