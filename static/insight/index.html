@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BL15-2 — Agent Insight</title>
+    <link rel="stylesheet" href="/static/dashboard/static/dashboard.css">
+    <link rel="stylesheet" href="/static/dashboard/autonomy.css">
+    <link rel="stylesheet" href="/static/insight/insight.css">
+</head>
+<body>
+
+<div class="topbar">
+    <div class="topbar-left">
+        <div class="topbar-logo">
+            <img src="/static/dashboard/static/ssrl-logo.png" alt="SSRL">
+            <span class="topbar-logo-text">BL15-2</span>
+        </div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-title">Agent Insight</div>
+        <span id="sim-pill" class="sim-pill" style="display:none;">SIM</span>
+    </div>
+    <div class="topbar-right">
+        <a href="/dashboard" class="theme-toggle" title="Dashboard" style="text-decoration:none;font-size:13px;padding:0 10px;">Dashboard</a>
+        <a href="/" class="theme-toggle" title="Chat" style="text-decoration:none;font-size:13px;padding:0 10px;">Chat</a>
+        <label class="verbose-toggle" title="Show full tool args + outputs + system prompt">
+            <input type="checkbox" id="verbose-toggle"> Verbose
+        </label>
+        <div class="topbar-status">
+            <div class="status-dot" id="server-dot"></div>
+            <span id="server-status">connecting</span>
+        </div>
+        <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode">&#9790;</button>
+    </div>
+</div>
+
+<div class="insight-grid">
+    <!-- LEFT: turn tape -->
+    <div class="insight-col-left">
+        <div class="panel">
+            <div class="panel-header">
+                Agent turns (most recent first)
+                <span class="panel-sub" id="turn-summary">—</span>
+            </div>
+            <div id="turn-tape" class="turn-tape">
+                <div class="muted" style="padding:24px;">No turns yet. Send a chat message or start the orchestrator.</div>
+            </div>
+        </div>
+
+        <div class="panel" id="system-prompt-panel" style="display:none;">
+            <div class="panel-header">
+                System prompt
+                <span class="panel-sub" id="syspr-path">—</span>
+            </div>
+            <pre id="system-prompt-text" class="syspr-text"></pre>
+        </div>
+    </div>
+
+    <!-- RIGHT: SPEC actions + simulation status -->
+    <div class="insight-col-right">
+        <div class="panel">
+            <div class="panel-header">
+                Simulation status
+                <span class="panel-sub" id="sim-sub">—</span>
+            </div>
+            <div id="sim-block" class="sim-block">
+                <div class="muted">Simulation off.</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                SPEC action log
+                <span class="panel-sub">last 30 commands</span>
+            </div>
+            <div id="action-tape" class="action-tape"><div class="muted">No actions yet.</div></div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/insight/insight.js"></script>
+<script>
+    // Reuse the dashboard's dark-mode toggle behavior
+    (function() {
+        const btn = document.getElementById('theme-toggle');
+        const root = document.documentElement;
+        const saved = localStorage.getItem('theme') || 'light';
+        root.setAttribute('data-theme', saved);
+        btn.addEventListener('click', () => {
+            const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            root.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+        });
+    })();
+</script>
+</body>
+</html>

@@ -449,7 +449,14 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(async () => {
         try {
             const r = await fetch(API + "/health", { signal: AbortSignal.timeout(3000) });
-            if (r.ok) { srvDot.className = "status-dot dot-good"; srvTxt.textContent = "connected"; }
+            if (r.ok) {
+                srvDot.className = "status-dot dot-good"; srvTxt.textContent = "connected";
+                try {
+                    const j = await r.json();
+                    const pill = document.getElementById("sim-pill");
+                    if (pill) pill.style.display = j.simulation ? "inline-block" : "none";
+                } catch {}
+            }
             else { srvDot.className = "status-dot dot-bad"; srvTxt.textContent = "error"; }
         } catch {
             srvDot.className = "status-dot dot-bad"; srvTxt.textContent = "offline";

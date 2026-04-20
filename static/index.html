@@ -11,7 +11,15 @@
     <div class="header">
         <img src="/static/images/ssrl-logo.png" alt="SSRL">
         <h1>Beamtime Hero</h1>
+        <span id="sim-pill" style="display:none;background:#9b1b30;color:#fff;font-family:monospace;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:0.08em;margin-left:10px;">SIM</span>
+        <a href="/insight" style="margin-left:auto;color:#9b1b30;text-decoration:none;font-size:13px;font-weight:600;">Insight →</a>
+        <a href="/dashboard" style="margin-left:14px;color:#9b1b30;text-decoration:none;font-size:13px;font-weight:600;">Dashboard →</a>
     </div>
+    <script>
+        fetch('/health').then(r => r.json()).then(j => {
+            if (j.simulation) document.getElementById('sim-pill').style.display = 'inline-block';
+        }).catch(() => {});
+    </script>
 
     <div class="main">
         <!-- Sidebar -->

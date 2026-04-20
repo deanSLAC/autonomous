@@ -31,13 +31,21 @@ from fastapi.staticfiles import StaticFiles
 # sibling beamline_lib package (legacy analysis tools).
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "beamline_lib"))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Simulation bootstrap MUST run before bl_config is imported, because
+# bl_config reads BL_SCAN_DIR / BL_LOGS_DIR at import time.
+from dotenv import load_dotenv
+load_dotenv()
+import simulation as _sim
+_SIM_INFO = _sim.bootstrap()
 
 from config import (
     BASE_PATH, STATIC_DIR, PROJECT_ROOT, PORT,
     llm_enabled, OPENCODE_URL,
 )
 from opencode_client import OpenCodeClient
-from conversation import ConversationService
+from conversation import ConversationService, set_turn_sink
 from slack_bridge import SlackBridge
 
 # Autonomy wiring
@@ -46,7 +54,7 @@ from orchestrator.loop import Orchestrator, set_orchestrator
 from orchestrator.staff_guidance import coordinator
 from spec import spec_cmd
 from tools import autonomy_tools
-from ui import config_api, dashboard_api, orchestrator_api, plan_api
+from ui import config_api, dashboard_api, orchestrator_api, plan_api, insight_api
 
 
 logging.basicConfig(
@@ -84,6 +92,12 @@ def _broadcast(msg: dict):
         logger.debug("No event loop available for WebSocket broadcast")
         return
     asyncio.run_coroutine_threadsafe(broadcast_ws(msg), _event_loop)
+
+
+def _on_turn_complete(payload: dict) -> None:
+    """Sink for ConversationService — store + broadcast each turn."""
+    entry = insight_api.record_turn(payload)
+    _broadcast({"type": "turn_complete", "turn": entry})
 
 
 # ===========================================================================
@@ -231,6 +245,7 @@ async def lifespan(app: FastAPI):
 
     autonomy_tools.set_intervention_notifier(_notify_intervention)
     autonomy_tools.set_phase_approval_requester(_phase_approval_requester)
+    set_turn_sink(_on_turn_complete)
 
     yield
 
@@ -251,11 +266,21 @@ app.include_router(config_api.router)
 app.include_router(dashboard_api.router)
 app.include_router(orchestrator_api.router)
 app.include_router(plan_api.router)
+app.include_router(insight_api.router)
 
 
 @app.get(f"{BASE_PATH}/health")
 async def health():
-    return {"status": "ok", "phase": spec_cmd.get_phase()}
+    return {
+        "status": "ok",
+        "phase": spec_cmd.get_phase(),
+        "simulation": bool(_SIM_INFO.get("enabled")),
+    }
+
+
+@app.get(f"{BASE_PATH}/insight")
+async def insight_page():
+    return FileResponse(STATIC_DIR / "insight" / "index.html", media_type="text/html")
 
 
 # ---- Page routes ---------------------------------------------------------

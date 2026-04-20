@@ -73,11 +73,23 @@ _state = _SpecState()
 # Mock simulator
 # ---------------------------------------------------------------------------
 
+def _sim_engine():
+    """Return the simulation engine module if active, else None."""
+    try:
+        from simulation import engine as eng  # type: ignore
+    except Exception:
+        return None
+    return eng if eng.is_active() else None
+
+
 class _MockScreen:
     """In-memory stand-in that synthesizes believable SPEC output.
 
     Not a full SPEC model — just enough to exercise the dispatcher,
-    action_log, orchestrator, and UI without a live beamline.
+    action_log, orchestrator, and UI without a live beamline. When the
+    `simulation` package has been bootstrapped, scan-producing commands
+    are routed through `simulation.engine` so a real (mock) SPEC file
+    appears on disk and `get_latest_scan` etc. surface the new data.
     """
 
     _scan_counter = itertools.count(1)
@@ -91,6 +103,18 @@ class _MockScreen:
     _scan_n = 1000
     _filename = "mock.01"
     _logfile = "mock.log"
+
+    @classmethod
+    def _filename_active(cls) -> str:
+        eng = _sim_engine()
+        return eng.current_file() if eng else cls._filename
+
+    @classmethod
+    def _set_filename(cls, name: str) -> None:
+        cls._filename = name
+        eng = _sim_engine()
+        if eng:
+            eng.set_current_file(name)
 
     @classmethod
     def inject(cls, cmd: str) -> str:
@@ -131,6 +155,24 @@ class _MockScreen:
                     pass
             return "Move complete."
         if low.startswith(("ascan ", "dscan ")):
+            tokens = cmd.split()
+            try:
+                motor = tokens[1]
+                lo = float(tokens[2]); hi = float(tokens[3])
+                npts = int(tokens[4]); ct = float(tokens[5])
+                if low.startswith("dscan "):
+                    cur = cls._positions.get(motor, 0.0)
+                    lo, hi = cur + lo, cur + hi
+            except (IndexError, ValueError):
+                cls._scan_n += 1
+                return f"Scan #{cls._scan_n} complete. File={cls._filename}"
+            eng = _sim_engine()
+            if eng:
+                meta = eng.append_ascan(motor, lo, hi, npts, ct,
+                                        positions=dict(cls._positions))
+                cls._scan_n = meta["scan_number"]
+                return (f"Scan #{meta['scan_number']} complete. "
+                        f"File={meta['file_name']}  motor={motor}")
             cls._scan_n += 1
             return f"Scan #{cls._scan_n} complete. File={cls._filename}"
         if low.startswith("cen") or low.startswith("peak"):
@@ -160,7 +202,7 @@ class _MockScreen:
         if low.startswith("newfile"):
             tokens = cmd.split()
             if len(tokens) >= 2:
-                cls._filename = tokens[1]
+                cls._set_filename(tokens[1])
             return f"new file: {cls._filename}"
         if low.startswith(("fson", "fsoff", "fsopen", "fsclose")):
             return f"shutter: {low}"
@@ -173,8 +215,54 @@ class _MockScreen:
             return "filters removed."
         if low.startswith(("vvv", "hhh", "m1m1", "m2m2", "ggg", "bzbz", "bxbx",
                            "dmm", "beamx", "beamz", "cm1m1", "cm2m2")):
+            alias = low.split()[0]
+            eng = _sim_engine()
+            if eng:
+                meta = eng.append_alias_scan(alias, positions=dict(cls._positions))
+                cls._scan_n = meta["scan_number"]
+                return (f"{alias} scan complete. scan_n={meta['scan_number']} "
+                        f"file={meta['file_name']}")
             cls._scan_n += 1
             return f"{low} scan complete. scan_n={cls._scan_n}"
+        # XAS / emission scans rendered as `<elem>_xas` / `<elem>_cee`
+        if "_xas " in low or low.endswith("_xas"):
+            tokens = cmd.split()
+            elem = tokens[0].split("_xas")[0]
+            try:
+                ct = float(tokens[1]) if len(tokens) > 1 else 0.5
+                reps = int(tokens[2]) if len(tokens) > 2 else 1
+            except ValueError:
+                ct, reps = 0.5, 1
+            eng = _sim_engine()
+            if eng:
+                last = None
+                for _ in range(max(reps, 1)):
+                    last = eng.append_xas_scan(elem, count_time=ct,
+                                               positions=dict(cls._positions))
+                    cls._scan_n = last["scan_number"]
+                return (f"{elem}_xas complete. reps={reps} "
+                        f"last_scan={last['scan_number']} file={last['file_name']}")
+            cls._scan_n += reps
+            return f"{elem}_xas complete. reps={reps} scan_n={cls._scan_n}"
+        if "_cee " in low or low.endswith("_cee"):
+            tokens = cmd.split()
+            elem = tokens[0].split("_cee")[0]
+            try:
+                ct = float(tokens[1]) if len(tokens) > 1 else 0.5
+                reps = int(tokens[2]) if len(tokens) > 2 else 1
+            except ValueError:
+                ct, reps = 0.5, 1
+            eng = _sim_engine()
+            if eng:
+                last = None
+                for _ in range(max(reps, 1)):
+                    last = eng.append_emiss_scan(elem, count_time=ct,
+                                                 positions=dict(cls._positions))
+                    cls._scan_n = last["scan_number"]
+                return (f"{elem}_cee complete. reps={reps} "
+                        f"last_scan={last['scan_number']} file={last['file_name']}")
+            cls._scan_n += reps
+            return f"{elem}_cee complete. reps={reps} scan_n={cls._scan_n}"
         return f"ok: {cmd}"
 
 

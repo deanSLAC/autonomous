@@ -45,6 +45,7 @@ class OpenCodeResult:
     tool_calls: list[dict] = field(default_factory=list)
     messages: list[dict] = field(default_factory=list)
     session_id: Optional[str] = None
+    thoughts: list[str] = field(default_factory=list)
 
 
 def _auth() -> Optional[tuple[str, str]]:
@@ -84,6 +85,106 @@ def _extract_image_paths(messages: list[dict]) -> list[str]:
                 for mo in _IMAGE_PATH_RE.finditer(content):
                     paths.append(mo.group(1))
     return paths
+
+
+def _stringify(val: Any) -> str:
+    if isinstance(val, str):
+        return val
+    try:
+        return json.dumps(val, default=str)
+    except Exception:
+        return str(val)
+
+
+def _truncate(s: str, limit: int = 4000) -> str:
+    if len(s) <= limit:
+        return s
+    return s[:limit] + f"\n…[truncated {len(s) - limit} chars]"
+
+
+def _extract_tool_calls(messages: list[dict]) -> list[dict]:
+    """Pull (name, input, output, status, timing) tuples from a transcript.
+
+    opencode's message format has shifted across versions; we accept any
+    of the common shapes:
+      - parts with type="tool" carrying name/input/output inline
+      - parts with type="tool-call" + matching type="tool-result"
+      - role="tool" messages carrying content blocks
+    """
+    calls: list[dict] = []
+    by_id: dict[str, dict] = {}
+
+    def _record(entry: dict) -> None:
+        cid = entry.get("id")
+        if cid and cid in by_id:
+            existing = by_id[cid]
+            for k, v in entry.items():
+                if v is not None and not existing.get(k):
+                    existing[k] = v
+            return
+        if cid:
+            by_id[cid] = entry
+        calls.append(entry)
+
+    for m in messages or []:
+        role = m.get("role")
+        parts = m.get("parts") or []
+        if not isinstance(parts, list):
+            parts = []
+        for part in parts:
+            if not isinstance(part, dict):
+                continue
+            t = part.get("type") or ""
+            if t in ("tool", "tool-call", "tool_use", "function-call"):
+                _record({
+                    "id": part.get("id") or part.get("toolCallId")
+                          or part.get("callID") or part.get("call_id"),
+                    "name": part.get("name") or part.get("toolName") or "?",
+                    "input": part.get("input") or part.get("arguments") or {},
+                    "output": _truncate(_stringify(
+                        part.get("output") or part.get("result") or "")),
+                    "status": part.get("status"),
+                    "started_at": part.get("startedAt") or part.get("started"),
+                    "completed_at": part.get("completedAt") or part.get("ended"),
+                    "role": role,
+                })
+            elif t in ("tool-result", "tool_result", "function-result"):
+                _record({
+                    "id": part.get("toolCallId") or part.get("id")
+                          or part.get("callID") or part.get("call_id"),
+                    "name": part.get("toolName") or part.get("name"),
+                    "output": _truncate(_stringify(
+                        part.get("output") or part.get("result") or
+                        part.get("content") or "")),
+                    "status": part.get("status") or "completed",
+                })
+        if role == "tool":
+            content = m.get("content")
+            if isinstance(content, str) and content:
+                _record({
+                    "id": m.get("id") or m.get("toolCallId"),
+                    "name": m.get("name") or m.get("toolName") or "?",
+                    "output": _truncate(content),
+                    "status": "completed",
+                })
+    return calls
+
+
+def _extract_assistant_thoughts(messages: list[dict]) -> list[str]:
+    """Pull any 'reasoning' / 'thinking' parts from assistant messages."""
+    out: list[str] = []
+    for m in messages or []:
+        if m.get("role") != "assistant":
+            continue
+        for part in m.get("parts") or []:
+            if not isinstance(part, dict):
+                continue
+            t = part.get("type") or ""
+            if t in ("reasoning", "thinking"):
+                txt = part.get("text") or part.get("content")
+                if isinstance(txt, str) and txt.strip():
+                    out.append(txt)
+    return out
 
 
 class OpenCodeClient:
@@ -200,9 +301,10 @@ class OpenCodeClient:
         return OpenCodeResult(
             text=assistant_text or "",
             images=_extract_image_paths(messages),
-            tool_calls=[m for m in messages if m.get("role") == "tool"],
+            tool_calls=_extract_tool_calls(messages),
             messages=messages,
             session_id=sid,
+            thoughts=_extract_assistant_thoughts(messages),
         )
 
     @staticmethod
