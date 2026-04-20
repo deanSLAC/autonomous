@@ -36,7 +36,17 @@ async def start(payload: dict):
 
     orch = get_orchestrator()
     if orch is None:
-        return JSONResponse({"success": False, "error": "orchestrator not initialized"}, status_code=503)
+        return JSONResponse(
+            {
+                "success": False,
+                "error": (
+                    "Orchestrator not initialized — the local opencode agent "
+                    "server is not reachable. Launch it with "
+                    "scripts/start_opencode.sh (or scripts/start.sh) and retry."
+                ),
+            },
+            status_code=503,
+        )
     orch.start(experiment_id)
     return {"success": True, "experiment_id": experiment_id, "phase": spec_cmd.get_phase()}
 

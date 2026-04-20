@@ -18,11 +18,32 @@ async function autonomyAction(kind) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ experiment_id: expId, beamtime_hours: 48 }),
             });
-            await r.json();
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok || j.success === false) {
+                const msg = j.error || j.detail || `HTTP ${r.status}`;
+                if (r.status === 503) {
+                    alert(
+                        "Cannot start run — agent backend is offline.\n\n" +
+                        msg + "\n\n" +
+                        "The orchestrator needs the local opencode server. " +
+                        "Start it with: scripts/start_opencode.sh\n" +
+                        "(or run scripts/start.sh to launch everything together)."
+                    );
+                } else {
+                    alert("Start failed: " + msg);
+                }
+                return;
+            }
         } else {
-            await fetch(API + `/api/orchestrator/${kind}`, { method: "POST" });
+            const r = await fetch(API + `/api/orchestrator/${kind}`, { method: "POST" });
+            if (!r.ok) {
+                const j = await r.json().catch(() => ({}));
+                alert(`${kind} failed: ${j.detail || j.error || r.status}`);
+                return;
+            }
         }
     } catch (e) {
+        alert("Request failed: " + (e && e.message ? e.message : e));
         console.error(e);
     }
     refreshAutonomy();
@@ -186,10 +207,27 @@ function renderAutonomy(orc, dash) {
     // Buttons
     const running = !!(orc && orc.running);
     const paused = !!(orc && orc.paused);
-    document.getElementById("btn-start").disabled = running;
+    const agentReady = !!(orc && orc.initialized);
+    const startBtn = document.getElementById("btn-start");
+    startBtn.disabled = running || !agentReady;
+    startBtn.title = agentReady
+        ? "Start the autonomous run"
+        : "Agent backend offline — start opencode (scripts/start_opencode.sh)";
     document.getElementById("btn-pause").disabled = !running || paused;
     document.getElementById("btn-resume").disabled = !running || !paused;
     document.getElementById("btn-stop").disabled = !running;
+
+    // Agent backend pill
+    const agentEl = document.getElementById("orc-agent");
+    if (agentEl) {
+        if (agentReady) {
+            agentEl.textContent = "online";
+            agentEl.className = "dot-good";
+        } else {
+            agentEl.textContent = "offline";
+            agentEl.className = "dot-bad";
+        }
+    }
 
     // Status pills
     const runEl = document.getElementById("orc-running");
