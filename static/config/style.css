@@ -1,4 +1,34 @@
-/* BL15-2 Experiment Configuration Form */
+/* BL15-2 Experiment Configuration Form — SSRL themed */
+
+/* ---- SSRL palette (matches dashboard) ---- */
+:root {
+    --bg: #f9f6ef;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f5f1e8;
+    --bg-surface: #f0ebe3;
+    --border: #e0dbd2;
+    --border-subtle: #ece7dd;
+    --text: #1a1a1a;
+    --text-dim: #4a4a4a;
+    --text-muted: #6b6b6b;
+    --accent: #9b1b30;
+    --accent-dim: #d4a0a8;
+    --accent-hover: #7a1526;
+    --green: #1b7a1b;
+    --green-dim: #d4ecd4;
+    --yellow: #8a6d00;
+    --yellow-dim: #f5ecd0;
+    --red: #c0392b;
+    --red-dim: #f5d5d2;
+    --blue: #2563eb;
+    --blue-dim: #dbeafe;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --mono: "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --topbar-border: #9b1b30;
+}
 
 * {
     box-sizing: border-box;
@@ -7,28 +37,109 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: #f5f6f8;
-    color: #1a1a2e;
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
     line-height: 1.5;
-    padding: 20px;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
 }
 
-h1 {
-    font-size: 1.6rem;
-    margin-bottom: 4px;
-    color: #1a1a2e;
+/* ---- Top bar (mirrors dashboard) ---- */
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 28px;
+    border-bottom: 2px solid var(--topbar-border);
+    background: var(--bg-card);
+    box-shadow: var(--shadow);
 }
 
-.subtitle {
-    color: #666;
-    font-size: 0.9rem;
-    margin-bottom: 24px;
+.topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
 }
+
+.topbar-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.topbar-logo img {
+    height: 30px;
+}
+
+.topbar-logo-text {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+}
+
+.topbar-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+}
+
+.topbar-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-dim);
+}
+
+.sim-pill {
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.08em;
+    margin-left: 6px;
+}
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.topbar-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.nav-link {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    white-space: nowrap;
+}
+.nav-link:hover {
+    color: var(--accent);
+    border-color: var(--border);
+    background: var(--bg-surface);
+}
+
+/* ---- Form container ---- */
 
 .form-container {
     max-width: 1100px;
     margin: 0 auto;
+    padding: 24px 28px;
 }
 
 /* Tab Bar */
@@ -36,29 +147,30 @@ h1 {
     display: flex;
     gap: 0;
     margin-bottom: 20px;
-    border-bottom: 2px solid #dde1e6;
+    border-bottom: 2px solid var(--border);
 }
 
 .tab-btn {
     padding: 10px 28px;
     font-size: 0.95rem;
     font-weight: 600;
+    font-family: var(--sans);
     background: none;
     border: none;
     border-bottom: 3px solid transparent;
-    color: #666;
+    color: var(--text-muted);
     cursor: pointer;
     margin-bottom: -2px;
     transition: color 0.15s, border-color 0.15s;
 }
 
 .tab-btn:hover {
-    color: #1a1a2e;
+    color: var(--text);
 }
 
 .tab-btn.active {
-    color: #2563eb;
-    border-bottom-color: #2563eb;
+    color: var(--accent);
+    border-bottom-color: var(--accent);
 }
 
 .tab-content.hidden {
@@ -67,9 +179,9 @@ h1 {
 
 /* Experiment Summary Banner (Tab 2) */
 .experiment-summary-banner {
-    background: #f0f4ff;
-    border: 1px solid #c7d2fe;
-    border-radius: 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     padding: 14px 20px;
     margin-bottom: 16px;
 }
@@ -77,7 +189,7 @@ h1 {
 .experiment-summary-banner .banner-title {
     font-weight: 600;
     font-size: 0.95rem;
-    color: #1a1a2e;
+    color: var(--text);
     margin-bottom: 4px;
 }
 
@@ -86,7 +198,7 @@ h1 {
     flex-wrap: wrap;
     gap: 16px;
     font-size: 0.85rem;
-    color: #444;
+    color: var(--text-dim);
 }
 
 .experiment-summary-banner .banner-details span {
@@ -94,18 +206,19 @@ h1 {
 }
 
 .experiment-summary-banner .banner-placeholder {
-    color: #888;
+    color: var(--text-muted);
     font-style: italic;
     font-size: 0.9rem;
 }
 
-/* Sections */
+/* Sections (card style matching dashboard tiles) */
 .section {
-    background: #fff;
-    border: 1px solid #dde1e6;
-    border-radius: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     padding: 20px 24px;
     margin-bottom: 16px;
+    box-shadow: var(--shadow);
 }
 
 .section-header {
@@ -117,7 +230,7 @@ h1 {
 
 .section-header h2 {
     font-size: 1.15rem;
-    color: #1a1a2e;
+    color: var(--text);
 }
 
 .section-header .btn-add {
@@ -136,7 +249,7 @@ h1 {
 .collapsible-header::after {
     content: "\25BC";
     font-size: 0.7rem;
-    color: #888;
+    color: var(--text-muted);
     transition: transform 0.2s;
 }
 
@@ -187,41 +300,43 @@ h1 {
 .form-group label {
     font-size: 0.78rem;
     font-weight: 600;
-    color: #555;
+    color: var(--text-muted);
     margin-bottom: 3px;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
 }
 
 .form-group label .required {
-    color: #c0392b;
+    color: var(--red);
 }
 
 input, select, textarea {
     padding: 7px 10px;
-    border: 1px solid #ccd0d5;
+    border: 1px solid var(--border);
     border-radius: 5px;
     font-size: 0.9rem;
-    font-family: inherit;
-    background: #fff;
-    transition: border-color 0.15s;
+    font-family: var(--sans);
+    background: var(--bg-card);
+    color: var(--text);
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 input:focus, select:focus {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(155, 27, 48, 0.12);
 }
 
 input.error, select.error {
-    border-color: #e74c3c;
-    background: #fef2f2;
+    border-color: var(--red);
+    background: var(--red-dim);
 }
 
 input[type="checkbox"] {
     width: 16px;
     height: 16px;
     margin-top: 4px;
+    accent-color: var(--accent);
 }
 
 input[type="number"] {
@@ -232,9 +347,10 @@ input[type="number"] {
 .btn {
     padding: 8px 16px;
     border: none;
-    border-radius: 5px;
+    border-radius: var(--radius);
     font-size: 0.85rem;
     font-weight: 600;
+    font-family: var(--sans);
     cursor: pointer;
     transition: background 0.15s, opacity 0.15s;
 }
@@ -245,52 +361,53 @@ input[type="number"] {
 }
 
 .btn-primary {
-    background: #2563eb;
+    background: var(--accent);
     color: #fff;
 }
 
 .btn-primary:hover:not(:disabled) {
-    background: #1d4ed8;
+    background: var(--accent-hover);
 }
 
 .btn-add {
-    background: #e8f0fe;
-    color: #2563eb;
-    border: 1px solid #bfdbfe;
+    background: var(--bg-surface);
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
 }
 
 .btn-add:hover {
-    background: #dbeafe;
+    background: var(--bg-card-hover);
+    border-color: var(--accent);
 }
 
 .btn-remove {
-    background: #fef2f2;
-    color: #dc2626;
-    border: 1px solid #fecaca;
+    background: var(--red-dim);
+    color: var(--red);
+    border: 1px solid #e8b4b0;
     padding: 4px 10px;
     font-size: 0.8rem;
 }
 
 .btn-remove:hover {
-    background: #fee2e2;
+    background: #f0c0bc;
 }
 
 .btn-submit {
-    background: #16a34a;
+    background: var(--accent);
     color: #fff;
     font-size: 1rem;
     padding: 12px 32px;
 }
 
 .btn-submit:hover:not(:disabled) {
-    background: #15803d;
+    background: var(--accent-hover);
 }
 
 /* Element / Sample cards */
 .element-card, .sample-card {
-    background: #f8f9fb;
-    border: 1px solid #e2e5ea;
-    border-radius: 6px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     padding: 14px 18px;
     margin-bottom: 10px;
     position: relative;
@@ -306,14 +423,14 @@ input[type="number"] {
 .card-header .card-title {
     font-weight: 600;
     font-size: 0.9rem;
-    color: #374151;
+    color: var(--text);
 }
 
 /* RIXS subsection */
 .rixs-section {
     margin-top: 10px;
     padding-top: 10px;
-    border-top: 1px dashed #d1d5db;
+    border-top: 1px dashed var(--border);
 }
 
 .rixs-section.hidden {
@@ -326,15 +443,15 @@ input[type="number"] {
 }
 
 .error-list {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    border-radius: 6px;
+    background: var(--red-dim);
+    border: 1px solid #e8b4b0;
+    border-radius: var(--radius);
     padding: 12px 16px;
     margin-bottom: 12px;
 }
 
 .error-list h3 {
-    color: #dc2626;
+    color: var(--red);
     font-size: 0.9rem;
     margin-bottom: 6px;
 }
@@ -342,33 +459,33 @@ input[type="number"] {
 .error-list ul {
     list-style: disc;
     padding-left: 20px;
-    color: #991b1b;
+    color: #7a1a1a;
     font-size: 0.85rem;
 }
 
 .success-box {
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    border-radius: 6px;
+    background: var(--green-dim);
+    border: 1px solid #a3d9a3;
+    border-radius: var(--radius);
     padding: 14px 18px;
 }
 
 .success-box h3 {
-    color: #16a34a;
+    color: var(--green);
     font-size: 0.95rem;
     margin-bottom: 6px;
 }
 
 .success-box p {
-    color: #166534;
+    color: #145214;
     font-size: 0.9rem;
 }
 
 .success-box code {
-    background: #dcfce7;
+    background: #bbecbb;
     padding: 2px 6px;
     border-radius: 3px;
-    font-family: "SF Mono", "Fira Code", monospace;
+    font-family: var(--mono);
     font-size: 0.85rem;
 }
 
@@ -389,7 +506,7 @@ input[type="number"] {
 .checkbox-row label {
     font-size: 0.85rem;
     font-weight: normal;
-    color: #374151;
+    color: var(--text-dim);
     text-transform: none;
     letter-spacing: 0;
 }
@@ -397,7 +514,7 @@ input[type="number"] {
 /* Separator */
 hr.section-sep {
     border: none;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--border);
     margin: 10px 0;
 }
 
@@ -410,5 +527,9 @@ hr.section-sep {
     .form-group.medium {
         flex: 1;
         min-width: 100%;
+    }
+    .topbar {
+        flex-direction: column;
+        gap: 10px;
     }
 }

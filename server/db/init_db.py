@@ -13,11 +13,42 @@ from pathlib import Path
 # Ensure server/ is importable regardless of cwd
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy import event
+from sqlalchemy import event, inspect, text
 from sqlmodel import SQLModel, create_engine
 
 # Register every model with the metadata by importing the module.
 from db import models  # noqa: F401
+
+
+# Columns added since the original schema. Keep additive only — for
+# destructive changes, write a real migration. Each entry is the SQL
+# fragment after `ADD COLUMN` (sqlite syntax). Run on every init_db().
+_PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
+    "experimentelement": [
+        ("measurement_mode", 'TEXT NOT NULL DEFAULT "XES"'),
+        ("emission_line", "TEXT"),
+    ],
+    "sampleposition": [
+        ("i0_gain", "TEXT"),
+        ("i0_offset", "TEXT"),
+        ("i1_gain", "TEXT"),
+    ],
+}
+
+
+def _apply_column_migrations(engine) -> None:
+    insp = inspect(engine)
+    existing_tables = set(insp.get_table_names())
+    with engine.begin() as conn:
+        for table, cols in _PENDING_COLUMNS.items():
+            if table not in existing_tables:
+                continue
+            existing_cols = {c["name"] for c in insp.get_columns(table)}
+            for col_name, col_def in cols:
+                if col_name in existing_cols:
+                    continue
+                conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {col_name} {col_def}'))
+                print(f"  migrated: {table}.{col_name} added")
 
 
 def get_default_db_path() -> str:
@@ -46,6 +77,7 @@ def init_db(db_path: str | None = None) -> None:
         cursor.close()
 
     SQLModel.metadata.create_all(engine)
+    _apply_column_migrations(engine)
     print(f"Database initialized: {db_path}")
     print(f"Tables: {', '.join(sorted(SQLModel.metadata.tables.keys()))}")
 

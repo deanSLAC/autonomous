@@ -185,28 +185,45 @@
     display: flex;
     gap: 8px;
     margin-top: 10px;
+    align-items: flex-end;
 }
-.guidance-compose input, .chat-compose input {
+.guidance-compose input, .chat-compose input,
+.guidance-compose textarea, .chat-compose textarea {
     flex: 1;
-    padding: 6px 10px;
+    padding: 8px 10px;
     border: 1px solid var(--border, #e0dbd2);
     border-radius: 6px;
     background: var(--bg-card, #fff);
     color: var(--text, #1a1a1a);
     font-family: inherit;
+    font-size: 0.9em;
+    line-height: 1.4;
+    resize: vertical;
+    min-height: 36px;
 }
+.chat-compose textarea { min-height: 70px; }
 .guidance-compose button, .chat-compose button {
     background: var(--accent, #9b1b30);
-    color: #fff; border: 0; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    color: #fff; border: 0; padding: 8px 14px; border-radius: 6px;
+    cursor: pointer; font-weight: 600;
 }
+.chat-compose button:disabled { opacity: 0.5; cursor: wait; }
 
 .chat-log {
+    min-height: 80px;
     max-height: 420px;
     overflow-y: auto;
     font-size: 0.9em;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding: 4px 2px;
+}
+.chat-log .typing-indicator {
+    align-self: flex-start;
+    color: var(--text-muted, #888);
+    font-size: 0.85em;
+    font-style: italic;
 }
 .chat-msg {
     padding: 8px 10px;

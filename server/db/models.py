@@ -24,13 +24,13 @@ class Experiment(SQLModel, table=True):
     id: str = Field(default_factory=generate_id, primary_key=True)
     name: str = Field(index=True)
     beamline: str = Field(default="BL15-2")
-    experimenter: str = Field(index=True)
+    experimenter: Optional[str] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.now)
     mono_crystal: str = Field(default="A")  # A (Si111) or B (Si311)
     beam_size_h: str = Field(default="big")      # horizontal: "big" or "focused"
     beam_size_v: str = Field(default="big")      # vertical: "big" or "focused"
     mirrors_out: bool = Field(default=False)      # mirrors removed (energy above cutoff)
-    sample_env: Optional[str] = None  # cryostat, ambient, operando
+    sample_env: Optional[str] = None  # cryostat, ambient, operando, liquid_jet
     status: str = Field(default="created", index=True)  # created/aligning/collecting/done
     config_yaml: Optional[str] = None  # Full YAML text of experiment config
     data_path: Optional[str] = None  # e.g. /data/fifteen/{name}
@@ -46,6 +46,8 @@ class ExperimentElement(SQLModel, table=True):
     experiment_id: str = Field(foreign_key="experiment.id", index=True)
     element_symbol: str  # e.g. "Zn", "As"
     edge: str  # K, L1, L2, L3
+    measurement_mode: str = Field(default="XES")  # "XES" or "TFY"
+    emission_line: Optional[str] = None  # e.g. "Ka1" — None for TFY
     incident_energy_eV: float
     emission_energy_eV: float
     crystal_type: int  # 0 = Si, 1 = Ge
@@ -163,6 +165,10 @@ class SamplePosition(SQLModel, table=True):
     rixs_end: Optional[float] = None    # Emission end (eV)
     rixs_step: float = -0.2             # Negative (scanning downward)
     rixs_filter: int = 0
+    # Per-sample gain overrides (None = use crystal default from defaults.yaml)
+    i0_gain: Optional[str] = None
+    i0_offset: Optional[str] = None
+    i1_gain: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

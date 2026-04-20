@@ -15,17 +15,41 @@ motor_limits:
   energy: [4950, 25000]
   emiss: [2000, 20000]
 
+# Range of energies (eV) accessible by the beamline.
+# Used to filter which edges and emission lines are offered in the form.
+accessible_energy_range_eV: [4000, 25000]
+
 common_elements:
+  # Period 4 transition metals + main group (Z=22-35)
+  - {symbol: Ti, name: Titanium}
+  - {symbol: V,  name: Vanadium}
+  - {symbol: Cr, name: Chromium}
+  - {symbol: Mn, name: Manganese}
   - {symbol: Fe, name: Iron}
+  - {symbol: Co, name: Cobalt}
+  - {symbol: Ni, name: Nickel}
   - {symbol: Cu, name: Copper}
   - {symbol: Zn, name: Zinc}
+  - {symbol: Ga, name: Gallium}
+  - {symbol: Ge, name: Germanium}
   - {symbol: As, name: Arsenic}
   - {symbol: Se, name: Selenium}
-  - {symbol: Pb, name: Lead}
-  - {symbol: Mn, name: Manganese}
-  - {symbol: Ni, name: Nickel}
-  - {symbol: Co, name: Cobalt}
-  - {symbol: Cr, name: Chromium}
+  - {symbol: Br, name: Bromine}
+  # Period 5 (K edges accessible)
+  - {symbol: Mo, name: Molybdenum}
+  - {symbol: Ru, name: Ruthenium}
+  - {symbol: Rh, name: Rhodium}
+  # Lanthanide
+  - {symbol: Ce, name: Cerium}
+  # Period 6 (L edges; Z=73-80)
+  - {symbol: Ta, name: Tantalum}
+  - {symbol: W,  name: Tungsten}
+  - {symbol: Re, name: Rhenium}
+  - {symbol: Os, name: Osmium}
+  - {symbol: Ir, name: Iridium}
+  - {symbol: Pt, name: Platinum}
+  - {symbol: Au, name: Gold}
+  - {symbol: Hg, name: Mercury}
 
 crystal_cuts:
   - {hkl: "1 1 1", type: Si, common_for: [Fe, Mn, Cr, Co]}

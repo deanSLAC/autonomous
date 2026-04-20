@@ -87,7 +87,7 @@ def get_session() -> Session:
 
 def create_experiment(
     name: str,
-    experimenter: str,
+    experimenter: Optional[str] = None,
     mono_crystal: str = "A",
     beam_size_h: str = "big",
     beam_size_v: str = "big",
@@ -161,12 +161,16 @@ def create_experiment_element(
     n_crystals: int,
     vortex_channel: int = 1,
     priority: int = 0,
+    measurement_mode: str = "XES",
+    emission_line: Optional[str] = None,
 ) -> ExperimentElement:
     """Create and persist a new ExperimentElement."""
     elem = ExperimentElement(
         experiment_id=experiment_id,
         element_symbol=element_symbol,
         edge=edge,
+        measurement_mode=measurement_mode,
+        emission_line=emission_line,
         incident_energy_eV=incident_energy_eV,
         emission_energy_eV=emission_energy_eV,
         crystal_type=crystal_type,
@@ -412,6 +416,9 @@ def create_sample_position(
     rixs_end: Optional[float] = None,
     rixs_step: float = -0.2,
     rixs_filter: int = 0,
+    i0_gain: Optional[str] = None,
+    i0_offset: Optional[str] = None,
+    i1_gain: Optional[str] = None,
 ) -> SamplePosition:
     """Create and persist a new SamplePosition."""
     pos = SamplePosition(
@@ -443,6 +450,9 @@ def create_sample_position(
         rixs_end=rixs_end,
         rixs_step=rixs_step,
         rixs_filter=rixs_filter,
+        i0_gain=i0_gain,
+        i0_offset=i0_offset,
+        i1_gain=i1_gain,
     )
     with get_session() as session:
         session.add(pos)

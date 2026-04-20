@@ -48,30 +48,64 @@ async function submitGuidance() {
 
 async function sendChat() {
     const input = document.getElementById("chat-input");
+    const btn = document.querySelector(".chat-compose button");
     const text = input.value.trim();
     if (!text) return;
     input.value = "";
     appendChat("user", text);
+    if (btn) { btn.disabled = true; btn.textContent = "…"; }
+    showTyping(true);
     try {
         const r = await fetch(API + "/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ message: text }),
         });
-        const j = await r.json();
-        appendChat("assistant", j.response || j.error || "(no response)");
+        const j = await r.json().catch(() => ({}));
+        showTyping(false);
+        if (!r.ok) {
+            appendChat("assistant", "Error: " + (j.error || `HTTP ${r.status}`));
+        } else {
+            appendChat("assistant", j.response || j.error || "(no response)");
+        }
     } catch (e) {
+        showTyping(false);
         appendChat("assistant", "Error: " + e);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "Send"; }
     }
 }
 
 function appendChat(role, text) {
     const log = document.getElementById("chat-log");
+    if (!log) return;
+    // Drop the empty-state placeholder on first real message.
+    const placeholder = log.querySelector(".muted");
+    if (placeholder && log.children.length === 1) placeholder.remove();
     const el = document.createElement("div");
     el.className = "chat-msg " + role;
     el.textContent = text;
     log.appendChild(el);
     log.scrollTop = log.scrollHeight;
+}
+
+function showTyping(on) {
+    const log = document.getElementById("chat-log");
+    const status = document.getElementById("chat-status");
+    if (status) status.textContent = on ? "agent thinking…" : "";
+    if (!log) return;
+    let t = log.querySelector(".typing-indicator");
+    if (on) {
+        if (!t) {
+            t = document.createElement("div");
+            t.className = "typing-indicator";
+            t.textContent = "agent is thinking…";
+            log.appendChild(t);
+            log.scrollTop = log.scrollHeight;
+        }
+    } else if (t) {
+        t.remove();
+    }
 }
 
 async function refreshAutonomy() {

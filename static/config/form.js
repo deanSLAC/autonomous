@@ -12,18 +12,13 @@ let elementCount = 0;
 let sampleCount = 0;
 let activeTab = 'experiment';
 
-const COMMON_ELEMENTS = [
-    { symbol: 'Fe', name: 'Iron' },
-    { symbol: 'Cu', name: 'Copper' },
-    { symbol: 'Zn', name: 'Zinc' },
-    { symbol: 'As', name: 'Arsenic' },
-    { symbol: 'Se', name: 'Selenium' },
-    { symbol: 'Pb', name: 'Lead' },
-    { symbol: 'Mn', name: 'Manganese' },
-    { symbol: 'Ni', name: 'Nickel' },
-    { symbol: 'Co', name: 'Cobalt' },
-    { symbol: 'Cr', name: 'Chromium' },
-];
+// Populated from /api/defaults on page load; used to build the element dropdown
+// and (implicitly via the server) to filter edges/lines by accessible energy.
+let COMMON_ELEMENTS = [];
+let ACCESSIBLE_ENERGY_RANGE_eV = [4000, 25000];  // overwritten by defaults
+
+// Per-element-card cache: { [idx]: { edges, lines_by_edge } } from /api/element_info
+const _elementInfoCache = {};
 
 const CRYSTAL_CUTS = [
     { hkl: '1 1 1', type: 'Si', common_for: ['Fe', 'Mn', 'Cr', 'Co'] },
@@ -32,6 +27,38 @@ const CRYSTAL_CUTS = [
     { hkl: '9 1 1', type: 'Si', common_for: ['As', 'Pb'] },
     { hkl: '8 4 4', type: 'Si', common_for: ['Se'] },
 ];
+
+// Gain dropdown option HTML (reused in every sample card)
+const I0_GAIN_OPTIONS = `
+    <option value="">Default (auto)</option>
+    <option value="1 nA/V">1 nA/V</option>
+    <option value="2 nA/V">2 nA/V</option>
+    <option value="5 nA/V">5 nA/V</option>
+    <option value="10 nA/V">10 nA/V</option>
+    <option value="20 nA/V">20 nA/V</option>
+    <option value="50 nA/V">50 nA/V</option>
+    <option value="100 nA/V">100 nA/V</option>
+    <option value="200 nA/V">200 nA/V</option>
+    <option value="500 nA/V">500 nA/V</option>`;
+
+const I0_OFFSET_OPTIONS = `
+    <option value="">Default (auto)</option>
+    <option value="1 pA">1 pA</option>
+    <option value="2 pA">2 pA</option>
+    <option value="5 pA">5 pA</option>
+    <option value="10 pA">10 pA</option>
+    <option value="20 pA">20 pA</option>
+    <option value="50 pA">50 pA</option>
+    <option value="100 pA">100 pA</option>`;
+
+const I1_GAIN_OPTIONS = `
+    <option value="">Default (auto)</option>
+    <option value="100 uA/V">100 uA/V</option>
+    <option value="200 uA/V">200 uA/V</option>
+    <option value="500 uA/V">500 uA/V</option>
+    <option value="1 mA/V">1 mA/V</option>
+    <option value="2 mA/V">2 mA/V</option>
+    <option value="5 mA/V">5 mA/V</option>`;
 
 // ---------------------------------------------------------------------------
 // Tab Switching
@@ -75,7 +102,9 @@ function addElement(data) {
     card.dataset.idx = idx;
 
     const sym = data ? data.symbol : '';
-    const edge = data ? data.edge : 'K';
+    const edge = data ? data.edge : '';
+    const emLine = data ? (data.emission_line || '') : '';
+    const mode = data ? (data.measurement_mode || 'XES') : 'XES';
     const incE = data ? data.incident_energy : '';
     const emE = data ? data.emission_energy : '';
     const cType = data ? data.crystal_type : 0;
@@ -83,6 +112,7 @@ function addElement(data) {
     const rowR = data ? data.row_radius : 1000;
     const nC = data ? data.n_crystals : 3;
     const vCh = data ? data.vortex_channel : 1;
+    const isTFY = mode === 'TFY';
 
     // Build element options
     let elemOpts = '<option value="">-- Select --</option>';
@@ -107,65 +137,82 @@ function addElement(data) {
             </div>
             <div class="form-group narrow" id="elem_${idx}_other_wrap" style="${otherSel ? '' : 'display:none'}">
                 <label>Symbol</label>
-                <input type="text" id="elem_${idx}_other" maxlength="3" value="${otherSel ? sym : ''}" placeholder="e.g. Ti">
+                <input type="text" id="elem_${idx}_other" maxlength="3" value="${otherSel ? sym : ''}"
+                       placeholder="e.g. Ti" onblur="onOtherSymbolBlur(${idx})">
             </div>
             <div class="form-group narrow">
                 <label>Edge <span class="required">*</span></label>
-                <select id="elem_${idx}_edge" onchange="lookupEnergy(${idx})">
-                    <option value="K"${edge === 'K' ? ' selected' : ''}>K</option>
-                    <option value="L1"${edge === 'L1' ? ' selected' : ''}>L1</option>
-                    <option value="L2"${edge === 'L2' ? ' selected' : ''}>L2</option>
-                    <option value="L3"${edge === 'L3' ? ' selected' : ''}>L3</option>
+                <select id="elem_${idx}_edge" onchange="onEdgeChange(${idx})" data-pending="${esc(edge)}">
+                    <option value="">--</option>
+                </select>
+            </div>
+            <div class="form-group narrow">
+                <label>Measurement</label>
+                <select id="elem_${idx}_mode" onchange="toggleTFY(${idx})">
+                    <option value="XES"${!isTFY ? ' selected' : ''}>XES</option>
+                    <option value="TFY"${isTFY ? ' selected' : ''}>TFY</option>
                 </select>
             </div>
             <div class="form-group">
                 <label>Incident Energy (eV) <span class="required">*</span></label>
-                <input type="number" id="elem_${idx}_incident" step="0.1" value="${incE}" placeholder="Auto-filled">
-            </div>
-            <div class="form-group">
-                <label>Emission Energy (eV) <span class="required">*</span></label>
-                <input type="number" id="elem_${idx}_emission" step="0.1" value="${emE}" placeholder="Auto-filled">
+                <input type="number" id="elem_${idx}_incident" step="0.1" value="${incE}"
+                       placeholder="Auto-filled from edge" oninput="this.dataset.userEdited=1">
             </div>
         </div>
-        <div class="form-row">
-            <div class="form-group narrow">
-                <label>Crystal <span class="required">*</span></label>
-                <select id="elem_${idx}_crystal_type">
-                    <option value="0"${cType === 0 ? ' selected' : ''}>Si</option>
-                    <option value="1"${cType === 1 ? ' selected' : ''}>Ge</option>
-                </select>
-            </div>
-            <div class="form-group medium">
-                <label>Crystal hkl <span class="required">*</span></label>
-                <input type="text" id="elem_${idx}_hkl" value="${hkl}" placeholder="e.g. 6 4 2">
-            </div>
-            <div class="form-group narrow">
-                <label>Row Radius</label>
-                <input type="number" id="elem_${idx}_row_radius" value="${rowR}">
-            </div>
-            <div class="form-group narrow">
-                <label>Crystals (1-7)</label>
-                <input type="number" id="elem_${idx}_n_crystals" value="${nC}" min="1" max="7">
-            </div>
-            <div class="form-group narrow">
-                <label>Vortex Ch</label>
-                <select id="elem_${idx}_vortex">
-                    <option value="1"${vCh === 1 ? ' selected' : ''}>1 (vortDT)</option>
-                    <option value="3"${vCh === 3 ? ' selected' : ''}>3 (vortDT2)</option>
-                </select>
+        <div id="elem_${idx}_xes_fields" ${isTFY ? 'style="display:none"' : ''}>
+            <div class="form-row">
+                <div class="form-group medium">
+                    <label>Emission Line <span class="required">*</span></label>
+                    <select id="elem_${idx}_emission_line" onchange="onEmissionLineChange(${idx})" data-pending="${esc(emLine)}">
+                        <option value="">-- Select element first --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Emission Energy (eV) <span class="required">*</span></label>
+                    <input type="number" id="elem_${idx}_emission" step="0.1" value="${emE}"
+                           placeholder="Auto-filled from line" oninput="this.dataset.userEdited=1">
+                </div>
+                <div class="form-group narrow">
+                    <label>Crystal <span class="required">*</span></label>
+                    <select id="elem_${idx}_crystal_type">
+                        <option value="0"${cType === 0 ? ' selected' : ''}>Si</option>
+                        <option value="1"${cType === 1 ? ' selected' : ''}>Ge</option>
+                    </select>
+                </div>
+                <div class="form-group medium">
+                    <label>Crystal hkl <span class="required">*</span></label>
+                    <input type="text" id="elem_${idx}_hkl" value="${hkl}" placeholder="e.g. 6 4 2">
+                </div>
+                <div class="form-group narrow">
+                    <label>Row Radius</label>
+                    <input type="number" id="elem_${idx}_row_radius" value="${rowR}">
+                </div>
+                <div class="form-group narrow">
+                    <label>Crystals (1-7)</label>
+                    <input type="number" id="elem_${idx}_n_crystals" value="${nC}" min="1" max="7">
+                </div>
+                <div class="form-group narrow">
+                    <label>Vortex Ch</label>
+                    <select id="elem_${idx}_vortex">
+                        <option value="1"${vCh === 1 ? ' selected' : ''}>1 (vortDT)</option>
+                        <option value="3"${vCh === 3 ? ' selected' : ''}>3 (vortDT2)</option>
+                    </select>
+                </div>
             </div>
         </div>
     `;
 
     container.appendChild(card);
 
-    // If we have a symbol and edge but no energies, look them up
-    if (sym && !incE) {
-        lookupEnergy(idx);
+    // Kick off element info lookup (populates edge + emission line dropdowns).
+    // If data was passed in, the pending attribute on each <select> gets picked
+    // up once the API response arrives.
+    if (sym) {
+        loadElementInfo(idx, sym);
     }
 
     // Auto-suggest crystal cut
-    if (sym && !hkl) {
+    if (sym && !hkl && !isTFY) {
         suggestCrystalCut(idx, sym);
     }
 
@@ -175,7 +222,23 @@ function addElement(data) {
 function removeElement(idx) {
     const card = document.getElementById(`element-card-${idx}`);
     if (card) card.remove();
+    delete _elementInfoCache[idx];
     updateSampleElementDropdowns();
+}
+
+function toggleTFY(idx) {
+    const mode = document.getElementById(`elem_${idx}_mode`).value;
+    const xesFields = document.getElementById(`elem_${idx}_xes_fields`);
+    if (mode === 'TFY') {
+        xesFields.style.display = 'none';
+    } else {
+        xesFields.style.display = '';
+        // Make sure the emission line dropdown is populated for current edge
+        const edgeSel = document.getElementById(`elem_${idx}_edge`);
+        if (edgeSel && edgeSel.value) {
+            populateEmissionLineDropdown(idx, edgeSel.value);
+        }
+    }
 }
 
 function onElementSelect(idx) {
@@ -185,16 +248,34 @@ function onElementSelect(idx) {
     if (sel.value === '__other') {
         otherWrap.style.display = '';
         document.getElementById(`elem_${idx}_other`).focus();
-    } else {
-        otherWrap.style.display = 'none';
+        return; // wait for blur to trigger lookup
+    }
+    otherWrap.style.display = 'none';
+
+    const symbol = sel.value;
+    if (!symbol) {
+        // Cleared — reset edge and emission line dropdowns
+        setDropdown(`elem_${idx}_edge`, [], '');
+        setDropdown(`elem_${idx}_emission_line`, [], '');
+        return;
     }
 
-    // Lookup energy and suggest crystal
-    if (sel.value && sel.value !== '__other') {
-        suggestCrystalCut(idx, sel.value);
-    }
-    lookupEnergy(idx);
+    suggestCrystalCut(idx, symbol);
+    // User changed element explicitly — clear any user-edited flags so auto-fill works
+    const incInput = document.getElementById(`elem_${idx}_incident`);
+    const emInput = document.getElementById(`elem_${idx}_emission`);
+    if (incInput) delete incInput.dataset.userEdited;
+    if (emInput) delete emInput.dataset.userEdited;
+
+    loadElementInfo(idx, symbol);
     updateSampleElementDropdowns();
+}
+
+function onOtherSymbolBlur(idx) {
+    const sym = (document.getElementById(`elem_${idx}_other`).value || '').trim();
+    if (sym) {
+        loadElementInfo(idx, sym);
+    }
 }
 
 function getElementSymbol(idx) {
@@ -208,7 +289,7 @@ function getElementSymbol(idx) {
 
 function suggestCrystalCut(idx, symbol) {
     const hklInput = document.getElementById(`elem_${idx}_hkl`);
-    if (hklInput.value) return; // Don't overwrite user input
+    if (!hklInput || hklInput.value) return; // Don't overwrite user input
 
     for (const cut of CRYSTAL_CUTS) {
         if (cut.common_for.includes(symbol)) {
@@ -218,44 +299,141 @@ function suggestCrystalCut(idx, symbol) {
     }
 }
 
-function lookupEnergy(idx) {
-    const symbol = getElementSymbol(idx);
-    const edge = document.getElementById(`elem_${idx}_edge`).value;
+// ---------------------------------------------------------------------------
+// Dynamic edge + emission line population (xraydb-backed)
+// ---------------------------------------------------------------------------
 
-    if (!symbol || !edge) return;
+/** Populate a <select> with [{value, label}] options and set its value. */
+function setDropdown(selectId, options, selectedValue) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    sel.innerHTML = '';
+    if (options.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '-- none in range --';
+        sel.appendChild(opt);
+        sel.value = '';
+        return;
+    }
+    options.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.value;
+        opt.textContent = o.label;
+        sel.appendChild(opt);
+    });
+    // Prefer the explicit selectedValue, then any data-pending attribute (set
+    // at card-creation time when loading from DB), then default to first option.
+    const pending = sel.dataset.pending || '';
+    let target = selectedValue;
+    if (!target && pending && options.some(o => o.value === pending)) {
+        target = pending;
+    }
+    if (!target) target = options[0].value;
+    sel.value = target;
+    // Clear pending so subsequent updates don't reuse a stale value
+    sel.dataset.pending = '';
+}
 
-    fetch('/api/lookup_energy', {
+/** Fetch edges + emission lines for this element, populate both dropdowns. */
+function loadElementInfo(idx, symbol) {
+    fetch('/api/element_info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: symbol, edge: edge }),
+        body: JSON.stringify({ symbol: symbol }),
     })
     .then(r => r.json())
     .then(data => {
-        if (data.success) {
-            const incInput = document.getElementById(`elem_${idx}_incident`);
-            const emInput = document.getElementById(`elem_${idx}_emission`);
-            // Only fill if empty or auto-filled (not user-edited)
-            if (!incInput.dataset.userEdited) {
-                incInput.value = data.incident_energy || '';
-            }
-            if (!emInput.dataset.userEdited && data.emission_energy) {
-                emInput.value = data.emission_energy;
-            }
+        if (!data.success) {
+            console.warn('element_info failed:', data.error);
+            return;
         }
+        _elementInfoCache[idx] = data;
+
+        const edgeOpts = (data.edges || []).map(e => ({
+            value: e.edge,
+            label: `${e.edge} (${e.energy} eV)`,
+        }));
+        setDropdown(`elem_${idx}_edge`, edgeOpts, '');
+
+        // Trigger edge change handler to cascade into emission line dropdown and
+        // energy fields, now that the edge value is set.
+        onEdgeChange(idx);
     })
     .catch(err => {
-        console.warn('Energy lookup failed:', err);
+        console.warn('element_info fetch failed:', err);
     });
+}
+
+/** When the edge dropdown changes: fill incident energy, update line dropdown. */
+function onEdgeChange(idx) {
+    const edgeSel = document.getElementById(`elem_${idx}_edge`);
+    const info = _elementInfoCache[idx];
+    if (!edgeSel || !info) return;
+
+    const edge = edgeSel.value;
+    if (!edge) return;
+
+    // Fill incident energy from edge (unless user edited)
+    const edgeInfo = (info.edges || []).find(e => e.edge === edge);
+    const incInput = document.getElementById(`elem_${idx}_incident`);
+    if (incInput && !incInput.dataset.userEdited && edgeInfo) {
+        incInput.value = edgeInfo.energy;
+    }
+
+    populateEmissionLineDropdown(idx, edge);
+}
+
+function populateEmissionLineDropdown(idx, edge) {
+    const info = _elementInfoCache[idx];
+    if (!info) return;
+
+    const lines = (info.lines_by_edge || {})[edge] || [];
+    const lineOpts = lines.map(l => ({
+        value: l.line,
+        label: `${l.line} (${l.energy} eV)`,
+    }));
+    setDropdown(`elem_${idx}_emission_line`, lineOpts, '');
+
+    // Cascade to fill emission energy
+    onEmissionLineChange(idx);
+}
+
+function onEmissionLineChange(idx) {
+    const info = _elementInfoCache[idx];
+    const lineSel = document.getElementById(`elem_${idx}_emission_line`);
+    const emInput = document.getElementById(`elem_${idx}_emission`);
+    if (!info || !lineSel || !emInput) return;
+
+    const lineName = lineSel.value;
+    if (!lineName) return;
+
+    // Find this line's energy in the cache
+    let energy = null;
+    for (const [, lines] of Object.entries(info.lines_by_edge || {})) {
+        const found = lines.find(l => l.line === lineName);
+        if (found) { energy = found.energy; break; }
+    }
+
+    if (energy !== null && !emInput.dataset.userEdited) {
+        emInput.value = energy;
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Sample Management
 // ---------------------------------------------------------------------------
 
+function getSampleEnv() {
+    const envSel = document.getElementById('sample_env');
+    return envSel ? envSel.value : 'ambient';
+}
+
 function addSample(data) {
     sampleCount++;
     const idx = sampleCount;
     const container = document.getElementById('samples-container');
+    const isLiquidJet = (getSampleEnv() === 'liquid_jet');
 
     const card = document.createElement('div');
     card.className = 'sample-card';
@@ -277,6 +455,11 @@ function addSample(data) {
     const rixsStep = data ? data.rixs_step : -0.2;
     const rixsFilter = data ? data.rixs_filter : 0;
 
+    // Gain settings (per-sample)
+    const i0Gain = data ? (data.i0_gain || '') : '';
+    const i0Offset = data ? (data.i0_offset || '') : '';
+    const i1Gain = data ? (data.i1_gain || '') : '';
+
     // Position fields (may be blank pre-alignment)
     const sxLo = data ? (data.sx_lo || '') : '';
     const sxHi = data ? (data.sx_hi || '') : '';
@@ -290,6 +473,78 @@ function addSample(data) {
 
     // Build element dropdown from current elements
     const elemOptions = buildElementOptions(sElem);
+
+    // Position fields HTML depends on sample environment
+    let positionHtml;
+    if (isLiquidJet) {
+        // Liquid jet: single Sx, Sy, Sz (fixed point, sample replenishes)
+        const sx = sxLo || '';
+        const sy = syLo || '';
+        const sz = szLo || '';
+        positionHtml = `
+            <div class="form-row">
+                <div class="form-group narrow">
+                    <label>Sx</label>
+                    <input type="number" id="samp_${idx}_sx" step="0.1" value="${sx}" placeholder="">
+                </div>
+                <div class="form-group narrow">
+                    <label>Sy</label>
+                    <input type="number" id="samp_${idx}_sy" step="0.1" value="${sy}" placeholder="">
+                </div>
+                <div class="form-group narrow">
+                    <label>Sz</label>
+                    <input type="number" id="samp_${idx}_sz" step="0.1" value="${sz}" placeholder="">
+                </div>
+            </div>`;
+    } else {
+        positionHtml = `
+            <div class="form-row">
+                <div class="form-group narrow">
+                    <label>Sx Lo</label>
+                    <input type="number" id="samp_${idx}_sx_lo" step="0.1" value="${sxLo}" placeholder="">
+                </div>
+                <div class="form-group narrow">
+                    <label>Sx Hi</label>
+                    <input type="number" id="samp_${idx}_sx_hi" step="0.1" value="${sxHi}" placeholder="">
+                </div>
+                <div class="form-group narrow">
+                    <label>Sy Lo</label>
+                    <input type="number" id="samp_${idx}_sy_lo" step="0.1" value="${syLo}" placeholder="">
+                </div>
+                <div class="form-group narrow">
+                    <label>Sy Hi</label>
+                    <input type="number" id="samp_${idx}_sy_hi" step="0.1" value="${syHi}" placeholder="">
+                </div>
+                <div class="form-group narrow">
+                    <label>Sz Lo</label>
+                    <input type="number" id="samp_${idx}_sz_lo" step="0.1" value="${szLo}" placeholder="">
+                </div>
+                <div class="form-group narrow">
+                    <label>Sz Hi</label>
+                    <input type="number" id="samp_${idx}_sz_hi" step="0.1" value="${szHi}" placeholder="">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group narrow">
+                    <label>Sx Step</label>
+                    <input type="number" id="samp_${idx}_sx_del" step="0.01" value="${sxDel}" placeholder="">
+                </div>
+                <div class="form-group narrow">
+                    <label>Sy Step</label>
+                    <input type="number" id="samp_${idx}_sy_del" step="0.01" value="${syDel}" placeholder="">
+                </div>
+                <div class="form-group narrow">
+                    <label>Sz Step</label>
+                    <input type="number" id="samp_${idx}_sz_del" step="0.01" value="${szDel}" placeholder="">
+                </div>
+            </div>`;
+    }
+
+    // Build gain dropdown HTML with selected values
+    function selectOpt(html, val) {
+        if (!val) return html;
+        return html.replace(`value="${val}"`, `value="${val}" selected`);
+    }
 
     card.innerHTML = `
         <div class="card-header">
@@ -314,51 +569,12 @@ function addSample(data) {
             </div>
         </div>
 
-        <!-- Positions (populated after alignment or entered manually) -->
-        <div class="form-row">
-            <div class="form-group narrow">
-                <label>Sx Lo</label>
-                <input type="number" id="samp_${idx}_sx_lo" step="0.1" value="${sxLo}" placeholder="">
-            </div>
-            <div class="form-group narrow">
-                <label>Sx Hi</label>
-                <input type="number" id="samp_${idx}_sx_hi" step="0.1" value="${sxHi}" placeholder="">
-            </div>
-            <div class="form-group narrow">
-                <label>Sy Lo</label>
-                <input type="number" id="samp_${idx}_sy_lo" step="0.1" value="${syLo}" placeholder="">
-            </div>
-            <div class="form-group narrow">
-                <label>Sy Hi</label>
-                <input type="number" id="samp_${idx}_sy_hi" step="0.1" value="${syHi}" placeholder="">
-            </div>
-            <div class="form-group narrow">
-                <label>Sz Lo</label>
-                <input type="number" id="samp_${idx}_sz_lo" step="0.1" value="${szLo}" placeholder="">
-            </div>
-            <div class="form-group narrow">
-                <label>Sz Hi</label>
-                <input type="number" id="samp_${idx}_sz_hi" step="0.1" value="${szHi}" placeholder="">
-            </div>
-        </div>
-        <div class="form-row">
-            <div class="form-group narrow">
-                <label>Sx Step</label>
-                <input type="number" id="samp_${idx}_sx_del" step="0.01" value="${sxDel}" placeholder="">
-            </div>
-            <div class="form-group narrow">
-                <label>Sy Step</label>
-                <input type="number" id="samp_${idx}_sy_del" step="0.01" value="${syDel}" placeholder="">
-            </div>
-            <div class="form-group narrow">
-                <label>Sz Step</label>
-                <input type="number" id="samp_${idx}_sz_del" step="0.01" value="${szDel}" placeholder="">
-            </div>
-        </div>
+        <!-- Positions -->
+        ${positionHtml}
 
         <hr class="section-sep">
 
-        <!-- XAS Parameters -->
+        <!-- XAS Parameters + Gains -->
         <div class="form-row">
             <div class="form-group narrow">
                 <label>Do XAS</label>
@@ -379,6 +595,22 @@ function addSample(data) {
             <div class="form-group">
                 <label>Emiss Override (eV)</label>
                 <input type="number" id="samp_${idx}_xas_emiss" step="0.1" value="${xasEmissOvr}" placeholder="Use element default">
+            </div>
+        </div>
+
+        <!-- Gain Settings (per-sample) -->
+        <div class="form-row">
+            <div class="form-group medium">
+                <label>I0 Gain</label>
+                <select id="samp_${idx}_i0_gain">${selectOpt(I0_GAIN_OPTIONS, i0Gain)}</select>
+            </div>
+            <div class="form-group medium">
+                <label>I0 Offset</label>
+                <select id="samp_${idx}_i0_offset">${selectOpt(I0_OFFSET_OPTIONS, i0Offset)}</select>
+            </div>
+            <div class="form-group medium">
+                <label>I1 Gain</label>
+                <select id="samp_${idx}_i1_gain">${selectOpt(I1_GAIN_OPTIONS, i1Gain)}</select>
             </div>
         </div>
 
@@ -488,16 +720,12 @@ function gatherExperimentData() {
     const data = {
         experiment_id: document.getElementById('experiment_id').value || undefined,
         experiment_name: val('experiment_name'),
-        experimenter: val('experimenter'),
         mono_crystal: val('mono_crystal'),
         beam_size_h: document.getElementById('beam_size_h').value,
         beam_size_v: document.getElementById('beam_size_v').value,
         mirrors_out: document.getElementById('mirrors_out').checked,
         sample_env: val('sample_env'),
         data_directory: val('data_directory'),
-        i0_gain: val('i0_gain'),
-        i1_gain: val('i1_gain'),
-        i0_offset: val('i0_offset'),
         llm_enabled: document.getElementById('llm_enabled').checked,
         llm_decide_enabled: document.getElementById('llm_decide_enabled').checked,
         elements: [],
@@ -505,17 +733,32 @@ function gatherExperimentData() {
 
     document.querySelectorAll('.element-card').forEach(card => {
         const idx = parseInt(card.dataset.idx);
-        data.elements.push({
+        const mode = val(`elem_${idx}_mode`) || 'XES';
+        const el = {
             symbol: getElementSymbol(idx),
             edge: val(`elem_${idx}_edge`),
+            measurement_mode: mode,
             incident_energy: val(`elem_${idx}_incident`),
-            emission_energy: val(`elem_${idx}_emission`),
-            crystal_type: parseInt(val(`elem_${idx}_crystal_type`) || '0'),
-            crystal_hkl: val(`elem_${idx}_hkl`),
-            row_radius: parseInt(val(`elem_${idx}_row_radius`) || '1000'),
-            n_crystals: parseInt(val(`elem_${idx}_n_crystals`) || '3'),
             vortex_channel: parseInt(val(`elem_${idx}_vortex`) || '1'),
-        });
+        };
+
+        if (mode === 'XES') {
+            el.emission_line = val(`elem_${idx}_emission_line`) || '';
+            el.emission_energy = val(`elem_${idx}_emission`);
+            el.crystal_type = parseInt(val(`elem_${idx}_crystal_type`) || '0');
+            el.crystal_hkl = val(`elem_${idx}_hkl`);
+            el.row_radius = parseInt(val(`elem_${idx}_row_radius`) || '1000');
+            el.n_crystals = parseInt(val(`elem_${idx}_n_crystals`) || '3');
+        } else {
+            el.emission_line = '';
+            el.emission_energy = 0;
+            el.crystal_type = 0;
+            el.crystal_hkl = '0 0 0';
+            el.row_radius = 0;
+            el.n_crystals = 0;
+        }
+
+        data.elements.push(el);
     });
 
     return data;
@@ -528,26 +771,54 @@ function gatherSampleHolderData() {
         samples: [],
     };
 
+    const isLiquidJet = (getSampleEnv() === 'liquid_jet');
+
     document.querySelectorAll('.sample-card').forEach(card => {
         const idx = parseInt(card.dataset.idx);
+
+        let sxLo, sxHi, syLo, syHi, szLo, szHi, sxDel, syDel, szDel;
+        if (isLiquidJet) {
+            // Single point: lo = hi = value, no steps
+            const sx = numVal(`samp_${idx}_sx`);
+            const sy = numVal(`samp_${idx}_sy`);
+            const sz = numVal(`samp_${idx}_sz`);
+            sxLo = sx; sxHi = sx;
+            syLo = sy; syHi = sy;
+            szLo = sz; szHi = sz;
+            sxDel = 0; syDel = 0; szDel = 0;
+        } else {
+            sxLo = numVal(`samp_${idx}_sx_lo`);
+            sxHi = numVal(`samp_${idx}_sx_hi`);
+            syLo = numVal(`samp_${idx}_sy_lo`);
+            syHi = numVal(`samp_${idx}_sy_hi`);
+            szLo = numVal(`samp_${idx}_sz_lo`);
+            szHi = numVal(`samp_${idx}_sz_hi`);
+            sxDel = numVal(`samp_${idx}_sx_del`);
+            syDel = numVal(`samp_${idx}_sy_del`);
+            szDel = numVal(`samp_${idx}_sz_del`);
+        }
+
         data.samples.push({
             name: val(`samp_${idx}_name`),
             element: val(`samp_${idx}_element`),
             enabled: document.getElementById(`samp_${idx}_enabled`).checked,
-            sx_lo: numVal(`samp_${idx}_sx_lo`),
-            sx_hi: numVal(`samp_${idx}_sx_hi`),
-            sy_lo: numVal(`samp_${idx}_sy_lo`),
-            sy_hi: numVal(`samp_${idx}_sy_hi`),
-            sz_lo: numVal(`samp_${idx}_sz_lo`),
-            sz_hi: numVal(`samp_${idx}_sz_hi`),
-            sx_del: numVal(`samp_${idx}_sx_del`),
-            sy_del: numVal(`samp_${idx}_sy_del`),
-            sz_del: numVal(`samp_${idx}_sz_del`),
+            sx_lo: sxLo,
+            sx_hi: sxHi,
+            sy_lo: syLo,
+            sy_hi: syHi,
+            sz_lo: szLo,
+            sz_hi: szHi,
+            sx_del: sxDel,
+            sy_del: syDel,
+            sz_del: szDel,
             do_xas: document.getElementById(`samp_${idx}_do_xas`).checked,
             xas_reps: parseInt(val(`samp_${idx}_xas_reps`) || '10'),
             xas_time: parseFloat(val(`samp_${idx}_xas_time`) || '0.5'),
             xas_filter: parseInt(val(`samp_${idx}_xas_filter`) || '0'),
             xas_emiss_override: numVal(`samp_${idx}_xas_emiss`),
+            i0_gain: val(`samp_${idx}_i0_gain`),
+            i0_offset: val(`samp_${idx}_i0_offset`),
+            i1_gain: val(`samp_${idx}_i1_gain`),
             do_rixs: document.getElementById(`samp_${idx}_do_rixs`).checked,
             rixs_time: parseFloat(val(`samp_${idx}_rixs_time`) || '1.0'),
             rixs_start: numVal(`samp_${idx}_rixs_start`),
@@ -597,7 +868,7 @@ function submitExperiment() {
             showSuccess(
                 `Experiment "${result.summary.experiment}" saved.`,
                 `Elements: ${result.summary.elements} | Crystal: ${result.summary.mono_crystal} | Beam: ${result.summary.beam_size}`,
-                'Switch to the Sample Holder tab to configure samples.'
+                'Config .mac generated. Switch to the Sample Holder tab to configure samples.'
             );
         } else {
             showErrors(result.errors || ['Unknown error']);
@@ -636,6 +907,7 @@ function submitSampleHolder() {
                 `${result.summary.holder}: ${result.summary.n_samples} samples`,
                 'Ready to hand off to the autonomous agent.'
             );
+            // Reveal the autonomy-handoff panel below the form
             document.dispatchEvent(new Event("autonomy-ready"));
         } else {
             showErrors(result.errors || ['Unknown error']);
@@ -702,7 +974,10 @@ function loadExperimentSummary() {
     .then(result => {
         if (result.success) {
             const exp = result.experiment;
-            const elems = result.elements.map(e => `${e.symbol} ${e.edge}`).join(', ');
+            const elems = result.elements.map(e => {
+                const mode = e.measurement_mode || 'XES';
+                return mode === 'TFY' ? `${e.symbol} ${e.edge} (TFY)` : `${e.symbol} ${e.edge}`;
+            }).join(', ');
 
             // Cache elements for sample dropdowns
             _cachedElements = result.elements;
@@ -710,7 +985,6 @@ function loadExperimentSummary() {
             banner.innerHTML = `
                 <div class="banner-title">Active Experiment: ${esc(exp.name)}</div>
                 <div class="banner-details">
-                    <span>Experimenter: ${esc(exp.experimenter)}</span>
                     <span>Crystal: ${esc(exp.mono_crystal)}</span>
                     <span>Beam: ${exp.mirrors_out ? 'Mirrors out' : esc('H:' + (exp.beam_size_h || '?') + ' V:' + (exp.beam_size_v || '?'))}</span>
                     <span>Env: ${esc(exp.sample_env)}</span>
@@ -749,20 +1023,41 @@ function loadExperimentSummary() {
 // Load Experiment
 // ---------------------------------------------------------------------------
 
+/** Fetch /api/defaults once on init: populates COMMON_ELEMENTS and energy range. */
+function loadFormDefaults() {
+    return fetch('/api/defaults')
+        .then(r => r.json())
+        .then(defaults => {
+            if (defaults && Array.isArray(defaults.common_elements)) {
+                COMMON_ELEMENTS = defaults.common_elements;
+            }
+            if (defaults && Array.isArray(defaults.accessible_energy_range_eV)) {
+                ACCESSIBLE_ENERGY_RANGE_eV = defaults.accessible_energy_range_eV;
+            }
+        })
+        .catch(err => {
+            console.warn('Failed to load /api/defaults, using hard-coded fallback:', err);
+        });
+}
+
 function loadActiveExperiment() {
-    fetch('/api/load_active')
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            populateForm(data);
-        } else {
-            // No active experiment -- start fresh with defaults
-            addElement();
-        }
-    })
-    .catch(() => {
-        // Server not available or no active experiment
-        addElement();
+    // Wait for defaults before building any element cards so the element dropdown
+    // is populated from the server list rather than the empty fallback.
+    loadFormDefaults().then(() => {
+        fetch('/api/load_active')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    populateForm(data);
+                } else {
+                    // No active experiment -- start fresh with defaults
+                    addElement();
+                }
+            })
+            .catch(() => {
+                // Server not available or no active experiment
+                addElement();
+            });
     });
 }
 
@@ -787,7 +1082,6 @@ function populateForm(data) {
     // Populate Tab 1 fields
     document.getElementById('experiment_id').value = exp.id || '';
     document.getElementById('experiment_name').value = exp.name || '';
-    document.getElementById('experimenter').value = exp.experimenter || '';
     document.getElementById('mono_crystal').value = exp.mono_crystal || 'A';
     document.getElementById('beam_size_h').value = exp.beam_size_h || 'big';
     document.getElementById('beam_size_v').value = exp.beam_size_v || 'big';
@@ -798,9 +1092,6 @@ function populateForm(data) {
     document.getElementById('data_directory').value = exp.data_directory || '';
 
     // Advanced
-    if (exp.i0_gain) document.getElementById('i0_gain').value = exp.i0_gain;
-    if (exp.i1_gain) document.getElementById('i1_gain').value = exp.i1_gain;
-    if (exp.i0_offset) document.getElementById('i0_offset').value = exp.i0_offset;
     document.getElementById('llm_enabled').checked = exp.llm_enabled !== false;
     document.getElementById('llm_decide_enabled').checked = exp.llm_decide_enabled !== false;
 
@@ -814,6 +1105,7 @@ function populateForm(data) {
     _cachedElements = (data.elements || []).map(el => ({
         symbol: el.symbol,
         edge: el.edge,
+        measurement_mode: el.measurement_mode || 'XES',
     }));
 
     // Populate Tab 2 fields

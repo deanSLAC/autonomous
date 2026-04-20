@@ -157,8 +157,8 @@ def validate_experiment_data(data: dict) -> list[str]:
     elif not re.match(r'^[a-zA-Z0-9_\-. ]+$', name):
         errors.append("Experiment name contains invalid characters (use letters, numbers, _ - .)")
 
-    if not (data.get("experimenter") or "").strip():
-        errors.append("Experimenter name is required")
+    # Experimenter is optional — if you want to attribute the run to
+    # someone, fill it in; otherwise it's logged anonymously.
 
     if data.get("mono_crystal") not in ("A", "B"):
         errors.append("Mono crystal must be A (Si111) or B (Si311)")
@@ -194,6 +194,10 @@ def validate_experiment_data(data: dict) -> list[str]:
                 errors.append(f"{pfx}: duplicate element")
             seen_elements.add(sym)
 
+        mode = (el.get("measurement_mode") or "XES").upper()
+        if mode not in ("XES", "TFY"):
+            errors.append(f"{pfx}: measurement_mode must be XES or TFY")
+
         try:
             inc = float(el.get("incident_energy", 0))
             if not (energy_limits[0] <= inc <= energy_limits[1]):
@@ -201,25 +205,27 @@ def validate_experiment_data(data: dict) -> list[str]:
         except (ValueError, TypeError):
             errors.append(f"{pfx}: incident energy must be a number")
 
-        try:
-            emis = float(el.get("emission_energy", 0))
-            if emis >= inc:
-                errors.append(f"{pfx}: emission energy must be less than incident energy")
-            if not (emiss_limits[0] <= emis <= emiss_limits[1]):
-                errors.append(f"{pfx}: emission energy {emis} outside range {emiss_limits}")
-        except (ValueError, TypeError):
-            errors.append(f"{pfx}: emission energy must be a number")
+        # XAS-only fields are skipped for TFY (no emission line, no XES crystal).
+        if mode == "XES":
+            try:
+                emis = float(el.get("emission_energy", 0))
+                if emis >= inc:
+                    errors.append(f"{pfx}: emission energy must be less than incident energy")
+                if not (emiss_limits[0] <= emis <= emiss_limits[1]):
+                    errors.append(f"{pfx}: emission energy {emis} outside range {emiss_limits}")
+            except (ValueError, TypeError):
+                errors.append(f"{pfx}: emission energy must be a number")
 
-        hkl = (el.get("crystal_hkl") or "").strip()
-        if not re.match(r'^\d+\s+\d+\s+\d+$', hkl):
-            errors.append(f"{pfx}: crystal hkl must be 3 integers (e.g. '6 4 2')")
+            hkl = (el.get("crystal_hkl") or "").strip()
+            if not re.match(r'^\d+\s+\d+\s+\d+$', hkl):
+                errors.append(f"{pfx}: crystal hkl must be 3 integers (e.g. '6 4 2')")
 
-        try:
-            nc = int(el.get("n_crystals", 0))
-            if nc < 1 or nc > 7:
-                errors.append(f"{pfx}: number of crystals must be 1-7")
-        except (ValueError, TypeError):
-            errors.append(f"{pfx}: number of crystals must be an integer")
+            try:
+                nc = int(el.get("n_crystals", 0))
+                if nc < 1 or nc > 7:
+                    errors.append(f"{pfx}: number of crystals must be 1-7")
+            except (ValueError, TypeError):
+                errors.append(f"{pfx}: number of crystals must be an integer")
 
     return errors
 
