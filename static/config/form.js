@@ -868,7 +868,11 @@ function submitExperiment() {
             showSuccess(
                 `Experiment "${result.summary.experiment}" saved.`,
                 `Elements: ${result.summary.elements} | Crystal: ${result.summary.mono_crystal} | Beam: ${result.summary.beam_size}`,
-                'Config .mac generated. Switch to the Sample Holder tab to configure samples.'
+                'Next: open the dashboard and let the agent run beamline + spectrometer alignment. You can configure the sample holder later, before sample alignment starts.',
+                {
+                    text: 'Open Dashboard →',
+                    href: '/',
+                }
             );
         } else {
             showErrors(result.errors || ['Unknown error']);
@@ -904,8 +908,12 @@ function submitSampleHolder() {
         if (result.success) {
             showSuccess(
                 `Sample holder saved.`,
-                `${result.summary.holder}: ${result.summary.n_samples} samples`,
-                'Ready to hand off to the autonomous agent.'
+                `${result.summary.holder}: ${result.summary.n_samples} samples. Configuration complete.`,
+                'The experiment is ready. Open the dashboard to monitor progress, or start the autonomous run from the panel below.',
+                {
+                    text: 'Open Dashboard →',
+                    href: '/',
+                }
             );
             // Reveal the autonomy-handoff panel below the form
             document.dispatchEvent(new Event("autonomy-ready"));
@@ -1132,13 +1140,23 @@ function showErrors(errors) {
     area.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function showSuccess(title, detail, specCmd) {
+function showSuccess(title, detail, nextStep, cta) {
     const area = document.getElementById('message-area');
+    const nextHtml = nextStep
+        ? `<p class="success-next">${esc(nextStep)}</p>`
+        : "";
+    const ctaHtml = cta
+        ? `<div class="success-cta">
+               <a href="${esc(cta.href)}" class="btn btn-cta-primary">${esc(cta.text)}</a>
+               ${cta.secondary ? `<a href="${esc(cta.secondary.href)}" class="btn btn-cta-secondary">${esc(cta.secondary.text)}</a>` : ""}
+           </div>`
+        : "";
     area.innerHTML = `
         <div class="success-box">
             <h3>${esc(title)}</h3>
             <p>${esc(detail)}</p>
-            <p style="margin-top: 8px;"><code>${esc(specCmd)}</code></p>
+            ${nextHtml}
+            ${ctaHtml}
         </div>
     `;
     area.scrollIntoView({ behavior: 'smooth', block: 'start' });

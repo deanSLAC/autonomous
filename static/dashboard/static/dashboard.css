@@ -154,26 +154,33 @@ body {
 }
 .experiment-select:focus { border-color: var(--accent); }
 
-/* Theme toggle */
+/* Topbar buttons — icon ("⚙", "☾") and short text ("Insight") share the
+   same footprint. Content drives width via min-width; padding keeps single
+   characters centered without clipping. */
 .theme-toggle {
     background: var(--bg-surface);
     border: 1px solid var(--border);
     color: var(--text-muted);
-    font-size: 16px;
-    width: 32px;
-    height: 32px;
+    font-size: 12px;
+    min-width: 30px;
+    height: 28px;
+    padding: 0 9px;
     border-radius: var(--radius);
     cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    white-space: nowrap;
     transition: color 0.2s, border-color 0.2s;
     line-height: 1;
+    box-sizing: border-box;
 }
 .theme-toggle:hover {
     color: var(--text);
     border-color: var(--accent);
 }
+a.theme-toggle.topbar-link { text-decoration: none; }
+.experiment-select { height: 28px; padding: 0 8px; font-size: 12px; }
 
 /* ---- Experiment info strip ---- */
 
@@ -206,11 +213,83 @@ body {
 
 .phase-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 16px;
     padding: 28px;
-    max-width: 1400px;
+    max-width: 1700px;
 }
+
+/* Phase column: Input cell -> tile -> Output cell, all sharing a status stripe */
+.phase-column {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    padding-left: 10px;
+}
+.phase-column::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 4px;
+    bottom: 4px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--text-muted);
+    transition: background 0.3s;
+}
+.phase-column[data-status="running"]::before   { background: var(--blue); }
+.phase-column[data-status="completed"]::before { background: var(--green); }
+.phase-column[data-status="failed"]::before    { background: var(--red); }
+
+/* Input / output context cells */
+.phase-io {
+    background: var(--bg-surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    position: relative;
+}
+.phase-io .io-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-bottom: 3px;
+}
+.phase-io .io-body {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.4;
+}
+.phase-io code {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    background: var(--bg-card);
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid var(--border-subtle, var(--border));
+    white-space: nowrap;
+}
+
+/* Connecting chevrons between input/tile and tile/output */
+.phase-input::after,
+.phase-output::before {
+    content: "\25BC";
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 8px;
+    line-height: 1;
+    color: var(--text-muted);
+    background: var(--bg);
+    padding: 0 4px;
+    pointer-events: none;
+}
+.phase-input::after  { bottom: -8px; }
+.phase-output::before { top: -8px; }
 
 .phase-tile {
     background: var(--bg-card);
@@ -234,21 +313,47 @@ body {
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
 }
 
-/* Status accent bar (left edge) */
-.phase-tile::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background: var(--text-muted);
-    transition: background 0.3s;
+/* Config tile — first phase, mandatory step. Chips for elements, folder hint. */
+.tile-config .config-folder {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    word-break: break-all;
+    margin-bottom: 8px;
+    min-height: 1.2em;
+}
+.tile-config .config-elements {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.tile-config .element-chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+}
+.tile-config .config-empty {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
 }
 
-.phase-tile[data-status="running"]::before { background: var(--blue); }
-.phase-tile[data-status="completed"]::before { background: var(--green); }
-.phase-tile[data-status="failed"]::before { background: var(--red); }
+/* "First step" call-out: pulse the Config column when no experiment exists */
+.phase-column[data-status="pending"][data-required="true"] .phase-tile {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+    animation: gentle-attention 2.2s ease-in-out infinite;
+}
+@keyframes gentle-attention {
+    0%, 100% { box-shadow: 0 0 0 2px var(--accent-dim); }
+    50%      { box-shadow: 0 0 0 4px var(--accent-dim); }
+}
 
 /* Tile header */
 .tile-header {
@@ -608,16 +713,14 @@ table.scan-table .confidence-low { color: var(--red); }
 
 /* ---- Responsive ---- */
 
-@media (max-width: 900px) {
-    .phase-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
+@media (max-width: 1400px) {
+    .phase-grid { grid-template-columns: repeat(3, 1fr); }
 }
-
+@media (max-width: 900px) {
+    .phase-grid { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 520px) {
-    .phase-grid {
-        grid-template-columns: 1fr;
-    }
+    .phase-grid { grid-template-columns: 1fr; }
     .topbar { flex-direction: column; gap: 10px; }
     .exp-info { flex-wrap: wrap; }
 }
