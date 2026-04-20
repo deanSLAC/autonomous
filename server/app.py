@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import logging.handlers
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -54,12 +55,30 @@ from orchestrator.loop import Orchestrator, set_orchestrator
 from orchestrator.staff_guidance import coordinator
 from spec import spec_cmd
 from tools import autonomy_tools
-from ui import config_api, dashboard_api, orchestrator_api, plan_api, insight_api
+from ui import (
+    config_api,
+    dashboard_api,
+    insight_api,
+    orchestrator_api,
+    plan_api,
+    sample_holders_api,
+    viewer_api,
+)
 
 
+_LOG_DIR = PROJECT_ROOT / "logs"
+_LOG_DIR.mkdir(exist_ok=True)
+_LOG_FMT = "%(asctime)s %(name)s %(levelname)s %(message)s"
+_log_file_handler = logging.handlers.RotatingFileHandler(
+    _LOG_DIR / "server.log",
+    maxBytes=5 * 1024 * 1024,
+    backupCount=5,
+)
+_log_file_handler.setFormatter(logging.Formatter(_LOG_FMT))
 logging.basicConfig(
-    format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    format=_LOG_FMT,
     level=logging.INFO,
+    handlers=[logging.StreamHandler(), _log_file_handler],
 )
 logger = logging.getLogger(__name__)
 
@@ -267,6 +286,8 @@ app.include_router(dashboard_api.router)
 app.include_router(orchestrator_api.router)
 app.include_router(plan_api.router)
 app.include_router(insight_api.router)
+app.include_router(sample_holders_api.router)
+app.include_router(viewer_api.router)
 
 
 @app.get(f"{BASE_PATH}/health")
@@ -278,18 +299,22 @@ async def health():
     }
 
 
+_NOCACHE = {"Cache-Control": "no-cache, no-store, must-revalidate"}
+
+
+def _page(path: Path) -> FileResponse:
+    return FileResponse(path, media_type="text/html", headers=_NOCACHE)
+
+
 @app.get(f"{BASE_PATH}/insight")
 async def insight_page():
-    return FileResponse(STATIC_DIR / "insight" / "index.html", media_type="text/html")
+    return _page(STATIC_DIR / "insight" / "index.html")
 
 
 # ---- Page routes ---------------------------------------------------------
 
 async def _index_page():
-    # Legacy chat-only UI has been retired; the dashboard now hosts both
-    # the chat panel and a collapsible "What the agent can do" panel.
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url=f"{BASE_PATH}/dashboard", status_code=307)
+    return _page(STATIC_DIR / "dashboard" / "index.html")
 
 
 if BASE_PATH:
@@ -301,12 +326,27 @@ else:
 
 @app.get(f"{BASE_PATH}/config")
 async def config_page():
-    return FileResponse(STATIC_DIR / "config" / "index.html", media_type="text/html")
+    return _page(STATIC_DIR / "config" / "index.html")
 
 
 @app.get(f"{BASE_PATH}/dashboard")
 async def dashboard_page():
-    return FileResponse(STATIC_DIR / "dashboard" / "index.html", media_type="text/html")
+    return _page(STATIC_DIR / "dashboard" / "index.html")
+
+
+@app.get(f"{BASE_PATH}/sample_planning")
+async def sample_planning_page():
+    return _page(STATIC_DIR / "sample_planning" / "index.html")
+
+
+@app.get(f"{BASE_PATH}/sample_holders")
+async def sample_holders_page():
+    return _page(STATIC_DIR / "sample_holders" / "index.html")
+
+
+@app.get(f"{BASE_PATH}/viewer")
+async def viewer_page():
+    return _page(STATIC_DIR / "viewer" / "index.html")
 
 
 @app.get(f"{BASE_PATH}/history", response_class=HTMLResponse)
@@ -341,6 +381,60 @@ async def history_page():
 
 # ---- Chat API ------------------------------------------------------------
 
+def _resolve_chat_experiment_id(requested: str | None) -> str | None:
+    """Pick the experiment the chat turn should reference.
+
+    Precedence: explicit value from the client → the orchestrator's active
+    run → the most-recently-created experiment in the DB. Returns None if
+    nothing is available (brand-new deployment).
+    """
+    if requested:
+        return requested
+    if orchestrator and orchestrator.state.experiment_id:
+        return orchestrator.state.experiment_id
+    try:
+        from db.client import get_session
+        from db.models import Experiment
+        from sqlmodel import select
+        with get_session() as session:
+            row = session.exec(
+                select(Experiment).order_by(Experiment.created_at.desc()).limit(1)
+            ).first()
+            return row.id if row else None
+    except Exception as e:
+        logger.warning("chat: latest-experiment lookup failed: %s", e)
+        return None
+
+
+def _build_chat_context_prefix(experiment_id: str | None) -> str:
+    """Build a `[PLANNER STATE]`-style prefix for free-form chat turns.
+
+    Mirrors what the orchestrator loop prepends to each autonomous turn
+    so the agent always sees live phase + budget + sample progress, even
+    when the user is just chatting from the dashboard.
+    """
+    phase = spec_cmd.get_phase()
+    lines: list[str] = []
+    if experiment_id:
+        try:
+            from orchestrator import planner
+            snap = planner.snapshot(experiment_id)
+            lines.append(snap.to_system_context())
+        except Exception as e:
+            logger.warning("chat: planner snapshot failed for %s: %s", experiment_id, e)
+            lines.append(f"[PLANNER STATE]\n  phase: {phase}\n  (snapshot unavailable)")
+    else:
+        lines.append(
+            f"[PLANNER STATE]\n  phase: {phase}\n"
+            "  (no experiment configured yet — suggest the user open /config)"
+        )
+    lines.append(
+        "Forward phase moves go through the `transition_phase` tool; "
+        "preconditions gate every transition."
+    )
+    return "\n\n".join(lines)
+
+
 @app.post(f"{BASE_PATH}/api/chat")
 async def chat(payload: dict):
     global conversation
@@ -360,10 +454,15 @@ async def chat(payload: dict):
                 status_code=503,
             )
         conversation = ConversationService(client)
+
+    exp_id = _resolve_chat_experiment_id(payload.get("experiment_id"))
+    prefix = _build_chat_context_prefix(exp_id)
+    augmented = f"{prefix}\n\n[User/operator]: {user_text}"
+
     slack_bridge.post_user_message(user_text)
-    result = conversation.handle_message(user_text)
+    result = conversation.handle_message(augmented)
     slack_bridge.post_llm_response(result.text)
-    return {"response": result.text, "images": result.images}
+    return {"response": result.text, "images": result.images, "experiment_id": exp_id}
 
 
 TOOL_CATEGORIES = [
@@ -436,4 +535,5 @@ async def websocket_endpoint(ws: WebSocket):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", str(PORT)))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    host = os.getenv("HOST", "127.0.0.1")
+    uvicorn.run(app, host=host, port=port)
