@@ -9,6 +9,7 @@ All functions accept a filepath and handle opening/closing the SpecH5
 object internally, except open_spec_file() which returns the object
 for the caller to manage.
 """
+from __future__ import annotations
 
 import time
 import logging
