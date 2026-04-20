@@ -72,6 +72,11 @@ class SampleHolder(SQLModel, table=True):
     status: str = Field(default="configured")  # configured/aligning/ready/collecting/done
     n_samples: int = 0
     holder_type: str = "flat"  # cryostat, flat, electrode
+    # Ordered queue position within an experiment. The lowest-numbered
+    # holder that isn't "done" is the active one; new holders go to the
+    # bottom on creation (see create_sample_holder).
+    queue_order: int = Field(default=0, index=True)
+    notes: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

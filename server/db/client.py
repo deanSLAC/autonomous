@@ -222,18 +222,108 @@ def create_sample_holder(
     n_samples: int,
     holder_type: str = "flat",
 ) -> SampleHolder:
-    """Create and persist a new SampleHolder."""
-    holder = SampleHolder(
-        experiment_id=experiment_id,
-        name=name,
-        n_samples=n_samples,
-        holder_type=holder_type,
-    )
+    """Create and persist a new SampleHolder.
+
+    New holders are appended to the end of the queue — their
+    `queue_order` is `max(existing) + 1`, so the first holder is
+    always the active one on a fresh experiment.
+    """
     with get_session() as session:
+        existing = list(session.exec(
+            select(SampleHolder).where(SampleHolder.experiment_id == experiment_id)
+        ))
+        max_order = max((h.queue_order for h in existing), default=-1)
+        holder = SampleHolder(
+            experiment_id=experiment_id,
+            name=name,
+            n_samples=n_samples,
+            holder_type=holder_type,
+            queue_order=max_order + 1,
+        )
         session.add(holder)
         session.commit()
         session.refresh(holder)
     return holder
+
+
+def list_sample_holders(experiment_id: str) -> list[SampleHolder]:
+    """Return holders for this experiment ordered by queue_order (then created_at)."""
+    with get_session() as session:
+        stmt = (
+            select(SampleHolder)
+            .where(SampleHolder.experiment_id == experiment_id)
+            .order_by(SampleHolder.queue_order, SampleHolder.created_at)  # type: ignore[arg-type]
+        )
+        return list(session.exec(stmt).all())
+
+
+def update_sample_holder(
+    holder_id: str,
+    *,
+    name: Optional[str] = None,
+    holder_type: Optional[str] = None,
+    status: Optional[str] = None,
+    notes: Optional[str] = None,
+) -> Optional[SampleHolder]:
+    with get_session() as session:
+        h = session.get(SampleHolder, holder_id)
+        if h is None:
+            return None
+        if name is not None:
+            h.name = name
+        if holder_type is not None:
+            h.holder_type = holder_type
+        if status is not None:
+            h.status = status
+        if notes is not None:
+            h.notes = notes
+        h.updated_at = datetime.now()
+        session.add(h)
+        session.commit()
+        session.refresh(h)
+    return h
+
+
+def delete_sample_holder(holder_id: str) -> bool:
+    """Delete a holder and every sample position inside it."""
+    with get_session() as session:
+        h = session.get(SampleHolder, holder_id)
+        if h is None:
+            return False
+        for sp in session.exec(
+            select(SamplePosition).where(SamplePosition.sample_holder_id == holder_id)
+        ).all():
+            session.delete(sp)
+        session.delete(h)
+        session.commit()
+    return True
+
+
+def reorder_sample_holders(experiment_id: str, holder_ids_in_order: list[str]) -> None:
+    """Rewrite queue_order for a specific sequence. Unlisted holders are pushed to the bottom."""
+    with get_session() as session:
+        existing = list(session.exec(
+            select(SampleHolder).where(SampleHolder.experiment_id == experiment_id)
+        ))
+        by_id = {h.id: h for h in existing}
+        seen: set[str] = set()
+        order_i = 0
+        for hid in holder_ids_in_order:
+            h = by_id.get(hid)
+            if h is None:
+                continue
+            h.queue_order = order_i
+            order_i += 1
+            seen.add(hid)
+            session.add(h)
+        # Anything not explicitly listed goes to the end, preserving relative order.
+        leftovers = [h for h in existing if h.id not in seen]
+        leftovers.sort(key=lambda h: (h.queue_order, h.created_at))
+        for h in leftovers:
+            h.queue_order = order_i
+            order_i += 1
+            session.add(h)
+        session.commit()
 
 
 # ---------------------------------------------------------------------------

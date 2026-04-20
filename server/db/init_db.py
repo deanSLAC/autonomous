@@ -33,6 +33,10 @@ _PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("i0_offset", "TEXT"),
         ("i1_gain", "TEXT"),
     ],
+    "sampleholder": [
+        ("queue_order", "INTEGER NOT NULL DEFAULT 0"),
+        ("notes", "TEXT"),
+    ],
 }
 
 

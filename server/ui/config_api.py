@@ -284,6 +284,17 @@ async def submit_sample_holder(data: dict):
         except Exception as e:
             logger.warning("config_generator failed (non-fatal): %s", e)
 
+        # If an experiment plan already exists, rebuild it so the agent
+        # immediately sees the new/edited holder samples. Safe no-op if
+        # no plan is present yet.
+        try:
+            from orchestrator import planner
+            from db.autonomy_client import get_experiment_plan as _get_plan
+            if _get_plan(experiment_id):
+                planner.rebuild_plan_preserving_progress(experiment_id)
+        except Exception as e:
+            logger.warning("plan rebuild on holder save skipped: %s", e)
+
         return {
             "success": True,
             "experiment_id": experiment_id,
