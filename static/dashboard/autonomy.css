@@ -360,3 +360,61 @@
     letter-spacing: 0.08em;
     margin-left: 6px;
 }
+
+.capabilities-toggle {
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.capabilities-toggle .toggle-arrow {
+    font-size: 9px;
+    color: var(--text-muted);
+    transition: transform 0.15s ease;
+    display: inline-block;
+}
+.caps-body { padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 12px; }
+.caps-section .caps-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.caps-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.caps-cat-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 6px 0 2px;
+}
+.caps-sublist { list-style: none; margin: 0 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.caps-list li, .caps-sublist li {
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--text-dim);
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+.caps-list code, .caps-sublist code {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--bg-surface);
+    border-radius: 4px;
+    padding: 1px 5px;
+    color: var(--text);
+    white-space: nowrap;
+}
+.caps-desc {
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

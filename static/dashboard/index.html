@@ -205,6 +205,25 @@
                 <button onclick="sendChat()">Send</button>
             </div>
         </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <button class="capabilities-toggle" id="caps-toggle" aria-expanded="false">
+                    What the agent can do
+                    <span class="toggle-arrow" id="caps-arrow">&#9654;</span>
+                </button>
+            </div>
+            <div id="caps-body" class="caps-body" hidden>
+                <div class="caps-section">
+                    <div class="caps-label">Tools</div>
+                    <ul id="caps-tools" class="caps-list"><li class="muted">loading…</li></ul>
+                </div>
+                <div class="caps-section">
+                    <div class="caps-label">Reference docs</div>
+                    <ul id="caps-refs" class="caps-list"><li class="muted">loading…</li></ul>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 

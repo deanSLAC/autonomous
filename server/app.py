@@ -286,7 +286,10 @@ async def insight_page():
 # ---- Page routes ---------------------------------------------------------
 
 async def _index_page():
-    return FileResponse(STATIC_DIR / "index.html", media_type="text/html")
+    # Legacy chat-only UI has been retired; the dashboard now hosts both
+    # the chat panel and a collapsible "What the agent can do" panel.
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"{BASE_PATH}/dashboard", status_code=307)
 
 
 if BASE_PATH:
@@ -409,16 +412,6 @@ async def reset():
         conversation = ConversationService(client)
     slack_bridge.reset_thread()
     return {"status": "reset"}
-
-
-@app.post(f"{BASE_PATH}/api/staff-message")
-async def staff_message(payload: dict):
-    user_text = payload.get("message", "").strip()
-    if not user_text:
-        return JSONResponse({"error": "Empty message"}, status_code=400)
-    slack_bridge.post_user_to_staff(user_text)
-    await broadcast_ws({"type": "user_to_staff", "text": user_text})
-    return {"status": "sent"}
 
 
 # ---- WebSocket -----------------------------------------------------------
