@@ -607,6 +607,108 @@ AUTONOMY_TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "set_sample_time_budget",
+            "description": (
+                "Adjust the time budget for a single sample — change either the "
+                "per-repetition count time or the number of reps (or both). "
+                "Optionally restrict to one mode ('xas' or 'emiss')."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sample_id": {"type": "string"},
+                    "count_time_s": {"type": "number",
+                                     "description": "Per-point count time in seconds."},
+                    "reps": {"type": "integer",
+                             "description": "Number of repetitions."},
+                    "mode": {"type": "string", "enum": ["xas", "emiss"],
+                             "description": "Restrict the change to this mode (optional)."},
+                    "reason": {"type": "string",
+                               "description": "Short rationale; written to the plan edit log."},
+                },
+                "required": ["sample_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "set_holder_time_budget",
+            "description": (
+                "Set a default per-sample time budget for an entire sample holder. "
+                "Stored under the plan's holder_budgets so new samples inherit it; "
+                "when apply_to_existing=true (default), existing samples on that "
+                "holder also get the new count_time/reps."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "holder_id": {"type": "string",
+                                  "description": "Leave blank to apply to every holder."},
+                    "count_time_s": {"type": "number"},
+                    "reps": {"type": "integer"},
+                    "mode": {"type": "string", "enum": ["xas", "emiss"]},
+                    "apply_to_existing": {"type": "boolean", "default": True},
+                    "reason": {"type": "string"},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "set_beamtime_budget",
+            "description": "Set the total beamtime budget (in hours) to an absolute value.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "hours_total": {"type": "number"},
+                    "reason": {"type": "string"},
+                },
+                "required": ["hours_total"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "extend_beamtime_budget",
+            "description": "Add (or subtract, with a negative delta) hours to the beamtime budget.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "hours_delta": {"type": "number"},
+                    "reason": {"type": "string"},
+                },
+                "required": ["hours_delta"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "regenerate_plan",
+            "description": (
+                "Rebuild the sample plan from the database while preserving per-sample "
+                "progress (status, reps_completed, notes) and user overrides "
+                "(thresholds, holder_budgets, budget). Call this after a new sample "
+                "holder is configured or an existing one is edited."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "beamtime_hours": {"type": "number",
+                                       "description": "Optional new total (default: keep current)."},
+                    "reason": {"type": "string"},
+                },
+                "required": [],
+            },
+        },
+    },
 ]
 
 # Category map for the sidebar
@@ -635,5 +737,7 @@ AUTONOMY_TOOL_CATEGORIES = [
         "update_experiment_plan", "record_sample_progress", "get_experiment_plan",
         "get_remaining_beamtime", "get_staff_guidance", "list_open_interventions",
         "recent_actions",
+        "set_sample_time_budget", "set_holder_time_budget",
+        "set_beamtime_budget", "extend_beamtime_budget", "regenerate_plan",
     ]),
 ]

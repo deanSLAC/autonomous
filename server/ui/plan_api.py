@@ -229,3 +229,112 @@ async def update_thresholds(body: dict):
         reason=body.get("reason"),
     )
     return {"ok": True, "thresholds": thresholds}
+
+
+@router.post("/set_budget")
+async def set_budget(body: dict):
+    xid = _require_experiment(body.get("experiment_id"))
+    try:
+        hours = float(body.get("hours_total"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "hours_total must be a number")
+    new_total = planner.set_budget(xid, hours)
+    author = _pick_author(body)
+    log_plan_edit(
+        xid, author=author, action="set_budget",
+        payload={"new_total_hours": new_total},
+        reason=body.get("reason"),
+    )
+    coordinator.record_guidance(
+        experiment_id=xid, source="web-plan", author=author,
+        text=f"set beamtime budget to {new_total:.1f}h",
+    )
+    return {"ok": True, "new_total_hours": new_total}
+
+
+# ---------------------------------------------------------------------------
+# Per-holder and per-sample time budgets
+# ---------------------------------------------------------------------------
+
+@router.post("/set_sample_time_budget")
+async def set_sample_time_budget(body: dict):
+    xid = _require_experiment(body.get("experiment_id"))
+    sample_id = body.get("sample_id")
+    if not sample_id:
+        raise HTTPException(400, "sample_id required")
+    count_time_s = body.get("count_time_s")
+    reps = body.get("reps")
+    if count_time_s is None and reps is None:
+        raise HTTPException(400, "at least one of count_time_s or reps is required")
+    ok = planner.set_sample_time_budget(
+        xid,
+        sample_id,
+        count_time_s=count_time_s,
+        reps=reps,
+        mode=body.get("mode"),
+    )
+    if not ok:
+        raise HTTPException(404, f"sample {sample_id} not in plan")
+    author = _pick_author(body)
+    log_plan_edit(
+        xid, author=author, action="set_sample_time_budget",
+        target_id=sample_id,
+        payload={"count_time_s": count_time_s, "reps": reps, "mode": body.get("mode")},
+        reason=body.get("reason"),
+    )
+    coordinator.record_guidance(
+        experiment_id=xid, source="web-plan", author=author,
+        text=(
+            f"set time budget for sample {sample_id}: "
+            f"count_time={count_time_s}s reps={reps} mode={body.get('mode') or 'all'}"
+        ),
+    )
+    return {"ok": True}
+
+
+@router.post("/set_holder_time_budget")
+async def set_holder_time_budget(body: dict):
+    xid = _require_experiment(body.get("experiment_id"))
+    count_time_s = body.get("count_time_s")
+    reps = body.get("reps")
+    if count_time_s is None and reps is None:
+        raise HTTPException(400, "at least one of count_time_s or reps is required")
+    summary = planner.set_holder_time_budget(
+        xid,
+        body.get("holder_id"),
+        count_time_s=count_time_s,
+        reps=reps,
+        mode=body.get("mode"),
+        apply_to_existing=bool(body.get("apply_to_existing", True)),
+    )
+    author = _pick_author(body)
+    log_plan_edit(
+        xid, author=author, action="set_holder_time_budget",
+        target_id=body.get("holder_id"),
+        payload=summary,
+        reason=body.get("reason"),
+    )
+    coordinator.record_guidance(
+        experiment_id=xid, source="web-plan", author=author,
+        text=(
+            f"holder budget ({summary.get('holder_id') or 'all'}): "
+            f"count_time={count_time_s}s reps={reps} -> {summary.get('samples_updated')} samples"
+        ),
+    )
+    return {"ok": True, "summary": summary}
+
+
+@router.post("/regenerate")
+async def regenerate(body: dict):
+    xid = _require_experiment(body.get("experiment_id"))
+    new_plan = planner.rebuild_plan_preserving_progress(
+        xid,
+        beamtime_hours=body.get("beamtime_hours"),
+    )
+    author = _pick_author(body)
+    log_plan_edit(
+        xid, author=author, action="regenerate",
+        payload={"sample_count": len(new_plan.get("sample_queue", []))},
+        reason=body.get("reason"),
+    )
+    return {"ok": True, "sample_count": len(new_plan.get("sample_queue", []))}

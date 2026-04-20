@@ -411,6 +411,221 @@ def extend_budget(experiment_id: str, hours_delta: float) -> float:
     return total
 
 
+def set_budget(experiment_id: str, hours_total: float) -> float:
+    """Set the beamtime budget to an absolute value (hours)."""
+    wrapper = get_experiment_plan(experiment_id) or {}
+    body = wrapper.get("plan") or {}
+    total = max(0.0, float(hours_total))
+    body.setdefault("budget", {})["beamtime_total_hours"] = total
+    body["updated_at"] = datetime.now().isoformat()
+    upsert_experiment_plan(
+        experiment_id, plan=body, beamtime_total_hours=total,
+    )
+    return total
+
+
+def _apply_mode_fields(mode_entry: dict, *, count_time_s, reps) -> None:
+    if count_time_s is not None:
+        mode_entry["count_time_s"] = float(count_time_s)
+    if reps is not None and "reps" in mode_entry:
+        mode_entry["reps"] = int(reps)
+
+
+def set_sample_time_budget(
+    experiment_id: str,
+    sample_id: str,
+    *,
+    count_time_s: float | None = None,
+    reps: int | None = None,
+    mode: str | None = None,
+) -> bool:
+    """Update the time budget for a single sample.
+
+    `mode` restricts the update to one of the sample's mode entries
+    (e.g. 'xas' or 'emiss'). When None, every mode on the sample gets
+    updated. Returns False if the sample is not in the queue.
+    """
+    body, queue = _load_plan(experiment_id)
+    updated = False
+    for s in queue:
+        if s.get("sample_id") != sample_id:
+            continue
+        modes = s.get("modes") or []
+        for m in modes:
+            if mode and m.get("mode") != mode:
+                continue
+            _apply_mode_fields(m, count_time_s=count_time_s, reps=reps)
+            updated = True
+        if updated:
+            s.setdefault("notes", []).append(
+                {
+                    "ts": datetime.now().isoformat(),
+                    "text": f"time budget updated (count_time_s={count_time_s}, reps={reps}, mode={mode or 'all'})",
+                }
+            )
+        break
+    if not updated:
+        return False
+    body["updated_at"] = datetime.now().isoformat()
+    upsert_experiment_plan(experiment_id, plan=body)
+    return True
+
+
+def set_holder_time_budget(
+    experiment_id: str,
+    holder_id: str | None,
+    *,
+    count_time_s: float | None = None,
+    reps: int | None = None,
+    mode: str | None = None,
+    apply_to_existing: bool = True,
+) -> dict:
+    """Set a default time budget for every sample in a holder.
+
+    Stores the default under `plan.holder_budgets[holder_id]` so new
+    samples inherit it, and (when `apply_to_existing` is True) walks
+    the current queue and updates each matching sample's modes.
+
+    `holder_id=None` acts as a global default (applies to all samples).
+    Returns a summary dict so the caller can log it.
+    """
+    body, queue = _load_plan(experiment_id)
+    holder_budgets = body.setdefault("holder_budgets", {})
+    key = holder_id or "_default"
+    entry = holder_budgets.setdefault(key, {})
+    if count_time_s is not None:
+        entry["count_time_s"] = float(count_time_s)
+    if reps is not None:
+        entry["reps"] = int(reps)
+    if mode is not None:
+        entry["mode"] = mode
+
+    n_updated = 0
+    if apply_to_existing:
+        for s in queue:
+            if holder_id and s.get("holder_id") != holder_id:
+                continue
+            for m in s.get("modes") or []:
+                if mode and m.get("mode") != mode:
+                    continue
+                _apply_mode_fields(m, count_time_s=count_time_s, reps=reps)
+                n_updated += 1
+            s.setdefault("notes", []).append(
+                {
+                    "ts": datetime.now().isoformat(),
+                    "text": f"holder budget applied (count_time_s={count_time_s}, reps={reps}, mode={mode or 'all'})",
+                }
+            )
+
+    body["updated_at"] = datetime.now().isoformat()
+    upsert_experiment_plan(experiment_id, plan=body)
+    return {
+        "holder_id": holder_id,
+        "count_time_s": count_time_s,
+        "reps": reps,
+        "mode": mode,
+        "samples_updated": n_updated,
+    }
+
+
+def rebuild_plan_preserving_progress(
+    experiment_id: str,
+    beamtime_hours: float | None = None,
+) -> dict:
+    """Regenerate the plan from DB while preserving sample-level progress.
+
+    Used when a new sample holder is added or edited after the plan was
+    first built — we need the new samples to show up without wiping out
+    `status`, `snr_estimate`, `reps_completed`, etc. that the agent has
+    already recorded for samples still present in the DB.
+    """
+    previous = get_experiment_plan(experiment_id) or {}
+    prev_body = previous.get("plan") or {}
+    prev_queue = prev_body.get("sample_queue") or []
+    progress: dict[str, dict] = {
+        s.get("sample_id"): {
+            "status": s.get("status"),
+            "snr_estimate": s.get("snr_estimate"),
+            "efficiency_verdict": s.get("efficiency_verdict"),
+            "reps_completed": s.get("reps_completed"),
+            "notes": s.get("notes", []),
+            # Preserve per-sample time-budget overrides the user has
+            # already applied. Mode overrides win over holder-default +
+            # DB values on regeneration.
+            "modes": s.get("modes"),
+        }
+        for s in prev_queue if s.get("sample_id")
+    }
+
+    # Carry across budget + thresholds + holder_budgets so regeneration
+    # doesn't reset user-authored overrides.
+    budget = prev_body.get("budget", {})
+    thresholds = prev_body.get("thresholds", {})
+    holder_budgets = prev_body.get("holder_budgets", {})
+
+    total_hours = beamtime_hours
+    if total_hours is None:
+        total_hours = budget.get("beamtime_total_hours") or previous.get("beamtime_total_hours")
+
+    new_plan = build_initial_plan(experiment_id, beamtime_hours=total_hours)
+
+    # Re-apply preserved data (status, progress, notes)
+    for s in new_plan.get("sample_queue", []):
+        sid = s.get("sample_id")
+        prior = progress.get(sid)
+        if prior:
+            for k in ("status", "snr_estimate", "efficiency_verdict", "reps_completed"):
+                if prior.get(k) is not None:
+                    s[k] = prior[k]
+            if prior.get("notes"):
+                s["notes"] = prior["notes"]
+    if thresholds:
+        new_plan["thresholds"] = {**new_plan.get("thresholds", {}), **thresholds}
+    if holder_budgets:
+        new_plan["holder_budgets"] = holder_budgets
+        # Apply holder budgets to the freshly-built queue first, so the
+        # per-sample overrides below can trump them on a sample-by-sample
+        # basis.
+        for s in new_plan.get("sample_queue", []):
+            hid = s.get("holder_id")
+            bud = holder_budgets.get(hid) or holder_budgets.get("_default") or {}
+            for m in s.get("modes") or []:
+                if bud.get("mode") and m.get("mode") != bud["mode"]:
+                    continue
+                _apply_mode_fields(
+                    m,
+                    count_time_s=bud.get("count_time_s"),
+                    reps=bud.get("reps"),
+                )
+    # Re-apply per-sample mode overrides (user-authored count_time_s /
+    # reps survive regeneration).
+    for s in new_plan.get("sample_queue", []):
+        prior_modes = (progress.get(s.get("sample_id")) or {}).get("modes") or []
+        if not prior_modes:
+            continue
+        by_name = {m.get("mode"): m for m in prior_modes if isinstance(m, dict)}
+        for m in s.get("modes") or []:
+            prev = by_name.get(m.get("mode"))
+            if not prev:
+                continue
+            if prev.get("count_time_s") is not None:
+                m["count_time_s"] = prev["count_time_s"]
+            if prev.get("reps") is not None:
+                m["reps"] = prev["reps"]
+    if budget:
+        new_plan.setdefault("budget", {}).update(budget)
+        if total_hours is not None:
+            new_plan["budget"]["beamtime_total_hours"] = float(total_hours)
+
+    new_plan["updated_at"] = datetime.now().isoformat()
+    upsert_experiment_plan(
+        experiment_id,
+        plan=new_plan,
+        beamtime_total_hours=new_plan.get("budget", {}).get("beamtime_total_hours"),
+    )
+    return new_plan
+
+
 def update_thresholds(
     experiment_id: str,
     *,

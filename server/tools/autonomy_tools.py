@@ -481,6 +481,122 @@ def t_recent_actions(args: dict) -> tuple[str, list[str]]:
                                    experiment_id=experiment_id)), []
 
 
+def _require_xid() -> str | None:
+    return spec_cmd.get_experiment_id() or None
+
+
+def _log_plan_edit_from_agent(experiment_id: str, action: str, *,
+                              target_id: str | None = None,
+                              payload: dict | None = None,
+                              reason: str | None = None) -> None:
+    from db.autonomy_client import log_plan_edit
+    try:
+        log_plan_edit(
+            experiment_id, author="agent", action=action,
+            target_id=target_id, payload=payload or {}, reason=reason,
+        )
+    except Exception as e:
+        logger.warning("plan-edit audit log failed: %s", e)
+
+
+def t_set_sample_time_budget(args: dict) -> tuple[str, list[str]]:
+    xid = _require_xid()
+    if not xid:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+    sample_id = args.get("sample_id")
+    if not sample_id:
+        return json.dumps({"ok": False, "error": "sample_id required"}), []
+    count_time_s = args.get("count_time_s")
+    reps = args.get("reps")
+    if count_time_s is None and reps is None:
+        return json.dumps({"ok": False, "error": "count_time_s or reps required"}), []
+    ok = planner.set_sample_time_budget(
+        xid, sample_id,
+        count_time_s=count_time_s, reps=reps, mode=args.get("mode"),
+    )
+    if not ok:
+        return json.dumps({"ok": False, "error": f"sample {sample_id} not in plan"}), []
+    _log_plan_edit_from_agent(
+        xid, "set_sample_time_budget",
+        target_id=sample_id,
+        payload={"count_time_s": count_time_s, "reps": reps, "mode": args.get("mode")},
+        reason=args.get("reason"),
+    )
+    return json.dumps({"ok": True}), []
+
+
+def t_set_holder_time_budget(args: dict) -> tuple[str, list[str]]:
+    xid = _require_xid()
+    if not xid:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+    count_time_s = args.get("count_time_s")
+    reps = args.get("reps")
+    if count_time_s is None and reps is None:
+        return json.dumps({"ok": False, "error": "count_time_s or reps required"}), []
+    summary = planner.set_holder_time_budget(
+        xid, args.get("holder_id"),
+        count_time_s=count_time_s, reps=reps, mode=args.get("mode"),
+        apply_to_existing=bool(args.get("apply_to_existing", True)),
+    )
+    _log_plan_edit_from_agent(
+        xid, "set_holder_time_budget",
+        target_id=args.get("holder_id"),
+        payload=summary,
+        reason=args.get("reason"),
+    )
+    return _as_json(summary), []
+
+
+def t_set_beamtime_budget(args: dict) -> tuple[str, list[str]]:
+    xid = _require_xid()
+    if not xid:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+    try:
+        hours_total = float(args["hours_total"])
+    except (KeyError, TypeError, ValueError):
+        return json.dumps({"ok": False, "error": "hours_total required (number)"}), []
+    new_total = planner.set_budget(xid, hours_total)
+    _log_plan_edit_from_agent(
+        xid, "set_budget",
+        payload={"new_total_hours": new_total},
+        reason=args.get("reason"),
+    )
+    return json.dumps({"ok": True, "new_total_hours": new_total}), []
+
+
+def t_extend_beamtime_budget(args: dict) -> tuple[str, list[str]]:
+    xid = _require_xid()
+    if not xid:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+    try:
+        hours_delta = float(args["hours_delta"])
+    except (KeyError, TypeError, ValueError):
+        return json.dumps({"ok": False, "error": "hours_delta required (number)"}), []
+    new_total = planner.extend_budget(xid, hours_delta)
+    _log_plan_edit_from_agent(
+        xid, "extend_budget",
+        payload={"hours_delta": hours_delta, "new_total_hours": new_total},
+        reason=args.get("reason"),
+    )
+    return json.dumps({"ok": True, "new_total_hours": new_total}), []
+
+
+def t_regenerate_plan(args: dict) -> tuple[str, list[str]]:
+    xid = _require_xid()
+    if not xid:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+    new_plan = planner.rebuild_plan_preserving_progress(
+        xid, beamtime_hours=args.get("beamtime_hours"),
+    )
+    n = len(new_plan.get("sample_queue", []))
+    _log_plan_edit_from_agent(
+        xid, "regenerate",
+        payload={"sample_count": n},
+        reason=args.get("reason"),
+    )
+    return json.dumps({"ok": True, "sample_count": n}), []
+
+
 # ---------------------------------------------------------------------------
 # Dispatch table
 # ---------------------------------------------------------------------------
@@ -534,4 +650,9 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "get_staff_guidance": t_get_staff_guidance,
     "list_open_interventions": t_list_open_interventions,
     "recent_actions": t_recent_actions,
+    "set_sample_time_budget": t_set_sample_time_budget,
+    "set_holder_time_budget": t_set_holder_time_budget,
+    "set_beamtime_budget": t_set_beamtime_budget,
+    "extend_beamtime_budget": t_extend_beamtime_budget,
+    "regenerate_plan": t_regenerate_plan,
 }
