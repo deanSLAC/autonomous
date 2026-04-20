@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BL15-2 Autonomous Beamline</title>
-    <link rel="stylesheet" href="/static/dashboard/static/dashboard.css">
-    <link rel="stylesheet" href="/static/dashboard/autonomy.css">
+    <link rel="stylesheet" href="/static/dashboard/static/dashboard.css?v=3">
+    <link rel="stylesheet" href="/static/dashboard/autonomy.css?v=3">
 </head>
 <body>
 
@@ -27,8 +27,8 @@
         <select class="experiment-select" id="experiment-select">
             <option value="">No experiments</option>
         </select>
-        <a href="/insight" class="theme-toggle" title="Agent insight" style="text-decoration:none;font-size:13px;padding:0 10px;">Insight</a>
-        <a href="/config" class="theme-toggle" title="Experiment config" style="text-decoration:none;">⚙</a>
+        <a href="/insight" class="theme-toggle topbar-link" title="Agent insight">Insight</a>
+        <a href="/config" class="theme-toggle topbar-link" title="Experiment config">⚙</a>
         <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode">&#9790;</button>
     </div>
 </div>
@@ -70,61 +70,137 @@
     <!-- LEFT COLUMN -->
     <div class="col-left">
         <div class="phase-grid" id="phase-grid">
-            <div class="phase-tile" data-status="pending" data-phase="beamline_alignment" onclick="openPhase(this)">
-                <div class="tile-header">
-                    <div class="tile-phase-name">Beamline Alignment</div>
-                    <div class="tile-status-badge badge-pending">pending</div>
+
+            <!-- ==== Experiment Configuration (mandatory first step) ==== -->
+            <div class="phase-column" data-status="pending" data-required="true">
+                <div class="phase-io phase-input">
+                    <div class="io-label">Inputs</div>
+                    <div class="io-body">User fills the <code>/config</code> form (experiment + sample holder)</div>
                 </div>
-                <div class="tile-body">
-                    <div class="tile-metric"><span class="metric-value" data-field="scan_count">--</span><span class="metric-label">scans</span></div>
-                    <div class="tile-details">
-                        <div class="tile-detail"><span class="detail-label">iter</span><span data-field="iterations">--</span></div>
-                        <div class="tile-detail"><span class="detail-label">LLM</span><span data-field="llm_count">0</span></div>
+                <div class="phase-tile tile-config" data-status="pending" data-phase="config" onclick="openConfig()">
+                    <div class="tile-header">
+                        <div class="tile-phase-name">Experiment Configuration</div>
+                        <div class="tile-status-badge badge-pending">pending</div>
+                    </div>
+                    <div class="tile-body">
+                        <div class="config-folder" data-field="folder">--</div>
+                        <div class="config-elements" data-field="elements">
+                            <span class="config-empty">Start here — no experiment configured yet</span>
+                        </div>
+                    </div>
+                    <div class="tile-footer">
+                        <span class="tile-time" data-field="sample_env">--</span>
+                        <span class="tile-link">Open config &rarr;</span>
                     </div>
                 </div>
-                <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
+                <div class="phase-io phase-output">
+                    <div class="io-label">Outputs</div>
+                    <div class="io-body">DB experiment record &amp; sample plan; <code>config_generated.mac</code></div>
+                </div>
             </div>
-            <div class="phase-tile" data-status="pending" data-phase="xes_alignment" onclick="openPhase(this)">
-                <div class="tile-header">
-                    <div class="tile-phase-name">Spectrometer Alignment</div>
-                    <div class="tile-status-badge badge-pending">pending</div>
+
+            <!-- ==== Beamline Alignment ==== -->
+            <div class="phase-column" data-status="pending">
+                <div class="phase-io phase-input">
+                    <div class="io-label">Inputs</div>
+                    <div class="io-body">Agent tool <code>align_beamline()</code>; fallbacks <code>vvv</code>, <code>m1m1</code></div>
                 </div>
-                <div class="tile-body">
-                    <div class="tile-metric"><span class="metric-value" data-field="scan_count">--</span><span class="metric-label">scans</span></div>
-                    <div class="tile-details">
-                        <div class="tile-detail"><span class="detail-label">crystals</span><span data-field="crystal_count">--</span></div>
-                        <div class="tile-detail"><span class="detail-label">anom</span><span data-field="anomaly_count">0</span></div>
+                <div class="phase-tile" data-status="pending" data-phase="beamline_alignment" onclick="openPhase(this)">
+                    <div class="tile-header">
+                        <div class="tile-phase-name">Beamline Alignment</div>
+                        <div class="tile-status-badge badge-pending">pending</div>
                     </div>
+                    <div class="tile-body">
+                        <div class="tile-metric"><span class="metric-value" data-field="scan_count">--</span><span class="metric-label">scans</span></div>
+                        <div class="tile-details">
+                            <div class="tile-detail"><span class="detail-label">iter</span><span data-field="iterations">--</span></div>
+                            <div class="tile-detail"><span class="detail-label">LLM</span><span data-field="llm_count">0</span></div>
+                        </div>
+                    </div>
+                    <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
                 </div>
-                <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
+                <div class="phase-io phase-output">
+                    <div class="io-label">Outputs</div>
+                    <div class="io-body">Aligned beam &amp; beam-size measurement; anchor position saved</div>
+                </div>
             </div>
-            <div class="phase-tile" data-status="pending" data-phase="sample_alignment" onclick="openPhase(this)">
-                <div class="tile-header">
-                    <div class="tile-phase-name">Sample Alignment</div>
-                    <div class="tile-status-badge badge-pending">pending</div>
+
+            <!-- ==== Spectrometer Alignment ==== -->
+            <div class="phase-column" data-status="pending">
+                <div class="phase-io phase-input">
+                    <div class="io-label">Inputs</div>
+                    <div class="io-body">Agent tool <code>align_xes_spectrometer()</code> — per-crystal peak &amp; mono elastic</div>
                 </div>
-                <div class="tile-body">
-                    <div class="tile-metric"><span class="metric-value" data-field="scan_count">--</span><span class="metric-label">scans</span></div>
-                    <div class="tile-details">
-                        <div class="tile-detail"><span class="detail-label">samples</span><span data-field="sample_count">--</span></div>
-                        <div class="tile-detail"><span class="detail-label">LLM</span><span data-field="llm_count">0</span></div>
+                <div class="phase-tile" data-status="pending" data-phase="xes_alignment" onclick="openPhase(this)">
+                    <div class="tile-header">
+                        <div class="tile-phase-name">Spectrometer Alignment</div>
+                        <div class="tile-status-badge badge-pending">pending</div>
                     </div>
+                    <div class="tile-body">
+                        <div class="tile-metric"><span class="metric-value" data-field="scan_count">--</span><span class="metric-label">scans</span></div>
+                        <div class="tile-details">
+                            <div class="tile-detail"><span class="detail-label">crystals</span><span data-field="crystal_count">--</span></div>
+                            <div class="tile-detail"><span class="detail-label">anom</span><span data-field="anomaly_count">0</span></div>
+                        </div>
+                    </div>
+                    <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
                 </div>
-                <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
+                <div class="phase-io phase-output">
+                    <div class="io-label">Outputs</div>
+                    <div class="io-body">Crystal pitch/roll set, <code>XES_EN_OFFSET</code> calibrated</div>
+                </div>
             </div>
-            <div class="phase-tile" data-status="pending" data-phase="collection" onclick="openPhase(this)">
-                <div class="tile-header">
-                    <div class="tile-phase-name">Data Collection</div>
-                    <div class="tile-status-badge badge-pending">pending</div>
+
+            <!-- ==== Sample Alignment ==== -->
+            <div class="phase-column" data-status="pending">
+                <div class="phase-io phase-input">
+                    <div class="io-label">Inputs</div>
+                    <div class="io-body">Agent tool <code>run_sample_alignment()</code> — Sz survey + per-sample centering</div>
                 </div>
-                <div class="tile-body">
-                    <div class="tile-metric"><span class="metric-value" data-field="scan_count">--</span><span class="metric-label">scans</span></div>
-                    <div class="tile-details">
-                        <div class="tile-detail"><span class="detail-label">samples</span><span data-field="sample_count">--</span></div>
-                        <div class="tile-detail"><span class="detail-label">techniques</span><span data-field="technique_count">--</span></div>
+                <div class="phase-tile" data-status="pending" data-phase="sample_alignment" onclick="openPhase(this)">
+                    <div class="tile-header">
+                        <div class="tile-phase-name">Sample Alignment</div>
+                        <div class="tile-status-badge badge-pending">pending</div>
                     </div>
+                    <div class="tile-body">
+                        <div class="tile-metric"><span class="metric-value" data-field="scan_count">--</span><span class="metric-label">scans</span></div>
+                        <div class="tile-details">
+                            <div class="tile-detail"><span class="detail-label">samples</span><span data-field="sample_count">--</span></div>
+                            <div class="tile-detail"><span class="detail-label">LLM</span><span data-field="llm_count">0</span></div>
+                        </div>
+                    </div>
+                    <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
                 </div>
-                <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
+                <div class="phase-io phase-output">
+                    <div class="io-label">Outputs</div>
+                    <div class="io-body">Per-sample <code>Sx / Sy / Sz</code> positions &amp; bounds populated</div>
+                </div>
+            </div>
+
+            <!-- ==== Data Collection ==== -->
+            <div class="phase-column" data-status="pending">
+                <div class="phase-io phase-input">
+                    <div class="io-label">Inputs</div>
+                    <div class="io-body">Agent tool <code>run_collection()</code> — multi-sample XAS/RIXS loop</div>
+                </div>
+                <div class="phase-tile" data-status="pending" data-phase="collection" onclick="openPhase(this)">
+                    <div class="tile-header">
+                        <div class="tile-phase-name">Data Collection</div>
+                        <div class="tile-status-badge badge-pending">pending</div>
+                    </div>
+                    <div class="tile-body">
+                        <div class="tile-metric"><span class="metric-value" data-field="scan_count">--</span><span class="metric-label">scans</span></div>
+                        <div class="tile-details">
+                            <div class="tile-detail"><span class="detail-label">samples</span><span data-field="sample_count">--</span></div>
+                            <div class="tile-detail"><span class="detail-label">techniques</span><span data-field="technique_count">--</span></div>
+                        </div>
+                    </div>
+                    <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
+                </div>
+                <div class="phase-io phase-output">
+                    <div class="io-label">Outputs</div>
+                    <div class="io-body">SPEC data files, reps-completed per sample, real-time analysis verdicts</div>
+                </div>
             </div>
         </div>
 
@@ -138,33 +214,63 @@
                     <tr>
                         <th>#</th><th>Sample</th><th>Element</th>
                         <th>Status</th><th>Reps</th><th>SNR</th><th>Verdict</th>
-                        <th style="text-align:right;">Actions</th>
                     </tr>
                 </thead>
-                <tbody id="plan-tbody"><tr><td colspan="8" style="text-align:center;color:#888">—</td></tr></tbody>
+                <tbody id="plan-tbody"><tr><td colspan="7" style="text-align:center;color:#888">—</td></tr></tbody>
             </table>
 
-            <div class="plan-steer-bar" id="plan-steer-bar">
-                <button class="btn-steer" onclick="autonomyAction('pause')">⏸ Pause run</button>
-                <button class="btn-steer" onclick="extendBudget(1)">Extend budget +1h</button>
-                <button class="btn-steer" onclick="extendBudget(-0.5)">Trim −0.5h</button>
-                <button class="btn-steer btn-primary" onclick="openAddSample()">+ Add sample</button>
-                <div style="flex:1;"></div>
-                <span class="muted" id="plan-author" title="Acting on behalf of">as web-user</span>
+            <div class="plan-footer-bar">
+                <a class="tile-link" href="/sample_planning">Manage plan &amp; time budgets &rarr;</a>
+                <a class="tile-link" href="/sample_holders">Sample holders &rarr;</a>
+            </div>
+        </div>
+
+        <!-- Agent I/O row: summary, guidance, chat, capabilities -->
+        <div class="agent-row">
+            <div class="panel">
+                <div class="panel-header">Latest agent output</div>
+                <div id="latest-summary" class="agent-summary"><div class="muted">Waiting for the agent…</div></div>
             </div>
 
-            <div id="add-sample-inline" class="add-sample-inline" style="display:none;">
-                <div class="add-sample-row">
-                    <input type="text" id="add-sample-name" placeholder="Sample name (e.g. Fe-oxide-ref)">
-                    <input type="text" id="add-sample-element" placeholder="Element symbol" style="max-width:120px;">
-                    <input type="number" id="add-sample-reps" placeholder="Reps" value="6" min="1" style="max-width:90px;">
-                    <input type="number" id="add-sample-time" placeholder="Count (s)" value="0.5" step="0.1" min="0.1" style="max-width:110px;">
-                    <input type="number" id="add-sample-pos" placeholder="At position (blank = end)" style="max-width:170px;">
+            <div class="panel">
+                <div class="panel-header">Staff guidance feed</div>
+                <div id="guidance-feed" class="guidance-feed"><div class="muted">No guidance yet.</div></div>
+                <div class="guidance-compose">
+                    <input type="text" id="guidance-input" placeholder="Steer the agent (e.g. 'prioritize the Cu samples')">
+                    <button onclick="submitGuidance()">Send</button>
                 </div>
-                <div class="add-sample-row">
-                    <input type="text" id="add-sample-reason" placeholder="Why add this sample? (optional, logged)">
-                    <button class="btn-steer btn-primary" onclick="submitAddSample()">Add</button>
-                    <button class="btn-steer" onclick="closeAddSample()">Cancel</button>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    Chat with the agent
+                    <span class="panel-sub" id="chat-status"></span>
+                </div>
+                <div id="chat-log" class="chat-log"><div class="muted">No messages yet.</div></div>
+                <div class="chat-compose">
+                    <textarea id="chat-input" rows="3"
+                              placeholder="Ask the agent anything…  (Enter sends, Shift+Enter newline)"
+                              onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+                    <button onclick="sendChat()">Send</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <button class="capabilities-toggle" id="caps-toggle" aria-expanded="false">
+                        What the agent can do
+                        <span class="toggle-arrow" id="caps-arrow">&#9654;</span>
+                    </button>
+                </div>
+                <div id="caps-body" class="caps-body" hidden>
+                    <div class="caps-section">
+                        <div class="caps-label">Tools</div>
+                        <ul id="caps-tools" class="caps-list"><li class="muted">loading…</li></ul>
+                    </div>
+                    <div class="caps-section">
+                        <div class="caps-label">Reference docs</div>
+                        <ul id="caps-refs" class="caps-list"><li class="muted">loading…</li></ul>
+                    </div>
                 </div>
             </div>
         </div>
@@ -179,59 +285,9 @@
             <div id="action-tape" class="action-tape"><div class="muted">No actions yet.</div></div>
         </div>
     </div>
-
-    <!-- RIGHT COLUMN -->
-    <div class="col-right">
-        <div class="panel">
-            <div class="panel-header">Latest agent output</div>
-            <div id="latest-summary" class="agent-summary"><div class="muted">Waiting for the agent…</div></div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-header">Staff guidance feed</div>
-            <div id="guidance-feed" class="guidance-feed"><div class="muted">No guidance yet.</div></div>
-            <div class="guidance-compose">
-                <input type="text" id="guidance-input" placeholder="Steer the agent (e.g. 'prioritize the Cu samples')">
-                <button onclick="submitGuidance()">Send</button>
-            </div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-header">
-                Chat with the agent
-                <span class="panel-sub" id="chat-status"></span>
-            </div>
-            <div id="chat-log" class="chat-log"><div class="muted">No messages yet.</div></div>
-            <div class="chat-compose">
-                <textarea id="chat-input" rows="3"
-                          placeholder="Ask the agent anything…  (Enter sends, Shift+Enter newline)"
-                          onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChat();}"></textarea>
-                <button onclick="sendChat()">Send</button>
-            </div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-header">
-                <button class="capabilities-toggle" id="caps-toggle" aria-expanded="false">
-                    What the agent can do
-                    <span class="toggle-arrow" id="caps-arrow">&#9654;</span>
-                </button>
-            </div>
-            <div id="caps-body" class="caps-body" hidden>
-                <div class="caps-section">
-                    <div class="caps-label">Tools</div>
-                    <ul id="caps-tools" class="caps-list"><li class="muted">loading…</li></ul>
-                </div>
-                <div class="caps-section">
-                    <div class="caps-label">Reference docs</div>
-                    <ul id="caps-refs" class="caps-list"><li class="muted">loading…</li></ul>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
-<script src="/static/dashboard/static/dashboard.js"></script>
-<script src="/static/dashboard/autonomy.js"></script>
+<script src="/static/dashboard/static/dashboard.js?v=3"></script>
+<script src="/static/dashboard/autonomy.js?v=3"></script>
 </body>
 </html>

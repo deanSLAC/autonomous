@@ -5,7 +5,7 @@
 const API = "";
 const POLL_MS = 3000;
 
-let pollTimer = null;
+let autonomyPollTimer = null;
 
 async function autonomyAction(kind) {
     const expSel = document.getElementById("experiment-select");
@@ -26,6 +26,60 @@ async function autonomyAction(kind) {
         console.error(e);
     }
     refreshAutonomy();
+}
+
+function openConfig() {
+    window.location.href = "/config";
+}
+
+function setTileStatus(tile, status) {
+    if (!tile) return;
+    tile.dataset.status = status;
+    const column = tile.closest(".phase-column");
+    if (column) column.dataset.status = status;
+}
+
+function renderConfigTile(exp) {
+    const tile = document.querySelector('.phase-tile[data-phase="config"]');
+    if (!tile) return;
+    const column = tile.closest(".phase-column");
+    const folderEl = tile.querySelector('[data-field="folder"]');
+    const elementsEl = tile.querySelector('[data-field="elements"]');
+    const envEl = tile.querySelector('[data-field="sample_env"]');
+    const badge = tile.querySelector(".tile-status-badge");
+
+    if (!exp) {
+        setTileStatus(tile, "pending");
+        if (column) column.setAttribute("data-required", "true");
+        if (badge) {
+            badge.className = "tile-status-badge badge-pending";
+            badge.textContent = "pending";
+        }
+        if (folderEl) folderEl.textContent = "--";
+        if (elementsEl) elementsEl.innerHTML =
+            '<span class="config-empty">Start here — no experiment configured yet</span>';
+        if (envEl) envEl.textContent = "--";
+        return;
+    }
+
+    setTileStatus(tile, "completed");
+    if (column) column.removeAttribute("data-required");
+    if (badge) {
+        badge.className = "tile-status-badge badge-completed";
+        badge.textContent = "configured";
+    }
+    if (folderEl) folderEl.textContent = exp.name || exp.experimenter || "--";
+    if (elementsEl) {
+        const elements = exp.elements || [];
+        if (!elements.length) {
+            elementsEl.innerHTML = '<span class="config-empty">No elements selected</span>';
+        } else {
+            elementsEl.innerHTML = elements
+                .map((sym) => `<span class="element-chip">${escapeHtml(sym)}</span>`)
+                .join("");
+        }
+    }
+    if (envEl) envEl.textContent = exp.sample_env || "ambient";
 }
 
 async function submitGuidance() {
@@ -56,10 +110,12 @@ async function sendChat() {
     if (btn) { btn.disabled = true; btn.textContent = "…"; }
     showTyping(true);
     try {
+        const expSel = document.getElementById("experiment-select");
+        const expId = expSel ? expSel.value : null;
         const r = await fetch(API + "/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: text }),
+            body: JSON.stringify({ message: text, experiment_id: expId || undefined }),
         });
         const j = await r.json().catch(() => ({}));
         showTyping(false);
@@ -162,39 +218,37 @@ function renderAutonomy(orc, dash) {
         summary.textContent = orc.last_summary;
     }
 
-    if (!dash) return;
+    if (!dash) {
+        // No experiment selected — still render the config tile's empty state
+        renderConfigTile(null);
+        return;
+    }
 
-    // Plan table
+    // Plan table (dashboard has a compact read-only table; planning page
+    // renders its own richer version via the onAutonomyRendered hook).
     const tbody = document.getElementById("plan-tbody");
     const queue = (dash.plan && dash.plan.plan && dash.plan.plan.sample_queue) || [];
+    const expSel = document.getElementById("experiment-select");
     const expId = expSel ? expSel.value : "";
-    if (queue.length) {
-        tbody.innerHTML = queue.map((s, i) => {
-            const sid = s.sample_id;
-            const disableMove = "";
-            const first = i === 0 ? "disabled" : "";
-            const last = i === queue.length - 1 ? "disabled" : "";
-            const reps = s.modes && s.modes[0] && s.modes[0].reps != null
-                ? `${s.reps_completed ?? 0} / ${s.modes[0].reps}`
-                : (s.reps_completed ?? 0);
-            return `<tr>
-                <td>${i + 1}</td>
-                <td><span class="sample-name">${escapeHtml(s.sample_name)}</span></td>
-                <td>${escapeHtml(s.element_symbol)}</td>
-                <td><span class="plan-status-pill ${s.status || "queued"}">${s.status || "queued"}</span></td>
-                <td>${reps}</td>
-                <td>${s.snr_estimate != null ? Number(s.snr_estimate).toFixed(1) : "–"}</td>
-                <td>${s.efficiency_verdict || "–"}</td>
-                <td class="row-actions">
-                    <button ${first} title="Move up" onclick="moveSample('${sid}', -1)">↑</button>
-                    <button ${last} title="Move down" onclick="moveSample('${sid}', 1)">↓</button>
-                    <button title="Skip this sample" onclick="skipSample('${sid}')">Skip</button>
-                    <button class="danger" title="Remove from plan" onclick="removeSample('${sid}')">✕</button>
-                </td>
-            </tr>`;
-        }).join("");
-    } else {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#888">No samples in plan yet — either start an experiment or add one below.</td></tr>';
+    if (tbody) {
+        if (queue.length) {
+            tbody.innerHTML = queue.map((s, i) => {
+                const reps = s.modes && s.modes[0] && s.modes[0].reps != null
+                    ? `${s.reps_completed ?? 0} / ${s.modes[0].reps}`
+                    : (s.reps_completed ?? 0);
+                return `<tr>
+                    <td>${i + 1}</td>
+                    <td><span class="sample-name">${escapeHtml(s.sample_name)}</span></td>
+                    <td>${escapeHtml(s.element_symbol)}</td>
+                    <td><span class="plan-status-pill ${s.status || "queued"}">${s.status || "queued"}</span></td>
+                    <td>${reps}</td>
+                    <td>${s.snr_estimate != null ? Number(s.snr_estimate).toFixed(1) : "–"}</td>
+                    <td>${s.efficiency_verdict || "–"}</td>
+                </tr>`;
+            }).join("");
+        } else {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888">No samples in plan yet — configure a sample holder under /config, then open Manage plan.</td></tr>';
+        }
     }
 
     // Plan summary header
@@ -290,40 +344,52 @@ function renderAutonomy(orc, dash) {
         feed.innerHTML = '<div class="muted">No guidance yet.</div>';
     }
 
-    // Phase tiles
-    const phaseKeys = {
-        "beamline_alignment": "beamline_alignment",
-        "xes_alignment": "xes_alignment",
-        "sample_alignment": "sample_alignment",
-        "collection": "collection",
-    };
-    document.querySelectorAll(".phase-tile").forEach(tile => {
+    // Phase tiles (skip the config tile — it's handled by renderConfigTile)
+    document.querySelectorAll('.phase-tile:not([data-phase="config"])').forEach(tile => {
         const key = tile.getAttribute("data-phase");
         const matching = (dash.phase_runs || []).filter(r => r.phase === key || r.phase === key.replace("_alignment","_align"));
         const latest = matching[matching.length - 1];
         if (latest) {
-            tile.setAttribute("data-status", latest.status || "pending");
+            const status = latest.status || "pending";
+            setTileStatus(tile, status);
             const badge = tile.querySelector(".tile-status-badge");
-            badge.textContent = latest.status || "pending";
-            badge.className = "tile-status-badge badge-" + (latest.status || "pending");
+            badge.textContent = status;
+            badge.className = "tile-status-badge badge-" + status;
         }
     });
     // Current phase highlighting
     if (orc && orc.phase) {
-        document.querySelectorAll(".phase-tile").forEach(t => {
+        document.querySelectorAll('.phase-tile:not([data-phase="config"])').forEach(t => {
             t.style.outline = t.getAttribute("data-phase") === orc.phase
                 ? "2px solid var(--accent, #9b1b30)" : "";
         });
     }
 
-    // Exp info
+    // Config tile + exp info. `elements` arrives at the top level of the
+    // dashboard payload, not nested under `experiment`, so fold it in.
+    const expForTile = dash.experiment
+        ? { ...dash.experiment, elements: (dash.elements || []).map((e) => e.symbol).filter(Boolean) }
+        : null;
+    renderConfigTile(expForTile);
     if (dash.experiment) {
-        document.getElementById("exp-experimenter").textContent = dash.experiment.experimenter || "--";
-        document.getElementById("exp-crystal").textContent = dash.experiment.mono_crystal || "--";
-        document.getElementById("exp-beam").textContent =
-            `H:${dash.experiment.beam_size_h || "?"} V:${dash.experiment.beam_size_v || "?"}`;
-        document.getElementById("exp-env").textContent = dash.experiment.sample_env || "--";
-        document.getElementById("exp-status").textContent = dash.experiment.status || "--";
+        const setText = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+        setText("exp-experimenter", dash.experiment.experimenter || "--");
+        setText("exp-crystal", dash.experiment.mono_crystal || "--");
+        setText(
+            "exp-beam",
+            `H:${dash.experiment.beam_size_h || "?"} V:${dash.experiment.beam_size_v || "?"}`,
+        );
+        setText("exp-env", dash.experiment.sample_env || "--");
+        setText("exp-status", dash.experiment.status || "--");
+    }
+
+    // Allow pages that embed this script (e.g. /sample_planning) to render
+    // their own richer views of the same orc+dash payloads.
+    if (typeof window !== "undefined" && typeof window.onAutonomyRendered === "function") {
+        try { window.onAutonomyRendered(orc, dash); } catch (e) { console.warn(e); }
     }
 }
 
@@ -509,14 +575,16 @@ function wireCapabilitiesToggle() {
     const body = document.getElementById("caps-body");
     const arrow = document.getElementById("caps-arrow");
     if (!btn || !body) return;
-    let loaded = false;
+    // Load the tool list once on page init — the toggle now only controls
+    // visibility. Previously the load was gated on a click that could never
+    // fire (a CSS rule was overriding the [hidden] attribute).
+    loadCapabilities();
     btn.addEventListener("click", () => {
-        const open = body.hasAttribute("hidden");
-        if (open) {
+        const isHidden = body.hasAttribute("hidden");
+        if (isHidden) {
             body.removeAttribute("hidden");
             btn.setAttribute("aria-expanded", "true");
             if (arrow) arrow.style.transform = "rotate(90deg)";
-            if (!loaded) { loadCapabilities(); loaded = true; }
         } else {
             body.setAttribute("hidden", "");
             btn.setAttribute("aria-expanded", "false");
@@ -530,7 +598,7 @@ document.addEventListener("DOMContentLoaded", () => {
     wirePlanAuthor();
     wireCapabilitiesToggle();
     refreshAutonomy();
-    pollTimer = setInterval(refreshAutonomy, POLL_MS);
+    autonomyPollTimer = setInterval(refreshAutonomy, POLL_MS);
     // Server health signal
     const srvDot = document.getElementById("server-dot");
     const srvTxt = document.getElementById("server-status");
