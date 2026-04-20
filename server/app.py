@@ -334,6 +334,11 @@ async def dashboard_page():
     return _page(STATIC_DIR / "dashboard" / "index.html")
 
 
+@app.get(f"{BASE_PATH}/phase")
+async def phase_page():
+    return _page(STATIC_DIR / "dashboard" / "phase.html")
+
+
 @app.get(f"{BASE_PATH}/sample_planning")
 async def sample_planning_page():
     return _page(STATIC_DIR / "sample_planning" / "index.html")
@@ -406,12 +411,18 @@ def _resolve_chat_experiment_id(requested: str | None) -> str | None:
         return None
 
 
-def _build_chat_context_prefix(experiment_id: str | None) -> str:
+def _build_chat_context_prefix(
+    experiment_id: str | None,
+    page: str | None = None,
+    page_context: dict | None = None,
+) -> str:
     """Build a `[PLANNER STATE]`-style prefix for free-form chat turns.
 
     Mirrors what the orchestrator loop prepends to each autonomous turn
     so the agent always sees live phase + budget + sample progress, even
-    when the user is just chatting from the dashboard.
+    when the user is just chatting from the dashboard. When a page slug
+    / page_context dict is supplied, appends a `[PAGE CONTEXT]` block so
+    the agent knows which informational page the user is on.
     """
     phase = spec_cmd.get_phase()
     lines: list[str] = []
@@ -428,6 +439,23 @@ def _build_chat_context_prefix(experiment_id: str | None) -> str:
             f"[PLANNER STATE]\n  phase: {phase}\n"
             "  (no experiment configured yet — suggest the user open /config)"
         )
+    if page or page_context:
+        ctx_lines = ["[PAGE CONTEXT]"]
+        if page:
+            ctx_lines.append(f"  page: {page}")
+        if isinstance(page_context, dict):
+            for k, v in page_context.items():
+                try:
+                    rendered = json.dumps(v, default=str) if not isinstance(v, str) else v
+                except Exception:
+                    rendered = str(v)
+                ctx_lines.append(f"  {k}: {rendered}")
+        ctx_lines.append(
+            "  The user is viewing the page above. Use the beamline tools "
+            "(get_latest_scan, list_scans, read_scan, plot_scan, etc.) to "
+            "fetch data relevant to this page when they ask about it."
+        )
+        lines.append("\n".join(ctx_lines))
     lines.append(
         "Forward phase moves go through the `transition_phase` tool; "
         "preconditions gate every transition."
@@ -456,7 +484,11 @@ async def chat(payload: dict):
         conversation = ConversationService(client)
 
     exp_id = _resolve_chat_experiment_id(payload.get("experiment_id"))
-    prefix = _build_chat_context_prefix(exp_id)
+    page = payload.get("page")
+    page_context = payload.get("page_context")
+    if not isinstance(page_context, dict):
+        page_context = None
+    prefix = _build_chat_context_prefix(exp_id, page=page, page_context=page_context)
     augmented = f"{prefix}\n\n[User/operator]: {user_text}"
 
     slack_bridge.post_user_message(user_text)

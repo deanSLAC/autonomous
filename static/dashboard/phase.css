@@ -1,0 +1,71 @@
+/* Phase detail / informational page */
+
+.phase-detail {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 18px 24px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.phase-back {
+    color: var(--text-muted, #888);
+    font-size: 0.9em;
+    text-decoration: none;
+}
+.phase-back:hover { text-decoration: underline; }
+
+.phase-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.phase-detail-title {
+    margin: 0;
+    font-size: 1.8em;
+    font-weight: 600;
+}
+
+.phase-description {
+    margin: 6px 0 14px;
+    line-height: 1.55;
+    color: var(--text, #1a1a1a);
+}
+
+.phase-io-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+    margin-top: 6px;
+}
+
+.phase-io-card {
+    background: var(--bg-soft, rgba(0,0,0,0.03));
+    border: 1px solid var(--border, #e0dbd2);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+[data-theme="dark"] .phase-io-card {
+    background: rgba(255,255,255,0.04);
+}
+
+.phase-io-label {
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted, #888);
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.phase-io-list {
+    list-style: disc;
+    padding-left: 20px;
+    margin: 0;
+    font-size: 0.92em;
+    line-height: 1.5;
+}
+.phase-io-list li { margin-bottom: 4px; }
+.phase-io-list li:last-child { margin-bottom: 0; }

@@ -104,6 +104,11 @@ async function checkServer() {
         if (resp.ok) {
             dot.className = "status-dot";
             label.textContent = "connected";
+            try {
+                const j = await resp.json();
+                const pill = document.getElementById("sim-pill");
+                if (pill) pill.style.display = j.simulation ? "inline-block" : "none";
+            } catch { /* non-JSON ok */ }
         } else {
             dot.className = "status-dot offline";
             label.textContent = "error";
@@ -432,15 +437,9 @@ async function init() {
             refreshDashboard();
         }, POLL_INTERVAL);
     } else {
-        // Phase detail page — poll for updates if running
+        // Phase detail page — phase.js owns rendering + polling. Only
+        // bother with the health dot here.
         setInterval(checkServer, POLL_INTERVAL);
-
-        // Re-fetch detail if phase is still running
-        const params = new URLSearchParams(window.location.search);
-        const phaseRunId = params.get("id");
-        if (phaseRunId) {
-            setInterval(() => loadPhaseDetail(phaseRunId), POLL_INTERVAL);
-        }
     }
 }
 
