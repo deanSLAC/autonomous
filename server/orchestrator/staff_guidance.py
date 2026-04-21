@@ -87,17 +87,59 @@ class StaffCoordinator:
         except Exception as e:
             logger.error("intervention notify failed: %s", e)
 
+        # Two wake-up paths:
+        #  1) In-process resolve (fast): coordinator.resolve() sets the
+        #     Event directly. Used when the resolver and the waiter live
+        #     in the same process.
+        #  2) Cross-process resolve (polled): opencode spawns tool calls
+        #     in a *subprocess*, so its in-memory _waiters dict is
+        #     separate from the FastAPI parent's. The parent still
+        #     updates the DB row, and we poll the row here so the
+        #     subprocess wakes up too. 2s cadence is human-scale
+        #     (nobody notices a 2s lag on a physical action), and cheap.
+        async def _watch_db() -> dict:
+            while True:
+                await asyncio.sleep(2.0)
+                cur = get_intervention(row.id)
+                if cur is None:
+                    continue
+                status = cur.get("status")
+                if status and status != "pending":
+                    return {
+                        "id": row.id,
+                        "status": status,
+                        "resolver": cur.get("resolver") or "unknown",
+                        "note": cur.get("note"),
+                    }
+
         try:
-            if timeout_s is None:
-                await waiter.event.wait()
-                return waiter.outcome
+            event_task = asyncio.create_task(waiter.event.wait())
+            db_task = asyncio.create_task(_watch_db())
+            tasks = {event_task, db_task}
             try:
-                await asyncio.wait_for(waiter.event.wait(), timeout=timeout_s)
+                if timeout_s is None:
+                    done, _ = await asyncio.wait(
+                        tasks, return_when=asyncio.FIRST_COMPLETED,
+                    )
+                else:
+                    done, _ = await asyncio.wait(
+                        tasks, timeout=timeout_s,
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    if not done:
+                        resolve_intervention(row.id, status="timed_out",
+                                             resolver="system",
+                                             note=f"no response within {timeout_s}s")
+                        return {"id": row.id, "status": "timed_out",
+                                "resolver": "system"}
+            finally:
+                for t in tasks:
+                    if not t.done():
+                        t.cancel()
+
+            if event_task in done:
                 return waiter.outcome
-            except asyncio.TimeoutError:
-                resolve_intervention(row.id, status="timed_out", resolver="system",
-                                     note=f"no response within {timeout_s}s")
-                return {"id": row.id, "status": "timed_out", "resolver": "system"}
+            return db_task.result()
         finally:
             async with self._lock:
                 self._waiters.pop(row.id, None)

@@ -348,10 +348,7 @@ def t_transition_phase(args: dict) -> tuple[str, list[str]]:
         # Tool dispatch runs in a *subprocess* spawned by opencode; the
         # Orchestrator singleton lives in the FastAPI parent and isn't
         # reachable here. The PreconditionChecker's facts are
-        # in-memory, so the fresh subprocess starts blank — which
-        # blocks setup→bl_align on a missing `experiment_id` even
-        # though one is clearly selected. Seed from DB-derivable state
-        # here so the gate reflects reality.
+        # in-memory, so the fresh subprocess starts blank.
         checker = phase_mod.PreconditionChecker()
         checker.record("experiment_id", experiment_id)
         checker.record("beam_good", True)  # safe default; mock SPEC returns True anyway
@@ -362,6 +359,16 @@ def t_transition_phase(args: dict) -> tuple[str, list[str]]:
             checker.record("beamtime_remaining_hours", snap.beamtime_remaining_hours)
         except Exception:
             pass
+
+    # Always re-derive phase-completion facts from the action_log before
+    # checking. Even on the FastAPI-parent path, the successful
+    # align_beamline ran in a subprocess that couldn't touch `orch.checker`,
+    # so the in-memory flag is stale.
+    try:
+        phase_mod.seed_from_action_log(checker, experiment_id)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("seed_from_action_log failed: %s", e)
 
     async def _go():
         return await phase_mod.transition_phase(
