@@ -212,7 +212,7 @@ class SlackBridge:
             if not self._llm_thread_ts:
                 result = self._app.client.chat_postMessage(
                     channel=SLACK_LLM_CHANNEL_ID,
-                    text=f"*New user question:*\n> {user_text}",
+                    text=f"*New BeamtimeHero question:*\n> {user_text}",
                 )
                 self._llm_thread_ts = result["ts"]
             else:
