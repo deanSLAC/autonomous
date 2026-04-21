@@ -265,8 +265,31 @@ class OpenCodeClient:
             json=body,
             timeout=OPENCODE_MESSAGE_TIMEOUT_S,
         )
-        r.raise_for_status()
-        return r.json()
+        # Non-2xx: surface the body so we can see *why* (model missing,
+        # upstream gateway 5xx, auth, etc.) instead of a bare HTTPError.
+        if not r.ok:
+            snippet = (r.text or "")[:500].replace("\n", " ")
+            raise RuntimeError(
+                f"opencode POST /session/{session_id}/message "
+                f"returned {r.status_code}: {snippet!r}"
+            )
+        # 200 with non-JSON body — seen when the upstream model provider
+        # (Stanford AI Gateway) returns an empty/HTML error that opencode
+        # forwards verbatim. Log enough to diagnose.
+        try:
+            return r.json()
+        except ValueError as e:
+            snippet = (r.text or "")[:500].replace("\n", " ")
+            logger.error(
+                "opencode returned 200 but body is not JSON (%d bytes): %r",
+                len(r.text or ""), snippet,
+            )
+            raise RuntimeError(
+                "opencode returned a non-JSON response to the message post. "
+                "This usually means the upstream model gateway (Stanford AI) "
+                "failed — check opencode's stdout for the real error. "
+                f"Body snippet: {snippet!r}"
+            ) from e
 
     def send(self, text: str) -> OpenCodeResult:
         """Send a user message, blocking until the assistant has replied.
