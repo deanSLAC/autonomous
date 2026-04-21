@@ -376,31 +376,41 @@ function renderAutonomy(orc, dash) {
     const interventions = dash.interventions || [];
     if (interventions.length) {
         banner.style.display = "block";
-        banner.innerHTML = interventions.map(iv => {
-            const p = interventionPresentation(iv.kind);
-            return `
-            <div class="intervention-row intervention-${p.level}">
-                <div class="intervention-body">
-                    <div class="intervention-title">
-                        <span class="intervention-icon">${p.icon}</span>
-                        ${escapeHtml(p.title)}
+        // Skip the DOM rewrite if the set of interventions hasn't
+        // changed. Otherwise every 3s poll would collapse any <details>
+        // the operator just expanded.
+        const sig = interventions
+            .map(iv => `${iv.id}|${iv.kind}|${iv.detail || ""}`)
+            .join("\u241E");
+        if (banner.dataset.sig !== sig) {
+            banner.dataset.sig = sig;
+            banner.innerHTML = interventions.map(iv => {
+                const p = interventionPresentation(iv.kind);
+                return `
+                <div class="intervention-row intervention-${p.level}">
+                    <div class="intervention-body">
+                        <div class="intervention-title">
+                            <span class="intervention-icon">${p.icon}</span>
+                            ${escapeHtml(p.title)}
+                        </div>
+                        <div class="intervention-instruction">${escapeHtml(p.instruction)}</div>
+                        ${iv.detail ? `
+                            <details class="intervention-agent">
+                                <summary>Agent message</summary>
+                                <div class="intervention-agent-text">${escapeHtml(iv.detail)}</div>
+                            </details>
+                        ` : ""}
                     </div>
-                    <div class="intervention-instruction">${escapeHtml(p.instruction)}</div>
-                    ${iv.detail ? `
-                        <details class="intervention-agent">
-                            <summary>Agent message (LLM prose — may be inaccurate)</summary>
-                            <div class="intervention-agent-text">${escapeHtml(iv.detail)}</div>
-                        </details>
-                    ` : ""}
-                </div>
-                <div class="btns">
-                    <button onclick="resolveIntervention('${iv.id}', 'resolved')">Done — continue</button>
-                    <button class="secondary" onclick="resolveIntervention('${iv.id}', 'denied')">Abort run</button>
-                </div>
-            </div>`;
-        }).join("");
+                    <div class="btns">
+                        <button onclick="resolveIntervention('${iv.id}', 'resolved')">Done — continue</button>
+                        <button class="secondary" onclick="resolveIntervention('${iv.id}', 'denied')">Abort run</button>
+                    </div>
+                </div>`;
+            }).join("");
+        }
     } else {
         banner.style.display = "none";
+        banner.dataset.sig = "";
     }
 
     // Guidance feed
