@@ -60,11 +60,55 @@ def _as_json(result: dict | list | str) -> str:
     return json.dumps(result, indent=2, default=str)
 
 
+def _refuse_rerun_if_already_done(command: str, human_name: str) -> Optional[str]:
+    """Gate long-running macros so the agent can never trigger them
+    twice. If the action_log already shows a successful run for the
+    current experiment, return the refusal JSON string; otherwise
+    return None and the caller should proceed.
+
+    Why: these macros take minutes and physically re-align hardware.
+    A phase-gate failure (e.g. a stale in-memory flag) used to make
+    the agent 'helpfully' retry. Never again. The user can reset the
+    run via the dashboard Reset button if they want to redo it.
+    """
+    try:
+        from action_log.db import recent_actions
+    except Exception:
+        return None
+    experiment_id = spec_cmd.get_experiment_id()
+    if not experiment_id:
+        return None
+    try:
+        actions = recent_actions(limit=100, experiment_id=experiment_id)
+    except Exception:
+        return None
+    prior = next(
+        (a for a in actions if a.get("command") == command and a.get("success") == 1),
+        None,
+    )
+    if prior is None:
+        return None
+    return json.dumps({
+        "ok": False,
+        "already_done": True,
+        "prior_action_id": prior.get("id"),
+        "error": (
+            f"{human_name} already succeeded for this experiment "
+            f"(action {prior.get('id')}). This macro is one-shot — "
+            "call transition_phase to move on. The operator can force "
+            "a re-run via the dashboard Reset button."
+        ),
+    })
+
+
 # ===========================================================================
 # CAT-0 · High-level procedural macros
 # ===========================================================================
 
 def t_align_beamline(args: dict) -> tuple[str, list[str]]:
+    refusal = _refuse_rerun_if_already_done("align_beamline", "align_beamline")
+    if refusal is not None:
+        return refusal, []
     justification = (args.get("justification") or "").strip()
     a = [
         str(args.get("energy", 0)),
@@ -77,6 +121,9 @@ def t_align_beamline(args: dict) -> tuple[str, list[str]]:
 
 
 def t_align_xes(args: dict) -> tuple[str, list[str]]:
+    refusal = _refuse_rerun_if_already_done("align_xes", "align_xes_spectrometer")
+    if refusal is not None:
+        return refusal, []
     j = (args.get("justification") or "").strip()
     crystals = str(args.get("crystals", "1234567"))
     a = [crystals, str(args.get("en_xes", 0)), str(args.get("en_mono", 0))]
@@ -85,6 +132,9 @@ def t_align_xes(args: dict) -> tuple[str, list[str]]:
 
 
 def t_auto_sample_align(args: dict) -> tuple[str, list[str]]:
+    refusal = _refuse_rerun_if_already_done("auto_sample_align", "auto_sample_align")
+    if refusal is not None:
+        return refusal, []
     j = (args.get("justification") or "").strip()
     res = spec_cmd.call("auto_sample_align", [], justification=j)
     return _as_json(res), []

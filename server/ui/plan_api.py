@@ -285,6 +285,25 @@ async def set_holder_time_budget(body: dict):
     return {"ok": True, "summary": summary}
 
 
+@router.post("/set_phase_enabled")
+async def set_phase_enabled(body: dict):
+    xid = _require_experiment(body.get("experiment_id"))
+    phase = (body.get("phase") or "").strip()
+    enabled = bool(body.get("enabled"))
+    try:
+        skipped = planner.set_phase_enabled(xid, phase, enabled)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    log_plan_edit(
+        xid, author=_pick_author(body),
+        action="set_phase_enabled",
+        target_id=phase,
+        payload={"enabled": enabled, "phases_skipped": skipped},
+        reason=body.get("reason"),
+    )
+    return {"ok": True, "phases_skipped": skipped}
+
+
 @router.post("/regenerate")
 async def regenerate(body: dict):
     xid = _require_experiment(body.get("experiment_id"))

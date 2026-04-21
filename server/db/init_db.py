@@ -37,6 +37,9 @@ _PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("queue_order", "INTEGER NOT NULL DEFAULT 0"),
         ("notes", "TEXT"),
     ],
+    "actionlog": [
+        ("invalidated_at", "TIMESTAMP"),
+    ],
 }
 
 

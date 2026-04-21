@@ -318,6 +318,39 @@ def replace_plan(experiment_id: str, new_plan: dict) -> dict:
     return new_plan
 
 
+PHASES_SKIPPABLE = {
+    "beamline_alignment",
+    "xes_alignment",
+    "sample_alignment",
+    "collection",
+}
+
+
+def set_phase_enabled(experiment_id: str, phase: str, enabled: bool) -> list[str]:
+    """Mark a phase as skipped or enabled. Stored in plan.phases_skipped.
+
+    Disabled phases are auto-passed by the precondition gate — the
+    agent can transition past them without running their macros.
+    Used for manual override when the operator wants to skip
+    bl_align, xes_align, or sample_align (e.g. alignment already
+    known-good from a previous session).
+    """
+    if phase not in PHASES_SKIPPABLE:
+        raise ValueError(f"phase {phase!r} is not skippable")
+    plan = get_experiment_plan(experiment_id) or {}
+    body = plan.get("plan", {}) or {}
+    skipped = set(body.get("phases_skipped") or [])
+    if enabled:
+        skipped.discard(phase)
+    else:
+        skipped.add(phase)
+    body["phases_skipped"] = sorted(skipped)
+    plan["plan"] = body
+    plan["updated_at"] = datetime.now().isoformat()
+    upsert_experiment_plan(experiment_id, plan=plan)
+    return body["phases_skipped"]
+
+
 def bump_elapsed(experiment_id: str, hours: float) -> None:
     plan = get_experiment_plan(experiment_id) or {}
     elapsed = float(plan.get("beamtime_elapsed_hours") or 0.0) + hours

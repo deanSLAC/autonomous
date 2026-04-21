@@ -15,6 +15,7 @@ from sqlmodel import select
 
 from db.client import get_session
 from db.models import (
+    ActionLog,
     ExperimentPlan,
     InterventionRequest,
     PhaseTransitionLog,
@@ -255,6 +256,57 @@ def resolve_intervention(
         session.commit()
         session.refresh(row)
     return row
+
+
+def reset_run_state(experiment_id: str) -> dict:
+    """Operator-triggered hard reset: mark prior action-log rows as
+    invalidated, resolve any still-pending interventions with
+    status='reset', and put the plan back in `setup` phase.
+
+    Experiment config, sample holders, and sample queue are untouched
+    — the operator explicitly resets the *run*, not the experiment.
+    Returns a small summary for the UI.
+    """
+    now = datetime.now()
+    with get_session() as session:
+        live_actions = list(session.exec(
+            select(ActionLog).where(
+                ActionLog.experiment_id == experiment_id,
+                ActionLog.invalidated_at.is_(None),
+            )
+        ))
+        for row in live_actions:
+            row.invalidated_at = now
+            session.add(row)
+
+        pending = list(session.exec(
+            select(InterventionRequest).where(
+                InterventionRequest.experiment_id == experiment_id,
+                InterventionRequest.status == "waiting",
+            )
+        ))
+        for iv in pending:
+            iv.status = "reset"
+            iv.resolver = "operator"
+            iv.resolver_note = "run reset from dashboard"
+            iv.resolved_at = now
+            session.add(iv)
+
+        plan_row = session.exec(
+            select(ExperimentPlan).where(
+                ExperimentPlan.experiment_id == experiment_id
+            )
+        ).first()
+        if plan_row is not None:
+            plan_row.phase = "setup"
+            session.add(plan_row)
+
+        session.commit()
+
+    return {
+        "invalidated_actions": len(live_actions),
+        "resolved_interventions": len(pending),
+    }
 
 
 def list_open_interventions(experiment_id: str | None = None) -> list[dict]:

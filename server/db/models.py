@@ -269,6 +269,10 @@ class ActionLog(SQLModel, table=True):
     success: Optional[int] = None  # 1 ok, 0 err, None in progress
     error_message: Optional[str] = None
     agent: str = Field(default="llm")  # "llm" | "operator" | "system"
+    # Set by /api/orchestrator/reset so prior runs are invisible to the
+    # re-run guards and the action-log UI without actually losing audit
+    # data. NULL for live rows.
+    invalidated_at: Optional[datetime] = None
 
 
 class QueryLog(SQLModel, table=True):

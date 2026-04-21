@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
 from config import llm_enabled
-from db.autonomy_client import get_intervention
+from db.autonomy_client import get_intervention, reset_run_state
 from db.client import get_experiment
 from opencode_client import OpenCodeClient
 from orchestrator import planner
@@ -89,6 +89,30 @@ def stop():
         raise HTTPException(503, "orchestrator not initialized")
     orch.stop()
     return {"ok": True}
+
+
+@router.post("/reset")
+def reset(payload: dict | None = None):
+    """Hard reset: stop the run, invalidate action_log rows, resolve
+    pending interventions, put phase back to setup. Keeps experiment
+    config + sample queue. Operator can then toggle phase enables
+    before clicking Start again.
+    """
+    experiment_id = (payload or {}).get("experiment_id") or spec_cmd.get_experiment_id()
+    if not experiment_id:
+        raise HTTPException(400, "experiment_id required (or start an experiment first)")
+    orch = get_orchestrator()
+    if orch is not None and orch.state.running:
+        orch.stop()
+    summary = reset_run_state(experiment_id)
+    spec_cmd.set_phase("setup", experiment_id=experiment_id)
+    if orch is not None:
+        # Clear transient in-memory state so the next Start is clean.
+        orch.state.turn_count = 0
+        orch.state.last_summary = ""
+        orch.state.last_images = []
+        orch.checker = type(orch.checker)()  # fresh PreconditionChecker
+    return {"ok": True, "experiment_id": experiment_id, **summary}
 
 
 @router.get("/status")

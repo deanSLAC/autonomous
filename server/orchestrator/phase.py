@@ -69,15 +69,43 @@ def seed_from_action_log(checker: "PreconditionChecker", experiment_id: str) -> 
     The action_log *is* shared (sqlite on disk), so we re-derive the
     facts here from commands known to have succeeded. Idempotent; safe
     to call before every precondition check.
+
+    Also honors plan.phases_skipped: phases the operator disabled from
+    the dashboard auto-pass all of their completion preconditions, so
+    the agent can transition through them without running the macros.
     """
     try:
         from action_log.db import recent_actions
+        from db.autonomy_client import get_experiment_plan
     except Exception:
         return
     try:
         actions = recent_actions(limit=200, experiment_id=experiment_id)
     except Exception:
-        return
+        actions = []
+
+    # Operator-disabled phases → treat as already-done.
+    try:
+        plan = get_experiment_plan(experiment_id) or {}
+        body = plan.get("plan", {}) or {}
+        skipped = set(body.get("phases_skipped") or [])
+    except Exception:
+        skipped = set()
+    if "beamline_alignment" in skipped:
+        checker.record("align_beamline_ok", True)
+        checker.record("calibrate_mono_residual_ev", 0.0)
+    if "xes_alignment" in skipped:
+        checker.record("align_xes_ok", True)
+        checker.record("xes_en_offset_set", True)
+    if "sample_alignment" in skipped:
+        # n_samples_aligned will be auto-bumped to match configured
+        # count so `all_samples_aligned` passes.
+        try:
+            from orchestrator import planner as _p
+            snap = _p.snapshot(experiment_id)
+            checker.record("n_samples_aligned", max(1, snap.samples_total))
+        except Exception:
+            checker.record("n_samples_aligned", 1)
 
     # bl_align → {xes_align, sample_align}
     if any(a.get("command") == "align_beamline" and a.get("success") == 1 for a in actions):
