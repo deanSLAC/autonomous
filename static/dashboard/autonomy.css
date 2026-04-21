@@ -158,6 +158,36 @@
 .plan-status-pill.done { background: #dfd; color: #1b7a1b; }
 .plan-status-pill.failed, .plan-status-pill.skipped { background: #fee; color: #c0392b; }
 
+/* Per-phase run/skip toggle. Sits above the phase tile in its column. */
+.phase-enable-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78em;
+    color: #666;
+    padding: 4px 8px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+.phase-enable-toggle input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+.phase-enable-toggle.phase-disabled {
+    color: #aaa;
+}
+[data-theme="dark"] .phase-enable-toggle { color: #aaa; }
+[data-theme="dark"] .phase-enable-toggle.phase-disabled { color: #666; }
+.phase-tile-skipped {
+    opacity: 0.55;
+    background-image: repeating-linear-gradient(
+        45deg,
+        rgba(0,0,0,0.03) 0 8px,
+        transparent 8px 16px
+    );
+}
+
 .action-tape {
     max-height: 320px;
     overflow-y: auto;

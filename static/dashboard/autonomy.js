@@ -273,6 +273,16 @@ function renderAutonomy(orc, dash) {
         return;
     }
 
+    // Per-phase enable switches — let the operator skip whole phases
+    // (e.g. "already aligned this morning, skip beamline_alignment").
+    // Disabled phases auto-pass their preconditions.
+    const skipped = new Set(
+        (dash.plan && dash.plan.plan && dash.plan.plan.phases_skipped) || [],
+    );
+    ["beamline_alignment", "xes_alignment", "sample_alignment", "collection"].forEach(p => {
+        renderPhaseEnableToggle(p, !skipped.has(p));
+    });
+
     // Plan table (dashboard has a compact read-only table; planning page
     // renders its own richer version via the onAutonomyRendered hook).
     const tbody = document.getElementById("plan-tbody");
@@ -567,6 +577,82 @@ async function resolveIntervention(id, status) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status, resolver: "web-user" }),
     });
+    refreshAutonomy();
+}
+
+async function resetRun() {
+    if (!confirm(
+        "Reset this run?\n\n" +
+        "• Agent stops immediately\n" +
+        "• Action history cleared (prior rows kept as audit, hidden from re-run guards)\n" +
+        "• Pending interventions resolved\n" +
+        "• Phase → setup\n\n" +
+        "Experiment config and sample plan are kept."
+    )) return;
+    const expSel = document.getElementById("experiment-select");
+    const expId = expSel ? expSel.value : "";
+    try {
+        const r = await fetch(API + "/api/orchestrator/reset", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ experiment_id: expId }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+            alert("Reset failed: " + (j.detail || j.error || r.status));
+            return;
+        }
+    } catch (e) {
+        alert("Reset failed: " + (e && e.message ? e.message : e));
+        return;
+    }
+    refreshAutonomy();
+}
+
+function renderPhaseEnableToggle(phase, enabled) {
+    const column = document.querySelector(`.phase-column[data-phase-col="${phase}"]`)
+        || document.querySelector(`.phase-tile[data-phase="${phase}"]`)?.parentElement;
+    if (!column) return;
+    let toggle = column.querySelector(".phase-enable-toggle");
+    if (!toggle) {
+        toggle = document.createElement("label");
+        toggle.className = "phase-enable-toggle";
+        toggle.innerHTML = `
+            <input type="checkbox" />
+            <span class="phase-enable-label">run this phase</span>
+        `;
+        const tile = column.querySelector(".phase-tile");
+        if (tile) column.insertBefore(toggle, tile);
+        else column.appendChild(toggle);
+        toggle.querySelector("input").addEventListener("change", (e) => {
+            e.stopPropagation();
+            togglePhaseEnabled(phase, e.target.checked);
+        });
+        // Don't let clicks on the toggle bubble to the tile onclick.
+        toggle.addEventListener("click", e => e.stopPropagation());
+    }
+    const cb = toggle.querySelector("input");
+    cb.checked = enabled;
+    toggle.classList.toggle("phase-disabled", !enabled);
+    const tile = column.querySelector(".phase-tile");
+    if (tile) tile.classList.toggle("phase-tile-skipped", !enabled);
+}
+
+async function togglePhaseEnabled(phase, enabled) {
+    const expSel = document.getElementById("experiment-select");
+    const expId = expSel ? expSel.value : "";
+    if (!expId) return;
+    try {
+        await fetch(API + "/api/plan/set_phase_enabled", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                experiment_id: expId, phase, enabled, author: "web-user",
+            }),
+        });
+    } catch (e) {
+        console.error("toggle phase failed", e);
+    }
     refreshAutonomy();
 }
 

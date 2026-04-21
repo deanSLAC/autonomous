@@ -48,7 +48,8 @@
         <button class="btn-autonomy" id="btn-start" onclick="autonomyAction('start')">▶ Start</button>
         <button class="btn-autonomy" id="btn-pause" onclick="autonomyAction('pause')">⏸ Pause</button>
         <button class="btn-autonomy" id="btn-resume" onclick="autonomyAction('resume')">▶ Resume</button>
-        <button class="btn-autonomy" id="btn-stop" onclick="autonomyAction('stop')">⏹ Stop</button>
+        <button class="btn-autonomy" id="btn-stop" onclick="autonomyAction('stop')" title="Halt the agent loop. The agent stops issuing turns; config/plan are kept. Clicking Start resumes from the saved phase — action history and phase flags are NOT cleared.">⏹ Stop</button>
+        <button class="btn-autonomy" id="btn-reset" onclick="resetRun()" title="Stop the run AND clear action history + pending interventions + phase back to setup. Use this to redo the run (e.g. after toggling phase enables). Config and sample plan are kept.">↺ Reset</button>
     </div>
     <div class="autonomy-bar-center">
         <span class="metric-pill"><span class="label">Turn</span> <span id="orc-turn">–</span></span>
