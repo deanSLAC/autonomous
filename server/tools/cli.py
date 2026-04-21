@@ -44,8 +44,8 @@ ALWAYS_IN_PROMPT = {"system_prompt.txt", "experiment_modes.txt"}
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="beamtimehero",
-        description="BeamtimeHero CLI — query beamline scans, logs, and reference documents.",
+        prog="bl",
+        description="BL15-2 CLI — query beamline scans, logs, and reference documents.",
     )
     sub = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -157,12 +157,12 @@ def _run_reference(args: argparse.Namespace) -> str:
         for name, info in REFERENCE_DOCS.items():
             lines.append(f"  {name:25s} {info['description']}")
         lines.append("")
-        lines.append("Usage: beamtimehero reference <doc-name>")
+        lines.append("Usage: bl reference <doc-name>")
         return "\n".join(lines)
 
     doc_name = args.doc_name
     if doc_name not in REFERENCE_DOCS:
-        return f"Unknown reference: '{doc_name}'. Use 'beamtimehero reference --list' to see available documents."
+        return f"Unknown reference: '{doc_name}'. Use 'bl reference --list' to see available documents."
 
     doc_path = CONTEXT_DIR / REFERENCE_DOCS[doc_name]["file"]
     try:
@@ -177,10 +177,13 @@ def run_cli(command_str: str) -> tuple[str, list[str]]:
     Returns:
         (output_text, images_b64): Text output and any base64 plot images.
     """
-    # Strip the 'beamtimehero' prefix if present
+    # Strip a leading program-name prefix if the LLM included one.
+    # Accept `bl` (current) and `beamtimehero` (legacy prompt cache).
     cmd = command_str.strip()
-    if cmd.startswith("beamtimehero"):
-        cmd = cmd[len("beamtimehero"):].strip()
+    for prefix in ("beamtimehero", "bl"):
+        if cmd == prefix or cmd.startswith(prefix + " "):
+            cmd = cmd[len(prefix):].strip()
+            break
 
     parser = _build_parser()
 

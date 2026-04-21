@@ -255,10 +255,16 @@ function renderAutonomy(orc, dash) {
     const curPhaseEl = document.getElementById("cur-phase");
     if (orc && orc.phase) curPhaseEl.textContent = orc.phase;
 
-    // Agent summary
+    // Agent summary — show a pending placeholder while the first
+    // turn is in flight so Start doesn't look silent. Each LLM round
+    // can take 10–30s depending on context size.
     const summary = document.getElementById("latest-summary");
     if (orc && orc.last_summary) {
         summary.textContent = orc.last_summary;
+    } else if (running && !paused) {
+        summary.innerHTML =
+            '<div class="muted">Agent is preparing the first turn — ' +
+            'this can take up to ~30s while the LLM loads phase context…</div>';
     }
 
     if (!dash) {

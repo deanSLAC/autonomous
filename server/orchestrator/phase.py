@@ -65,8 +65,8 @@ class PreconditionChecker:
 
         # setup → beamline_alignment
         if prev == P.PHASE_SETUP and target == P.PHASE_BL_ALIGN:
-            add("experiment_config_loaded", bool(self.get("experiment_id")),
-                "experiment config must be loaded via the config form")
+            add("experiment_loaded", bool(self.get("experiment_id")),
+                "an experiment must be selected (configure it on the /config page)")
             add("beam_present", bool(self.get("beam_good", True)),
                 "SPEAR beam good & gap owned (mock ok)")
 

@@ -16,6 +16,7 @@ Keeps no hidden state; the DB is the source of truth.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
@@ -157,11 +158,40 @@ class PlannerSnapshot:
     samples_in_progress: int
     samples_queued: int
     plan: dict = field(default_factory=dict)
+    experiment: dict = field(default_factory=dict)
 
     def to_system_context(self) -> str:
+        exp = self.experiment or {}
+        mono = exp.get("mono_crystal")
+        mono_label = {"A": "A Si(111)", "B": "B Si(311)"}.get(mono, mono or "?")
+        elements = exp.get("elements") or []
+        if elements:
+            el_line = ", ".join(
+                f"{e.get('symbol')} {e.get('edge') or ''}".strip()
+                + (f" ({e.get('mode')})" if e.get('mode') else "")
+                for e in elements
+            )
+        else:
+            el_line = "(none)"
+
+        # Samples/holders are not preconditions for leaving `setup`.
+        # They populate during `sample_alignment`. Make that explicit
+        # so the agent does not stall waiting for a queue.
+        phase_note = ""
+        if self.phase == "setup":
+            phase_note = (
+                "  NOTE: setup → beamline_alignment only needs experiment_id + "
+                "beam good. The sample queue is populated later (during "
+                "sample_alignment); an empty queue here is expected.\n"
+            )
+
         return (
             "[PLANNER STATE]\n"
             f"  phase: {self.phase}\n"
+            f"  experiment: id={self.experiment_id} "
+            f"name={exp.get('name') or '?'} experimenter={exp.get('experimenter') or '?'}\n"
+            f"  config: mono={mono_label} sample_env={exp.get('sample_env') or 'ambient'} "
+            f"elements=[{el_line}]\n"
             f"  beamtime: {self.beamtime_elapsed_hours:.2f}h elapsed / "
             f"{self.beamtime_total_hours:.2f}h total "
             f"({self.beamtime_remaining_hours:.2f}h remaining)\n"
@@ -169,7 +199,8 @@ class PlannerSnapshot:
             f"{self.samples_queued} queued ({self.samples_total} total)\n"
             f"  thresholds: SNR target={self.plan.get('thresholds', {}).get('snr_target')}, "
             f"min reps/sample={self.plan.get('thresholds', {}).get('min_reps_per_sample')}\n"
-            "  plan updates should go through the `update_experiment_plan` tool "
+            + phase_note
+            + "  plan updates should go through the `update_experiment_plan` tool "
             "so the user can see the rationale."
         )
 
@@ -178,6 +209,42 @@ def snapshot(experiment_id: str) -> PlannerSnapshot:
     plan = get_experiment_plan(experiment_id) or {}
     plan_body = plan.get("plan", {}) or {}
     sample_queue = plan_body.get("sample_queue", []) or []
+
+    # Pull experiment-record metadata so the planner-state prefix the
+    # LLM sees every turn actually says "the experiment is configured"
+    # — otherwise a fresh run with an empty sample_queue leads the
+    # agent to conclude config is missing.
+    exp_meta: dict = {}
+    try:
+        with get_session() as session:
+            row = session.get(Experiment, experiment_id)
+            if row is not None:
+                elems = list(session.exec(
+                    select(ExperimentElement).where(
+                        ExperimentElement.experiment_id == experiment_id
+                    )
+                ))
+                exp_meta = {
+                    "name": row.name,
+                    "experimenter": row.experimenter,
+                    "mono_crystal": row.mono_crystal,
+                    "sample_env": row.sample_env,
+                    "beam_size_h": row.beam_size_h,
+                    "beam_size_v": row.beam_size_v,
+                    "mirrors_out": row.mirrors_out,
+                    "status": row.status,
+                    "elements": [
+                        {
+                            "symbol": e.element_symbol,
+                            "edge": e.edge,
+                            "mode": e.measurement_mode,
+                        }
+                        for e in elems
+                    ],
+                }
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warning("planner.snapshot: could not read experiment meta: %s", e)
 
     total = len(sample_queue)
     done = sum(1 for s in sample_queue if s.get("status") == "done")
@@ -209,6 +276,7 @@ def snapshot(experiment_id: str) -> PlannerSnapshot:
         samples_in_progress=in_progress,
         samples_queued=queued,
         plan=plan_body,
+        experiment=exp_meta,
     )
 
 
