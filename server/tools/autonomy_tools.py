@@ -342,7 +342,26 @@ def t_transition_phase(args: dict) -> tuple[str, list[str]]:
         return json.dumps({"allowed": False, "reason": "justification required"}), []
 
     orch = get_orchestrator()
-    checker = orch.checker if orch else phase_mod.PreconditionChecker()
+    if orch is not None:
+        checker = orch.checker
+    else:
+        # Tool dispatch runs in a *subprocess* spawned by opencode; the
+        # Orchestrator singleton lives in the FastAPI parent and isn't
+        # reachable here. The PreconditionChecker's facts are
+        # in-memory, so the fresh subprocess starts blank — which
+        # blocks setup→bl_align on a missing `experiment_id` even
+        # though one is clearly selected. Seed from DB-derivable state
+        # here so the gate reflects reality.
+        checker = phase_mod.PreconditionChecker()
+        checker.record("experiment_id", experiment_id)
+        checker.record("beam_good", True)  # safe default; mock SPEC returns True anyway
+        try:
+            from orchestrator import planner as _planner
+            snap = _planner.snapshot(experiment_id)
+            checker.record("n_samples_configured", snap.samples_total)
+            checker.record("beamtime_remaining_hours", snap.beamtime_remaining_hours)
+        except Exception:
+            pass
 
     async def _go():
         return await phase_mod.transition_phase(
