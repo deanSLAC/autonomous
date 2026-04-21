@@ -43,39 +43,56 @@
 .dot-good { color: var(--success, #1b7a1b); }
 
 .interventions {
-    padding: 12px 24px;
-    background: #fff4e5;
-    border-top: 1px solid var(--warning, #8a6d00);
-    border-bottom: 1px solid var(--warning, #8a6d00);
-    color: #5a3e00;
+    padding: 14px 24px;
+    background: #eaf5ef;
+    border-top: 1px solid #bcdcc8;
+    border-bottom: 1px solid #bcdcc8;
+    color: #224e36;
 }
 [data-theme="dark"] .interventions {
-    background: rgba(240, 192, 64, 0.12);
-    color: var(--warning, #f0c040);
+    background: rgba(120, 200, 160, 0.10);
+    border-top-color: rgba(120, 200, 160, 0.35);
+    border-bottom-color: rgba(120, 200, 160, 0.35);
+    color: #9bd6b3;
 }
 .intervention-row {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
-    padding: 8px 0;
-    border-bottom: 1px dashed rgba(0,0,0,0.1);
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px dashed rgba(0,0,0,0.08);
 }
 .intervention-row:last-child { border-bottom: 0; }
 .intervention-row .kind {
     font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.8em;
-    letter-spacing: 0.05em;
+    font-size: 0.92em;
+    margin-bottom: 4px;
 }
-.intervention-row .btns { display: flex; gap: 8px; }
+.intervention-row .kind::before {
+    content: "● ";
+    color: #2b8a5c;
+    margin-right: 2px;
+}
+.intervention-row .detail {
+    font-size: 0.92em;
+    line-height: 1.4;
+}
+.intervention-row .btns { display: flex; gap: 8px; flex-shrink: 0; }
 .intervention-row button {
-    background: var(--accent, #9b1b30);
-    color: #fff; border: 0; padding: 6px 10px; border-radius: 6px; cursor: pointer;
+    background: #2b8a5c;
+    color: #fff; border: 0; padding: 7px 14px; border-radius: 6px;
+    cursor: pointer; font-weight: 500;
 }
+.intervention-row button:hover { background: #246b48; }
 .intervention-row button.secondary {
-    background: #666;
+    background: transparent;
+    color: inherit;
+    border: 1px solid currentColor;
+    opacity: 0.7;
+    font-weight: 400;
 }
+.intervention-row button.secondary:hover { opacity: 1; background: rgba(0,0,0,0.04); }
 
 .main-grid {
     display: flex;
@@ -149,15 +166,24 @@
 }
 .action-row {
     display: grid;
-    grid-template-columns: 80px 100px 180px 1fr 50px;
-    gap: 10px;
+    grid-template-columns: 70px 160px 170px 1fr 50px;
+    gap: 12px;
     padding: 6px 4px;
     border-bottom: 1px solid rgba(0,0,0,0.05);
     align-items: center;
 }
+/* Prevent long phase / command names (e.g. "beamline_alignment" +
+   "align_beamline") from visually spilling into the next column.
+   grid columns with min-content default must be pinned to 0. */
+.action-row > span {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .action-row .phase { color: #888; }
 .action-row .cmd { font-weight: 600; }
-.action-row .just { color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.action-row .just { color: #444; }
 [data-theme="dark"] .action-row .just { color: #bbb; }
 .action-row .badge { font-size: 0.75em; padding: 2px 6px; border-radius: 999px; }
 .action-row .badge.ok { background: #dfd; color: #1b7a1b; }

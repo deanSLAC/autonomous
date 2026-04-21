@@ -357,7 +357,10 @@ function renderAutonomy(orc, dash) {
         actionsEl.innerHTML = '<div class="muted">No actions yet.</div>';
     }
 
-    // Interventions
+    // Interventions — "the agent is paused waiting on a human".
+    // Presented as a calm action card, NOT an error banner: a
+    // successful bl_align finishing to let staff install crystals is
+    // the happy path, not a fault.
     const banner = document.getElementById("interventions-banner");
     const interventions = dash.interventions || [];
     if (interventions.length) {
@@ -365,12 +368,12 @@ function renderAutonomy(orc, dash) {
         banner.innerHTML = interventions.map(iv => `
             <div class="intervention-row">
                 <div>
-                    <div class="kind">${escapeHtml(iv.kind)}</div>
-                    <div>${escapeHtml(iv.detail)}</div>
+                    <div class="kind">${escapeHtml(prettyInterventionKind(iv.kind))}</div>
+                    <div class="detail">${escapeHtml(iv.detail)}</div>
                 </div>
                 <div class="btns">
-                    <button onclick="resolveIntervention('${iv.id}', 'resolved')">Mark complete</button>
-                    <button class="secondary" onclick="resolveIntervention('${iv.id}', 'denied')">Cancel</button>
+                    <button onclick="resolveIntervention('${iv.id}', 'resolved')">I've done it — continue</button>
+                    <button class="secondary" onclick="resolveIntervention('${iv.id}', 'denied')">Abort run</button>
                 </div>
             </div>
         `).join("");
@@ -575,6 +578,22 @@ function escapeHtml(s) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+// Map kind slugs from request_human_intervention → human-readable titles.
+const INTERVENTION_KIND_LABELS = {
+    crystal_install: "Crystal install needed",
+    sample_mount: "Sample mount needed",
+    foil_swap: "Foil swap needed",
+    gap_ownership: "Gap ownership transfer needed",
+    backward_transition: "Approval needed to go back a phase",
+    system_issue: "Agent paused — please review",
+};
+function prettyInterventionKind(kind) {
+    if (!kind) return "Action needed";
+    if (INTERVENTION_KIND_LABELS[kind]) return INTERVENTION_KIND_LABELS[kind];
+    // Fallback: slug → "Slug case"
+    return String(kind).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function wirePlanAuthor() {
