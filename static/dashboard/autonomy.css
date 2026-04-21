@@ -42,49 +42,74 @@
 .dot-bad { color: var(--error, #c0392b); }
 .dot-good { color: var(--success, #1b7a1b); }
 
+/* Outer "interventions" strip is just a container now; each row
+   self-styles based on its level so mixed success + warning reads
+   correctly. */
 .interventions {
-    padding: 14px 24px;
-    background: #eaf5ef;
-    border-top: 1px solid #bcdcc8;
-    border-bottom: 1px solid #bcdcc8;
-    color: #224e36;
-}
-[data-theme="dark"] .interventions {
-    background: rgba(120, 200, 160, 0.10);
-    border-top-color: rgba(120, 200, 160, 0.35);
-    border-bottom-color: rgba(120, 200, 160, 0.35);
-    color: #9bd6b3;
+    padding: 0 24px;
 }
 .intervention-row {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 16px;
-    padding: 10px 0;
-    border-bottom: 1px dashed rgba(0,0,0,0.08);
-}
-.intervention-row:last-child { border-bottom: 0; }
-.intervention-row .kind {
-    font-weight: 600;
-    font-size: 0.92em;
-    margin-bottom: 4px;
-}
-.intervention-row .kind::before {
-    content: "● ";
-    color: #2b8a5c;
-    margin-right: 2px;
-}
-.intervention-row .detail {
-    font-size: 0.92em;
-    line-height: 1.4;
+    gap: 20px;
+    padding: 14px 18px;
+    margin: 12px 0;
+    border-radius: 8px;
+    border-left: 4px solid;
 }
 .intervention-row .btns { display: flex; gap: 8px; flex-shrink: 0; }
+.intervention-body { flex: 1; min-width: 0; }
+.intervention-title {
+    font-weight: 600;
+    font-size: 1.02em;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.intervention-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    font-size: 0.85em;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.intervention-instruction {
+    font-size: 0.95em;
+    line-height: 1.45;
+}
+
+/* "Agent message" disclosure — de-emphasized so the user doesn't
+   mistake LLM prose for instructions. */
+.intervention-agent {
+    margin-top: 10px;
+    font-size: 0.85em;
+    opacity: 0.75;
+}
+.intervention-agent summary {
+    cursor: pointer;
+    color: inherit;
+    text-decoration: underline dotted;
+}
+.intervention-agent-text {
+    margin-top: 6px;
+    padding: 8px 10px;
+    background: rgba(0,0,0,0.04);
+    border-radius: 4px;
+    font-style: italic;
+    line-height: 1.4;
+    white-space: pre-wrap;
+}
+[data-theme="dark"] .intervention-agent-text { background: rgba(255,255,255,0.05); }
+
 .intervention-row button {
-    background: #2b8a5c;
-    color: #fff; border: 0; padding: 7px 14px; border-radius: 6px;
+    color: #fff; border: 0; padding: 8px 14px; border-radius: 6px;
     cursor: pointer; font-weight: 500;
 }
-.intervention-row button:hover { background: #246b48; }
 .intervention-row button.secondary {
     background: transparent;
     color: inherit;
@@ -93,6 +118,48 @@
     font-weight: 400;
 }
 .intervention-row button.secondary:hover { opacity: 1; background: rgba(0,0,0,0.04); }
+
+/* --- success: phase just completed, human step is next --- */
+.intervention-success {
+    background: #eaf5ef;
+    border-left-color: #2b8a5c;
+    color: #1e4731;
+}
+.intervention-success .intervention-icon { background: #2b8a5c; color: #fff; }
+.intervention-success button:not(.secondary) { background: #2b8a5c; }
+.intervention-success button:not(.secondary):hover { background: #246b48; }
+[data-theme="dark"] .intervention-success {
+    background: rgba(120, 200, 160, 0.12);
+    color: #9bd6b3;
+}
+
+/* --- action: neutral "please do this physical thing" --- */
+.intervention-action {
+    background: #eaf2fb;
+    border-left-color: #2a6fc9;
+    color: #1a3d6e;
+}
+.intervention-action .intervention-icon { background: #2a6fc9; color: #fff; }
+.intervention-action button:not(.secondary) { background: #2a6fc9; }
+.intervention-action button:not(.secondary):hover { background: #1f5aa3; }
+[data-theme="dark"] .intervention-action {
+    background: rgba(100, 160, 230, 0.12);
+    color: #a5c5ea;
+}
+
+/* --- warning: something the user actually needs to look at --- */
+.intervention-warning {
+    background: #fdf4e3;
+    border-left-color: #c47a1a;
+    color: #6a3e04;
+}
+.intervention-warning .intervention-icon { background: #c47a1a; color: #fff; }
+.intervention-warning button:not(.secondary) { background: #c47a1a; }
+.intervention-warning button:not(.secondary):hover { background: #a2640f; }
+[data-theme="dark"] .intervention-warning {
+    background: rgba(220, 170, 80, 0.14);
+    color: #e9c685;
+}
 
 .main-grid {
     display: flex;

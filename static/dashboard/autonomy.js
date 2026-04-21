@@ -367,26 +367,38 @@ function renderAutonomy(orc, dash) {
         actionsEl.innerHTML = '<div class="muted">No actions yet.</div>';
     }
 
-    // Interventions — "the agent is paused waiting on a human".
-    // Presented as a calm action card, NOT an error banner: a
-    // successful bl_align finishing to let staff install crystals is
-    // the happy path, not a fault.
+    // Interventions — structured, kind-driven copy.
+    // The *title* and *instruction* come from INTERVENTION_KINDS,
+    // NOT from the LLM. The agent's free-form detail is shown in a
+    // clearly-labelled subordinate section so the user can see what
+    // the model said without having to trust it for the action.
     const banner = document.getElementById("interventions-banner");
     const interventions = dash.interventions || [];
     if (interventions.length) {
         banner.style.display = "block";
-        banner.innerHTML = interventions.map(iv => `
-            <div class="intervention-row">
-                <div>
-                    <div class="kind">${escapeHtml(prettyInterventionKind(iv.kind))}</div>
-                    <div class="detail">${escapeHtml(iv.detail)}</div>
+        banner.innerHTML = interventions.map(iv => {
+            const p = interventionPresentation(iv.kind);
+            return `
+            <div class="intervention-row intervention-${p.level}">
+                <div class="intervention-body">
+                    <div class="intervention-title">
+                        <span class="intervention-icon">${p.icon}</span>
+                        ${escapeHtml(p.title)}
+                    </div>
+                    <div class="intervention-instruction">${escapeHtml(p.instruction)}</div>
+                    ${iv.detail ? `
+                        <details class="intervention-agent">
+                            <summary>Agent message (LLM prose — may be inaccurate)</summary>
+                            <div class="intervention-agent-text">${escapeHtml(iv.detail)}</div>
+                        </details>
+                    ` : ""}
                 </div>
                 <div class="btns">
-                    <button onclick="resolveIntervention('${iv.id}', 'resolved')">I've done it — continue</button>
+                    <button onclick="resolveIntervention('${iv.id}', 'resolved')">Done — continue</button>
                     <button class="secondary" onclick="resolveIntervention('${iv.id}', 'denied')">Abort run</button>
                 </div>
-            </div>
-        `).join("");
+            </div>`;
+        }).join("");
     } else {
         banner.style.display = "none";
     }
@@ -666,20 +678,78 @@ function escapeHtml(s) {
         .replace(/'/g, "&#039;");
 }
 
-// Map kind slugs from request_human_intervention → human-readable titles.
-const INTERVENTION_KIND_LABELS = {
-    crystal_install: "Crystal install needed",
-    sample_mount: "Sample mount needed",
-    foil_swap: "Foil swap needed",
-    gap_ownership: "Gap ownership transfer needed",
-    backward_transition: "Approval needed to go back a phase",
-    system_issue: "Agent paused — please review",
+// Structural content for each intervention kind the agent may raise.
+// The TITLE + INSTRUCTION come from *here*, not from the agent — so
+// the user never has to trust the LLM's prose for "what do I do
+// next." The agent's own `detail` string is shown separately,
+// clearly labelled, so the user can see what it said but doesn't
+// need it to act. If the agent invents a kind we don't know, we
+// fall back to the generic "Please review" framing and surface the
+// agent text prominently.
+const INTERVENTION_KINDS = {
+    crystal_install: {
+        level: "success",
+        icon: "✓",
+        title: "Beamline alignment complete",
+        instruction:
+            "Install the crystals for this experiment, then click " +
+            "\u201CDone \u2014 continue\u201D so the agent can start " +
+            "spectrometer alignment.",
+    },
+    sample_mount: {
+        level: "action",
+        icon: "●",
+        title: "Ready for sample mount",
+        instruction:
+            "Mount the sample(s) in the holder, then click \u201CDone " +
+            "\u2014 continue\u201D.",
+    },
+    foil_swap: {
+        level: "action",
+        icon: "●",
+        title: "Reference foil swap needed",
+        instruction:
+            "Install the correct reference foil, then click \u201CDone " +
+            "\u2014 continue\u201D.",
+    },
+    gap_ownership: {
+        level: "action",
+        icon: "●",
+        title: "Gap ownership transfer needed",
+        instruction:
+            "Take gap ownership for this hutch, then click \u201CDone " +
+            "\u2014 continue\u201D.",
+    },
+    backward_transition: {
+        level: "warning",
+        icon: "↶",
+        title: "Agent wants to redo a previous phase",
+        instruction:
+            "The agent is asking to go back a phase. Approve only if " +
+            "you agree with the reason given below.",
+    },
+    system_issue: {
+        level: "warning",
+        icon: "⚠",
+        title: "Please review",
+        instruction:
+            "The agent paused because it thinks something is off. Read " +
+            "its message below, then either continue (if you\u2019re " +
+            "satisfied) or abort the run.",
+    },
 };
-function prettyInterventionKind(kind) {
-    if (!kind) return "Action needed";
-    if (INTERVENTION_KIND_LABELS[kind]) return INTERVENTION_KIND_LABELS[kind];
-    // Fallback: slug → "Slug case"
-    return String(kind).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+function interventionPresentation(kind) {
+    if (kind && INTERVENTION_KINDS[kind]) return INTERVENTION_KINDS[kind];
+    return {
+        level: "warning",
+        icon: "?",
+        title: "Action needed",
+        instruction:
+            "The agent raised an intervention of a kind we don\u2019t " +
+            "have hardcoded guidance for. Read its message below and " +
+            "decide what to do.",
+    };
 }
 
 function wirePlanAuthor() {

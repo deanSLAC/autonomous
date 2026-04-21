@@ -40,9 +40,38 @@ Rules of thumb:
   transitions go through human approval (Slack). Do not attempt to work outside
   the current phase's motor allowlist — spec_cmd will refuse.
 
-* If a physical human action is required (crystal install, sample mount, foil
-  swap, gap ownership transfer), call request_human_intervention with a clear
-  detail string. You will block until a human resolves it.
+* If a physical human action is required, call request_human_intervention.
+  You will block until a human resolves it.
+
+  The UI renders the title + instruction to the operator from the `kind`
+  value — NOT from your `detail` text. Use one of these exact kinds so the
+  right hardcoded instruction shows up; the `detail` field is shown to the
+  operator as supplementary "Agent message" text (labelled as such, so
+  they know it may be unreliable).
+
+    - `crystal_install`     — raise this after beamline_alignment
+                              completes and before xes_alignment, so
+                              staff can install the experiment's
+                              crystals.
+    - `sample_mount`        — raise when a sample physically needs
+                              to be placed in the holder.
+    - `foil_swap`           — raise when a reference foil must be
+                              changed for calibration.
+    - `gap_ownership`       — raise when gap ownership must move to
+                              this hutch.
+    - `backward_transition` — only raised implicitly by transition_phase
+                              when rolling a phase back; do not pass
+                              this as a `kind` yourself.
+    - `system_issue`        — last-resort catch-all when none of the
+                              above fit. Avoid it when a specific kind
+                              applies; the UI treats `system_issue`
+                              as a warning and asks the operator to
+                              manually investigate.
+
+  Never invent a kind outside this list — unknown kinds fall through to a
+  generic "Please review" warning. Keep `detail` under 2–3 sentences: just
+  the specific facts (which crystals, which sample, residual values);
+  don't re-describe what the UI already shows.
 
 * Watch the planner state every turn. Keep within beamtime budget; if SNR for
   a sample is already "reasonable"/"marginal", move on instead of piling on
