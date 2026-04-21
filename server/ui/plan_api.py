@@ -22,7 +22,6 @@ from db.autonomy_client import (
 )
 from db.client import get_experiment
 from orchestrator import planner
-from orchestrator.staff_guidance import coordinator
 from spec import spec_cmd
 
 logger = logging.getLogger(__name__)
@@ -95,10 +94,6 @@ async def add_sample(body: dict):
         payload={"sample": entry, "position": position},
         reason=body.get("reason"),
     )
-    coordinator.record_guidance(
-        experiment_id=xid, source="web-plan", author=author,
-        text=f"added sample {sample_name} ({element})",
-    )
     return {"ok": True, "sample": entry}
 
 
@@ -115,10 +110,6 @@ async def remove_sample(body: dict):
     log_plan_edit(
         xid, author=author, action="remove_sample", target_id=sample_id,
         payload={}, reason=body.get("reason"),
-    )
-    coordinator.record_guidance(
-        experiment_id=xid, source="web-plan", author=author,
-        text=f"removed sample {sample_id}",
     )
     return {"ok": True}
 
@@ -138,10 +129,6 @@ async def skip_sample(body: dict):
         xid, author=author, action="skip", target_id=sample_id,
         payload={"note": note}, reason=body.get("reason"),
     )
-    coordinator.record_guidance(
-        experiment_id=xid, source="web-plan", author=author,
-        text=f"skip sample {sample_id}" + (f" — {note}" if note else ""),
-    )
     return {"ok": True}
 
 
@@ -156,10 +143,6 @@ async def reorder(body: dict):
     log_plan_edit(
         xid, author=author, action="reorder", payload={"order": order},
         reason=body.get("reason"),
-    )
-    coordinator.record_guidance(
-        experiment_id=xid, source="web-plan", author=author,
-        text=f"reordered sample queue ({len(order)} ids)",
     )
     return {"ok": True}
 
@@ -206,10 +189,6 @@ async def extend_budget(body: dict):
         payload={"hours_delta": hours, "new_total_hours": new_total},
         reason=body.get("reason"),
     )
-    coordinator.record_guidance(
-        experiment_id=xid, source="web-plan", author=author,
-        text=f"extended budget by {hours:+.1f}h (new total {new_total:.1f}h)",
-    )
     return {"ok": True, "new_total_hours": new_total}
 
 
@@ -245,10 +224,6 @@ async def set_budget(body: dict):
         payload={"new_total_hours": new_total},
         reason=body.get("reason"),
     )
-    coordinator.record_guidance(
-        experiment_id=xid, source="web-plan", author=author,
-        text=f"set beamtime budget to {new_total:.1f}h",
-    )
     return {"ok": True, "new_total_hours": new_total}
 
 
@@ -282,13 +257,6 @@ async def set_sample_time_budget(body: dict):
         payload={"count_time_s": count_time_s, "reps": reps, "mode": body.get("mode")},
         reason=body.get("reason"),
     )
-    coordinator.record_guidance(
-        experiment_id=xid, source="web-plan", author=author,
-        text=(
-            f"set time budget for sample {sample_id}: "
-            f"count_time={count_time_s}s reps={reps} mode={body.get('mode') or 'all'}"
-        ),
-    )
     return {"ok": True}
 
 
@@ -313,13 +281,6 @@ async def set_holder_time_budget(body: dict):
         target_id=body.get("holder_id"),
         payload=summary,
         reason=body.get("reason"),
-    )
-    coordinator.record_guidance(
-        experiment_id=xid, source="web-plan", author=author,
-        text=(
-            f"holder budget ({summary.get('holder_id') or 'all'}): "
-            f"count_time={count_time_s}s reps={reps} -> {summary.get('samples_updated')} samples"
-        ),
     )
     return {"ok": True, "summary": summary}
 

@@ -186,15 +186,18 @@ def consume_pending_guidance(experiment_id: str | None) -> list[dict]:
 
 
 def list_guidance(experiment_id: str | None, limit: int = 50) -> list[dict]:
+    """Return deliberate human-directed guidance only.
+
+    Plan-edit side effects previously wrote rows here with
+    source='web-plan'; those show up in the Plan History panel, not
+    here, so they are filtered out. Legacy rows in the DB are filtered
+    at read time — no migration needed.
+    """
     with get_session() as session:
-        stmt = select(StaffGuidance).order_by(StaffGuidance.timestamp.desc()).limit(limit)
+        stmt = select(StaffGuidance).where(StaffGuidance.source != "web-plan")
         if experiment_id:
-            stmt = (
-                select(StaffGuidance)
-                .where(StaffGuidance.experiment_id == experiment_id)
-                .order_by(StaffGuidance.timestamp.desc())
-                .limit(limit)
-            )
+            stmt = stmt.where(StaffGuidance.experiment_id == experiment_id)
+        stmt = stmt.order_by(StaffGuidance.timestamp.desc()).limit(limit)
         return [
             {
                 "id": r.id,
