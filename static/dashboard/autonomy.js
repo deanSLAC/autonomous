@@ -777,65 +777,9 @@ function wirePlanAuthor() {
     });
 }
 
-async function loadCapabilities() {
-    const toolsEl = document.getElementById("caps-tools");
-    const refsEl = document.getElementById("caps-refs");
-    if (!toolsEl || !refsEl) return;
-    try {
-        const r = await fetch(API + "/api/tools");
-        const j = await r.json();
-        const cats = j.categories || [];
-        toolsEl.innerHTML = cats.map(cat => `
-            <li class="caps-cat">
-                <div class="caps-cat-name">${escapeHtml(cat.category)}</div>
-                <ul class="caps-sublist">
-                    ${(cat.tools || []).map(t => `
-                        <li title="${escapeHtml(t.description || "")}">
-                            <code>${escapeHtml(t.name)}</code>
-                            <span class="caps-desc">${escapeHtml((t.description || "").split("\n")[0].slice(0, 110))}</span>
-                        </li>`).join("")}
-                </ul>
-            </li>
-        `).join("") || '<li class="muted">No tools registered.</li>';
-        refsEl.innerHTML = (j.references || []).map(r => `
-            <li title="${escapeHtml(r.description || "")}">
-                <code>${escapeHtml(r.name)}</code>
-                <span class="caps-desc">${escapeHtml((r.description || "").slice(0, 140))}</span>
-            </li>
-        `).join("") || '<li class="muted">No reference docs.</li>';
-    } catch (e) {
-        toolsEl.innerHTML = '<li class="muted">Failed to load tools.</li>';
-        refsEl.innerHTML = '';
-    }
-}
-
-function wireCapabilitiesToggle() {
-    const btn = document.getElementById("caps-toggle");
-    const body = document.getElementById("caps-body");
-    const arrow = document.getElementById("caps-arrow");
-    if (!btn || !body) return;
-    // Load the tool list once on page init — the toggle now only controls
-    // visibility. Previously the load was gated on a click that could never
-    // fire (a CSS rule was overriding the [hidden] attribute).
-    loadCapabilities();
-    btn.addEventListener("click", () => {
-        const isHidden = body.hasAttribute("hidden");
-        if (isHidden) {
-            body.removeAttribute("hidden");
-            btn.setAttribute("aria-expanded", "true");
-            if (arrow) arrow.style.transform = "rotate(90deg)";
-        } else {
-            body.setAttribute("hidden", "");
-            btn.setAttribute("aria-expanded", "false");
-            if (arrow) arrow.style.transform = "";
-        }
-    });
-}
-
 // Start polling
 document.addEventListener("DOMContentLoaded", () => {
     wirePlanAuthor();
-    wireCapabilitiesToggle();
     refreshAutonomy();
     autonomyPollTimer = setInterval(refreshAutonomy, POLL_MS);
     // Server health signal

@@ -27,6 +27,7 @@
         <select class="experiment-select" id="experiment-select">
             <option value="">No experiments</option>
         </select>
+        <a href="/tools" class="theme-toggle topbar-link" title="What the agent can do">Tools</a>
         <a href="/insight" class="theme-toggle topbar-link" title="Agent insight">Insight</a>
         <a href="/config" class="theme-toggle topbar-link" title="Experiment config">⚙</a>
         <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode">&#9790;</button>
@@ -230,7 +231,7 @@
             </div>
         </div>
 
-        <!-- Agent I/O row: summary, guidance, chat, capabilities -->
+        <!-- Agent I/O row: summary, guidance, chat -->
         <div class="agent-row">
             <div class="panel">
                 <div class="panel-header">Latest agent output</div>
@@ -260,24 +261,6 @@
                 </div>
             </div>
 
-            <div class="panel">
-                <div class="panel-header">
-                    <button class="capabilities-toggle" id="caps-toggle" aria-expanded="false">
-                        What the agent can do
-                        <span class="toggle-arrow" id="caps-arrow">&#9654;</span>
-                    </button>
-                </div>
-                <div id="caps-body" class="caps-body" hidden>
-                    <div class="caps-section">
-                        <div class="caps-label">Tools</div>
-                        <ul id="caps-tools" class="caps-list"><li class="muted">loading…</li></ul>
-                    </div>
-                    <div class="caps-section">
-                        <div class="caps-label">Reference docs</div>
-                        <ul id="caps-refs" class="caps-list"><li class="muted">loading…</li></ul>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <div class="panel">

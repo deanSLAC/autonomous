@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BL15-2 — Agent tools &amp; data lineage</title>
+    <link rel="stylesheet" href="/static/dashboard/static/dashboard.css">
+    <link rel="stylesheet" href="/static/dashboard/autonomy.css">
+    <link rel="stylesheet" href="/static/tools/tools.css?v=1">
+</head>
+<body>
+
+<div class="topbar">
+    <div class="topbar-left">
+        <a href="/dashboard" class="back-link" title="Back to dashboard">&larr; Dashboard</a>
+        <div class="topbar-divider"></div>
+        <div class="topbar-logo">
+            <img src="/static/dashboard/static/ssrl-logo.png" alt="SSRL">
+            <span class="topbar-logo-text">BL15-2</span>
+        </div>
+        <div class="topbar-divider"></div>
+        <div class="topbar-title">What the agent can do</div>
+    </div>
+    <div class="topbar-right">
+        <input type="text" id="tool-search" class="tool-search" placeholder="Filter tools…">
+        <label class="verbose-toggle" title="Collapse long descriptions, inputs, outputs">
+            <input type="checkbox" id="compact-toggle"> Compact
+        </label>
+        <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode">&#9790;</button>
+    </div>
+</div>
+
+<div class="tools-page">
+    <section class="panel intro">
+        <div class="panel-header">How to read this page</div>
+        <div class="intro-body">
+            <p>
+                Every tool the agent can call is listed below, grouped by
+                category. Each entry shows:
+            </p>
+            <ul>
+                <li><strong>Python function</strong> — the concrete call the
+                    executor dispatches to.</li>
+                <li><strong>Source</strong> — whether inputs come from a SPEC
+                    data file, the autonomy DB, a SPEC log, the live SPEC
+                    session, the filesystem, or the output of another tool.</li>
+                <li><strong>Inputs / Outputs</strong> — the schema the LLM
+                    sees, plus a one-line note on what the tool returns.</li>
+                <li><strong>Depends on</strong> — tools that typically need to
+                    be called first.</li>
+            </ul>
+            <p class="muted">
+                Tools that issue a command to the SPEC session are marked with
+                a <span class="badge-spec">SPEC</span> badge and summarized in
+                the first section. Every SPEC-mutating call is written to the
+                action log <em>before</em> dispatch.
+            </p>
+        </div>
+    </section>
+
+    <section class="panel spec-summary" id="spec-summary">
+        <div class="panel-header">
+            Tools that send a command to SPEC
+            <span class="panel-sub" id="spec-count">—</span>
+        </div>
+        <div id="spec-table-host">
+            <div class="muted" style="padding:16px;">loading…</div>
+        </div>
+    </section>
+
+    <div class="category-controls">
+        <button type="button" id="expand-all" class="cat-ctrl-btn">Expand all</button>
+        <button type="button" id="collapse-all" class="cat-ctrl-btn">Collapse all</button>
+    </div>
+
+    <section id="categories">
+        <div class="muted" style="padding:32px;text-align:center;">loading tools…</div>
+    </section>
+
+    <section class="panel refs-panel">
+        <div class="panel-header">Reference documents available to the agent</div>
+        <div id="refs-host">
+            <div class="muted" style="padding:16px;">loading…</div>
+        </div>
+    </section>
+</div>
+
+<script>
+// theme toggle — mirror dashboard behavior.
+(function () {
+    const key = "bl15-theme";
+    const btn = document.getElementById("theme-toggle");
+    const apply = t => document.documentElement.setAttribute("data-theme", t);
+    apply(localStorage.getItem(key) || "dark");
+    if (btn) btn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme") || "dark";
+        const nxt = cur === "dark" ? "light" : "dark";
+        localStorage.setItem(key, nxt); apply(nxt);
+    });
+})();
+</script>
+<script src="/static/tools/tools.js?v=1"></script>
+</body>
+</html>

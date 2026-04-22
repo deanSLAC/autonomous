@@ -1,0 +1,391 @@
+/* Tools catalog page — long-form "what the agent can do" reference. */
+
+.tools-page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px 28px 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Topbar back-link — mirrors the topbar-logo footprint so heights match. */
+.back-link {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-surface);
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+.back-link:hover {
+    color: var(--text);
+    border-color: var(--accent);
+}
+
+.tool-search {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 12px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: var(--radius);
+    min-width: 220px;
+    outline: none;
+}
+.tool-search:focus { border-color: var(--accent); }
+
+.verbose-toggle {
+    color: var(--text-muted);
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+/* Intro block. */
+.intro .intro-body {
+    padding: 14px 18px;
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.55;
+}
+.intro-body p { margin: 0 0 10px; }
+.intro-body ul { margin: 0 0 10px; padding-left: 20px; }
+.intro-body li { margin: 3px 0; }
+.intro-body strong { color: var(--text); font-weight: 600; }
+
+/* SPEC summary table. */
+.spec-summary table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+.spec-summary th,
+.spec-summary td {
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--border-subtle);
+    text-align: left;
+    vertical-align: top;
+}
+.spec-summary th {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-weight: 600;
+    background: var(--bg-surface);
+    position: sticky;
+    top: 0;
+}
+.spec-summary code {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text);
+    background: var(--bg-surface);
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+.spec-summary .spec-category {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+/* Category blocks. */
+.category-block {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+/* Header is a button so it gets keyboard + ARIA semantics for free. */
+.category-header {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    border: none;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-surface);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    transition: background 0.12s;
+}
+.category-header:hover { background: var(--bg-surface-hover, var(--bg-surface)); filter: brightness(1.08); }
+.category-header:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.category-header .cat-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.category-header .chevron {
+    display: inline-block;
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform 0.15s ease;
+    width: 10px;
+    text-align: center;
+}
+.category-block.collapsed .category-header {
+    border-bottom-color: transparent;
+}
+.category-block.collapsed .chevron {
+    transform: rotate(-90deg);
+}
+.category-block.collapsed .category-body {
+    display: none;
+}
+.category-header .category-count {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+/* Expand/Collapse all controls. */
+.category-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    margin-top: -8px;
+}
+.cat-ctrl-btn {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 11.5px;
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    font-family: inherit;
+}
+.cat-ctrl-btn:hover { color: var(--text); border-color: var(--accent); }
+
+/* While search is active, force all categories open regardless of the
+   persisted collapsed state. The user's choice is still in localStorage
+   and is reapplied when the search clears. */
+.tools-page.searching .category-block.collapsed .category-body { display: block; }
+.tools-page.searching .category-block.collapsed .category-header { border-bottom-color: var(--border-subtle); }
+.tools-page.searching .category-block.collapsed .chevron { transform: rotate(0deg); }
+
+/* Individual tool card. */
+.tool-card {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) 2.3fr;
+    gap: 18px;
+}
+.tool-card:last-child { border-bottom: none; }
+.tool-card.hidden { display: none; }
+
+.tool-left .tool-name {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text);
+    word-break: break-word;
+}
+.tool-left .tool-description {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-top: 6px;
+    line-height: 1.5;
+}
+.tool-left .tool-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+/* Source / SPEC badges. */
+.badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+.badge-spec {
+    background: #7a1f22;
+    color: #fff;
+    border-color: #a63232;
+}
+.badge-source {
+    background: var(--bg-surface);
+    color: var(--text-dim);
+    border-color: var(--border);
+}
+.badge-source.src-spec_session    { color: #ff9b6b; border-color: #7a3a20; }
+.badge-source.src-spec_datafile   { color: #86c5ff; border-color: #245083; }
+.badge-source.src-spec_logfile    { color: #d8a9ff; border-color: #573b7a; }
+.badge-source.src-spec_config     { color: #ffd27a; border-color: #7a5a1f; }
+.badge-source.src-autonomy_db     { color: #8cd8a0; border-color: #25623b; }
+.badge-source.src-filesystem      { color: #c0c0c0; border-color: #555; }
+.badge-source.src-tool_chain      { color: #aab8ff; border-color: #3e4a80; }
+.badge-source.src-slack           { color: #6ec1b4; border-color: #2b6359; }
+
+/* Tool detail table. */
+.tool-detail { display: flex; flex-direction: column; gap: 10px; }
+.tool-detail .row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 10px;
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+.tool-detail .row > .key {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding-top: 2px;
+}
+.tool-detail .row > .val {
+    color: var(--text-dim);
+    word-break: break-word;
+}
+.tool-detail code {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    background: var(--bg-surface);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--text);
+}
+.tool-detail .row > .val code.block {
+    display: block;
+    padding: 6px 10px;
+    margin-top: 2px;
+    white-space: pre-wrap;
+    line-height: 1.45;
+}
+
+/* Inputs list. */
+.inputs-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.inputs-list li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: baseline;
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--border-subtle);
+}
+.inputs-list li:last-child { border-bottom: none; }
+.inputs-list .arg-name {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text);
+    font-weight: 600;
+}
+.inputs-list .arg-type {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-muted);
+    background: var(--bg-surface);
+    padding: 1px 5px;
+    border-radius: 3px;
+}
+.inputs-list .arg-required {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    font-weight: 600;
+}
+.inputs-list .arg-description {
+    flex-basis: 100%;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-left: 4px;
+}
+.inputs-list .arg-enum {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-muted);
+}
+
+/* Dependencies. */
+.deps-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.dep-chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 1px 7px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    background: var(--bg-surface);
+    cursor: pointer;
+    text-decoration: none;
+}
+.dep-chip:hover { color: var(--text); border-color: var(--accent); }
+
+/* Highlight tool when navigated to via hash. */
+.tool-card:target {
+    background: rgba(255, 180, 100, 0.06);
+}
+
+/* Reference docs list. */
+.refs-list {
+    list-style: none;
+    padding: 12px 18px 18px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.refs-list li {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 12px;
+    align-items: baseline;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    line-height: 1.5;
+}
+.refs-list code {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    background: var(--bg-surface);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--text);
+    white-space: nowrap;
+}
+
+/* Compact mode — hide long fields, keep essentials. */
+.tools-page.compact .tool-detail .row.compact-hide,
+.tools-page.compact .intro,
+.tools-page.compact .tool-left .tool-description {
+    display: none;
+}
+.tools-page.compact .tool-card {
+    grid-template-columns: 260px 1fr;
+    padding: 8px 16px;
+}
+
+/* Responsive: stack the grid on narrow screens. */
+@media (max-width: 860px) {
+    .tool-card { grid-template-columns: 1fr; }
+    .tool-detail .row { grid-template-columns: 1fr; }
+    .refs-list li { grid-template-columns: 1fr; }
+}

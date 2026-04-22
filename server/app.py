@@ -371,6 +371,11 @@ async def viewer_page():
     return _page(STATIC_DIR / "viewer" / "index.html")
 
 
+@app.get(f"{BASE_PATH}/tools")
+async def tools_page():
+    return _page(STATIC_DIR / "tools" / "index.html")
+
+
 @app.get(f"{BASE_PATH}/history", response_class=HTMLResponse)
 async def history_page():
     return (
@@ -530,18 +535,22 @@ TOOL_CATEGORIES = [
 async def get_tools():
     from tools import TOOL_DEFINITIONS, AUTONOMY_TOOL_CATEGORIES
     from tools.cli import REFERENCE_DOCS
-    by_name = {
-        t["function"]["name"]: t["function"]["description"] for t in TOOL_DEFINITIONS
-    }
-    categorized = []
-    seen = set()
+    from tools.lineage import build_detailed_tool
+
+    by_def = {t["function"]["name"]: t for t in TOOL_DEFINITIONS}
+    categorized: list[dict] = []
+    seen: set[str] = set()
     for category, names in TOOL_CATEGORIES + AUTONOMY_TOOL_CATEGORIES:
-        items = [{"name": n, "description": by_name[n]} for n in names if n in by_name]
+        items = [
+            build_detailed_tool(by_def[n], category)
+            for n in names if n in by_def
+        ]
         seen.update(i["name"] for i in items)
         if items:
             categorized.append({"category": category, "tools": items})
     leftover = [
-        {"name": n, "description": d} for n, d in by_name.items() if n not in seen
+        build_detailed_tool(tdef, "Other")
+        for n, tdef in by_def.items() if n not in seen
     ]
     if leftover:
         categorized.append({"category": "Other", "tools": leftover})
