@@ -337,17 +337,22 @@ def set_phase_enabled(experiment_id: str, phase: str, enabled: bool) -> list[str
     """
     if phase not in PHASES_SKIPPABLE:
         raise ValueError(f"phase {phase!r} is not skippable")
-    plan = get_experiment_plan(experiment_id) or {}
-    body = plan.get("plan", {}) or {}
+    wrapper = get_experiment_plan(experiment_id) or {}
+    body = wrapper.get("plan", {}) or {}
+    # Self-heal: an earlier bug (before 2026-04-21) stored the outer
+    # wrapper where the body belonged; detect that shape and unwrap.
+    while isinstance(body.get("plan"), dict) and (
+        "experiment_id" in body or "id" in body
+    ):
+        body = body["plan"]
     skipped = set(body.get("phases_skipped") or [])
     if enabled:
         skipped.discard(phase)
     else:
         skipped.add(phase)
     body["phases_skipped"] = sorted(skipped)
-    plan["plan"] = body
-    plan["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(experiment_id, plan=plan)
+    body["updated_at"] = datetime.now().isoformat()
+    upsert_experiment_plan(experiment_id, plan=body)
     return body["phases_skipped"]
 
 
