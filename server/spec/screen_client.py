@@ -30,6 +30,7 @@ from config import (
     SPEC_POLL_INTERVAL_S,
     SPEC_PROMPT_REGEX,
     SPEC_MOCK,
+    SPEC_TRANSPORT,
 )
 
 logger = logging.getLogger(__name__)
@@ -311,7 +312,16 @@ def dispatch(
 
     Returns a DispatchResult describing the captured output. Caller is
     responsible for having already `reserve()`d the SPEC state.
+
+    Routes to the TCP server-mode client by default; set
+    SPEC_TRANSPORT=screen to force the legacy screen-stuffing path.
     """
+    if SPEC_TRANSPORT == "tcp":
+        # Lazy import to keep tcp_client's `from spec.screen_client ...`
+        # out of the module-load cycle.
+        from spec import tcp_client
+        return tcp_client.dispatch(spec_string, timeout_s=timeout_s)
+
     started = time.time()
 
     if SPEC_MOCK:
@@ -394,7 +404,16 @@ def _has_prompt(buf: str) -> bool:
 
 
 def abort_current() -> bool:
-    """Send Ctrl-C to the SPEC screen (mock or real)."""
+    """Abort the currently running SPEC command.
+
+    With SPEC_TRANSPORT=tcp (default) this sends an SV_ABORT packet to
+    the server — equivalent to ^C at the server keyboard. With
+    SPEC_TRANSPORT=screen, stuffs a literal ^C into the screen session.
+    """
+    if SPEC_TRANSPORT == "tcp":
+        from spec import tcp_client
+        return tcp_client.abort_current()
+
     if SPEC_MOCK:
         logger.info("[mock] abort")
         release(output=None, errored=False)

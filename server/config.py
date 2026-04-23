@@ -82,6 +82,15 @@ SPEC_POLL_INTERVAL_S = 2.0
 SPEC_PROMPT_REGEX = r"^\d+\.SPEC> ?$"
 SPEC_MOCK = os.getenv("SPEC_MOCK", "1") == "1"
 
+# Transport for SPEC commands. "tcp" talks the spec server-mode binary
+# protocol directly (docs: www.certif.com/spec_help/server.html). "screen"
+# falls back to stuffing keystrokes into a GNU screen session running
+# spec interactively.
+SPEC_TRANSPORT = os.getenv("SPEC_TRANSPORT", "tcp")
+SPEC_HOST = os.getenv("SPEC_HOST", "localhost")
+SPEC_PORT = int(os.getenv("SPEC_PORT", "2033"))
+SPEC_NAME = os.getenv("SPEC_NAME", "spec")
+
 # ---------------------------------------------------------------------------
 # Orchestrator cadences
 # ---------------------------------------------------------------------------
