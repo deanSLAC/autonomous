@@ -132,7 +132,7 @@ class _MockScreen:
             return "/data/fifteen/mock"
         if low.startswith("p scan_n"):
             return str(cls._scan_n)
-        if low.startswith("p get_beam_status"):
+        if low.startswith("p beam_status"):
             return "{'spear_current': 485.2, 'bl_state': 'OPEN', 'gap_owned': 1}"
         if low.startswith("p a["):
             motor = cmd.split("[")[1].split("]")[0]

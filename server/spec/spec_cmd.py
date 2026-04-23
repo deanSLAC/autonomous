@@ -149,7 +149,7 @@ _READ: dict[str, CommandSpec] = {
     "scan_n": CommandSpec("scan_n", "read", lambda a: "p SCAN_N", _parse_int),
     "beam_status": CommandSpec(
         "beam_status", "read",
-        lambda a: "p get_beam_status()",
+        lambda a: "p beam_status()",
         _parse_beam_status,
     ),
     "p_global": CommandSpec(
@@ -211,7 +211,7 @@ _ACTION: dict[str, CommandSpec] = {
     # Energy / gap
     "mv_energy": CommandSpec(
         "mv_energy", "action",
-        lambda a: f"tracking 1; umv energy {a[0]}",
+        lambda a: f"umv energy {a[0]}",
         lambda o, a: {"target_ev": float(a[0]), "raw": o},
         timeout_s=120,
     ),

@@ -344,7 +344,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "it already succeeded this experiment."
         ),
         "python_func": "spec_cmd.call('align_beamline', [energy, xtal_chg, fine_x, fine_z], justification)",
-        "spec_command": "align_beamline <energy> <xtal_chg> <fine_x> <fine_z>",
+        "spec_command": "align_the_beamline(<energy>, 0, <xtal_chg>, <fine_x>, <fine_z>)",
         "output": "JSON: {ok, action_id, spec_result}",
         "source": "spec_session",
         "source_detail": "Writes action_log row before SPEC dispatch; blocks until SPEC prompt returns.",
@@ -357,7 +357,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "(e.g. '1234' aligns only crystals 1–4)."
         ),
         "python_func": "spec_cmd.call('align_xes', [crystals, en_xes, en_mono], justification)",
-        "spec_command": "align_xes <crystals> <en_xes> <en_mono>",
+        "spec_command": 'run_spec_align("<crystals>", <en_xes>, <en_mono>)',
         "output": "JSON: {ok, action_id, per_crystal_pitch_roll, xes_en_offset}",
         "source": "spec_session",
         "source_detail": "Gated to phase xes_alignment by the phase allow-list.",
@@ -394,7 +394,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "xes_setup."
         ),
         "python_func": "spec_cmd.call('select_element', [element], justification)",
-        "spec_command": "select_element <element>",
+        "spec_command": 'select_element("<element>")',
         "output": "JSON: {ok, action_id}",
         "source": "spec_session",
         "source_detail": "Pulls the target geometry from the experiment plan.",
@@ -535,14 +535,16 @@ TOOL_LINEAGE: dict[str, dict] = {
 
     "mv_energy": {
         "long_description": (
-            "Move incident energy with tracking on — this moves both "
-            "the mono crystal and the ID gap."
+            "Move incident energy. Does NOT enable tracking — if you "
+            "want the ID gap to follow the mono, call `tracking 1` "
+            "(not currently exposed as a tool) before invoking this, "
+            "or use run_align_shortcut / a dedicated macro."
         ),
         "python_func": "spec_cmd.call('mv_energy', [energy_ev], justification)",
-        "spec_command": "mv_energy <energy_ev>",
+        "spec_command": "umv energy <energy_ev>",
         "output": "JSON: {ok, action_id, energy_ev}",
         "source": "spec_session",
-        "source_detail": "May block on gap ownership; see request_gap_ownership.",
+        "source_detail": "Plain absolute-move on the energy motor; may block on gap ownership if tracking is already on.",
         "depends_on": ["request_gap_ownership"],
     },
     "shutter": {
@@ -601,7 +603,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "'explicit' takes channel + lo_ev/hi_ev."
         ),
         "python_func": "spec_cmd.call('set_vortex_roi', [args...], justification)",
-        "spec_command": "set_vortex_roi <auto <channel>> | <channel> <lo_ev> <hi_ev>",
+        "spec_command": "vortex_roi auto <channel>  |  vortex_roi <channel> <lo_ev> <hi_ev>",
         "output": "JSON: {ok, action_id, roi}",
         "source": "spec_session",
         "source_detail": "Shapes the fluorescence window around the expected emission line.",
@@ -659,10 +661,10 @@ TOOL_LINEAGE: dict[str, dict] = {
             "beam_good boolean."
         ),
         "python_func": "spec_cmd.call('beam_status', [], justification='')",
-        "spec_command": "beam_status",
-        "output": "JSON: {spear_current_mA, bl15_state, gap_owner, beam_good}",
+        "spec_command": "p beam_status()",
+        "output": "JSON: {spear_current_mA, beamline_state, gap_owned, beam_good, reason}",
         "source": "spec_session",
-        "source_detail": "Read-only.",
+        "source_detail": "Read-only. The SPEC side is a custom function (spec.d/check_beam.mac) that prints an associative array of SPEAR/BL15/gap state.",
         "depends_on": [],
     },
     "get_i0_value": {
@@ -671,7 +673,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "Used as a sanity check before launching a long scan."
         ),
         "python_func": "spec_cmd.call('ct', [count_time]) + spec_cmd.call('p_global', ['S[I0]'])",
-        "spec_command": "ct <count_time> ; p S[I0]",
+        "spec_command": "ct <count_time>   then   p S[I0]",
         "output": "JSON: {ct: {...}, i0: {value}}",
         "source": "spec_session",
         "source_detail": "Two sequential SPEC queries; no action_log rows (read-only).",
@@ -694,12 +696,12 @@ TOOL_LINEAGE: dict[str, dict] = {
 
     "get_scan_number": {
         "long_description": (
-            "Return SPEC's current SPEC_N counter and the active "
-            "datafile name."
+            "Return SPEC's current SCAN_N counter. Use get_current_"
+            "datafile separately if you also need the active file name."
         ),
         "python_func": "spec_cmd.call('scan_n', [], justification='')",
-        "spec_command": "p SPEC_N ; fon",
-        "output": "JSON: {scan_n, datafile}",
+        "spec_command": "p SCAN_N",
+        "output": "JSON: {value: int}",
         "source": "spec_session",
         "source_detail": "Read-only.",
         "depends_on": [],
