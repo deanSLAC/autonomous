@@ -34,7 +34,7 @@ pip install --quiet --upgrade pip
 pip install --quiet -r requirements.txt
 
 echo "[start] initializing DB…"
-python server/db/init_db.py
+python -c "from orchestration.plan_store.init_db import init_db; init_db()"
 
 echo "[start] regenerating opencode tool wrappers…"
 python scripts/generate_opencode_tools.py
@@ -94,4 +94,4 @@ if [[ "$START_OPENCODE" == "1" ]]; then
 fi
 
 echo "[start] launching FastAPI on :5005"
-exec python server/app.py
+exec python main.py

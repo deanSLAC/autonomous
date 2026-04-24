@@ -57,17 +57,17 @@ _DB.parent.mkdir(exist_ok=True)
 if _DB.exists():
     _DB.unlink()
 os.environ.setdefault("AUTONOMOUS_DB_PATH", str(_DB))
-os.environ.setdefault("BEAMLINE_DB_PATH", str(_DB))
+os.environ.setdefault("BEAMLINE_TOOLS_DB_PATH", str(_DB))
+os.environ.setdefault("ORCHESTRATION_DB_PATH", str(_DB))
 
-sys.path.insert(0, str(ROOT / "server"))
-sys.path.insert(0, str(ROOT / "beamline_lib"))
+sys.path.insert(0, str(ROOT))
 
-from db import init_db as init_db_mod  # noqa: E402
-from db.client import create_experiment  # noqa: E402
-from spec import phase_allowlist, spec_cmd  # noqa: E402
-from spec.screen_client import _MockScreen  # noqa: E402
-from tools.autonomy_tools import AUTONOMY_DISPATCH  # noqa: E402
-from tools.lineage import TOOL_LINEAGE  # noqa: E402
+from orchestration.plan_store import init_db  # noqa: E402
+from orchestration.plan_store.session import create_experiment  # noqa: E402
+from beamline_tools.spec import phase_allowlist, spec_cmd  # noqa: E402
+from beamline_tools.spec.screen_client import _MockScreen  # noqa: E402
+from beamline_tools.tool_catalog.autonomy_tools import AUTONOMY_DISPATCH  # noqa: E402
+from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE  # noqa: E402
 
 
 # ---- Dispatch recorder -----------------------------------------------------
@@ -503,7 +503,7 @@ def audit_macros() -> int:
 # ---- Main ------------------------------------------------------------------
 
 def main() -> int:
-    init_db_mod.init_db()
+    init_db()
     exp = create_experiment(
         name="spec-tool-units", experimenter="unittest",
         mono_crystal="A", beam_size_h="focused", beam_size_v="focused",

@@ -19,10 +19,13 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
-sys.path.insert(0, str(ROOT / "server"))
-sys.path.insert(0, str(ROOT / "beamline_lib"))
+sys.path.insert(0, str(ROOT))
 
-from tools import TOOL_DEFINITIONS  # noqa: E402
+# Import orchestration first so its CAT-8 plan tools register into the
+# beamline_tools catalog before we read TOOL_DEFINITIONS.
+import orchestration  # noqa: F401, E402
+
+from beamline_tools.tool_catalog import TOOL_DEFINITIONS  # noqa: E402
 
 
 OPENCODE_TOOLS_DIR = ROOT / ".opencode" / "tools"

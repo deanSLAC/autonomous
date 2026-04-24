@@ -28,28 +28,32 @@ if "AUTONOMOUS_DB_PATH" not in os.environ:
     if td.exists():
         td.unlink()
     os.environ["AUTONOMOUS_DB_PATH"] = str(td)
-os.environ.setdefault("BEAMLINE_DB_PATH", os.environ["AUTONOMOUS_DB_PATH"])
+# Two sqlite files after the three-package split. The smoke test uses the
+# same file path for both engines — the ActionLog / QueryLog schema lives
+# in one table space and the orchestration tables in another; since they
+# no longer share a FK, coexistence in one file is just a convenience.
+os.environ.setdefault("BEAMLINE_TOOLS_DB_PATH", os.environ["AUTONOMOUS_DB_PATH"])
+os.environ.setdefault("ORCHESTRATION_DB_PATH", os.environ["AUTONOMOUS_DB_PATH"])
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
-sys.path.insert(0, str(ROOT / "server"))
-sys.path.insert(0, str(ROOT / "beamline_lib"))
+sys.path.insert(0, str(ROOT))
 
-from db import init_db as init_db_mod  # noqa: E402
-from db.client import (  # noqa: E402
+from orchestration.plan_store import init_db  # noqa: E402
+from orchestration.plan_store.session import (  # noqa: E402
     create_experiment,
     create_experiment_element,
     create_sample_holder,
     create_sample_position,
 )
-from db.autonomy_client import (  # noqa: E402
+from orchestration.plan_store.client import (  # noqa: E402
     get_experiment_plan,
 )
-from orchestrator import planner  # noqa: E402
-from orchestrator.phase import PreconditionChecker, transition_phase  # noqa: E402
-from orchestrator.staff_guidance import coordinator  # noqa: E402
-from spec import phase_allowlist, spec_cmd  # noqa: E402
-from action_log.db import recent_actions  # noqa: E402
+from orchestration.planner import planner  # noqa: E402
+from orchestration.planner.phase import PreconditionChecker, transition_phase  # noqa: E402
+from orchestration.planner.staff_guidance import coordinator  # noqa: E402
+from beamline_tools.spec import phase_allowlist, spec_cmd  # noqa: E402
+from beamline_tools.action_log.db import recent_actions  # noqa: E402
 
 
 def banner(label: str) -> None:
@@ -66,7 +70,7 @@ def assert_true(cond: bool, label: str) -> None:
 
 async def run() -> None:
     banner("init db")
-    init_db_mod.init_db()
+    init_db()
     print(f"  db: {os.environ['AUTONOMOUS_DB_PATH']}")
 
     banner("create experiment + element + sample holder")

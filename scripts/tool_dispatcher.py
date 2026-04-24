@@ -31,37 +31,34 @@ def main() -> None:
             print(f"invalid JSON on stdin: {e}", file=sys.stderr)
             sys.exit(2)
 
-    # Put the server/ and beamline_lib/ packages on sys.path.
     here = Path(__file__).resolve().parent
     root = here.parent
-    sys.path.insert(0, str(root / "server"))
-    sys.path.insert(0, str(root / "beamline_lib"))
     sys.path.insert(0, str(root))
 
-    # Bootstrap simulation BEFORE bl_config is imported, because bl_config
-    # reads BL_SCAN_DIR / BL_LOGS_DIR at import time. opencode spawns this
-    # script in a fresh process every tool call, so the env vars set by
-    # the FastAPI parent process don't reach us — bootstrap re-applies
-    # them here. Idempotent (no-op if SIMULATION_MODE / SPEC_MOCK are off).
+    # Bootstrap simulation BEFORE bl_config is imported. opencode spawns
+    # this script in a fresh process every tool call, so the env vars
+    # set by the FastAPI parent don't reach us — bootstrap re-applies them
+    # here. Idempotent (no-op if SIMULATION_MODE / SPEC_MOCK are off).
     try:
         import simulation  # type: ignore
         simulation.bootstrap()
     except Exception as e:
         print(f"warning: simulation bootstrap failed: {e}", file=sys.stderr)
 
-    # Importing config first sets BEAMLINE_DB_PATH for the db client,
-    # so the subprocess reads the same sqlite file the main server uses.
+    # Touch both configs so env vars (BEAMLINE_TOOLS_DB_PATH,
+    # ORCHESTRATION_DB_PATH, SPEC_*) are populated for the subprocess.
     try:
-        import config  # noqa: F401
+        import beamline_tools.config  # noqa: F401
+        import orchestration.config  # noqa: F401
     except Exception as e:
-        print(f"warning: could not import server config: {e}", file=sys.stderr)
+        print(f"warning: could not import package configs: {e}", file=sys.stderr)
 
     # Load the active experiment's phase from the DB so subprocess calls
     # (spawned by opencode) use the same phase gate as the main server.
     try:
-        from spec import spec_cmd  # noqa: E402
-        from db.client import get_active_experiment  # noqa: E402
-        from db.autonomy_client import get_experiment_plan  # noqa: E402
+        from beamline_tools.spec import spec_cmd  # noqa: E402
+        from orchestration.plan_store.session import get_active_experiment  # noqa: E402
+        from orchestration.plan_store.client import get_experiment_plan  # noqa: E402
 
         exp = get_active_experiment()
         if exp is not None:
@@ -75,8 +72,15 @@ def main() -> None:
         print(f"warning: could not load active phase: {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
 
+    # Import orchestration before running tools so CAT-8 plan tools are
+    # registered into the beamline_tools catalog.
     try:
-        from tools.executor import execute_tool  # noqa: E402
+        import orchestration  # noqa: F401
+    except Exception as e:
+        print(f"warning: could not import orchestration: {e}", file=sys.stderr)
+
+    try:
+        from beamline_tools.tool_catalog.executor import execute_tool  # noqa: E402
     except Exception as e:
         print(f"failed to import tool dispatcher: {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
