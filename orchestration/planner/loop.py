@@ -18,13 +18,13 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Optional
 
-from config import ORCHESTRATOR_TICK_S, STATUS_POST_INTERVAL_S
-from conversation import ConversationService
-from db.autonomy_client import upsert_experiment_plan
-from orchestrator import planner
-from orchestrator.phase import PreconditionChecker
-from orchestrator.staff_guidance import coordinator
-from spec import phase_allowlist, spec_cmd
+from orchestration.config import ORCHESTRATOR_TICK_S, STATUS_POST_INTERVAL_S
+from orchestration.agent.conversation import ConversationService
+from orchestration.plan_store.client import upsert_experiment_plan
+from orchestration.planner import planner
+from orchestration.planner.phase import PreconditionChecker
+from orchestration.planner.staff_guidance import coordinator
+from beamline_tools.spec import phase_allowlist, spec_cmd
 
 logger = logging.getLogger(__name__)
 

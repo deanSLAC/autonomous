@@ -13,15 +13,14 @@ from typing import Any, Iterable, Optional
 
 from sqlmodel import select
 
-from db.client import get_session
-from db.models import (
-    ActionLog,
+from orchestration.plan_store.models import (
     ExperimentPlan,
     InterventionRequest,
     PhaseTransitionLog,
     PlanEdit,
     StaffGuidance,
 )
+from orchestration.plan_store.session import get_session
 
 
 # ---------------------------------------------------------------------------
@@ -267,18 +266,13 @@ def reset_run_state(experiment_id: str) -> dict:
     — the operator explicitly resets the *run*, not the experiment.
     Returns a small summary for the UI.
     """
+    # ActionLog lives in the beamline_tools DB — invalidate via that package.
+    from beamline_tools.action_log.db import invalidate_for_experiment
+
+    invalidated_actions = invalidate_for_experiment(experiment_id)
+
     now = datetime.now()
     with get_session() as session:
-        live_actions = list(session.exec(
-            select(ActionLog).where(
-                ActionLog.experiment_id == experiment_id,
-                ActionLog.invalidated_at.is_(None),
-            )
-        ))
-        for row in live_actions:
-            row.invalidated_at = now
-            session.add(row)
-
         pending = list(session.exec(
             select(InterventionRequest).where(
                 InterventionRequest.experiment_id == experiment_id,
@@ -304,7 +298,7 @@ def reset_run_state(experiment_id: str) -> dict:
         session.commit()
 
     return {
-        "invalidated_actions": len(live_actions),
+        "invalidated_actions": invalidated_actions,
         "resolved_interventions": len(pending),
     }
 

@@ -21,13 +21,13 @@ import yaml
 # Ensure imports work whether run as module or script
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from db.client import (
+from orchestration.plan_store.session import (
     get_active_experiment,
     get_elements_for_experiment,
     get_experiment,
     get_samples_for_holder,
 )
-from db.models import (
+from orchestration.plan_store.models import (
     Experiment,
     ExperimentElement,
     SampleHolder,
@@ -541,7 +541,7 @@ def generate_config(experiment_id: str, output_path: str = None) -> str:
 
     Returns the generated .mac content as a string.
     """
-    from db.client import get_session
+    from orchestration.plan_store.session import get_session
     from sqlmodel import select
 
     exp = get_experiment(experiment_id)

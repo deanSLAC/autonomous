@@ -1,0 +1,77 @@
+"""Initialize the orchestration + action_log SQLite databases.
+
+After the three-package split there are two sqlite files:
+
+  * `beamline_tools.db` — action_log, query_log
+  * `orchestration.db`  — experiment, plan, phase_run, staff_guidance, ...
+
+Both schemas are created here (idempotent) by delegating to each
+package's own `init_db()`. Any pending additive column migrations on
+the orchestration side run at the same time.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+
+from sqlalchemy import inspect, text
+
+from orchestration.plan_store import models  # noqa: F401 — register tables
+from orchestration.plan_store.session import get_engine as get_orch_engine
+
+
+# Columns added since the original schema. Keep additive only.
+_PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
+    "experimentelement": [
+        ("measurement_mode", 'TEXT NOT NULL DEFAULT "XES"'),
+        ("emission_line", "TEXT"),
+    ],
+    "sampleposition": [
+        ("i0_gain", "TEXT"),
+        ("i0_offset", "TEXT"),
+        ("i1_gain", "TEXT"),
+    ],
+    "sampleholder": [
+        ("queue_order", "INTEGER NOT NULL DEFAULT 0"),
+        ("notes", "TEXT"),
+    ],
+}
+
+_ACTION_LOG_PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
+    "actionlog": [
+        ("invalidated_at", "TIMESTAMP"),
+    ],
+}
+
+
+def _apply_column_migrations(engine, pending: dict[str, list[tuple[str, str]]]) -> None:
+    insp = inspect(engine)
+    existing_tables = set(insp.get_table_names())
+    with engine.begin() as conn:
+        for table, cols in pending.items():
+            if table not in existing_tables:
+                continue
+            existing_cols = {c["name"] for c in insp.get_columns(table)}
+            for col_name, col_def in cols:
+                if col_name in existing_cols:
+                    continue
+                conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {col_name} {col_def}'))
+                print(f"  migrated: {table}.{col_name} added")
+
+
+def init_db() -> None:
+    """Create tables for both beamline_tools and orchestration DBs."""
+    from beamline_tools.action_log.session import get_engine as get_tools_engine
+
+    orch_engine = get_orch_engine()
+    _apply_column_migrations(orch_engine, _PENDING_COLUMNS)
+    print(f"orchestration DB initialized: {os.environ.get('ORCHESTRATION_DB_PATH')}")
+
+    tools_engine = get_tools_engine()
+    _apply_column_migrations(tools_engine, _ACTION_LOG_PENDING_COLUMNS)
+    print(f"beamline_tools DB initialized: {os.environ.get('BEAMLINE_TOOLS_DB_PATH')}")
+
+
+if __name__ == "__main__":
+    init_db()

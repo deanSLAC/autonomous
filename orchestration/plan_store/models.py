@@ -243,52 +243,6 @@ class Image(SQLModel, table=True):
 
 
 # ---------------------------------------------------------------------------
-# Action Log (autonomy spec — every SPEC action is recorded BEFORE dispatch)
-# ---------------------------------------------------------------------------
-
-class ActionLog(SQLModel, table=True):
-    """Durable record of every spec_cmd action call.
-
-    Writer invariant: the row is INSERT'd before the command is injected to
-    the SPEC screen session. Even if SPEC hangs, the row still exists.
-    """
-    id: str = Field(default_factory=generate_id, primary_key=True)
-    experiment_id: Optional[str] = Field(default=None, foreign_key="experiment.id", index=True)
-    phase_run_id: Optional[str] = Field(default=None, index=True)
-    timestamp: datetime = Field(default_factory=datetime.now, index=True)
-    phase: str = Field(index=True)
-    command: str = Field(index=True)
-    args_json: str = "[]"
-    spec_string_sent: str = ""
-    justification: str
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    result_json: Optional[str] = None
-    screen_output: Optional[str] = None
-    scan_number: Optional[int] = None
-    success: Optional[int] = None  # 1 ok, 0 err, None in progress
-    error_message: Optional[str] = None
-    agent: str = Field(default="llm")  # "llm" | "operator" | "system"
-    # Set by /api/orchestrator/reset so prior runs are invisible to the
-    # re-run guards and the action-log UI without actually losing audit
-    # data. NULL for live rows.
-    invalidated_at: Optional[datetime] = None
-
-
-class QueryLog(SQLModel, table=True):
-    """Non-mutating spec_cmd read calls — separate log so action_log stays clean."""
-    id: str = Field(default_factory=generate_id, primary_key=True)
-    experiment_id: Optional[str] = Field(default=None, foreign_key="experiment.id", index=True)
-    timestamp: datetime = Field(default_factory=datetime.now, index=True)
-    phase: str = Field(default="unknown")
-    command: str = Field(index=True)
-    args_json: str = "[]"
-    result_json: Optional[str] = None
-    error_message: Optional[str] = None
-    latency_ms: Optional[int] = None
-
-
-# ---------------------------------------------------------------------------
 # Phase transition log (CAT-8)
 # ---------------------------------------------------------------------------
 

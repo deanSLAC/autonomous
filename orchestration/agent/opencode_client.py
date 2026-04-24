@@ -24,12 +24,12 @@ from typing import Any, Optional
 
 import requests
 
-from config import (
-    OPENCODE_MESSAGE_TIMEOUT_S,
-    OPENCODE_URL,
-    OPENCODE_MODEL,
-    SLAC_API_KEY,
+from orchestration.config import (
     CONTEXT_DIR,
+    OPENCODE_MESSAGE_TIMEOUT_S,
+    OPENCODE_MODEL,
+    OPENCODE_URL,
+    SLAC_API_KEY,
 )
 
 logger = logging.getLogger(__name__)

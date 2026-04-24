@@ -20,7 +20,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
-from db.autonomy_client import (
+from orchestration.plan_store.client import (
     add_guidance,
     consume_pending_guidance,
     create_intervention,

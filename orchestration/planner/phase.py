@@ -17,13 +17,13 @@ import time
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
 
-from db.autonomy_client import (
+from orchestration.plan_store.client import (
     record_phase_transition,
     upsert_experiment_plan,
     create_intervention,
     resolve_intervention,
 )
-from spec import phase_allowlist, spec_cmd
+from beamline_tools.spec import phase_allowlist, spec_cmd
 
 logger = logging.getLogger(__name__)
 
@@ -55,89 +55,6 @@ class PreconditionChecker:
 
     def get(self, fact: str, default=None):
         return self._facts.get(fact, default)
-
-
-def seed_from_action_log(checker: "PreconditionChecker", experiment_id: str) -> None:
-    """Populate phase-completion facts from the persisted action_log.
-
-    Tool calls run in opencode-spawned *subprocesses* of FastAPI, so any
-    fact recorded on the parent-process checker after align_beamline or
-    calibrate_mono completes is invisible to the next tool call that
-    tries to advance the phase. Without this, `align_beamline_ok` never
-    flips and the agent re-runs the whole (minutes-long) alignment.
-
-    The action_log *is* shared (sqlite on disk), so we re-derive the
-    facts here from commands known to have succeeded. Idempotent; safe
-    to call before every precondition check.
-
-    Also honors plan.phases_skipped: phases the operator disabled from
-    the dashboard auto-pass all of their completion preconditions, so
-    the agent can transition through them without running the macros.
-    """
-    try:
-        from action_log.db import recent_actions
-        from db.autonomy_client import get_experiment_plan
-    except Exception:
-        return
-    try:
-        actions = recent_actions(limit=200, experiment_id=experiment_id)
-    except Exception:
-        actions = []
-
-    # Operator-disabled phases → treat as already-done.
-    try:
-        plan = get_experiment_plan(experiment_id) or {}
-        body = plan.get("plan", {}) or {}
-        skipped = set(body.get("phases_skipped") or [])
-    except Exception:
-        skipped = set()
-    if "beamline_alignment" in skipped:
-        checker.record("align_beamline_ok", True)
-        checker.record("calibrate_mono_residual_ev", 0.0)
-    if "xes_alignment" in skipped:
-        checker.record("align_xes_ok", True)
-        checker.record("xes_en_offset_set", True)
-    if "sample_alignment" in skipped:
-        # n_samples_aligned will be auto-bumped to match configured
-        # count so `all_samples_aligned` passes.
-        try:
-            from orchestrator import planner as _p
-            snap = _p.snapshot(experiment_id)
-            checker.record("n_samples_aligned", max(1, snap.samples_total))
-        except Exception:
-            checker.record("n_samples_aligned", 1)
-
-    # bl_align → {xes_align, sample_align}
-    if any(a.get("command") == "align_beamline" and a.get("success") == 1 for a in actions):
-        checker.record("align_beamline_ok", True)
-    for a in actions:  # recent first
-        if a.get("command") == "calibrate_mono" and a.get("success") == 1:
-            result = a.get("result") or {}
-            residual = None
-            if isinstance(result, dict):
-                raw = result.get("residual_ev")
-                if raw is None and "raw" in result and isinstance(result["raw"], str):
-                    import re as _re
-                    m = _re.search(r"residual[_ ]ev[=:\s]*([-+]?\d*\.?\d+)", result["raw"])
-                    if m:
-                        raw = m.group(1)
-                if raw is not None:
-                    try:
-                        residual = float(raw)
-                    except (TypeError, ValueError):
-                        residual = 0.0
-            # A successful calibrate_mono implies the residual was
-            # under threshold. Fall back to 0.0 if we can't parse one.
-            checker.record("calibrate_mono_residual_ev", 0.0 if residual is None else residual)
-            break
-
-    # xes_align → sample_align
-    if any(a.get("command") == "align_xes_spectrometer" and a.get("success") == 1
-           for a in actions):
-        checker.record("align_xes_ok", True)
-    if any(a.get("command") in ("set_xes_en_offset", "xes_en_offset") and a.get("success") == 1
-           for a in actions):
-        checker.record("xes_en_offset_set", True)
 
     def check(self, prev: str, target: str) -> list[Precondition]:
         P = phase_allowlist
@@ -188,6 +105,89 @@ def seed_from_action_log(checker: "PreconditionChecker", experiment_id: str) -> 
             )
 
         return checks
+
+
+def seed_from_action_log(checker: "PreconditionChecker", experiment_id: str) -> None:
+    """Populate phase-completion facts from the persisted action_log.
+
+    Tool calls run in opencode-spawned *subprocesses* of FastAPI, so any
+    fact recorded on the parent-process checker after align_beamline or
+    calibrate_mono completes is invisible to the next tool call that
+    tries to advance the phase. Without this, `align_beamline_ok` never
+    flips and the agent re-runs the whole (minutes-long) alignment.
+
+    The action_log *is* shared (sqlite on disk), so we re-derive the
+    facts here from commands known to have succeeded. Idempotent; safe
+    to call before every precondition check.
+
+    Also honors plan.phases_skipped: phases the operator disabled from
+    the dashboard auto-pass all of their completion preconditions, so
+    the agent can transition through them without running the macros.
+    """
+    try:
+        from beamline_tools.action_log.db import recent_actions
+        from orchestration.plan_store.client import get_experiment_plan
+    except Exception:
+        return
+    try:
+        actions = recent_actions(limit=200, experiment_id=experiment_id)
+    except Exception:
+        actions = []
+
+    # Operator-disabled phases → treat as already-done.
+    try:
+        plan = get_experiment_plan(experiment_id) or {}
+        body = plan.get("plan", {}) or {}
+        skipped = set(body.get("phases_skipped") or [])
+    except Exception:
+        skipped = set()
+    if "beamline_alignment" in skipped:
+        checker.record("align_beamline_ok", True)
+        checker.record("calibrate_mono_residual_ev", 0.0)
+    if "xes_alignment" in skipped:
+        checker.record("align_xes_ok", True)
+        checker.record("xes_en_offset_set", True)
+    if "sample_alignment" in skipped:
+        # n_samples_aligned will be auto-bumped to match configured
+        # count so `all_samples_aligned` passes.
+        try:
+            from orchestration.planner import planner as _p
+            snap = _p.snapshot(experiment_id)
+            checker.record("n_samples_aligned", max(1, snap.samples_total))
+        except Exception:
+            checker.record("n_samples_aligned", 1)
+
+    # bl_align → {xes_align, sample_align}
+    if any(a.get("command") == "align_beamline" and a.get("success") == 1 for a in actions):
+        checker.record("align_beamline_ok", True)
+    for a in actions:  # recent first
+        if a.get("command") == "calibrate_mono" and a.get("success") == 1:
+            result = a.get("result") or {}
+            residual = None
+            if isinstance(result, dict):
+                raw = result.get("residual_ev")
+                if raw is None and "raw" in result and isinstance(result["raw"], str):
+                    import re as _re
+                    m = _re.search(r"residual[_ ]ev[=:\s]*([-+]?\d*\.?\d+)", result["raw"])
+                    if m:
+                        raw = m.group(1)
+                if raw is not None:
+                    try:
+                        residual = float(raw)
+                    except (TypeError, ValueError):
+                        residual = 0.0
+            # A successful calibrate_mono implies the residual was
+            # under threshold. Fall back to 0.0 if we can't parse one.
+            checker.record("calibrate_mono_residual_ev", 0.0 if residual is None else residual)
+            break
+
+    # xes_align → sample_align
+    if any(a.get("command") == "align_xes_spectrometer" and a.get("success") == 1
+           for a in actions):
+        checker.record("align_xes_ok", True)
+    if any(a.get("command") in ("set_xes_en_offset", "xes_en_offset") and a.get("success") == 1
+           for a in actions):
+        checker.record("xes_en_offset_set", True)
 
 
 # ---------------------------------------------------------------------------

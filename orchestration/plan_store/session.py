@@ -1,15 +1,9 @@
-"""Convenience client for programmatic access to the BL15-2 experiments database.
+"""CRUD helpers + engine/session for the orchestration plan_store DB.
 
-Provides a singleton engine, session helper, and CRUD functions for the
-most common operations.  Designed for use by the FastAPI server, analysis
-scripts, and interactive debugging.
-
-Usage:
-    from db.client import (
-        create_experiment, get_experiment, get_active_experiment,
-        create_phase_run, complete_phase_run, create_scan_record,
-        create_sample_position, create_llm_log,
-    )
+Holds: experiments, phase runs, scan records, sample holders, LLM logs,
+plan + staff guidance + interventions. Bound to
+`ORCHESTRATION_DB_PATH` (see orchestration.config). Separate sqlite
+file from the beamline_tools action_log DB.
 """
 
 from __future__ import annotations
@@ -22,7 +16,7 @@ from typing import Optional
 from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from db.models import (
+from orchestration.plan_store.models import (
     CollectionScan,
     Experiment,
     ExperimentElement,
@@ -42,22 +36,21 @@ from db.models import (
 _engine = None
 
 
-def get_engine(db_path: str | None = None):
-    """Return a singleton SQLAlchemy engine with WAL and busy_timeout set.
+def _db_path() -> str:
+    return os.environ.get(
+        "ORCHESTRATION_DB_PATH",
+        str(Path(__file__).resolve().parent.parent.parent / "data" / "orchestration.db"),
+    )
 
-    Args:
-        db_path: Override the default database location.  Only respected on
-                 the first call (subsequent calls return the cached engine).
-    """
+
+def get_engine(db_path: str | None = None):
+    """Return a singleton SQLAlchemy engine with WAL + busy_timeout."""
     global _engine
     if _engine is not None:
         return _engine
 
     if db_path is None:
-        db_path = os.environ.get(
-            "BEAMLINE_DB_PATH",
-            str(Path(__file__).resolve().parent / "experiments.db"),
-        )
+        db_path = _db_path()
 
     db_url = f"sqlite:///{db_path}"
     _engine = create_engine(db_url, echo=False)
@@ -69,7 +62,6 @@ def get_engine(db_path: str | None = None):
         cursor.execute("PRAGMA busy_timeout=5000")
         cursor.close()
 
-    # Ensure all tables exist (safe to call repeatedly)
     os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
     SQLModel.metadata.create_all(_engine)
 

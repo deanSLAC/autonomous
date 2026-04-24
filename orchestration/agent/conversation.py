@@ -13,7 +13,7 @@ import threading
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from opencode_client import OpenCodeClient
+from orchestration.agent.opencode_client import OpenCodeClient
 
 logger = logging.getLogger(__name__)
 
