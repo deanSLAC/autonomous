@@ -16,8 +16,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from sqlmodel import select
 
-from config_generator import validate_sample_holder_data
-from db.client import (
+from orchestration.config_generator import validate_sample_holder_data
+from orchestration.plan_store.session import (
     create_sample_holder,
     create_sample_position,
     delete_sample_holder,
@@ -29,8 +29,8 @@ from db.client import (
     reorder_sample_holders,
     update_sample_holder,
 )
-from db.models import SampleHolder, SamplePosition
-from orchestrator import planner
+from orchestration.plan_store.models import SampleHolder, SamplePosition
+from orchestration.planner import planner
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sample_holders", tags=["sample_holders"])

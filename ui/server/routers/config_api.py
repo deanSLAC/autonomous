@@ -17,14 +17,14 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from sqlmodel import select
 
-from config import CONFIG_DIR
-from config_generator import (
+from ui.config import CONFIG_DIR
+from orchestration.config_generator import (
     generate_config,
     sanitize_spec_string,
     validate_experiment_data,
     validate_sample_holder_data,
 )
-from db.client import (
+from orchestration.plan_store.session import (
     create_experiment,
     create_experiment_element,
     create_sample_holder,
@@ -36,7 +36,7 @@ from db.client import (
     get_samples_for_holder,
     get_session,
 )
-from db.models import Experiment, ExperimentElement, SampleHolder, SamplePosition
+from orchestration.plan_store.models import Experiment, ExperimentElement, SampleHolder, SamplePosition
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["config"])
@@ -288,8 +288,8 @@ async def submit_sample_holder(data: dict):
         # immediately sees the new/edited holder samples. Safe no-op if
         # no plan is present yet.
         try:
-            from orchestrator import planner
-            from db.autonomy_client import get_experiment_plan as _get_plan
+            from orchestration.planner import planner
+            from orchestration.plan_store.client import get_experiment_plan as _get_plan
             if _get_plan(experiment_id):
                 planner.rebuild_plan_preserving_progress(experiment_id)
         except Exception as e:

@@ -7,14 +7,14 @@ import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
-from config import llm_enabled
-from db.autonomy_client import get_intervention, reset_run_state
-from db.client import get_experiment
-from opencode_client import OpenCodeClient
-from orchestrator import planner
-from orchestrator.loop import get_orchestrator
-from orchestrator.staff_guidance import coordinator
-from spec import spec_cmd
+from orchestration.config import llm_enabled
+from orchestration.plan_store.client import get_intervention, reset_run_state
+from orchestration.plan_store.session import get_experiment
+from orchestration.agent.opencode_client import OpenCodeClient
+from orchestration.planner import planner
+from orchestration.planner.loop import get_orchestrator
+from orchestration.planner.staff_guidance import coordinator
+from beamline_tools.spec import spec_cmd
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/orchestrator", tags=["orchestrator"])

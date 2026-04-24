@@ -10,16 +10,16 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 from sqlmodel import select
 
-from action_log.db import recent_actions, recent_queries
-from db.autonomy_client import (
+from beamline_tools.action_log.db import recent_actions, recent_queries
+from orchestration.plan_store.client import (
     get_experiment_plan,
     list_open_interventions,
     list_guidance,
     list_phase_transitions,
     list_plan_edits,
 )
-from db.client import get_session, get_experiment, get_phase_runs_for_experiment
-from db.models import (
+from orchestration.plan_store.session import get_session, get_experiment, get_phase_runs_for_experiment
+from orchestration.plan_store.models import (
     Experiment,
     ExperimentElement,
     PhaseRun,
@@ -27,7 +27,7 @@ from db.models import (
     SampleHolder,
     SamplePosition,
 )
-from spec import spec_cmd
+from beamline_tools.spec import spec_cmd
 
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])

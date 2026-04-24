@@ -16,7 +16,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from config import CONTEXT_DIR
+from ui.config import CONTEXT_DIR
 
 router = APIRouter(prefix="/api/insight", tags=["insight"])
 
@@ -67,7 +67,7 @@ def simulation_status() -> dict:
 
     # Surface the mock screen positions if available.
     try:
-        from spec.screen_client import _MockScreen
+        from beamline_tools.spec.screen_client import _MockScreen
         info["positions"] = dict(_MockScreen._positions)
         info["last_filename"] = _MockScreen._filename
     except Exception:

@@ -14,9 +14,9 @@ from typing import Callable
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
-from config import (
-    SLACK_BOT_TOKEN,
+from ui.config import (
     SLACK_APP_TOKEN,
+    SLACK_BOT_TOKEN,
     SLACK_LLM_CHANNEL_ID,
     SLACK_USERS_CHANNEL_ID,
 )
