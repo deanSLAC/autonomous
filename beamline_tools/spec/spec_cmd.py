@@ -23,14 +23,14 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
-from action_log.db import (
+from beamline_tools.action_log.db import (
     finish_action,
     log_query,
     mark_action_started,
     start_action,
 )
-from spec import phase_allowlist, screen_client
-from spec.screen_client import DispatchResult
+from beamline_tools.spec import phase_allowlist, screen_client
+from beamline_tools.spec.screen_client import DispatchResult
 
 logger = logging.getLogger(__name__)
 

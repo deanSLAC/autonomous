@@ -6,7 +6,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-from bldata_analysis import scans, logs, plotting
+from beamline_tools.scans.bldata_analysis import scans, logs, plotting
 
 
 # ---- Scan data tools ----

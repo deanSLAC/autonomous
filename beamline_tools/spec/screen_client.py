@@ -25,11 +25,11 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional
 
-from config import (
-    SPEC_SCREEN_NAME,
+from beamline_tools.config import (
+    SPEC_MOCK,
     SPEC_POLL_INTERVAL_S,
     SPEC_PROMPT_REGEX,
-    SPEC_MOCK,
+    SPEC_SCREEN_NAME,
     SPEC_TRANSPORT,
 )
 
@@ -319,7 +319,7 @@ def dispatch(
     if SPEC_TRANSPORT == "tcp":
         # Lazy import to keep tcp_client's `from spec.screen_client ...`
         # out of the module-load cycle.
-        from spec import tcp_client
+        from beamline_tools.spec import tcp_client
         return tcp_client.dispatch(spec_string, timeout_s=timeout_s)
 
     started = time.time()
@@ -411,7 +411,7 @@ def abort_current() -> bool:
     SPEC_TRANSPORT=screen, stuffs a literal ^C into the screen session.
     """
     if SPEC_TRANSPORT == "tcp":
-        from spec import tcp_client
+        from beamline_tools.spec import tcp_client
         return tcp_client.abort_current()
 
     if SPEC_MOCK:

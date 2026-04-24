@@ -16,7 +16,7 @@ import shlex
 import sys
 from pathlib import Path
 
-from tools.executor import execute_tool
+from beamline_tools.tool_catalog.executor import execute_tool
 
 logger = logging.getLogger(__name__)
 

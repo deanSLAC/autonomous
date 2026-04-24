@@ -17,16 +17,25 @@ import json
 import logging
 from typing import Any, Optional
 
-from action_log.db import recent_actions
-from db.autonomy_client import (
-    add_guidance,
-    get_experiment_plan,
-    list_guidance,
-    list_open_interventions,
-)
-from orchestrator import planner
-from orchestrator.staff_guidance import coordinator
-from spec import phase_allowlist, spec_cmd
+from beamline_tools.action_log.db import recent_actions
+from beamline_tools.spec import phase_allowlist, spec_cmd
+
+# CAT-8 tools need the orchestration package. Import lazily so this
+# module still imports when `orchestration/` is absent (e.g. when
+# `beamline_tools` is vendored into a future project without it).
+try:
+    from orchestration.plan_store.client import (
+        get_experiment_plan,
+        list_guidance,
+        list_open_interventions,
+    )
+    from orchestration.planner import planner
+    from orchestration.planner.staff_guidance import coordinator
+    _ORCHESTRATION_AVAILABLE = True
+except ImportError:  # pragma: no cover — only during package-lift scenarios
+    get_experiment_plan = list_guidance = list_open_interventions = None  # type: ignore
+    planner = coordinator = None  # type: ignore
+    _ORCHESTRATION_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +81,7 @@ def _refuse_rerun_if_already_done(command: str, human_name: str) -> Optional[str
     run via the dashboard Reset button if they want to redo it.
     """
     try:
-        from action_log.db import recent_actions
+        from beamline_tools.action_log.db import recent_actions
     except Exception:
         return None
     experiment_id = spec_cmd.get_experiment_id()
@@ -379,8 +388,8 @@ def t_abort_current_scan(args: dict) -> tuple[str, list[str]]:
 
 def t_transition_phase(args: dict) -> tuple[str, list[str]]:
     """Async tool — run on event loop if available, else new one."""
-    from orchestrator.loop import get_orchestrator
-    from orchestrator import phase as phase_mod
+    from orchestration.planner.loop import get_orchestrator
+    from orchestration.planner import phase as phase_mod
 
     experiment_id = spec_cmd.get_experiment_id()
     if not experiment_id:
@@ -403,7 +412,7 @@ def t_transition_phase(args: dict) -> tuple[str, list[str]]:
         checker.record("experiment_id", experiment_id)
         checker.record("beam_good", True)  # safe default; mock SPEC returns True anyway
         try:
-            from orchestrator import planner as _planner
+            from orchestration.planner import planner as _planner
             snap = _planner.snapshot(experiment_id)
             checker.record("n_samples_configured", snap.samples_total)
             checker.record("beamtime_remaining_hours", snap.beamtime_remaining_hours)
@@ -476,7 +485,7 @@ def t_request_human_intervention(args: dict) -> tuple[str, list[str]]:
 
 
 def t_post_status_update(args: dict) -> tuple[str, list[str]]:
-    from orchestrator.loop import get_orchestrator
+    from orchestration.planner.loop import get_orchestrator
     orch = get_orchestrator()
     text = args.get("text", "").strip()
     if not text:
@@ -565,7 +574,7 @@ def _log_plan_edit_from_agent(experiment_id: str, action: str, *,
                               target_id: str | None = None,
                               payload: dict | None = None,
                               reason: str | None = None) -> None:
-    from db.autonomy_client import log_plan_edit
+    from orchestration.plan_store.client import log_plan_edit
     try:
         log_plan_edit(
             experiment_id, author="agent", action=action,

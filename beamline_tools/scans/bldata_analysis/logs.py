@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from bl_config import BL_LOGS_DIR, LOG_FILE_PATTERN, MAX_FILE_SIZE_BYTES, MAX_LOG_LINES
+from beamline_tools.scans.bl_config import BL_LOGS_DIR, LOG_FILE_PATTERN, MAX_FILE_SIZE_BYTES, MAX_LOG_LINES
 
 logger = logging.getLogger(__name__)
 

@@ -10,10 +10,19 @@ import logging
 import matplotlib
 matplotlib.use("Agg")
 
-from blmcp import tools as bl_tools
-from bldata_analysis.plotting import fig_to_base64
+from beamline_tools.scans.blmcp import tools as bl_tools
+from beamline_tools.scans.bldata_analysis.plotting import fig_to_base64
 
 logger = logging.getLogger(__name__)
+
+
+# External packages (orchestration) register their tool functions here
+# via `beamline_tools.tool_catalog.register(definition, fn)` at import time.
+_EXTRA_DISPATCH: dict[str, object] = {}
+
+
+def register_dispatch(name: str, fn) -> None:
+    _EXTRA_DISPATCH[name] = fn
 
 
 def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
@@ -24,15 +33,17 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
     """
     images_b64: list[str] = []
 
-    # Autonomy tools take priority when registered.
+    # Base autonomy tools (CAT-0..CAT-7) + any externally registered ones.
     try:
-        from tools.autonomy_tools import AUTONOMY_DISPATCH  # lazy to avoid cycles
+        from beamline_tools.tool_catalog.autonomy_tools import AUTONOMY_DISPATCH  # lazy to avoid cycles
     except Exception:
         AUTONOMY_DISPATCH = {}
 
-    if name in AUTONOMY_DISPATCH:
+    dispatch = {**AUTONOMY_DISPATCH, **_EXTRA_DISPATCH}
+
+    if name in dispatch:
         try:
-            text, imgs = AUTONOMY_DISPATCH[name](arguments or {})
+            text, imgs = dispatch[name](arguments or {})
             return text, list(imgs or [])
         except Exception as e:
             logger.error("Autonomy tool %s failed: %s", name, e, exc_info=True)
@@ -159,7 +170,7 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
             return summary, images_b64
 
         elif name == "plot_data":
-            from bldata_analysis.plotting import plt
+            from beamline_tools.scans.bldata_analysis.plotting import plt
 
             x = arguments.get("x", [])
             series = [arguments.get("y", [])]
@@ -205,19 +216,19 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
             return summary, images_b64
 
         elif name == "list_files":
-            import local_data
+            from beamline_tools.scans import local_data
             result = local_data.list_files(pattern=arguments.get("pattern", "*"))
             if not result:
                 return "No files found in scan directory.", images_b64
             return json.dumps(result, indent=2), images_b64
 
         elif name == "read_file":
-            import local_data
+            from beamline_tools.scans import local_data
             content = local_data.read_file(arguments.get("path", ""))
             return content, images_b64
 
         elif name == "write_summary":
-            import local_data
+            from beamline_tools.scans import local_data
             from datetime import datetime
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"beamtimehero_conversation_summary_{ts}.txt"
@@ -225,7 +236,7 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
             return f"Summary saved: {rel_path}", images_b64
 
         elif name == "write_macro":
-            import local_data
+            from beamline_tools.scans import local_data
             from datetime import datetime
             original = arguments.get("original_name", "macro")
             # Strip .mac extension if present to build new name
@@ -236,17 +247,25 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
             return f"Edited macro saved: {rel_path}", images_b64
 
         elif name == "get_motor_config":
-            from spec_config import get_motor_config
+            from beamline_tools.spec.config_file import get_motor_config
             return get_motor_config(), images_b64
 
         elif name == "get_counter_config":
-            from spec_config import get_counter_config
+            from beamline_tools.spec.config_file import get_counter_config
             return get_counter_config(), images_b64
 
         elif name == "spec_command":
-            from spec_client import send_spec_command
-            result = send_spec_command(arguments.get("command", ""))
-            return result, images_b64
+            from beamline_tools.spec import screen_client
+            cmd = arguments.get("command", "")
+            if not cmd.strip():
+                return "error: empty command", images_b64
+            if not screen_client.reserve(action_id="raw-spec", command=cmd):
+                return "error: SPEC is busy", images_b64
+            try:
+                dr = screen_client.dispatch(cmd, timeout_s=60)
+            finally:
+                screen_client.release(output=None, errored=False)
+            return (dr.output if dr.ok else f"error: {dr.error}"), images_b64
 
         else:
             return f"Unknown tool: {name}", images_b64

@@ -16,8 +16,8 @@ from typing import Any, Iterable, Optional
 
 from sqlmodel import select
 
-from db.client import get_session
-from db.models import ActionLog, QueryLog
+from beamline_tools.action_log.models import ActionLog, QueryLog
+from beamline_tools.action_log.session import get_session
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +172,28 @@ def recent_queries(limit: int = 50, experiment_id: str | None = None) -> list[di
             }
             for r in session.exec(stmt)
         ]
+
+
+def invalidate_for_experiment(experiment_id: str) -> int:
+    """Mark every live ActionLog row for this experiment as invalidated.
+
+    Called by orchestration.api.reset_run when the operator triggers a
+    hard reset from the dashboard. Rows stay in the DB (audit preserved)
+    but `recent_actions()` no longer returns them.
+    """
+    now = datetime.now()
+    with get_session() as session:
+        rows = list(session.exec(
+            select(ActionLog).where(
+                ActionLog.experiment_id == experiment_id,
+                ActionLog.invalidated_at.is_(None),
+            )
+        ))
+        for row in rows:
+            row.invalidated_at = now
+            session.add(row)
+        session.commit()
+    return len(rows)
 
 
 def _action_to_dict(r: ActionLog) -> dict:
