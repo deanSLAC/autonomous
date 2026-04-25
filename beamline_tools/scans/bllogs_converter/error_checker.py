@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 API_BASE = "https://aiapi-prod.stanford.edu/v1"
 API_KEY = os.getenv("API_KEY", "")
-MODEL = "claude-4-5-sonnet"
+MODEL = "claude-opus-4-6"
 
 SYSTEM_PROMPT = """You are analyzing SPEC beamline control log output for errors, warnings, and unexpected behavior.
 

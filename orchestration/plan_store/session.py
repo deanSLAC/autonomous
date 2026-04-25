@@ -617,7 +617,7 @@ def create_llm_log(
     response: str,
     experiment_id: Optional[str] = None,
     phase_run_id: Optional[str] = None,
-    model: str = "claude-4-5-sonnet",
+    model: str = "claude-opus-4-6",
     input_tokens: Optional[int] = None,
     output_tokens: Optional[int] = None,
     latency_ms: Optional[int] = None,

@@ -206,7 +206,7 @@ class LLMLog(SQLModel, table=True):
     prompt_summary: str  # First 500 chars of prompt
     full_prompt: str
     response: str
-    model: str = "claude-4-5-sonnet"
+    model: str = "claude-opus-4-6"
     input_tokens: Optional[int] = None
     output_tokens: Optional[int] = None
     latency_ms: Optional[int] = None
