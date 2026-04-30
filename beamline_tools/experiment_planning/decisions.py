@@ -15,7 +15,7 @@ from typing import Optional
 
 import numpy as np
 
-from .fitter import (
+from beamline_tools.generic_data.fitter import (
     FitResult,
     fit_aperture_edges,
     fit_peak,

@@ -17,7 +17,7 @@ from silx.io.specfile import SpecFile, is_specfile
 
 logger = logging.getLogger(__name__)
 
-from beamline_tools.scans import bl_config
+from beamline_tools import config as bl_config
 
 _metadata_cache: dict | None = None
 _cached_file_mtimes: dict[str, float] = {}  # file_path -> mtime at cache time

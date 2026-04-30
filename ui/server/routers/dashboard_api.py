@@ -27,7 +27,7 @@ from orchestration.plan_store.models import (
     SampleHolder,
     SamplePosition,
 )
-from beamline_tools.spec import spec_cmd
+from beamline_tools.spec_control import spec_cmd
 
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])

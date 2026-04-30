@@ -156,7 +156,7 @@ def create_app() -> FastAPI:
     @app.get(f"{BASE_PATH}/health")
     async def health():
         try:
-            from beamline_tools.scans import bl_config
+            from beamline_tools import config as bl_config
             scan_dir = str(bl_config.BL_SCAN_DIR)
         except Exception:
             scan_dir = None

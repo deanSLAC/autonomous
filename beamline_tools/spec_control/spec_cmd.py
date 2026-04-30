@@ -29,8 +29,8 @@ from beamline_tools.action_log.db import (
     mark_action_started,
     start_action,
 )
-from beamline_tools.spec import phase_allowlist, screen_client
-from beamline_tools.spec.screen_client import DispatchResult
+from beamline_tools.spec_control import phase_allowlist, screen_client
+from beamline_tools.spec_control.screen_client import DispatchResult
 
 logger = logging.getLogger(__name__)
 

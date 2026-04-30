@@ -5,13 +5,29 @@ orchestration or UI packages and can be vendored into a future project
 with only the requirements in `requirements.txt` that cover SPEC +
 sqlite + numpy/silx.
 
+Layout (grouped by source):
+
+  * `spec_control/`       — SPEC direct interaction (screen / TCP transports,
+                            phase allowlist, dispatcher, action_log writer)
+  * `spec_logs/`          — SPEC session log files: list, tail, search,
+                            parse, error-detect
+  * `spec_data/`          — Raw SPEC data files (silx-readable): reader,
+                            metadata cache, scan ops, plotting, on-disk
+                            SPEC config parser
+  * `generic_data/`       — Pure-math tools that operate on numpy arrays:
+                            fitting, cosine similarity
+  * `experiment_planning/` — Higher-level domain logic: scan→motor decisions,
+                            motor strategies, scan efficiency / recommendations
+  * `tool_catalog/`       — Agent-facing tool surface: schemas, executor,
+                            CLI mode, lineage
+
 Public API:
 
   * `spec_cmd.call/read` + context accessors (`get_phase`, `get_experiment_id`)
   * `phase_allowlist.is_allowed`
   * `action_log` writers and readers
   * `tool_catalog.TOOL_DEFINITIONS` + `execute_tool` + `register`
-  * `scans.local_data`, `scans.bl_config.set_scan_dir`, `scans.spec_reader`
+  * `spec_data.local_data`, `config.set_scan_dir`, `spec_data.spec_reader`
 """
 
 from beamline_tools.action_log import (
@@ -23,7 +39,7 @@ from beamline_tools.action_log import (
     recent_queries,
     start_action,
 )
-from beamline_tools.spec import phase_allowlist, spec_cmd
+from beamline_tools.spec_control import phase_allowlist, spec_cmd
 from beamline_tools.tool_catalog import (
     AUTONOMY_TOOL_CATEGORIES,
     AUTONOMY_TOOL_DEFINITIONS,

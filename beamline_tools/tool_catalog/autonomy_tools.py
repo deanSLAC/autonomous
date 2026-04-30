@@ -18,7 +18,7 @@ import logging
 from typing import Any, Optional
 
 from beamline_tools.action_log.db import recent_actions
-from beamline_tools.spec import phase_allowlist, spec_cmd
+from beamline_tools.spec_control import phase_allowlist, spec_cmd
 
 # CAT-8 tools need the orchestration package. Import lazily so this
 # module still imports when `orchestration/` is absent (e.g. when

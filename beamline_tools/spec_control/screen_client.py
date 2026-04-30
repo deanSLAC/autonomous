@@ -319,7 +319,7 @@ def dispatch(
     if SPEC_TRANSPORT == "tcp":
         # Lazy import to keep tcp_client's `from spec.screen_client ...`
         # out of the module-load cycle.
-        from beamline_tools.spec import tcp_client
+        from beamline_tools.spec_control import tcp_client
         return tcp_client.dispatch(spec_string, timeout_s=timeout_s)
 
     started = time.time()
@@ -411,7 +411,7 @@ def abort_current() -> bool:
     SPEC_TRANSPORT=screen, stuffs a literal ^C into the screen session.
     """
     if SPEC_TRANSPORT == "tcp":
-        from beamline_tools.spec import tcp_client
+        from beamline_tools.spec_control import tcp_client
         return tcp_client.abort_current()
 
     if SPEC_MOCK:

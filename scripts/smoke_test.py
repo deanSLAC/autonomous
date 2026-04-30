@@ -52,7 +52,7 @@ from orchestration.plan_store.client import (  # noqa: E402
 from orchestration.planner import planner  # noqa: E402
 from orchestration.planner.phase import PreconditionChecker, transition_phase  # noqa: E402
 from orchestration.planner.staff_guidance import coordinator  # noqa: E402
-from beamline_tools.spec import phase_allowlist, spec_cmd  # noqa: E402
+from beamline_tools.spec_control import phase_allowlist, spec_cmd  # noqa: E402
 from beamline_tools.action_log.db import recent_actions  # noqa: E402
 
 

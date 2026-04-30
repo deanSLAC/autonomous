@@ -24,7 +24,7 @@ from orchestration.plan_store.client import upsert_experiment_plan
 from orchestration.planner import planner
 from orchestration.planner.phase import PreconditionChecker
 from orchestration.planner.staff_guidance import coordinator
-from beamline_tools.spec import phase_allowlist, spec_cmd
+from beamline_tools.spec_control import phase_allowlist, spec_cmd
 
 logger = logging.getLogger(__name__)
 

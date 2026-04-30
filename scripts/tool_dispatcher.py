@@ -56,7 +56,7 @@ def main() -> None:
     # Load the active experiment's phase from the DB so subprocess calls
     # (spawned by opencode) use the same phase gate as the main server.
     try:
-        from beamline_tools.spec import spec_cmd  # noqa: E402
+        from beamline_tools.spec_control import spec_cmd  # noqa: E402
         from orchestration.plan_store.session import get_active_experiment  # noqa: E402
         from orchestration.plan_store.client import get_experiment_plan  # noqa: E402
 

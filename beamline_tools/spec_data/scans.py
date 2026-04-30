@@ -12,7 +12,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-from beamline_tools.scans import local_data
+from beamline_tools.spec_data import local_data
 
 
 def list_processed_scans(limit=20):

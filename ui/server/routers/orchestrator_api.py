@@ -14,7 +14,7 @@ from orchestration.agent.opencode_client import OpenCodeClient
 from orchestration.planner import planner
 from orchestration.planner.loop import get_orchestrator
 from orchestration.planner.staff_guidance import coordinator
-from beamline_tools.spec import spec_cmd
+from beamline_tools.spec_control import spec_cmd
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/orchestrator", tags=["orchestrator"])

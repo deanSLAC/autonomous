@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from beamline_tools.config import SPEC_HOST, SPEC_MOCK, SPEC_NAME, SPEC_PORT
-from beamline_tools.spec.screen_client import DispatchResult, _MockScreen
+from beamline_tools.spec_control.screen_client import DispatchResult, _MockScreen
 
 logger = logging.getLogger(__name__)
 

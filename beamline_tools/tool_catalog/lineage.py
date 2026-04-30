@@ -52,7 +52,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "with its metadata (file, scan number, command, counters) and "
             "a small numeric preview of the scan's points."
         ),
-        "python_func": "blmcp.tools.get_latest_scan()",
+        "python_func": "spec_data.scans.list_processed_scans(limit=1) + read_processed_scan(...)",
         "spec_command": None,
         "output": "JSON: {file_name, scan_number, command, counters, data_preview}",
         "source": "spec_datafile",
@@ -67,7 +67,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "Enumerate recent SPEC scans with metadata so the agent can "
             "pick a file_name/scan_number pair for follow-up tools."
         ),
-        "python_func": "blmcp.tools.list_scans(limit=20)",
+        "python_func": "spec_data.scans.list_processed_scans(limit=20)",
         "spec_command": None,
         "output": "JSON array: [{file_name, scan_number, command, counters, npoints, timestamp}, ...]",
         "source": "spec_datafile",
@@ -80,7 +80,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "file_name + scan_number. Use list_scans first to discover the "
             "valid identifiers."
         ),
-        "python_func": "blmcp.tools.read_scan(file_name, scan_number)",
+        "python_func": "spec_data.scans.get_scan_metadata(file_name, scan_number) + read_processed_scan(...)",
         "spec_command": None,
         "output": "JSON: {metadata, counters, data: {col: [values]}}",
         "source": "spec_datafile",
@@ -93,7 +93,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "this to see what SPEC just printed — prompts, warnings, the "
             "text of recent commands."
         ),
-        "python_func": "blmcp.tools.get_latest_log_entries(lines=100)",
+        "python_func": "spec_logs.log_reader.get_latest_log_entries(lines=100)",
         "spec_command": None,
         "output": "JSON: {log_file, lines: [str]}",
         "source": "spec_logfile",
@@ -106,11 +106,11 @@ TOOL_LINEAGE: dict[str, dict] = {
             "string (error message, motor name, macro name). Returns a "
             "bounded match list."
         ),
-        "python_func": "blmcp.tools.search_logs(query, max_results=50)",
+        "python_func": "spec_logs.log_reader.search_logs(query, max_results=50)",
         "spec_command": None,
         "output": "JSON array: [{log_file, line_number, line}, ...]",
         "source": "spec_logfile",
-        "source_detail": "Scans all files under BL_LOGS_DIR via bllogs_converter/log_parser.",
+        "source_detail": "Scans all files under BL_LOGS_DIR via spec_logs.log_reader.",
         "depends_on": [],
     },
     "list_logs": {
@@ -118,7 +118,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "List the available log files in BL_LOGS_DIR with their sizes "
             "and modification times."
         ),
-        "python_func": "blmcp.tools.list_logs(limit=20)",
+        "python_func": "spec_logs.log_reader.list_logs(limit=20)",
         "spec_command": None,
         "output": "JSON array: [{name, size, mtime}, ...]",
         "source": "spec_logfile",
@@ -131,7 +131,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "ppboff if it exists, else the vortDT/vortDT2/vortDT3/vortDT4 "
             "with the highest max count, else I1."
         ),
-        "python_func": "blmcp.tools.get_active_counter(file_name, scan_number)",
+        "python_func": "spec_data.scans.get_active_counter(file_name, scan_number)",
         "spec_command": None,
         "output": "JSON: {counter: str, reason: str}",
         "source": "spec_datafile",
@@ -144,7 +144,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "(motor moves, settling, comms). Useful when optimizing "
             "count time or diagnosing slow scans."
         ),
-        "python_func": "blmcp.tools.get_scan_deadtime(file_name, scan_number)",
+        "python_func": "spec_data.scans.get_scan_deadtime(file_name, scan_number)",
         "spec_command": None,
         "output": "JSON: {wall_s, acq_s, dead_s, dead_pct}",
         "source": "spec_datafile",
@@ -157,7 +157,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "(or any chosen reference), then linearly rescale so the "
             "pre-edge reads 0 and the post-edge reads 1."
         ),
-        "python_func": "blmcp.tools.edge_step_normalize_scan(file_name, scan_number, counter, normalize_by)",
+        "python_func": "spec_data.scans.edge_step_normalize_scan(file_name, scan_number, counter, normalize_by)",
         "spec_command": None,
         "output": "JSON: {x: [energy], y: [normalized], counter, normalize_by}",
         "source": "spec_datafile",
@@ -170,7 +170,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "them. Returns the mean, the point-wise standard deviation, "
             "and the number of scans averaged."
         ),
-        "python_func": "blmcp.tools.average_energy_scans(file_name)  |  average_latest_energy_scans()",
+        "python_func": "spec_data.scans.average_energy_scans(file_name)  |  average_latest_energy_scans()",
         "spec_command": None,
         "output": "JSON: {x, mean, std, n_scans, file_name}",
         "source": "spec_datafile",
@@ -183,7 +183,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "each scan to the running mean, plus cumulative convergence "
             "and standard error."
         ),
-        "python_func": "blmcp.tools.analyze_scan_convergence(file_name)",
+        "python_func": "generic_data.cosine_similarity.analyze_scan_quality (via spec_data.scans.get_normalized_scan_arrays)",
         "spec_command": None,
         "output": "JSON: {per_scan_similarity, cumulative, std_error, verdict}",
         "source": "spec_datafile",
@@ -197,7 +197,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "Poisson statistical limit, and a terminal verdict "
             "(needs_more / reasonable / marginal / wasteful)."
         ),
-        "python_func": "blmcp.tools.analyze_scan_efficiency(file_name)",
+        "python_func": "experiment_planning.scan_efficiency.analyze_scan_efficiency (via spec_data.scans.get_normalized_scan_arrays)",
         "spec_command": None,
         "output": "JSON: {convergence, cv, poisson_ratio, recommended_n, verdict}",
         "source": "spec_datafile",
@@ -210,7 +210,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "detects the active counter; accepts an optional "
             "normalize_by counter."
         ),
-        "python_func": "blmcp.tools.plot_scan(file_name, scan_number, counter, normalize_by)",
+        "python_func": "spec_data.plotting.plot_scan(file_name, scan_number, counter, normalize_by)",
         "spec_command": None,
         "output": "Base64 PNG + a one-line caption",
         "source": "spec_datafile",
@@ -223,7 +223,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "average, and overlay all samples on one plot with std-dev "
             "shading. The go-to cross-sample comparison plot."
         ),
-        "python_func": "blmcp.tools.plot_averaged_scans_overlay(file_names)",
+        "python_func": "spec_data.plotting.plot_averaged_scans_overlay(file_names)",
         "spec_command": None,
         "output": "Base64 PNG + a short text summary",
         "source": "spec_datafile",
@@ -236,7 +236,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "typically grabbed from read_scan or normalize_scan — and "
             "gets back a rendered PNG. Supports up to four overlaid series."
         ),
-        "python_func": "matplotlib.pyplot (in-process, via bldata_analysis.plotting)",
+        "python_func": "matplotlib.pyplot (in-process, via spec_data.plotting)",
         "spec_command": None,
         "output": "Base64 PNG + a one-line caption",
         "source": "tool_chain",
@@ -248,7 +248,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "List non-SPEC files (macros, configs, notes) in the scan "
             "directory so the agent can decide what to read or edit."
         ),
-        "python_func": "local_data.list_files(pattern)",
+        "python_func": "spec_data.local_data.list_files(pattern)",
         "spec_command": None,
         "output": "JSON array: [{name, size, mtime}, ...]",
         "source": "filesystem",
@@ -260,7 +260,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "Read a text file from the scan directory — typically a .mac "
             "macro the agent wants to inspect or edit."
         ),
-        "python_func": "local_data.read_file(path)",
+        "python_func": "spec_data.local_data.read_file(path)",
         "spec_command": None,
         "output": "Raw text file contents",
         "source": "filesystem",
@@ -273,7 +273,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "timestamped .txt file. Used so operators can review agent "
             "reasoning offline."
         ),
-        "python_func": "local_data.write_file(beamtimehero_conversation_summary_<ts>.txt, content)",
+        "python_func": "spec_data.local_data.write_file(beamtimehero_conversation_summary_<ts>.txt, content)",
         "spec_command": None,
         "output": "Relative path of the written file",
         "source": "filesystem",
@@ -286,7 +286,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "_heroic_<date> suffix so the original macro is never "
             "overwritten."
         ),
-        "python_func": "local_data.write_file(<original>_heroic_<date>.mac, content)",
+        "python_func": "spec_data.local_data.write_file(<original>_heroic_<date>.mac, content)",
         "spec_command": None,
         "output": "Relative path of the new .mac file",
         "source": "filesystem",
@@ -299,7 +299,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "slew rate, flags, and mnemonic. The motor index (MOTnnn) "
             "maps directly to the A[] array in SPEC."
         ),
-        "python_func": "spec_config.get_motor_config()",
+        "python_func": "spec_data.spec_config.get_motor_config()",
         "spec_command": None,
         "output": "Plain-text table (one row per motor)",
         "source": "spec_config",
@@ -312,7 +312,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "channel, scale, flags, and mnemonic. The counter index "
             "(CNTnnn) maps to the S[] array."
         ),
-        "python_func": "spec_config.get_counter_config()",
+        "python_func": "spec_data.spec_config.get_counter_config()",
         "spec_command": None,
         "output": "Plain-text table (one row per counter)",
         "source": "spec_config",
@@ -325,7 +325,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "(wa / pwd / fon / get_S) and return the log output. The "
             "hard allow-list makes this safe to expose to the LLM."
         ),
-        "python_func": "spec_client.send_spec_command(command)",
+        "python_func": "spec_control.screen_client.dispatch(command)",
         "spec_command": "wa | pwd | fon | get_S",
         "output": "Plain text from the SPEC log",
         "source": "spec_session",

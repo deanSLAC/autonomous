@@ -12,7 +12,7 @@ import numpy as np
 import warnings
 from typing import Any
 
-from beamline_tools.scans.blmcp.cosine_similarity_tool import analyze_scan_quality
+from beamline_tools.generic_data.cosine_similarity import analyze_scan_quality
 
 
 def analyze_scan_efficiency(

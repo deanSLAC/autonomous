@@ -23,7 +23,7 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any, Callable, Optional
 
-from beamline_tools.spec import spec_cmd
+from beamline_tools.spec_control import spec_cmd
 from orchestration.agent.conversation import ConversationService, set_turn_sink
 from orchestration.agent.opencode_client import OpenCodeClient
 from orchestration.config import OPENCODE_URL, llm_enabled
@@ -82,7 +82,7 @@ def agent_reachable() -> bool:
 
 
 def current_experiment_id() -> Optional[str]:
-    """Convenience for UI callers that don't want to import beamline_tools.spec."""
+    """Convenience for UI callers that don't want to import beamline_tools.spec_control."""
     return spec_cmd.get_experiment_id()
 
 
@@ -321,8 +321,8 @@ def on_dm_message(text: str, staff_name: str, dm_thread_key: str) -> str | None:
 
 def on_setdir(dir_name: str) -> str:
     """Operator ran `!setdir` in Slack — rewire bl_config + reset conversation."""
-    from beamline_tools.scans import bl_config
-    from beamline_tools.scans.local_data import clear_cache
+    from beamline_tools import config as bl_config
+    from beamline_tools.spec_data.local_data import clear_cache
 
     bl_config.set_scan_dir(dir_name)
     clear_cache()
