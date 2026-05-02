@@ -147,7 +147,14 @@ class Orchestrator:
             "plan_snapshot": plan_snap.__dict__,
         })
 
-        result = await asyncio.to_thread(self.conversation.handle_message, prompt)
+        next_turn = self.state.turn_count + 1
+        result = await asyncio.to_thread(
+            self.conversation.handle_message,
+            prompt,
+            source="orchestrator",
+            experiment_id=exp_id,
+            turn=next_turn,
+        )
         self.state.turn_count += 1
         self.state.last_turn_at = time.time()
         self.state.last_summary = result.text[:2000]
@@ -184,6 +191,11 @@ class Orchestrator:
                 snap = planner.snapshot(self.state.experiment_id).__dict__
             except Exception:
                 snap = None
+        try:
+            from orchestration.observability import mlflow_logging
+            obs_status = mlflow_logging.status()
+        except Exception:
+            obs_status = "disabled"
         return {
             "running": self.state.running,
             "paused": self.state.paused,
@@ -193,6 +205,7 @@ class Orchestrator:
             "phase": spec_cmd.get_phase(),
             "last_summary": self.state.last_summary,
             "plan_snapshot": snap,
+            "obs_status": obs_status,
         }
 
     # -- Helpers -------------------------------------------------------

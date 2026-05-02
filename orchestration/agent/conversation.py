@@ -10,12 +10,20 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from orchestration.agent.opencode_client import OpenCodeClient
+import mlflow
+
+from orchestration.agent.opencode_client import OpenCodeClient, OpenCodeResult
+from orchestration.observability import mlflow_logging
 
 logger = logging.getLogger(__name__)
+
+
+_MLFLOW_EXPERIMENT = "autonomous/chat"
 
 
 @dataclass
@@ -54,6 +62,77 @@ def _emit_turn(payload: dict) -> None:
         logger.warning("turn sink failed: %s", e)
 
 
+def _log_run_success(
+    run, *, client: OpenCodeClient, source: str, prompt: str,
+    out: OpenCodeResult, latency_seconds: float,
+    experiment_id: str | None, staff_name: str | None, turn: int | None,
+) -> None:
+    """Best-effort: write all per-turn artifacts to the active run.
+
+    Wrapped in a single try/except — a flaky log call must not break the
+    user's turn or skip remaining writes that might still succeed.
+    """
+    if run is None:
+        return
+    try:
+        params = {
+            "model": client.model,
+            "source": source,
+            "experiment_id": experiment_id,
+            "staff_name": staff_name,
+            "turn": turn,
+            "opencode_session_id": out.session_id,
+        }
+        for k, v in params.items():
+            if v is not None:
+                mlflow.log_param(k, v)
+
+        mlflow.log_metric("latency_seconds", latency_seconds)
+        mlflow.log_metric("tool_call_count", len(out.tool_calls))
+        mlflow.log_metric("image_count", len(out.images))
+        mlflow.log_metric("error", 0)
+
+        tool_counts: Counter[str] = Counter()
+        for c in out.tool_calls:
+            name = c.get("name") or "?"
+            tool_counts[name] += 1
+        for name, count in tool_counts.items():
+            mlflow.set_tag(f"tool:{name}", count)
+
+        mlflow.log_text(prompt, "prompt.txt")
+        mlflow.log_text(out.text or "", "response.md")
+        mlflow.log_dict({"calls": out.tool_calls}, "tool_calls.json")
+
+        for img_path in out.images:
+            try:
+                mlflow.log_artifact(img_path, artifact_path="plots/")
+            except Exception as e:
+                logger.warning("mlflow log_artifact(%s) failed: %s", img_path, e)
+
+        # TODO: token metrics (prompt/completion) are intentionally omitted —
+        # opencode's REST surface does not expose them. Revisit if/when
+        # opencode adds usage to its message responses.
+    except Exception as e:
+        mlflow_logging._mark_degraded(  # type: ignore[attr-defined]
+            f"log_run_success: {e}",
+            first=not mlflow_logging.MLFLOW_DEGRADED,
+        )
+
+
+def _log_run_failure(run, exc: BaseException) -> None:
+    if run is None:
+        return
+    try:
+        mlflow.log_metric("error", 1)
+        mlflow.set_tag("error_type", type(exc).__name__)
+        mlflow.log_text(str(exc), "error.txt")
+    except Exception as e:
+        mlflow_logging._mark_degraded(  # type: ignore[attr-defined]
+            f"log_run_failure: {e}",
+            first=not mlflow_logging.MLFLOW_DEGRADED,
+        )
+
+
 class ConversationService:
     """Owns one persistent opencode session for an autonomous run."""
 
@@ -76,22 +155,42 @@ class ConversationService:
 
     # ---- Core turns ----------------------------------------------------
 
-    def handle_message(self, user_text: str) -> ConversationResult:
+    def handle_message(
+        self,
+        user_text: str,
+        *,
+        source: str = "unknown",
+        experiment_id: str | None = None,
+        turn: int | None = None,
+    ) -> ConversationResult:
         staff_context = self._flush_staff_context()
         combined = (
             f"{staff_context}\n\n[User/operator]: {user_text}"
             if staff_context else user_text
         )
         self.messages.append({"role": "user", "content": combined})
-        try:
-            out = self.client.send(combined)
-        except Exception as e:
-            logger.error("opencode send failed: %s", e, exc_info=True)
-            err = ConversationResult(text=f"Error: {e}", prompt=combined)
-            _emit_turn({"type": "turn_complete", "source": "chat",
-                        "prompt": combined, "text": err.text,
-                        "tool_calls": [], "thoughts": [], "images": []})
-            return err
+
+        with mlflow_logging.run(
+            _MLFLOW_EXPERIMENT, source=source, experiment_id=experiment_id,
+        ) as run:
+            t0 = time.perf_counter()
+            try:
+                out = self.client.send(combined)
+            except Exception as e:
+                _log_run_failure(run, e)
+                logger.error("opencode send failed: %s", e, exc_info=True)
+                err = ConversationResult(text=f"Error: {e}", prompt=combined)
+                _emit_turn({"type": "turn_complete", "source": "chat",
+                            "prompt": combined, "text": err.text,
+                            "tool_calls": [], "thoughts": [], "images": []})
+                return err
+            latency = time.perf_counter() - t0
+            _log_run_success(
+                run, client=self.client, source=source, prompt=combined,
+                out=out, latency_seconds=latency,
+                experiment_id=experiment_id, staff_name=None, turn=turn,
+            )
+
         stored = out.text
         if out.images:
             stored += f"\n\n[{len(out.images)} plot(s) generated]"
@@ -109,18 +208,39 @@ class ConversationService:
         })
         return result
 
-    def handle_staff_llm(self, staff_text: str, staff_name: str = "Staff") -> ConversationResult:
+    def handle_staff_llm(
+        self,
+        staff_text: str,
+        staff_name: str = "Staff",
+        *,
+        source: str = "unknown",
+        experiment_id: str | None = None,
+    ) -> ConversationResult:
         prompt = f"[Staff member {staff_name}]: {staff_text}"
         self.messages.append({"role": "user", "content": prompt})
-        try:
-            out = self.client.send(prompt)
-        except Exception as e:
-            logger.error("opencode staff-LLM send failed: %s", e, exc_info=True)
-            err = ConversationResult(text=f"Error: {e}", prompt=prompt)
-            _emit_turn({"type": "turn_complete", "source": "staff",
-                        "prompt": prompt, "text": err.text,
-                        "tool_calls": [], "thoughts": [], "images": []})
-            return err
+
+        with mlflow_logging.run(
+            _MLFLOW_EXPERIMENT, source=source, experiment_id=experiment_id,
+            staff_name=staff_name,
+        ) as run:
+            t0 = time.perf_counter()
+            try:
+                out = self.client.send(prompt)
+            except Exception as e:
+                _log_run_failure(run, e)
+                logger.error("opencode staff-LLM send failed: %s", e, exc_info=True)
+                err = ConversationResult(text=f"Error: {e}", prompt=prompt)
+                _emit_turn({"type": "turn_complete", "source": "staff",
+                            "prompt": prompt, "text": err.text,
+                            "tool_calls": [], "thoughts": [], "images": []})
+                return err
+            latency = time.perf_counter() - t0
+            _log_run_success(
+                run, client=self.client, source=source, prompt=prompt,
+                out=out, latency_seconds=latency,
+                experiment_id=experiment_id, staff_name=staff_name, turn=None,
+            )
+
         stored = out.text
         if out.images:
             stored += f"\n\n[{len(out.images)} plot(s) generated]"

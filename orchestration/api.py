@@ -198,7 +198,7 @@ def handle_chat(
     exp_id = _resolve_chat_experiment_id(experiment_id)
     prefix = _build_chat_context_prefix(exp_id, page=page, page_context=page_context)
     augmented = f"{prefix}\n\n[User/operator]: {user_text}"
-    result = conv.handle_message(augmented)
+    result = conv.handle_message(augmented, source="web", experiment_id=exp_id)
     return {"response": result.text, "images": result.images, "experiment_id": exp_id}
 
 
@@ -207,7 +207,11 @@ def handle_staff_llm(text: str, staff_name: str) -> dict:
     conv = _ensure_conversation()
     if conv is None:
         raise RuntimeError("LLM not available")
-    result = conv.handle_staff_llm(text, staff_name)
+    result = conv.handle_staff_llm(
+        text, staff_name,
+        source="slack_llm_thread",
+        experiment_id=spec_cmd.get_experiment_id(),
+    )
     return {"text": result.text, "images": result.images}
 
 
@@ -293,7 +297,11 @@ def on_llm_thread_reply(text: str, staff_name: str) -> dict | None:
     conv = _ensure_conversation()
     if conv is None:
         return None
-    result = conv.handle_staff_llm(text, staff_name)
+    result = conv.handle_staff_llm(
+        text, staff_name,
+        source="slack_llm_thread",
+        experiment_id=spec_cmd.get_experiment_id(),
+    )
     _event_emitter({
         "type": "assistant", "text": result.text, "images": result.images,
     })
@@ -312,7 +320,11 @@ def on_dm_message(text: str, staff_name: str, dm_thread_key: str) -> str | None:
         _dm_conversations[dm_thread_key] = ConversationService(OpenCodeClient())
     dm_conv = _dm_conversations[dm_thread_key]
     try:
-        result = dm_conv.handle_staff_llm(text, staff_name)
+        result = dm_conv.handle_staff_llm(
+            text, staff_name,
+            source="slack_dm",
+            experiment_id=spec_cmd.get_experiment_id(),
+        )
     except Exception as e:
         logger.error("DM conversation error: %s", e, exc_info=True)
         return f"Error: {e}"
@@ -353,6 +365,28 @@ async def lifespan(app):
     global _conversation
 
     event_loop = asyncio.get_running_loop()
+
+    # 0. MLflow health check — make a broken token loud at startup so a
+    #    deployment without observability is obvious, not silent.
+    try:
+        from orchestration.observability import mlflow_logging
+        ok, reason = mlflow_logging.health_check()
+        if ok:
+            logger.info("mlflow tracing: %s", reason)
+        elif reason == "MLFLOW_ENABLED=0":
+            logger.info("mlflow tracing disabled (MLFLOW_ENABLED=0)")
+        else:
+            logger.warning(
+                "!!! MLFLOW UNREACHABLE — observability degraded — "
+                "fix .env or restart (%s)", reason,
+            )
+            _event_emitter({
+                "type": "orchestrator_event",
+                "level": "warning",
+                "message": f"MLflow unreachable: {reason}",
+            })
+    except Exception as e:
+        logger.warning("mlflow health check raised: %s", e)
 
     # 1. DB init (both sqlite files)
     try:

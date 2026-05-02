@@ -60,3 +60,16 @@ os.environ.setdefault("ORCHESTRATION_DB_PATH", DB_PATH)
 def llm_enabled() -> bool:
     """True iff the LLM backend is usable (SLAC key present)."""
     return bool(SLAC_API_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Observability — MLflow tracing for chat turns. The mlflow client picks up
+# MLFLOW_TRACKING_URI and MLFLOW_TRACKING_TOKEN from os.environ automatically;
+# we just surface them here so other modules can read the resolved values.
+# ---------------------------------------------------------------------------
+MLFLOW_ENABLED = os.getenv("MLFLOW_ENABLED", "0") == "1"
+MLFLOW_TRACKING_URI = os.getenv(
+    "MLFLOW_TRACKING_URI",
+    "https://isaac.slac.stanford.edu/mlflow/api/external",
+)
+MLFLOW_TOKEN = os.getenv("MLFLOW_TRACKING_TOKEN", "")
