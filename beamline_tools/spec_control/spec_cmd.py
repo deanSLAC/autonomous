@@ -29,10 +29,59 @@ from beamline_tools.action_log.db import (
     mark_action_started,
     start_action,
 )
-from beamline_tools.spec_control import phase_allowlist, screen_client
-from beamline_tools.spec_control.screen_client import DispatchResult
+from beamline_tools.config import SPEC_MOCK, SPEC_TRANSPORT
+from beamline_tools.spec_control import (
+    phase_allowlist,
+    screen_client,
+    tcp_client,
+    transport,
+)
+from beamline_tools.spec_control.transport import DispatchResult
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Transport router
+# ---------------------------------------------------------------------------
+# Selection happens here, at the dispatcher layer — not buried inside any
+# transport module. Order of precedence:
+#   1. SPEC_MOCK=1   → in-memory simulator (transport._MockScreen)
+#   2. SPEC_TRANSPORT=tcp    → tcp_client (default)
+#   3. SPEC_TRANSPORT=screen → screen_client (legacy fallback)
+
+
+def dispatch(spec_string: str, *, timeout_s: float = 1800.0) -> DispatchResult:
+    """Route a SPEC command to the active transport (mock / tcp / screen)."""
+    if SPEC_MOCK:
+        started = time.time()
+        output = transport._MockScreen.inject(spec_string)
+        return DispatchResult(
+            ok=True, output=output, prompt_seen=True,
+            elapsed_s=time.time() - started,
+        )
+    if SPEC_TRANSPORT == "tcp":
+        return tcp_client.dispatch(spec_string, timeout_s=timeout_s)
+    if SPEC_TRANSPORT == "screen":
+        return screen_client.dispatch(spec_string, timeout_s=timeout_s)
+    raise ValueError(
+        f"unknown SPEC_TRANSPORT={SPEC_TRANSPORT!r} (expected 'tcp' or 'screen')"
+    )
+
+
+def abort_current() -> bool:
+    """Route an abort to the active transport."""
+    if SPEC_MOCK:
+        logger.info("[mock] abort")
+        transport.release(output=None, errored=False)
+        return True
+    if SPEC_TRANSPORT == "tcp":
+        return tcp_client.abort_current()
+    if SPEC_TRANSPORT == "screen":
+        return screen_client.abort_current()
+    raise ValueError(
+        f"unknown SPEC_TRANSPORT={SPEC_TRANSPORT!r} (expected 'tcp' or 'screen')"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -435,14 +484,14 @@ def call(
     # ----- READ path: query_log only, no busy check ---------------------
     if spec.kind == "read":
         t0 = time.time()
-        if not screen_client.reserve(action_id="query", command=command):
+        if not transport.reserve(action_id="query", command=command):
             log_query(command, args_list, None, phase=phase, experiment_id=exp_id,
                       error_message="SPEC busy")
             return {"ok": False, "kind": "read", "error": "SPEC is busy"}
         try:
-            dr = screen_client.dispatch(spec_string, timeout_s=spec.timeout_s)
+            dr = dispatch(spec_string, timeout_s=spec.timeout_s)
         finally:
-            screen_client.release(output=None, errored=False)
+            transport.release(output=None, errored=False)
         latency_ms = int((time.time() - t0) * 1000)
         if not dr.ok:
             log_query(command, args_list, None, phase=phase, experiment_id=exp_id,
@@ -470,19 +519,19 @@ def call(
     # Special-case abort — send Ctrl-C instead of injecting a literal string.
     if command == "abort":
         mark_action_started(row.id)
-        ok = screen_client.abort_current()
+        ok = abort_current()
         finish_action(row.id, success=ok, result={"aborted": ok})
         return {"ok": ok, "kind": "action", "action_id": row.id}
 
-    if not screen_client.reserve(action_id=row.id, command=command):
+    if not transport.reserve(action_id=row.id, command=command):
         finish_action(row.id, success=False, error_message="SPEC is busy")
         return {"ok": False, "kind": "action", "action_id": row.id, "error": "SPEC is busy"}
 
     mark_action_started(row.id)
     try:
-        dr: DispatchResult = screen_client.dispatch(spec_string, timeout_s=spec.timeout_s)
+        dr: DispatchResult = dispatch(spec_string, timeout_s=spec.timeout_s)
     finally:
-        screen_client.release(output=None, errored=False)
+        transport.release(output=None, errored=False)
 
     if not dr.ok:
         finish_action(row.id, success=False, error_message=dr.error,

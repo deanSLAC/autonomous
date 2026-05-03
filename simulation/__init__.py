@@ -3,8 +3,8 @@
 When `SIMULATION_MODE=1` is set in the environment, calling
 `bootstrap()` early in the FastAPI startup path will:
 
-  1. Force `SPEC_MOCK=1` so `screen_client` short-circuits to the
-     in-memory simulator.
+  1. Force `SPEC_MOCK=1` so the spec_cmd router short-circuits to the
+     in-memory simulator (transport._MockScreen).
   2. Point `BL_SCAN_DIR` and `BL_LOGS_DIR` at the bundled mock
      fixtures under `simulation/data` and `simulation/logs`.
   3. Seed those directories with a couple of pre-existing scans so

@@ -67,7 +67,7 @@ def simulation_status() -> dict:
 
     # Surface the mock screen positions if available.
     try:
-        from beamline_tools.spec_control.screen_client import _MockScreen
+        from beamline_tools.spec_control.transport import _MockScreen
         info["positions"] = dict(_MockScreen._positions)
         info["last_filename"] = _MockScreen._filename
     except Exception:

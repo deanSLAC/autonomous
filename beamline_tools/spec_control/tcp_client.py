@@ -13,8 +13,10 @@ Advantages over screen-stuffing:
   * Error reporting is structured (err field + SV_ERROR type).
   * No dependency on GNU screen running at all.
 
-Public surface mirrors `screen_client` so the transport switch in
-`screen_client.dispatch()` can pick between them at call time.
+This module knows nothing about the mock simulator or the screen
+transport; it always opens a real TCP socket. The router in
+`spec_cmd.py` is responsible for short-circuiting to the mock when
+`SPEC_MOCK=1` and for picking between this and `screen_client`.
 """
 
 from __future__ import annotations
@@ -27,8 +29,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional
 
-from beamline_tools.config import SPEC_HOST, SPEC_MOCK, SPEC_NAME, SPEC_PORT
-from beamline_tools.spec_control.screen_client import DispatchResult, _MockScreen
+from beamline_tools.config import SPEC_HOST, SPEC_NAME, SPEC_PORT
+from beamline_tools.spec_control.transport import DispatchResult
 
 logger = logging.getLogger(__name__)
 
@@ -197,19 +199,8 @@ def _drop_conn(reason: str) -> None:
 # ---------------------------------------------------------------------------
 
 def dispatch(spec_string: str, *, timeout_s: float = 1800.0) -> DispatchResult:
-    """Send a SPEC command and return its output.
-
-    In SPEC_MOCK mode, routes to the same in-memory simulator used by the
-    screen transport so the two paths behave identically under test.
-    """
+    """Send a SPEC command over the server-mode TCP socket and return its output."""
     started = time.time()
-
-    if SPEC_MOCK:
-        output = _MockScreen.inject(spec_string)
-        return DispatchResult(
-            ok=True, output=output, prompt_seen=True,
-            elapsed_s=time.time() - started,
-        )
 
     try:
         conn = _get_conn()
@@ -282,9 +273,6 @@ def dispatch(spec_string: str, *, timeout_s: float = 1800.0) -> DispatchResult:
 
 def abort_current() -> bool:
     """Send SV_ABORT to SPEC (equivalent to ^C at the server keyboard)."""
-    if SPEC_MOCK:
-        logger.info("[mock] tcp abort")
-        return True
     try:
         conn = _get_conn()
     except Exception as e:

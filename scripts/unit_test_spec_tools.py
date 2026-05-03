@@ -65,7 +65,7 @@ sys.path.insert(0, str(ROOT))
 from orchestration.plan_store import init_db  # noqa: E402
 from orchestration.plan_store.session import create_experiment  # noqa: E402
 from beamline_tools.spec_control import phase_allowlist, spec_cmd  # noqa: E402
-from beamline_tools.spec_control.screen_client import _MockScreen  # noqa: E402
+from beamline_tools.spec_control.transport import _MockScreen  # noqa: E402
 from beamline_tools.tool_catalog.autonomy_tools import AUTONOMY_DISPATCH  # noqa: E402
 from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE  # noqa: E402
 

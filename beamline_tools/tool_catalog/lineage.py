@@ -325,7 +325,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "(wa / pwd / fon / get_S) and return the log output. The "
             "hard allow-list makes this safe to expose to the LLM."
         ),
-        "python_func": "spec_control.screen_client.dispatch(command)",
+        "python_func": "spec_control.spec_cmd.dispatch(command)",
         "spec_command": "wa | pwd | fon | get_S",
         "output": "Plain text from the SPEC log",
         "source": "spec_session",

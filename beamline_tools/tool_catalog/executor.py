@@ -276,16 +276,16 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
             return get_counter_config(), images_b64
 
         elif name == "spec_command":
-            from beamline_tools.spec_control import screen_client
+            from beamline_tools.spec_control import spec_cmd, transport
             cmd = arguments.get("command", "")
             if not cmd.strip():
                 return "error: empty command", images_b64
-            if not screen_client.reserve(action_id="raw-spec", command=cmd):
+            if not transport.reserve(action_id="raw-spec", command=cmd):
                 return "error: SPEC is busy", images_b64
             try:
-                dr = screen_client.dispatch(cmd, timeout_s=60)
+                dr = spec_cmd.dispatch(cmd, timeout_s=60)
             finally:
-                screen_client.release(output=None, errored=False)
+                transport.release(output=None, errored=False)
             return (dr.output if dr.ok else f"error: {dr.error}"), images_b64
 
         else:
