@@ -32,7 +32,7 @@ try:
     from orchestration.planner import planner
     from orchestration.planner.staff_guidance import coordinator
     _ORCHESTRATION_AVAILABLE = True
-except ImportError:  # pragma: no cover — only during package-lift scenarios
+except Exception:  # pragma: no cover — ImportError when vendored without orchestration, ValidationError when .env missing
     get_experiment_plan = list_guidance = list_open_interventions = None  # type: ignore
     planner = coordinator = None  # type: ignore
     _ORCHESTRATION_AVAILABLE = False
