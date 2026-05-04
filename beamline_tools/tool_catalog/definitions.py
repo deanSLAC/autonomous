@@ -400,6 +400,51 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "evaluate_spec_macro",
+            "description": (
+                "Run a SPEC macro in a disposable, network-isolated sandbox container "
+                "and return the resulting log. Use to validate macros you authored or "
+                "edited, or to reproduce a SPEC error in isolation. Each call is a cold "
+                "start: no state persists between calls. Sim-only — does not affect "
+                "real hardware. Always check the log even on ok=True; SPEC sometimes "
+                "exits 0 despite warnings."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "macro": {
+                        "type": "string",
+                        "description": (
+                            "SPEC macro source to evaluate. Single command, sequence, "
+                            "or full def block. Do not include a trailing 'exit'."
+                        ),
+                    },
+                    "preload": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "Optional filenames under /usr/local/lib/spec.d/ to qdo "
+                            "before running the macro (e.g. 'beamline_align.mac'). "
+                            "Plain filenames only — no path components."
+                        ),
+                    },
+                    "timeout_s": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 300,
+                        "description": (
+                            "Hard kill timeout for the SPEC run in seconds (default 30). "
+                            "Sim mode skips real motion so most runs finish in under a second."
+                        ),
+                    },
+                },
+                "required": ["macro"],
+            },
+        },
+    },
 ]
 
 # Single tool definition for CLI mode

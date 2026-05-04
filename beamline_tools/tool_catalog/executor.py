@@ -288,6 +288,15 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
                 transport.release(output=None, errored=False)
             return (dr.output if dr.ok else f"error: {dr.error}"), images_b64
 
+        elif name == "evaluate_spec_macro":
+            from beamline_tools.spec_eval import evaluate_spec_macro
+            result = evaluate_spec_macro(
+                macro=arguments.get("macro", ""),
+                preload=arguments.get("preload"),
+                timeout_s=arguments.get("timeout_s", 30),
+            )
+            return json.dumps(result, indent=2), images_b64
+
         else:
             return f"Unknown tool: {name}", images_b64
 

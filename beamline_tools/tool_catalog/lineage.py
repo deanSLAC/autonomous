@@ -927,6 +927,31 @@ TOOL_LINEAGE: dict[str, dict] = {
         "source_detail": "Rewrites the plan JSON in place.",
         "depends_on": ["get_experiment_plan"],
     },
+
+    # ---------- Sandbox evaluation -----------------------------------------
+
+    "evaluate_spec_macro": {
+        "long_description": (
+            "Run a SPEC macro in a disposable, network-isolated Docker "
+            "container and return the execution log. Use to validate "
+            "macros you authored or edited, or to reproduce a SPEC error "
+            "in isolation. Each call is a cold start with no state from "
+            "prior runs. The container has read-only access to production "
+            "beamline macros but no network and no host devices — it "
+            "cannot affect the live beamline. Always read the log even on "
+            "ok=True; SPEC sometimes exits 0 despite warnings."
+        ),
+        "python_func": "spec_eval.evaluate_spec_macro(macro, preload, timeout_s)",
+        "spec_command": None,
+        "output": "JSON: {ok, exit_code, timed_out, log, duration_s, run_id, error}",
+        "source": "tool_chain",
+        "source_detail": (
+            "POSTs to the spec-eval API (default http://127.0.0.1:5005) "
+            "which runs the macro in a disposable Docker container with "
+            "sim-mode SPEC. Override URL via SPEC_EVAL_URL env var."
+        ),
+        "depends_on": [],
+    },
 }
 
 

@@ -1,0 +1,87 @@
+"""Sandbox evaluation of SPEC macros via the spec-eval Docker API.
+
+Wraps the spec-eval HTTP service to let the LLM validate SPEC macro code
+in a disposable, network-isolated container before recommending it.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import os
+from typing import Any, TypedDict
+
+import requests
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_API_URL = os.environ.get("SPEC_EVAL_URL", "http://127.0.0.1:5005")
+_HTTP_TIMEOUT = 600  # must comfortably exceed SPEC's own timeout
+
+
+class SpecEvalResult(TypedDict):
+    ok: bool
+    exit_code: int | None
+    timed_out: bool
+    log: str
+    duration_s: float | None
+    run_id: str | None
+    error: str | None
+
+
+def _error_result(message: str) -> SpecEvalResult:
+    return SpecEvalResult(
+        ok=False,
+        exit_code=None,
+        timed_out=False,
+        log="",
+        duration_s=None,
+        run_id=None,
+        error=message,
+    )
+
+
+def evaluate_spec_macro(
+    macro: str,
+    preload: list[str] | None = None,
+    timeout_s: int = 30,
+    api_url: str = DEFAULT_API_URL,
+) -> SpecEvalResult:
+    """Run a SPEC macro in a disposable sandbox container and return the log.
+
+    Never raises — failures are reported via the ``error`` field so the
+    agent can handle outcomes inline.
+    """
+    payload: dict[str, Any] = {
+        "macro": macro,
+        "preload": preload or [],
+        "timeout_s": timeout_s,
+    }
+    url = api_url.rstrip("/") + "/evaluate"
+
+    try:
+        resp = requests.post(url, json=payload, timeout=_HTTP_TIMEOUT)
+    except requests.RequestException as e:
+        logger.warning("spec-eval transport error: %s", e)
+        return _error_result(f"transport error: {e}")
+
+    if resp.status_code >= 500:
+        return _error_result(f"server error {resp.status_code}: {resp.text[:500]}")
+    if resp.status_code >= 400:
+        try:
+            detail = resp.json().get("detail", resp.text)
+        except ValueError:
+            detail = resp.text
+        return _error_result(f"bad request ({resp.status_code}): {detail}")
+
+    data = resp.json()
+    timed_out = bool(data.get("timed_out"))
+    exit_code = data.get("exit_code")
+    return SpecEvalResult(
+        ok=(exit_code == 0 and not timed_out),
+        exit_code=exit_code,
+        timed_out=timed_out,
+        log=data.get("log", ""),
+        duration_s=data.get("duration_s"),
+        run_id=data.get("run_id"),
+        error=None,
+    )
