@@ -25,8 +25,9 @@ from typing import Any, Callable, Optional
 
 from beamline_tools.spec_control import spec_cmd
 from orchestration.agent.conversation import ConversationService, set_turn_sink
+from orchestration.agent.claude_code_client import ClaudeCodeClient
 from orchestration.agent.opencode_client import OpenCodeClient
-from orchestration.config import OPENCODE_URL, llm_enabled
+from orchestration.config import AGENT_BACKEND, OPENCODE_URL, llm_enabled
 from orchestration.planner import planner as _planner
 from orchestration.planner.loop import Orchestrator, get_orchestrator, set_orchestrator
 from orchestration.planner.staff_guidance import coordinator
@@ -53,6 +54,18 @@ _slack_status_post: Callable[[str], Any] = lambda text: None
 _insight_record_turn: Optional[Callable[[dict], dict]] = None
 
 
+def _make_agent_client():
+    """Construct the agent client per AGENT_BACKEND. Both adapters expose
+    the same interface so ConversationService doesn't care which one runs."""
+    if AGENT_BACKEND == "claude_code":
+        return ClaudeCodeClient()
+    if AGENT_BACKEND not in ("opencode", ""):
+        logger.warning(
+            "Unknown AGENT_BACKEND=%r; falling back to opencode.", AGENT_BACKEND,
+        )
+    return OpenCodeClient()
+
+
 def set_event_emitter(fn: Callable[[dict], Any]) -> None:
     global _event_emitter
     _event_emitter = fn
@@ -76,7 +89,7 @@ def agent_reachable() -> bool:
     if not llm_enabled():
         return False
     try:
-        return OpenCodeClient().health_check()
+        return _make_agent_client().health_check()
     except Exception:
         return False
 
@@ -101,7 +114,7 @@ def _ensure_conversation() -> Optional[ConversationService]:
         return _conversation
     if not llm_enabled():
         return None
-    client = OpenCodeClient()
+    client = _make_agent_client()
     if not client.health_check():
         return None
     _conversation = ConversationService(client)
@@ -111,7 +124,7 @@ def _ensure_conversation() -> Optional[ConversationService]:
 def reset_conversation() -> None:
     global _conversation
     if llm_enabled():
-        _conversation = ConversationService(OpenCodeClient())
+        _conversation = ConversationService(_make_agent_client())
     else:
         _conversation = None
 
@@ -317,7 +330,7 @@ def on_dm_message(text: str, staff_name: str, dm_thread_key: str) -> str | None:
         if not llm_enabled():
             logger.warning("Cannot handle DM: SLAC_API_KEY required")
             return None
-        _dm_conversations[dm_thread_key] = ConversationService(OpenCodeClient())
+        _dm_conversations[dm_thread_key] = ConversationService(_make_agent_client())
     dm_conv = _dm_conversations[dm_thread_key]
     try:
         result = dm_conv.handle_staff_llm(
@@ -395,24 +408,30 @@ async def lifespan(app):
     except Exception as e:
         logger.error("init_db failed: %s", e, exc_info=True)
 
-    # 2. Conversation (LLM client) — gated on opencode reachability
+    # 2. Conversation (LLM client) — gated on the configured backend.
     if llm_enabled():
         try:
-            client = OpenCodeClient()
+            client = _make_agent_client()
             if client.health_check():
                 _conversation = ConversationService(client)
                 logger.info(
-                    "opencode session service initialized (model=%s url=%s)",
-                    client.model, OPENCODE_URL,
+                    "agent session service initialized (backend=%s model=%s)",
+                    AGENT_BACKEND, client.model,
                 )
             else:
-                logger.warning(
-                    "opencode server at %s is not reachable yet — agent disabled "
-                    "until it comes up.",
-                    OPENCODE_URL,
-                )
+                if AGENT_BACKEND == "claude_code":
+                    logger.warning(
+                        "claude binary not invokable — agent disabled until "
+                        "`claude --version` succeeds.",
+                    )
+                else:
+                    logger.warning(
+                        "opencode server at %s is not reachable yet — agent disabled "
+                        "until it comes up.",
+                        OPENCODE_URL,
+                    )
         except Exception as e:
-            logger.error("Failed to initialize opencode client: %s", e)
+            logger.error("Failed to initialize agent client: %s", e)
 
     # 3. Orchestrator
     if _conversation is not None:

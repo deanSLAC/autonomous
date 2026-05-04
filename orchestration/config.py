@@ -24,9 +24,14 @@ DATA_DIR.mkdir(exist_ok=True)
 
 # ---------------------------------------------------------------------------
 # LLM backend — only the API key is external; everything else is local-only.
+#
+# AGENT_BACKEND picks which adapter constructs the agent client:
+#   * "opencode"     — opencode HTTP server on loopback (default)
+#   * "claude_code"  — `claude -p` headless CLI, subprocess per turn
 # ---------------------------------------------------------------------------
 SLAC_API_KEY = os.getenv("SLAC_API_KEY", "")
 OPENCODE_MODEL = os.getenv("OPENCODE_MODEL", "slac/us.anthropic.claude-opus-4-6-v1")
+AGENT_BACKEND = os.getenv("AGENT_BACKEND", "opencode").strip().lower()
 
 # opencode runs on this machine, started by us, bound to loopback.
 OPENCODE_HOST = "127.0.0.1"

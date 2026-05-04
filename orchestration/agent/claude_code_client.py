@@ -1,0 +1,371 @@
+"""Subprocess client for `claude -p` (Anthropic's claude code CLI).
+
+Runs as a sibling adapter to OpenCodeClient. The two are interchangeable
+from ConversationService's perspective: both expose health_check / send /
+ensure_session / reset_session / abort, both return OpenCodeResult.
+
+`claude -p` is a one-shot per turn — there is no persistent server. Each
+call subprocess-spawns claude code, feeds the user message via stdin
+(`--input-format stream-json`), receives JSONL events on stdout
+(`--output-format stream-json`), and exits. We persist `session_id`
+across turns to keep the conversation continuous via `--resume`.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import os
+import re
+import shutil
+import subprocess
+import threading
+import uuid
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Optional
+
+from orchestration.agent.opencode_client import OpenCodeResult, _extract_image_paths
+from orchestration.config import (
+    CONTEXT_DIR,
+    OPENCODE_MODEL,
+    PROJECT_ROOT,
+)
+
+logger = logging.getLogger(__name__)
+
+
+CLAUDE_BIN = os.getenv("CLAUDE_BIN", shutil.which("claude") or "claude")
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-4-6")
+
+# A claude -p turn that drives the full alignment + collection pipeline can
+# legitimately run for hours. We do not impose a timeout — if the user wants
+# to abort, they call `abort()` which signals the subprocess.
+_NO_TIMEOUT = None
+
+
+@dataclass
+class _Accumulator:
+    """Build an OpenCodeResult while streaming claude code's stream-json."""
+
+    session_id: Optional[str] = None
+    final_text: str = ""
+    assistant_chunks: list[str] = None  # type: ignore[assignment]
+    thoughts: list[str] = None  # type: ignore[assignment]
+    tool_calls_by_id: dict[str, dict] = None  # type: ignore[assignment]
+    tool_calls_order: list[str] = None  # type: ignore[assignment]
+    raw_events: list[dict] = None  # type: ignore[assignment]
+
+    def __post_init__(self) -> None:
+        self.assistant_chunks = []
+        self.thoughts = []
+        self.tool_calls_by_id = {}
+        self.tool_calls_order = []
+        self.raw_events = []
+
+
+def _truncate(s: str, limit: int = 4000) -> str:
+    if len(s) <= limit:
+        return s
+    return s[:limit] + f"\n…[truncated {len(s) - limit} chars]"
+
+
+def _stringify(val: Any) -> str:
+    if isinstance(val, str):
+        return val
+    try:
+        return json.dumps(val, default=str)
+    except Exception:  # noqa: BLE001
+        return str(val)
+
+
+def _content_blocks(message: dict) -> list[dict]:
+    content = message.get("content")
+    if isinstance(content, list):
+        return [c for c in content if isinstance(c, dict)]
+    return []
+
+
+def _extract_text_from_content(content: list[dict]) -> str:
+    chunks: list[str] = []
+    for block in content:
+        if block.get("type") == "text":
+            t = block.get("text") or ""
+            if t:
+                chunks.append(t)
+    return "\n".join(chunks).strip()
+
+
+def _ingest_event(acc: _Accumulator, event: dict) -> None:
+    """Update the accumulator with one stream-json event from claude -p."""
+    acc.raw_events.append(event)
+    et = event.get("type")
+    sid = event.get("session_id")
+    if sid and not acc.session_id:
+        acc.session_id = sid
+
+    if et == "assistant":
+        msg = event.get("message") or {}
+        for block in _content_blocks(msg):
+            bt = block.get("type")
+            if bt == "text":
+                t = block.get("text") or ""
+                if t:
+                    acc.assistant_chunks.append(t)
+            elif bt == "thinking":
+                t = block.get("thinking") or block.get("text") or ""
+                if isinstance(t, str) and t.strip():
+                    acc.thoughts.append(t)
+            elif bt == "tool_use":
+                tid = block.get("id")
+                if not tid:
+                    continue
+                name = block.get("name") or "?"
+                inp = block.get("input") or {}
+                entry = {
+                    "id": tid,
+                    "name": name,
+                    "input": inp,
+                    "output": "",
+                    "status": "running",
+                }
+                if tid not in acc.tool_calls_by_id:
+                    acc.tool_calls_order.append(tid)
+                acc.tool_calls_by_id[tid] = entry
+        return
+
+    if et == "user":
+        # Tool results are echoed back as user-role messages.
+        msg = event.get("message") or {}
+        for block in _content_blocks(msg):
+            if block.get("type") != "tool_result":
+                continue
+            tid = block.get("tool_use_id")
+            if not tid:
+                continue
+            content = block.get("content")
+            if isinstance(content, list):
+                # claude code wraps tool result in [{"type": "text", "text": "..."}]
+                content = "\n".join(
+                    c.get("text", "") for c in content
+                    if isinstance(c, dict) and c.get("type") == "text"
+                )
+            output_str = _stringify(content)
+            entry = acc.tool_calls_by_id.get(tid) or {
+                "id": tid, "name": "?", "input": {}, "output": "", "status": "completed",
+            }
+            entry["output"] = _truncate(output_str)
+            entry["status"] = "error" if block.get("is_error") else "completed"
+            if tid not in acc.tool_calls_order:
+                acc.tool_calls_order.append(tid)
+            acc.tool_calls_by_id[tid] = entry
+        return
+
+    if et == "result":
+        # Final wrap-up. claude code provides the canonical final assistant
+        # text under .result; fall back to accumulated assistant chunks.
+        result_text = event.get("result")
+        if isinstance(result_text, str) and result_text:
+            acc.final_text = result_text
+
+
+def _events_to_messages_for_image_scan(acc: _Accumulator) -> list[dict]:
+    """Recast tool outputs into the same shape opencode_client expects so we
+    can reuse `_extract_image_paths` regex without a second copy."""
+    msgs: list[dict] = []
+    for tid in acc.tool_calls_order:
+        entry = acc.tool_calls_by_id.get(tid) or {}
+        out = entry.get("output") or ""
+        if isinstance(out, str) and out:
+            msgs.append({"role": "tool", "content": out})
+    return msgs
+
+
+# ---------------------------------------------------------------------------
+# Adapter
+# ---------------------------------------------------------------------------
+
+class ClaudeCodeClient:
+    """Subprocess-based adapter for the `claude -p` headless CLI.
+
+    Mirrors OpenCodeClient's interface (constructor signature, attributes,
+    methods, return types) so ConversationService can swap them at runtime.
+    """
+
+    def __init__(
+        self,
+        base_url: str | None = None,  # accepted for signature parity; unused
+        session_id: str | None = None,
+    ) -> None:
+        self.base_url = None  # no server
+        self.session_id: Optional[str] = session_id
+        self.model = OPENCODE_MODEL  # exposed under same attr name as opencode
+        self._claude_model = CLAUDE_MODEL
+        self._system_prompt = self._load_system_prompt()
+        self._initialized: bool = bool(session_id)
+        self._proc: Optional[subprocess.Popen] = None
+        self._proc_lock = threading.Lock()
+
+    @staticmethod
+    def _load_system_prompt() -> str:
+        fp = CONTEXT_DIR / "claude_code_system.md"
+        if fp.exists():
+            return fp.read_text()
+        # Fall back to the shared system prompt if the claude-specific one is
+        # missing.
+        legacy = CONTEXT_DIR / "system_prompt.txt"
+        return legacy.read_text() if legacy.exists() else ""
+
+    # ---- Connectivity -------------------------------------------------
+
+    def health_check(self) -> bool:
+        """True iff the `claude` binary is invokable. There is no server
+        to ping — the subprocess model means every call is its own check."""
+        if not CLAUDE_BIN:
+            return False
+        try:
+            r = subprocess.run(
+                [CLAUDE_BIN, "--version"],
+                capture_output=True, timeout=10, check=False,
+            )
+            return r.returncode == 0
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
+            logger.warning("claude --version failed: %s", e)
+            return False
+
+    # ---- Session management ------------------------------------------
+
+    def ensure_session(self) -> str:
+        if not self.session_id:
+            self.session_id = str(uuid.uuid4())
+            self._initialized = False
+        return self.session_id
+
+    def reset_session(self) -> str:
+        self.session_id = None
+        self._initialized = False
+        return self.ensure_session()
+
+    def abort(self) -> None:
+        with self._proc_lock:
+            proc = self._proc
+        if proc is None or proc.poll() is not None:
+            return
+        try:
+            proc.terminate()
+        except Exception as e:  # noqa: BLE001
+            logger.warning("claude subprocess terminate failed: %s", e)
+
+    # ---- Send + read --------------------------------------------------
+
+    def _build_argv(self, sid: str) -> list[str]:
+        args = [
+            CLAUDE_BIN, "-p",
+            "--output-format", "stream-json",
+            "--input-format", "stream-json",
+            "--include-partial-messages",  # ensures we see thinking + tool blocks
+            "--verbose",                   # required for stream-json
+            "--model", self._claude_model,
+            "--permission-mode", "acceptEdits",
+        ]
+        if self._initialized:
+            args.extend(["--resume", sid])
+        else:
+            args.extend(["--session-id", sid])
+        if self._system_prompt:
+            args.extend(["--append-system-prompt", self._system_prompt])
+        return args
+
+    def _stream_json_user_msg(self, text: str) -> str:
+        """Wrap a user prompt in claude code's stream-json input shape."""
+        return json.dumps({
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [{"type": "text", "text": text}],
+            },
+        }) + "\n"
+
+    def send(self, text: str) -> OpenCodeResult:
+        sid = self.ensure_session()
+        argv = self._build_argv(sid)
+        env = dict(os.environ)
+        # Make sure the `beamtimehero` script is reachable. start.sh symlinks
+        # it into venv/bin; for ad-hoc dev runs, prepend scripts/ to PATH.
+        scripts_dir = str(PROJECT_ROOT / "scripts")
+        if scripts_dir not in env.get("PATH", ""):
+            env["PATH"] = scripts_dir + os.pathsep + env.get("PATH", "")
+
+        logger.debug("claude argv: %s", " ".join(argv[:14]) + " …")
+        with self._proc_lock:
+            self._proc = subprocess.Popen(
+                argv,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=str(PROJECT_ROOT),
+                env=env,
+                text=True,
+                bufsize=1,
+            )
+
+        proc = self._proc
+        assert proc.stdin is not None and proc.stdout is not None
+        try:
+            proc.stdin.write(self._stream_json_user_msg(text))
+            proc.stdin.flush()
+            proc.stdin.close()
+        except BrokenPipeError as e:
+            logger.error("claude stdin write failed: %s", e)
+
+        acc = _Accumulator()
+        for line in proc.stdout:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                logger.warning("non-JSON line from claude -p: %s", line[:200])
+                continue
+            try:
+                _ingest_event(acc, event)
+            except Exception as e:  # noqa: BLE001
+                logger.warning("event ingest failed: %s", e)
+
+        rc = proc.wait(timeout=_NO_TIMEOUT)
+        stderr_tail = ""
+        if proc.stderr is not None:
+            try:
+                stderr_tail = proc.stderr.read()
+            except Exception:  # noqa: BLE001
+                stderr_tail = ""
+        with self._proc_lock:
+            self._proc = None
+
+        # Any session_id we observed is now the canonical one.
+        if acc.session_id:
+            self.session_id = acc.session_id
+        # First successful call promotes us into "resume" mode.
+        if rc == 0:
+            self._initialized = True
+
+        if rc != 0:
+            err = (stderr_tail or "")[:600]
+            logger.error("claude -p exited with rc=%d: %s", rc, err)
+
+        # Finalize text: prefer the explicit result event, else accumulated chunks.
+        final_text = acc.final_text or "\n".join(acc.assistant_chunks).strip()
+        if not final_text and rc != 0:
+            final_text = f"Error: claude -p exited with rc={rc}: {stderr_tail[:300]}"
+
+        tool_calls = [acc.tool_calls_by_id[tid] for tid in acc.tool_calls_order]
+        images = _extract_image_paths(_events_to_messages_for_image_scan(acc))
+
+        return OpenCodeResult(
+            text=final_text,
+            images=images,
+            tool_calls=tool_calls,
+            messages=acc.raw_events,
+            session_id=self.session_id,
+            thoughts=acc.thoughts,
+        )

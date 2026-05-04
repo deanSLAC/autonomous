@@ -1,16 +1,23 @@
 #!/usr/bin/env bash
 # Launch the Autonomous Beamline Agent.
 #
-# Brings up:
+# AGENT_BACKEND=opencode (default):
 #   1. Python venv + dependencies
 #   2. SQLite tables
 #   3. .opencode/tools/*.ts (regenerated from the Python tool registry)
 #   4. opencode server on 127.0.0.1:4096 (no auth — loopback only)
 #   5. FastAPI application on :5005
+#   FastAPI only initializes the orchestrator at startup if opencode's
+#   HTTP endpoint is reachable, so we actively poll opencode before
+#   launching FastAPI rather than sleeping a fixed amount.
 #
-# FastAPI only initializes the orchestrator at startup if opencode's
-# HTTP endpoint is reachable, so we actively poll opencode before
-# launching FastAPI rather than sleeping a fixed amount.
+# AGENT_BACKEND=claude_code:
+#   1+2. Same.
+#   3. Symlink scripts/beamtimehero → venv/bin/beamtimehero so claude code
+#      can invoke the unified CLI as a plain command.
+#   4. Verify the `claude` binary is on PATH.
+#   5. FastAPI on :5005. claude -p is spawned as a subprocess per turn —
+#      no persistent harness server.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -36,6 +43,27 @@ pip install --quiet -r requirements.txt
 echo "[start] initializing DB…"
 python -c "from orchestration.plan_store.init_db import init_db; init_db()"
 
+export AGENT_BACKEND="${AGENT_BACKEND:-opencode}"
+echo "[start] AGENT_BACKEND=${AGENT_BACKEND}"
+
+# Symlink scripts/beamtimehero into venv/bin so the claude-code agent (and
+# anyone else with the venv activated) can invoke it as a plain command.
+# Idempotent.
+if [[ -x scripts/beamtimehero ]]; then
+    ln -sf "$(pwd)/scripts/beamtimehero" "venv/bin/beamtimehero"
+fi
+
+if [[ "$AGENT_BACKEND" == "claude_code" ]]; then
+    if ! command -v claude >/dev/null 2>&1; then
+        echo "[start] ERROR: 'claude' binary not on PATH. Install claude code or set AGENT_BACKEND=opencode." >&2
+        exit 2
+    fi
+    echo "[start] claude binary: $(command -v claude)"
+    echo "[start] launching FastAPI on :5005 (claude -p subprocess per turn — no harness server)"
+    exec python main.py
+fi
+
+# --- opencode path (default) ----------------------------------------------
 echo "[start] regenerating opencode tool wrappers…"
 python scripts/generate_opencode_tools.py
 
