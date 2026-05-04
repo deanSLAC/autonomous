@@ -26,10 +26,10 @@ import requests
 
 from orchestration.config import (
     CONTEXT_DIR,
+    LLM_GATEWAY,
     OPENCODE_MESSAGE_TIMEOUT_S,
-    OPENCODE_MODEL,
     OPENCODE_URL,
-    SLAC_API_KEY,
+    gateway_config,
 )
 
 logger = logging.getLogger(__name__)
@@ -194,7 +194,8 @@ class OpenCodeClient:
     def __init__(self, base_url: str | None = None, session_id: str | None = None):
         self.base_url = (base_url or OPENCODE_URL).rstrip("/")
         self.session_id: Optional[str] = session_id
-        self.model = OPENCODE_MODEL
+        gw = gateway_config()
+        self.model = gw["model_alias"] or LLM_GATEWAY
         self._system_prompt = _load_system_prompt()
 
     # ---- Connectivity -------------------------------------------------

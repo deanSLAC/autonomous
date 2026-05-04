@@ -3,6 +3,7 @@ uvicorn[standard]>=0.34.0
 websockets>=14.0
 requests>=2.32.0
 python-dotenv>=1.0.0
+pydantic-settings>=2.0.0
 slack_bolt>=1.18.0
 slack_sdk>=3.27.0
 matplotlib>=3.8.0

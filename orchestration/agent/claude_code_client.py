@@ -27,15 +27,18 @@ from typing import Any, Optional
 from orchestration.agent.opencode_client import OpenCodeResult, _extract_image_paths
 from orchestration.config import (
     CONTEXT_DIR,
-    OPENCODE_MODEL,
+    LLM_GATEWAY,
     PROJECT_ROOT,
+    gateway_config,
 )
 
 logger = logging.getLogger(__name__)
 
 
 CLAUDE_BIN = os.getenv("CLAUDE_BIN", shutil.which("claude") or "claude")
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-opus-4-6")
+# CLAUDE_MODEL, when set, overrides whatever model the active gateway
+# would otherwise pin. Useful for one-off A/B testing of model versions.
+_CLAUDE_MODEL_OVERRIDE = os.getenv("CLAUDE_MODEL")
 
 # A claude -p turn that drives the full alignment + collection pipeline can
 # legitimately run for hours. We do not impose a timeout — if the user wants
@@ -196,10 +199,18 @@ class ClaudeCodeClient:
         base_url: str | None = None,  # accepted for signature parity; unused
         session_id: str | None = None,
     ) -> None:
-        self.base_url = None  # no server
+        gw = gateway_config()
+        self.base_url = gw["url"]  # informational; subprocess env carries it
         self.session_id: Optional[str] = session_id
-        self.model = OPENCODE_MODEL  # exposed under same attr name as opencode
-        self._claude_model = CLAUDE_MODEL
+        self.model = gw["model_alias"] or LLM_GATEWAY
+        # CLAUDE_MODEL env overrides the gateway's --model alias if set.
+        self._claude_model_alias: Optional[str] = (
+            _CLAUDE_MODEL_OVERRIDE or gw["model_alias"]
+        )
+        self._gateway_url = gw["url"]
+        self._gateway_key = gw["key"]
+        self._gateway_env: dict = dict(gw.get("env") or {})
+        self._gateway_name = LLM_GATEWAY
         self._system_prompt = self._load_system_prompt()
         self._initialized: bool = bool(session_id)
         self._proc: Optional[subprocess.Popen] = None
@@ -264,9 +275,10 @@ class ClaudeCodeClient:
             "--input-format", "stream-json",
             "--include-partial-messages",  # ensures we see thinking + tool blocks
             "--verbose",                   # required for stream-json
-            "--model", self._claude_model,
             "--permission-mode", "acceptEdits",
         ]
+        if self._claude_model_alias:
+            args.extend(["--model", self._claude_model_alias])
         if self._initialized:
             args.extend(["--resume", sid])
         else:
@@ -294,6 +306,18 @@ class ClaudeCodeClient:
         scripts_dir = str(PROJECT_ROOT / "scripts")
         if scripts_dir not in env.get("PATH", ""):
             env["PATH"] = scripts_dir + os.pathsep + env.get("PATH", "")
+        # Route claude code through the configured gateway. When LLM_GATEWAY
+        # is "default" the url/key/env are all empty and we leave the parent
+        # env in place — claude code uses whatever auth it has on disk.
+        if self._gateway_url:
+            env["ANTHROPIC_BASE_URL"] = self._gateway_url
+        if self._gateway_key:
+            env["ANTHROPIC_AUTH_TOKEN"] = self._gateway_key
+        # Apply the gateway's env block (model defaults, beta-feature gates,
+        # prompt-caching toggles). Mirrors what each gateway needs in the
+        # user's ~/.claude/settings.json today.
+        for k, v in self._gateway_env.items():
+            env[k] = v
 
         logger.debug("claude argv: %s", " ".join(argv[:14]) + " …")
         with self._proc_lock:

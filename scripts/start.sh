@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 # Launch the Autonomous Beamline Agent.
 #
-# AGENT_BACKEND=opencode (default):
+# AGENT_BACKEND=claude_code (default):
 #   1. Python venv + dependencies
 #   2. SQLite tables
-#   3. .opencode/tools/*.ts (regenerated from the Python tool registry)
-#   4. opencode server on 127.0.0.1:4096 (no auth — loopback only)
-#   5. FastAPI application on :5005
-#   FastAPI only initializes the orchestrator at startup if opencode's
-#   HTTP endpoint is reachable, so we actively poll opencode before
-#   launching FastAPI rather than sleeping a fixed amount.
-#
-# AGENT_BACKEND=claude_code:
-#   1+2. Same.
 #   3. Symlink scripts/beamtimehero → venv/bin/beamtimehero so claude code
 #      can invoke the unified CLI as a plain command.
 #   4. Verify the `claude` binary is on PATH.
 #   5. FastAPI on :5005. claude -p is spawned as a subprocess per turn —
-#      no persistent harness server.
+#      no persistent harness server. LLM_GATEWAY={slac,stanford,default}
+#      picks the upstream claude code talks to.
+#
+# AGENT_BACKEND=opencode:
+#   1+2+3. Same.
+#   4. Regenerate .opencode/tools/*.ts from the Python tool registry.
+#   5. Start opencode server on 127.0.0.1:4096 (no auth — loopback only)
+#      and FastAPI on :5005. FastAPI only initializes the orchestrator
+#      at startup if opencode's HTTP endpoint is reachable, so we
+#      actively poll opencode before launching FastAPI.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -43,7 +43,11 @@ pip install --quiet -r requirements.txt
 echo "[start] initializing DB…"
 python -c "from orchestration.plan_store.init_db import init_db; init_db()"
 
-export AGENT_BACKEND="${AGENT_BACKEND:-opencode}"
+# .env provides AGENT_BACKEND. Anything else is a misconfiguration.
+if [[ -z "${AGENT_BACKEND:-}" ]]; then
+    echo "[start] ERROR: AGENT_BACKEND not set. Did you cp .env.example .env?" >&2
+    exit 2
+fi
 echo "[start] AGENT_BACKEND=${AGENT_BACKEND}"
 
 # Symlink scripts/beamtimehero into venv/bin so the claude-code agent (and
@@ -95,10 +99,21 @@ cleanup() {
 trap cleanup EXIT
 
 if [[ "$START_OPENCODE" == "1" ]]; then
-    if [[ -z "${SLAC_API_KEY:-}" ]]; then
-        echo "[start] ERROR: SLAC_API_KEY not set. Copy .env.example to .env and fill it in." >&2
-        exit 2
-    elif [[ ! -x "$OPENCODE_BIN" ]]; then
+    # opencode reads its own provider config from opencode.json, but it
+    # still needs an API key in the environment for the active gateway.
+    case "${LLM_GATEWAY:-slac}" in
+        slac)
+            if [[ -z "${SLAC_API_KEY:-}" ]]; then
+                echo "[start] ERROR: SLAC_API_KEY not set (required for LLM_GATEWAY=slac). Check your .env." >&2
+                exit 2
+            fi ;;
+        stanford)
+            if [[ -z "${STANFORD_API_KEY:-}" ]]; then
+                echo "[start] ERROR: STANFORD_API_KEY not set (required for LLM_GATEWAY=stanford). Check your .env." >&2
+                exit 2
+            fi ;;
+    esac
+    if [[ ! -x "$OPENCODE_BIN" ]]; then
         echo "[start] ERROR: opencode binary not found at $OPENCODE_BIN" >&2
         echo "        Install: curl -fsSL https://opencode.ai/install | bash" >&2
         exit 2
