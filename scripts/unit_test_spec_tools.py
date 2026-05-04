@@ -1,11 +1,9 @@
-"""Tool-layer test for every SPEC-bound entry in the /tools catalog.
+"""Tool-layer test for every SPEC-bound entry in the tool catalog.
 
-One level *above* `scripts/unit_test_spec_cmd.py`: that test exercises
-the CommandSpec dispatcher directly. This one invokes the actual tool
-Python functions the LLM would call (the `t_*` wrappers in
-`tools.autonomy_tools`, registered in `AUTONOMY_DISPATCH`) with
-LLM-shaped `args` dicts, and checks that each one produces the expected
-SPEC command on the wire.
+Invokes the actual tool Python functions the LLM would call (the
+`t_*` wrappers in `beamline_tools.tool_catalog.autonomy_tools`,
+registered in `AUTONOMY_DISPATCH`) with LLM-shaped `args` dicts, and
+checks that each one produces the expected SPEC command on the wire.
 
 Scope: only tools whose `TOOL_LINEAGE` entry has a non-None
 `spec_command` — i.e., tools that actually send a SPEC command. Pure
@@ -46,7 +44,8 @@ from typing import Any, Callable
 
 
 # ---- Env + path setup ------------------------------------------------------
-# Must happen before any server/* import so SPEC_MOCK + DB paths are honored.
+# Must run before beamline_tools.config / orchestration.config are
+# imported so SPEC_MOCK + DB paths are honored.
 
 os.environ.setdefault("SPEC_MOCK", "1")
 
