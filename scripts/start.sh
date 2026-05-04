@@ -68,6 +68,9 @@ if [[ "$AGENT_BACKEND" == "claude_code" ]]; then
 fi
 
 # --- opencode path (default) ----------------------------------------------
+echo "[start] generating opencode.json from .env…"
+python scripts/generate_opencode_config.py
+
 echo "[start] regenerating opencode tool wrappers…"
 python scripts/generate_opencode_tools.py
 
