@@ -1,0 +1,923 @@
+{
+  "_meta": {
+    "generated_at": "2026-05-04T08:39:54.369558+00:00",
+    "total_tools": 71,
+    "generator": "scripts/generate_tools_config.py"
+  },
+  "tools": [
+    {
+      "name": "analyze_convergence",
+      "cli_path": "tool",
+      "description": "Answer 'do I have enough scans?' via cosine similarity of each scan to the running mean, plus cumulative convergence and standard error.",
+      "when_to_use": "Check if repeated scans have converged using cosine similarity metrics. Reports per-scan similarity to the mean, cumulative convergence, and standard error. Use this when the user asks 'do I have enough scans?'",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"per_scan_similarity\": [0.9812, 0.9934, 0.9971, 0.9985], \"cumulative\": [0.9812, 0.9873, 0.9906, 0.9926], \"std_error\": 0.0038, \"verdict\": \"converged\", \"file_name\": \"Fe_HERFD_0001\", \"active_counter\": \"vortDT\", \"scan_numbers\": [1, 2, 3, 4]}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "analyze_efficiency",
+      "cli_path": "tool",
+      "description": "Comprehensive scan-repetition efficiency report: convergence, coefficient of variation, comparison to the Poisson statistical limit, and a terminal verdict (needs_more / reasonable / marginal / wasteful).",
+      "when_to_use": "Comprehensive scan repetition efficiency report. Includes convergence, CV analysis, Poisson limit comparison, optimal scan count recommendation, and a verdict (needs_more / reasonable / marginal / wasteful).",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"convergence\": 0.9926, \"cv\": 0.041, \"poisson_ratio\": 1.12, \"recommended_n\": 6, \"verdict\": \"reasonable\", \"file_name\": \"Cu_XAS_0002\", \"active_counter\": \"vortDT\", \"scan_numbers\": [1, 2, 3, 4, 5]}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "average_scans",
+      "cli_path": "tool",
+      "description": "Edge-step normalize every energy scan in a file, then average them. Returns the mean, the point-wise standard deviation, and the number of scans averaged.",
+      "when_to_use": "Average all energy scans in a SPEC file after edge-step normalization. Returns mean and standard deviation across scans. If file_name is omitted, uses the most recent file with >1 energy scan.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"x\": [7090.0, 7095.0, \"...\", 7200.0], \"mean\": [0.01, 0.02, \"...\", 1.02], \"std\": [0.003, 0.004, \"...\", 0.008], \"n_scans\": 5, \"file_name\": \"Fe_HERFD_0001\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "evaluate_spec_macro",
+      "cli_path": "tool",
+      "description": "Run a SPEC macro in a disposable, network-isolated Docker container and return the execution log. Use to validate macros you authored or edited, or to reproduce a SPEC error in isolation. Each call is a cold start with no state from prior runs. The container has read-only access to production beamline macros but no network and no host devices \u2014 it cannot affect the live beamline. Always read the log even on ok=True; SPEC sometimes exits 0 despite warnings.",
+      "when_to_use": "Run a SPEC macro in a disposable, network-isolated sandbox container and return the resulting log. Use to validate macros you authored or edited, or to reproduce a SPEC error in isolation. Each call is a cold start: no state persists between calls. Sim-only \u2014 does not affect real hardware. Always check the log even on ok=True; SPEC sometimes exits 0 despite warnings.",
+      "enabled": true,
+      "sample_input": {
+        "macro": "print \"hello from sandbox\""
+      },
+      "sample_output": "{\"ok\": true, \"exit_code\": 0, \"timed_out\": false, \"log\": \"hello from sandbox\\n\", \"duration_s\": 0.42, \"run_id\": \"abc123def456\", \"error\": null}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "extend_beamtime_budget",
+      "cli_path": "tool",
+      "description": "Add (or subtract, with a negative delta) hours to the beamtime budget. Use this for small adjustments; use set_beamtime_budget for absolute resets.",
+      "when_to_use": "Add (or subtract, with a negative delta) hours to the beamtime budget.",
+      "enabled": true,
+      "sample_input": {
+        "hours_delta": 0.0
+      },
+      "sample_output": "{\"ok\": true, \"new_total_hours\": 14.0}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "get_active_counter",
+      "cli_path": "tool",
+      "description": "Pick the 'meaningful' counter for an energy scan. Heuristic: ppboff if it exists, else the vortDT/vortDT2/vortDT3/vortDT4 with the highest max count, else I1.",
+      "when_to_use": "Identify the 'active' fluorescence/absorption counter for a scan. Logic: ppboff if present, else the vortDT/vortDT2/vortDT3/vortDT4 with highest max counts, else I1.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "scan_number": 1
+      },
+      "sample_output": "{\"counter\": \"vortDT\", \"reason\": \"vortDT has highest max counts (48523)\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "get_counter_config",
+      "cli_path": "tool",
+      "description": "Return SPEC's counter table: per-counter controller, unit, channel, scale, flags, and mnemonic. The counter index (CNTnnn) maps to the S[] array.",
+      "when_to_use": "Get SPEC counter configuration from the config file. Shows controller, unit, channel, scale, flags, mnemonic, and name for each counter. Counter index (CNTnnn) maps to the S[] array.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "CNT000  EPICS_SC  0  0  1  0x001  sec  Seconds\nCNT001  EPICS_SC  0  1  1  0x002  I0   I0\nCNT002  EPICS_SC  0  2  1  0x000  I1   I1\n...",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "get_experiment_plan",
+      "cli_path": "tool",
+      "description": "Return the live experiment plan \u2014 config, sample queue, holder budgets, and the beamtime budget.",
+      "when_to_use": "Return the live experiment plan (config + sample queue + budget).",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"sample_queue\": [{\"sample_id\": \"Fe2O3_01\", \"element\": \"Fe\", \"status\": \"queued\", \"reps\": 5}], \"holder_budgets\": {\"holder_A\": {\"count_time_s\": 1.0, \"reps\": 5}}, \"budget\": {\"total_hours\": 12.0}}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "get_latest_log_entries",
+      "cli_path": "tool",
+      "description": "Return the tail of the beamline control log. The agent uses this to see what SPEC just printed \u2014 prompts, warnings, the text of recent commands.",
+      "when_to_use": "Get the most recent entries from the beamline control logs.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"log_file\": \"spec_log_20260504.log\", \"lines\": [\"1234> Fe_xas 1.0 3\", \"Starting scan 42...\", \"Scan 42 complete, 301 points.\"]}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "get_latest_scan",
+      "cli_path": "tool",
+      "description": "Return the most recently modified SPEC scan on disk, along with its metadata (file, scan number, command, counters) and a small numeric preview of the scan's points.",
+      "when_to_use": "Get the most recently processed scan. Returns metadata and a data preview.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 5, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"Seconds\", \"I0\", \"I1\", \"vortDT\"], \"data_preview\": \"   energy  Seconds       I0  ...\\n0  7090.0      1.0  125000  ...\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "get_motor_config",
+      "cli_path": "tool",
+      "description": "Return SPEC's motor table: per-motor controller, steps/unit, slew rate, flags, and mnemonic. The motor index (MOTnnn) maps directly to the A[] array in SPEC.",
+      "when_to_use": "Get SPEC motor configuration from the config file. Shows controller, steps/unit, slew rate, flags, mnemonic, and name for each motor. Motor index (MOTnnn) maps to the A[] array.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "MOT000  EPICS_M1  2000  1.0  0x003  th     Theta\nMOT001  EPICS_M1  2000  1.0  0x003  phi    Phi\nMOT002  EPICS_M1  2000  1.0  0x003  chi    Chi\n...",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "get_remaining_beamtime",
+      "cli_path": "tool",
+      "description": "Return total / elapsed / remaining beamtime in hours. Elapsed is computed from the action_log timestamps.",
+      "when_to_use": "Total / elapsed / remaining beamtime in hours.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"total_hours\": 12.0, \"elapsed_hours\": 4.5, \"remaining_hours\": 7.5}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "get_scan_deadtime",
+      "cli_path": "tool",
+      "description": "Compute how much of a scan was acquisition vs overhead (motor moves, settling, comms). Useful when optimizing count time or diagnosing slow scans.",
+      "when_to_use": "Get the dead time for a scan \u2014 the overhead time spent on motor moves, settling, and communication vs actual detector acquisition. Returns wall-clock duration, acquisition time, dead time in seconds, and dead time as a percentage.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "scan_number": 1
+      },
+      "sample_output": "{\"wall_s\": 420.5, \"acq_s\": 301.0, \"dead_s\": 119.5, \"dead_pct\": 28.4}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "get_staff_guidance",
+      "cli_path": "tool",
+      "description": "Recent staff/user guidance messages \u2014 either typed into the dashboard guidance panel or posted to Slack.",
+      "when_to_use": "Recent staff / user guidance messages (Slack or web).",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "[{\"timestamp\": \"2026-05-04T10:30:00Z\", \"author\": \"staff_jane\", \"text\": \"Use 1s count time for Fe samples, they are radiation sensitive.\"}]",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "list_files",
+      "cli_path": "tool",
+      "description": "List non-SPEC files (macros, configs, notes) in the scan directory so the agent can decide what to read or edit.",
+      "when_to_use": "List non-SPEC files in the scan directory (macros, configs, text files).",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "[{\"name\": \"run01.mac\", \"size\": 2048, \"mtime\": \"2026-05-04T09:15:00\"}, {\"name\": \"setup_Fe.mac\", \"size\": 1536, \"mtime\": \"2026-05-04T08:00:00\"}]",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "list_logs",
+      "cli_path": "tool",
+      "description": "List the available log files in BL_LOGS_DIR with their sizes and modification times.",
+      "when_to_use": "List available log files.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "[{\"name\": \"spec_log_20260504.log\", \"size\": 524288, \"mtime\": \"2026-05-04T11:00:00\"}, {\"name\": \"spec_log_20260503.log\", \"size\": 1048576, \"mtime\": \"2026-05-03T23:59:00\"}]",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "list_open_interventions",
+      "cli_path": "tool",
+      "description": "List pause-for-human requests that are still waiting for staff to resolve.",
+      "when_to_use": "List pause-for-human requests still waiting.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "[{\"id\": \"intv_001\", \"kind\": \"sample_mount\", \"detail\": \"Mount holder B with Cu reference samples\", \"created_at\": \"2026-05-04T10:00:00Z\"}]",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "list_scans",
+      "cli_path": "tool",
+      "description": "Enumerate recent SPEC scans with metadata so the agent can pick a file_name/scan_number pair for follow-up tools.",
+      "when_to_use": "List processed scans with metadata (file name, scan number, command, counters, number of points).",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "[{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 5, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"I0\", \"I1\", \"vortDT\"], \"npoints\": 301, \"timestamp\": \"2026-05-04T10:45:00\"}]",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "normalize_scan",
+      "cli_path": "tool",
+      "description": "Edge-step normalize an energy scan: divide the signal by I0 (or any chosen reference), then linearly rescale so the pre-edge reads 0 and the post-edge reads 1.",
+      "when_to_use": "Edge-step normalize a scan: divide signal by I0, then scale so pre-edge is 0 and post-edge is 1. Returns the normalized data array.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "scan_number": 1
+      },
+      "sample_output": "{\"x\": [7090.0, 7095.0, \"...\", 7200.0], \"y\": [0.002, 0.005, \"...\", 1.01], \"counter\": \"vortDT\", \"normalize_by\": \"I0\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "plot_averaged_scans",
+      "cli_path": "tool",
+      "description": "Edge-step normalize every scan in each given SPEC file, average, and overlay all samples on one plot with std-dev shading. The go-to cross-sample comparison plot.",
+      "when_to_use": "Plot averaged energy scans for multiple samples overlaid on one plot. Each sample is edge-step normalized and averaged, then plotted with standard deviation shading.",
+      "enabled": true,
+      "sample_input": {
+        "file_names": []
+      },
+      "sample_output": "Overlay plot of 2 samples (Fe_HERFD_0001: 5 scans averaged, Fe_HERFD_0002: 3 scans averaged). [PNG image returned]",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "plot_data",
+      "cli_path": "tool",
+      "description": "General-purpose line plotter. The agent passes raw arrays \u2014 typically grabbed from read_scan or normalize_scan \u2014 and gets back a rendered PNG. Supports up to four overlaid series.",
+      "when_to_use": "General-purpose plotting tool. Plot any data as a line chart. Use this to visualize results from other tools (e.g. read_scan). Supports multiple series on one plot.",
+      "enabled": true,
+      "sample_input": {
+        "x": [],
+        "y": []
+      },
+      "sample_output": "Plot generated: Fe K-edge XANES (5 points, 1 series). [PNG image returned]",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "plot_scan",
+      "cli_path": "tool",
+      "description": "Render one scan as a PNG and return it to the user. Auto-detects the active counter; accepts an optional normalize_by counter.",
+      "when_to_use": "Generate and display a plot of scan data. Use this by default when the user wants to see a plot. The plot is shown directly to the user. Use list_scans to find available file_name and scan_number.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "scan_number": 1
+      },
+      "sample_output": "Fe_HERFD_0001 scan #3: ascan energy 7090 7200 301 1.0 (counter: vortDT). [PNG image returned]",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "post_status_update",
+      "cli_path": "tool",
+      "description": "Post a high-level progress message to Slack and the dashboard feed. Informational \u2014 does not block or gate anything.",
+      "when_to_use": "Post a high-level progress message to Slack + UI.",
+      "enabled": true,
+      "sample_input": {
+        "text": "example"
+      },
+      "sample_output": "{\"posted\": true}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "read_file",
+      "cli_path": "tool",
+      "description": "Read a text file from the scan directory \u2014 typically a .mac macro the agent wants to inspect or edit.",
+      "when_to_use": "Read a text file from the scan directory. Use list_files to discover available files.",
+      "enabled": true,
+      "sample_input": {
+        "path": "example"
+      },
+      "sample_output": "# run01.mac - Fe HERFD collection\ndef run01 '\n  newfile Fe_HERFD_0001\n  Fe_xas 1.0 5\n'",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "read_scan",
+      "cli_path": "tool",
+      "description": "Return the full data array of a single scan, addressed by file_name + scan_number. Use list_scans first to discover the valid identifiers.",
+      "when_to_use": "Read a processed scan's data and metadata. Use list_scans first to find available file_name and scan_number.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "scan_number": 1
+      },
+      "sample_output": "{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 3, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"Seconds\", \"I0\", \"I1\", \"vortDT\"], \"data\": \"   energy  Seconds       I0      I1   vortDT\\n0  7090.0      1.0  125340    3201    412\\n1  7091.0      1.0  125122    3198    418\\n...\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "recent_actions",
+      "cli_path": "tool",
+      "description": "Most recent action_log entries for the current experiment \u2014 every SPEC-mutating tool call appears here. Also used by the phase-transition gate to verify prior success.",
+      "when_to_use": "Most recent action_log entries for the current experiment.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "[{\"id\": 42, \"timestamp\": \"2026-05-04T10:30:00Z\", \"phase\": \"collection\", \"command\": \"Fe_xas 1.0 5\", \"justification\": \"Collecting Fe K-edge XAS on sample Fe2O3_01\", \"success\": true}]",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "record_sample_progress",
+      "cli_path": "tool",
+      "description": "Update per-sample status (queued/in_progress/done/skipped/failed), SNR estimate, efficiency verdict, and reps completed. Preserves the rest of the plan.",
+      "when_to_use": "Update per-sample status (snr_estimate, efficiency_verdict, reps_completed, note).",
+      "enabled": true,
+      "sample_input": {
+        "sample_id": "example"
+      },
+      "sample_output": "{\"ok\": true}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "regenerate_plan",
+      "cli_path": "tool",
+      "description": "Rebuild the sample plan from the DB while preserving per-sample progress (status, reps_completed, notes) and user overrides (thresholds, holder_budgets, total budget). Call this after a sample holder is added or edited.",
+      "when_to_use": "Rebuild the sample plan from the database while preserving per-sample progress (status, reps_completed, notes) and user overrides (thresholds, holder_budgets, budget). Call this after a new sample holder is configured or an existing one is edited.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"ok\": true, \"sample_count\": 8}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "request_human_intervention",
+      "cli_path": "tool",
+      "description": "Pause the agent and ask a human to perform a physical action (crystal install, sample mount, foil insert, hardware reset, or custom). Posts to Slack and blocks until staff resolves it from the dashboard or Slack.",
+      "when_to_use": "Pause the agent and ask a human to complete a physical action (crystal install, sample mount, foil insert, etc.). Posts to Slack and blocks until resolved.",
+      "enabled": true,
+      "sample_input": {
+        "kind": "crystal_install",
+        "detail": "example"
+      },
+      "sample_output": "{\"resolved\": true, \"note\": \"Fe foil inserted\", \"resolver\": \"staff_jane\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "search_logs",
+      "cli_path": "tool",
+      "description": "Grep-like search across beamline control logs for a literal string (error message, motor name, macro name). Returns a bounded match list.",
+      "when_to_use": "Search the beamline control logs for a specific string or error message.",
+      "enabled": true,
+      "sample_input": {
+        "query": "example"
+      },
+      "sample_output": "[{\"log_file\": \"spec_log_20260504.log\", \"line_number\": 1423, \"line\": \"ERROR: motor limit hit on th at 45.002\"}, {\"log_file\": \"spec_log_20260504.log\", \"line_number\": 1425, \"line\": \"WARNING: motor limit check failed for th\"}]",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "set_beamtime_budget",
+      "cli_path": "tool",
+      "description": "Set the total beamtime budget (in hours) to an absolute value. Use this when a new allocation is granted.",
+      "when_to_use": "Set the total beamtime budget (in hours) to an absolute value.",
+      "enabled": true,
+      "sample_input": {
+        "hours_total": 0.0
+      },
+      "sample_output": "{\"ok\": true, \"new_total_hours\": 12.0}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "set_holder_time_budget",
+      "cli_path": "tool",
+      "description": "Set a default per-sample time budget for a whole sample holder. New samples inherit the default; when apply_to_existing is true (default), existing samples on that holder also pick up the change.",
+      "when_to_use": "Set a default per-sample time budget for an entire sample holder. Stored under the plan's holder_budgets so new samples inherit it; when apply_to_existing=true (default), existing samples on that holder also get the new count_time/reps.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"ok\": true, \"samples_updated\": 4}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "set_sample_time_budget",
+      "cli_path": "tool",
+      "description": "Adjust the time budget for a single sample \u2014 change the per-rep count_time and/or the number of reps. Mode restricts the change to one of xas or emiss.",
+      "when_to_use": "Adjust the time budget for a single sample \u2014 change either the per-repetition count time or the number of reps (or both). Optionally restrict to one mode ('xas' or 'emiss').",
+      "enabled": true,
+      "sample_input": {
+        "sample_id": "example"
+      },
+      "sample_output": "{\"ok\": true}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "update_experiment_plan",
+      "cli_path": "tool",
+      "description": "Replace the live experiment plan JSON wholesale. The structure is up to the agent, but downstream views expect a sample_queue + holder_budgets + budget shape.",
+      "when_to_use": "Replace the live experiment plan JSON (structure decided by the agent).",
+      "enabled": true,
+      "sample_input": {
+        "plan": {}
+      },
+      "sample_output": "{\"ok\": true}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "write_macro",
+      "cli_path": "tool",
+      "description": "Save an edited SPEC macro under a new name with a _heroic_<date> suffix so the original macro is never overwritten.",
+      "when_to_use": "Save an edited macro as a new .mac file in the scan directory. The file is saved with a _heroic_<date> suffix to preserve the original.",
+      "enabled": true,
+      "sample_input": {
+        "original_name": "example",
+        "content": "example"
+      },
+      "sample_output": "Edited macro saved: run01_heroic_2026-05-04.mac",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "write_summary",
+      "cli_path": "tool",
+      "description": "Persist a conversation summary into the scan directory as a timestamped .txt file. Used so operators can review agent reasoning offline.",
+      "when_to_use": "Save a conversation summary as a timestamped .txt file in the scan directory.",
+      "enabled": true,
+      "sample_input": {
+        "content": "example"
+      },
+      "sample_output": "Summary saved: beamtimehero_conversation_summary_20260504_114500.txt",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "get_beam_status",
+      "cli_path": "spec-read",
+      "description": "Compact snapshot of whether the beam is usable: SPEAR ring current, BL15 shutter state, gap ownership, and a beam_good boolean.",
+      "when_to_use": "SPEAR current + BL15 state + gap ownership + beam_good flag.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"spear_current_mA\": 500.2, \"beamline_state\": \"open\", \"gap_owned\": true, \"beam_good\": true, \"reason\": \"all checks passed\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "get_current_datafile",
+      "cli_path": "spec-read",
+      "description": "Parsed fon output \u2014 lists the active SPEC data file and log file paths.",
+      "when_to_use": "Parsed fon \u2014 active data/log file names.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"datafile\": \"Fe_HERFD_0001\", \"logfile\": \"spec_log_20260504.log\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "get_i0_value",
+      "cli_path": "spec-read",
+      "description": "Take a short count (ct <t>) and read the I0 scaler value. Used as a sanity check before launching a long scan.",
+      "when_to_use": "Quick I0 count \u2014 verifies beam on sample before a long scan.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"ct\": {\"Seconds\": 1.0, \"I0\": 125000, \"I1\": 3200}, \"i0\": {\"value\": 125000}}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "get_scan_number",
+      "cli_path": "spec-read",
+      "description": "Return SPEC's current SCAN_N counter. Use get_current_datafile separately if you also need the active file name.",
+      "when_to_use": "Current SPEC_N and datafile.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"value\": 42}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "read_all_positions",
+      "cli_path": "spec-read",
+      "description": "Read every motor's current position. Wraps SPEC's wa and parses the output into a {name \u2192 value} map.",
+      "when_to_use": "Read all motor positions (wa) with parsed name\u2192value map.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"th\": 15.003, \"phi\": 0.0, \"chi\": 90.0, \"energy\": 7112.0, \"m1_x\": 0.125, \"m1_z\": -0.340, \"b_y\": 0.0, \"Sx\": 2.50, \"Sy\": 0.0, \"Sz\": 12.0}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "read_motor_position",
+      "cli_path": "spec-read",
+      "description": "Read a single motor's position as a parsed float. Read-only \u2014 does not require a justification.",
+      "when_to_use": "Read a single motor's current position (parsed float).",
+      "enabled": true,
+      "sample_input": {
+        "motor": "example"
+      },
+      "sample_output": "{\"motor\": \"th\", \"position\": 15.003}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "spec_command",
+      "cli_path": "spec-read",
+      "description": "Send one of a tiny allow-list of *read-only* SPEC commands (wa / pwd / fon / get_S) and return the log output. The hard allow-list makes this safe to expose to the LLM.",
+      "when_to_use": "Send a command to the running SPEC session. Allowed: wa \u2014 motor positions | pwd \u2014 current directory | fon \u2014 open files | get_S \u2014 counter values. Check the log file for output.",
+      "enabled": true,
+      "sample_input": {
+        "command": "wa"
+      },
+      "sample_output": "th      15.003\nphi      0.000\nchi     90.000\nenergy 7112.000\nm1_x     0.125\nm1_z    -0.340\n...",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "abort_current_scan",
+      "cli_path": "spec-write",
+      "description": "Send Ctrl-C to SPEC to abort whatever is running. Only call this after confirming a real problem \u2014 aborts are expensive and may leave hardware in a half-state.",
+      "when_to_use": "Send Ctrl-C to SPEC. Only after confirming a problem.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0053\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "align_beamline",
+      "cli_path": "spec-write",
+      "description": "Run the full beamline alignment macro. Multi-minute: optimizes M1/M2, peaks mono pitch, aligns the mono slits, optimizes the B stage, zeros the pinhole, measures beam size. One-shot \u2014 refuses a re-run if the action_log shows it already succeeded this experiment.",
+      "when_to_use": "Run the full `align_the_beamline` macro. Multi-minute, optimizes M1/M2, peaks mono pitch, aligns mono slits, optimizes B stage, zeros pinhole, measures beam size. Only in phase beamline_alignment.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0012\", \"spec_result\": \"align_the_beamline complete\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "align_xes_spectrometer",
+      "cli_path": "spec-write",
+      "description": "Align the 7-crystal HERFD analyzer via run_spec_align. One-shot per experiment. Crystals arg selects a subset (e.g. '1234' aligns only crystals 1\u20134).",
+      "when_to_use": "Run `run_spec_align` to align the 7-crystal HERFD analyzer. Only in phase xes_alignment.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0015\", \"per_crystal_pitch_roll\": {\"1\": [0.12, -0.03], \"2\": [0.11, -0.02]}, \"xes_en_offset\": -0.3}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "calibrate_mono_from_foil_scan",
+      "cli_path": "spec-write",
+      "description": "Standard mono calibration: dscan energy \u00b115 eV over a reference foil, find the inflection, then call calibrate_mono + reset_gap. The tabulated edge energy must be within 5 eV of the current energy.",
+      "when_to_use": "Standard calibration: dscan energy \u00b115 eV around a reference foil, find the inflection, and call calibrate_mono + reset_gap. `tabulated_edge_ev` must be within 5 eV of current energy.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "tabulated_edge_ev": 0.0
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0010\", \"inflection_ev\": 7112.3, \"offset_ev\": -0.3}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "move_motor",
+      "cli_path": "spec-write",
+      "description": "Absolute motor move (SPEC's umv). Motor must be on the current phase's allow-list \u2014 e.g. during sample_alignment only Sx/Sy/Sz are movable.",
+      "when_to_use": "Absolute motor move (umv). Motor must be on the current phase's allowlist.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "motor": "example",
+        "position": 0.0
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0020\", \"final_position\": 12.5}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "move_motor_relative",
+      "cli_path": "spec-write",
+      "description": "Relative motor move (SPEC's umvr) \u2014 shift a motor by a delta from its current position. Same phase allow-list as move_motor.",
+      "when_to_use": "Relative motor move (umvr).",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "motor": "example",
+        "delta": 0.0
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0021\", \"final_position\": 2.60}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "mv_energy",
+      "cli_path": "spec-write",
+      "description": "Move incident energy. Does NOT enable tracking \u2014 if you want the ID gap to follow the mono, call `tracking 1` (not currently exposed as a tool) before invoking this, or use run_align_shortcut / a dedicated macro.",
+      "when_to_use": "Move incident energy (tracking on; moves mono + gap).",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "energy_ev": 0.0
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0030\", \"energy_ev\": 8979.0}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "open_data_file",
+      "cli_path": "spec-write",
+      "description": "Start a new SPEC data file (newfile). Used per-sample so each sample's data lives in its own .dat.",
+      "when_to_use": "newfile \u2014 start a new SPEC data file (per-sample).",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "filename": "example"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0035\", \"filename\": \"Cu_XAS_0001\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "peak_mono_pitch",
+      "cli_path": "spec-write",
+      "description": "LVDT-driven piezo optimization of the 2nd mono crystal pitch. Used as a fallback or pre-scan tune-up.",
+      "when_to_use": "LVDT-driven piezo optimization of the 2nd mono crystal pitch.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0011\", \"new_pitch\": 0.0342}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "post_scan_move",
+      "cli_path": "spec-write",
+      "description": "After a scan, move the motor to the detected feature: 'cen' (center) or 'peak'. Run this immediately after a dscan/ascan to land on the best point.",
+      "when_to_use": "Post-scan move: 'cen' (feature center) or 'peak' (feature peak).",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "mode": "cen"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0023\", \"final_position\": 12.48}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "request_gap_ownership",
+      "cli_path": "spec-write",
+      "description": "Blocking gaprequest \u2014 returns when SPEAR grants BL15 ownership of the ID gap, or when it times out.",
+      "when_to_use": "Blocking `gaprequest` \u2014 returns when SPEAR grants ownership or times out.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0029\", \"granted\": true}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "run_align_shortcut",
+      "cli_path": "spec-write",
+      "description": "Run one of the named diagnostic shortcuts (vvv, hhh, m1m1, m2m2, ggg, bzbz, bxbx, dmm, beamx, beamz, cm1m1, cm2m2, beamx_fine, beamz_fine). Each is a single dscan + post-analysis.",
+      "when_to_use": "Run one of the named diagnostic shortcuts (vvv/hhh/m1m1/m2m2/ggg/bzbz/bxbx/dmm/beamx/beamz/cm1m1/cm2m2). Each is a single dscan+analysis.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "name": "example"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0014\", \"scan_number\": 7}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "run_collection",
+      "cli_path": "spec-write",
+      "description": "Multi-sample data-collection loop. Cycles through every enabled sample, producing one SPEC file per sample.",
+      "when_to_use": "Run `run_collection` \u2014 the multi-sample data collection loop that cycles through every enabled sample. Only in phase collection.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0040\", \"files_opened\": [\"Fe2O3_01_0001\", \"FeOOH_02_0001\", \"Cu_ref_0001\"]}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "run_emiss_scan",
+      "cli_path": "spec-write",
+      "description": "Element-specific emission-energy scan (<element>_cee). Requires an emission_ev; filter is an optional 0-255 bitmask.",
+      "when_to_use": "Element-specific emission-energy (_cee) scan.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "element": "example",
+        "count_time": 0.0,
+        "n_reps": 1,
+        "emission_ev": 0.0
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0045\", \"scans_started\": 3}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "run_motor_scan",
+      "cli_path": "spec-write",
+      "description": "Absolute motor scan (ascan). Commonly used for alignment diagnostics where the motor absolute range matters.",
+      "when_to_use": "ascan \u2014 absolute motor scan.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "motor": "example",
+        "start": 0.0,
+        "end": 0.0,
+        "npoints": 1,
+        "count_time": 0.0
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0022\", \"scan_number\": 8, \"file_name\": \"Fe_HERFD_0001\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "run_motor_scan_relative",
+      "cli_path": "spec-write",
+      "description": "Delta scan (dscan) centered on the motor's current position. Preferred for per-sample fine-tuning.",
+      "when_to_use": "dscan \u2014 delta scan around the current position.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "motor": "example",
+        "delta_start": 0.0,
+        "delta_end": 0.0,
+        "npoints": 1,
+        "count_time": 0.0
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0024\", \"scan_number\": 9, \"file_name\": \"Fe_HERFD_0001\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "run_sample_alignment",
+      "cli_path": "spec-write",
+      "description": "Run auto_sample_align: Sz survey plus per-sample centering. Populates each sample's Sx/Sy/Sz in the plan.",
+      "when_to_use": "Run `auto_sample_align`. Only in phase sample_alignment.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0025\", \"samples\": [{\"id\": \"Fe2O3_01\", \"Sx\": 2.50, \"Sy\": 0.0, \"Sz\": 12.5}, {\"id\": \"FeOOH_02\", \"Sx\": 2.48, \"Sy\": 0.0, \"Sz\": 18.3}]}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "run_xas",
+      "cli_path": "spec-write",
+      "description": "Element-specific XAS scan (<element>_xas). Guards: beam must be present, count_time \u2264 60 s, n_reps \u2264 20.",
+      "when_to_use": "Element-specific XAS (<element>_xas). Beam must be present; count_time \u2264 60 s; reps \u2264 20.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "element": "example",
+        "count_time": 0.0,
+        "n_reps": 1
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0042\", \"scans_started\": 5}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "safely_remove_filters",
+      "cli_path": "spec-write",
+      "description": "Ramp filters out via the XRS-safe macro \u2014 avoids the sample-damage risk of pulling all attenuators at once.",
+      "when_to_use": "Remove filters using the XRS-safe macro.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0046\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "select_element",
+      "cli_path": "spec-write",
+      "description": "Switch the beamline to the configured per-element geometry \u2014 sets energy, emission energy, Vortex ROI, and runs xes_setup.",
+      "when_to_use": "Switch the beamline to the experiment's configured geometry for a single element (energy, emiss, Vortex ROI, xes_setup).",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "element": "example"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0031\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "set_filter",
+      "cli_path": "spec-write",
+      "description": "Set the filter motor to a 0-255 bitmask (each bit is one filter pad). Used to attenuate the beam before high-flux scans.",
+      "when_to_use": "Set the filter motor (0-255 bitmask).",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "bitmask": 1
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0032\", \"bitmask\": 3}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "set_gain",
+      "cli_path": "spec-write",
+      "description": "Set the SRS current amplifier gain on I0/I1/I2. Accepts a string setting (e.g. '50 nA/V').",
+      "when_to_use": "Set I0/I1/I2 SRS gain (string, e.g. '50 nA/V').",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "which": "i0",
+        "gain_setting": "example"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0033\", \"gain\": \"50 nA/V\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "set_vortex_roi",
+      "cli_path": "spec-write",
+      "description": "Set the Vortex ROI. 'auto' uses the element default; 'explicit' takes channel + lo_ev/hi_ev.",
+      "when_to_use": "Set Vortex ROI (auto or explicit lo_ev/hi_ev).",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "mode": "auto"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0034\", \"roi\": {\"channel\": 1, \"lo_ev\": 6200, \"hi_ev\": 6600}}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "shutter",
+      "cli_path": "spec-write",
+      "description": "Fast-shutter control. fsopen/fsclose toggle the shutter; fson/fsoff enable/disable automatic shuttering; optional delay_s for timed opens.",
+      "when_to_use": "Fast-shutter control.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "command": "fsopen"
+      },
+      "sample_output": "{\"ok\": true, \"action_id\": \"act_0036\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "transition_phase",
+      "cli_path": "spec-write",
+      "description": "Advance the experiment phase, or request a revert. Forward moves are gated by machine-checked preconditions; backward moves require a human approval posted to Slack.",
+      "when_to_use": "Advance (or request to revert) the experiment phase. Preconditions gate forward moves; backward moves go through Slack approval.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "target_phase": "setup"
+      },
+      "sample_output": "{\"allowed\": true, \"previous_phase\": \"beamline_alignment\", \"current_phase\": \"xes_alignment\", \"preconditions\": [{\"name\": \"align_beamline_done\", \"met\": true}], \"reason\": \"all preconditions met\"}",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "cryostat-procedures",
+      "cli_path": "ref",
+      "description": "Liquid helium cryostat operating procedures and safety rules",
+      "when_to_use": "When operator asks about liquid helium cryostat operating procedures and safety rules",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "[Reference document text returned]",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "spec-commands",
+      "cli_path": "ref",
+      "description": "SPEC beamline control software command reference",
+      "when_to_use": "When operator asks about spec beamline control software command reference",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "[Reference document text returned]",
+      "working": false,
+      "comments": ""
+    },
+    {
+      "name": "user-operations",
+      "cli_path": "ref",
+      "description": "BL15-2 user operations quick reference guide",
+      "when_to_use": "When operator asks about bl15-2 user operations quick reference guide",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "[Reference document text returned]",
+      "working": false,
+      "comments": ""
+    }
+  ]
+}
