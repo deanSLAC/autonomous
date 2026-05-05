@@ -405,12 +405,13 @@ TOOL_DEFINITIONS = [
         "function": {
             "name": "evaluate_spec_macro",
             "description": (
-                "Run a SPEC macro in a disposable, network-isolated sandbox container "
-                "and return the resulting log. Use to validate macros you authored or "
-                "edited, or to reproduce a SPEC error in isolation. Each call is a cold "
-                "start: no state persists between calls. Sim-only — does not affect "
-                "real hardware. Always check the log even on ok=True; SPEC sometimes "
-                "exits 0 despite warnings."
+                "Run a SPEC macro in a disposable, network-isolated sandbox container. "
+                "Returns JSON with an `output` key containing the clean command result "
+                "and a `log` key with the full session transcript (startup noise included). "
+                "Use `output` for parsing; use `log` only for debugging. "
+                "Each call is a cold start: no state persists between calls. "
+                "Sim-only — does not affect real hardware. Always check `output` even "
+                "on ok=True; SPEC sometimes exits 0 despite warnings."
             ),
             "parameters": {
                 "type": "object",

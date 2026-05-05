@@ -41,13 +41,13 @@
     {
       "name": "evaluate_spec_macro",
       "cli_path": "tool",
-      "description": "Run a SPEC macro in a disposable, network-isolated Docker container and return the execution log. Use to validate macros you authored or edited, or to reproduce a SPEC error in isolation. Each call is a cold start with no state from prior runs. The container has read-only access to production beamline macros but no network and no host devices \u2014 it cannot affect the live beamline. Always read the log even on ok=True; SPEC sometimes exits 0 despite warnings.",
-      "when_to_use": "Run a SPEC macro in a disposable, network-isolated sandbox container and return the resulting log. Use to validate macros you authored or edited, or to reproduce a SPEC error in isolation. Each call is a cold start: no state persists between calls. Sim-only \u2014 does not affect real hardware. Always check the log even on ok=True; SPEC sometimes exits 0 despite warnings.",
+      "description": "Run a SPEC macro in a disposable, network-isolated sandbox container. Returns JSON with an `output` key containing the clean command result and a `log` key with the full session transcript (startup noise included). Use `output` for parsing; use `log` only for debugging. Each call is a cold start: no state persists between calls. Sim-only \u2014 does not affect real hardware. Always check `output` even on ok=True; SPEC sometimes exits 0 despite warnings.",
+      "when_to_use": "Validate macros you authored or edited, or reproduce a SPEC error in isolation. The `output` key has the clean result; `log` has the full verbose session transcript. Each call is a cold start: no state persists between calls. Sim-only \u2014 does not affect real hardware.",
       "enabled": true,
       "sample_input": {
         "macro": "print \"hello from sandbox\""
       },
-      "sample_output": "{\"ok\": true, \"exit_code\": 0, \"timed_out\": false, \"log\": \"hello from sandbox\\n\", \"duration_s\": 0.42, \"run_id\": \"abc123def456\", \"error\": null}",
+      "sample_output": "{\"ok\": true, \"exit_code\": 0, \"timed_out\": false, \"output\": \"hello from sandbox\\n\", \"log\": \"(full session transcript)\", \"duration_s\": 0.42, \"run_id\": \"abc123def456\", \"error\": null}",
       "working": false,
       "comments": ""
     },
@@ -455,7 +455,7 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"spear_current_mA\": 500.2, \"beamline_state\": \"open\", \"gap_owned\": true, \"beam_good\": true, \"reason\": \"all checks passed\"}",
-      "working": false,
+      "working": true,
       "comments": ""
     },
     {
@@ -466,7 +466,7 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"datafile\": \"Fe_HERFD_0001\", \"logfile\": \"spec_log_20260504.log\"}",
-      "working": false,
+      "working": true,
       "comments": ""
     },
     {
@@ -477,7 +477,7 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"ct\": {\"Seconds\": 1.0, \"I0\": 125000, \"I1\": 3200}, \"i0\": {\"value\": 125000}}",
-      "working": false,
+      "working": true,
       "comments": ""
     },
     {
