@@ -385,24 +385,6 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
-            "name": "spec_command",
-            "description": "Send a command to the running SPEC session. Allowed: wa — motor positions | pwd — current directory | fon — open files | get_S — counter values. Check the log file for output.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "command": {
-                        "type": "string",
-                        "description": "Command name: wa, pwd, fon, or get_S",
-                        "enum": ["wa", "pwd", "fon", "get_S"],
-                    }
-                },
-                "required": ["command"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "evaluate_spec_macro",
             "description": (
                 "Run a SPEC macro in a disposable, network-isolated sandbox container. "

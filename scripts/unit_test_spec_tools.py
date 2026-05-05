@@ -465,10 +465,6 @@ def check_lineage_coverage() -> None:
         name for name, meta in TOOL_LINEAGE.items()
         if meta.get("spec_command") is not None
     }
-    # spec_command is the legacy BeamtimeHero umbrella tool with no
-    # t_* wrapper — it isn't in AUTONOMY_DISPATCH. Skip here; if you
-    # want coverage for the legacy dispatcher, test it separately.
-    spec_bound.discard("spec_command")
     tested = {c.tool for _, cases in ALL_CASES for c in cases}
     missing = spec_bound - tested
     extra = tested - spec_bound

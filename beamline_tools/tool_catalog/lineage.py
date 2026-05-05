@@ -319,19 +319,6 @@ TOOL_LINEAGE: dict[str, dict] = {
         "source_detail": "Parses the SPEC config file on disk.",
         "depends_on": [],
     },
-    "spec_command": {
-        "long_description": (
-            "Send one of a tiny allow-list of *read-only* SPEC commands "
-            "(wa / pwd / fon / get_S) and return the log output. The "
-            "hard allow-list makes this safe to expose to the LLM."
-        ),
-        "python_func": "spec_control.spec_cmd.dispatch(command)",
-        "spec_command": "wa | pwd | fon | get_S",
-        "output": "Plain text from the SPEC log",
-        "source": "spec_session",
-        "source_detail": "Routes through the SPEC command channel; bypasses the action_log since it's read-only.",
-        "depends_on": [],
-    },
 
     # ---------- Autonomy tools — CAT-0: procedures --------------------------
 

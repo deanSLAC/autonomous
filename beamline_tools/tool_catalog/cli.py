@@ -133,10 +133,6 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("get-motor-config", help="Get SPEC motor configuration (controller, steps, mnemonic, name)")
     sub.add_parser("get-counter-config", help="Get SPEC counter configuration (controller, channel, mnemonic, name)")
 
-    # --- SPEC command ---
-    p = sub.add_parser("spec-command", help="Send a command to the running SPEC session (whitelisted commands only)")
-    p.add_argument("--cmd", required=True, dest="spec_cmd", help="Command to send: wa, pwd, fon, or get_S (for get_S, also run get-counter-config to map S[] indices to counter names)")
-
     # --- Reference command ---
     p = sub.add_parser("reference", help="Look up beamline reference documents")
     p.add_argument("doc_name", nargs="?", help="Name of the reference document to display")
@@ -296,7 +292,4 @@ def run_cli(command_str: str) -> tuple[str, list[str]]:
         })
     elif tool_name in ("get_motor_config", "get_counter_config"):
         return execute_tool(tool_name, {})
-    elif tool_name == "spec_command":
-        return execute_tool(tool_name, {"command": args.spec_cmd})
-
     return execute_tool(tool_name, tool_args)

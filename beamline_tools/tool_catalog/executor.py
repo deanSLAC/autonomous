@@ -275,19 +275,6 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
             from beamline_tools.spec_data.spec_config import get_counter_config
             return get_counter_config(), images_b64
 
-        elif name == "spec_command":
-            from beamline_tools.spec_control import spec_cmd, transport
-            cmd = arguments.get("command", "")
-            if not cmd.strip():
-                return "error: empty command", images_b64
-            if not transport.reserve(action_id="raw-spec", command=cmd):
-                return "error: SPEC is busy", images_b64
-            try:
-                dr = spec_cmd.dispatch(cmd, timeout_s=60)
-            finally:
-                transport.release(output=None, errored=False)
-            return (dr.output if dr.ok else f"error: {dr.error}"), images_b64
-
         elif name == "evaluate_spec_macro":
             from beamline_tools.spec_eval import evaluate_spec_macro
             result = evaluate_spec_macro(

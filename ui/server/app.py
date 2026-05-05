@@ -61,7 +61,7 @@ TOOL_CATEGORIES = [
     ("Plots", ["plot_scan", "plot_averaged_scans", "plot_data"]),
     ("Beamline Logs", ["get_latest_log_entries", "search_logs", "list_logs"]),
     ("Files & Macros", ["list_files", "read_file", "write_summary", "write_macro"]),
-    ("SPEC Control", ["get_motor_config", "get_counter_config", "spec_command"]),
+    ("SPEC Control", ["get_motor_config", "get_counter_config"]),
 ]
 
 
