@@ -454,7 +454,7 @@
       "when_to_use": "SPEAR current + BL15 state + gap ownership + beam_good flag.",
       "enabled": true,
       "sample_input": {},
-      "sample_output": "{\"spear_current_mA\": 500.2, \"beamline_state\": \"open\", \"gap_owned\": true, \"beam_good\": true, \"reason\": \"all checks passed\"}",
+      "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"spear_current_ma\": 485.2, \"beamline_state\": \"OPEN\", \"gap_owned\": true, \"beam_good\": true, \"reason\": null, \"raw\": \"{'spear_current': 485.2, 'bl_state': 'OPEN', 'gap_owned': 1}\"}}",
       "working": true,
       "comments": ""
     },
@@ -465,7 +465,7 @@
       "when_to_use": "Parsed fon \u2014 active data/log file names.",
       "enabled": true,
       "sample_input": {},
-      "sample_output": "{\"datafile\": \"Fe_HERFD_0001\", \"logfile\": \"spec_log_20260504.log\"}",
+      "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"raw\": \"data = Fe_HERFD_0001 / log = spec.log\"}}",
       "working": true,
       "comments": ""
     },
@@ -476,7 +476,7 @@
       "when_to_use": "Quick I0 count \u2014 verifies beam on sample before a long scan.",
       "enabled": true,
       "sample_input": {},
-      "sample_output": "{\"ct\": {\"Seconds\": 1.0, \"I0\": 125000, \"I1\": 3200}, \"i0\": {\"value\": 125000}}",
+      "sample_output": "{\"ct\": {\"ok\": true, \"kind\": \"read\", \"result\": {\"counters\": {\"I0\": 120000.0, \"I1\": 89000.0, \"vortDT\": 3700.0, \"I2\": 210.0}, \"raw\": \"I0=1.2e5  I1=8.9e4  vortDT=3.7e3  I2=2.1e2\"}}, \"i0\": {\"ok\": true, \"kind\": \"read\", \"result\": {\"value\": 120000.0, \"raw\": \"120000.0\"}}}",
       "working": true,
       "comments": ""
     },
@@ -487,8 +487,8 @@
       "when_to_use": "Current SPEC_N and datafile.",
       "enabled": true,
       "sample_input": {},
-      "sample_output": "{\"value\": 42}",
-      "working": false,
+      "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"value\": 1042, \"raw\": \"1042\"}}",
+      "working": true,
       "comments": ""
     },
     {
@@ -498,8 +498,8 @@
       "when_to_use": "Read all motor positions (wa) with parsed name\u2192value map.",
       "enabled": true,
       "sample_input": {},
-      "sample_output": "{\"th\": 15.003, \"phi\": 0.0, \"chi\": 90.0, \"energy\": 7112.0, \"m1_x\": 0.125, \"m1_z\": -0.340, \"b_y\": 0.0, \"Sx\": 2.50, \"Sy\": 0.0, \"Sz\": 12.0}",
-      "working": false,
+      "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"positions\": {\"energy\": 12199.998, \"emiss\": 9713.0, \"Sx\": -4.0, \"Sy\": 0.0, \"Sz\": 8.369, \"Sr\": -0.354, \"filter\": 0.0, \"mono\": 12199.998}, \"raw\": \"Current Positions  (user, dial)\\n     energy       emiss ...\"}}",
+      "working": true,
       "comments": ""
     },
     {
@@ -509,10 +509,10 @@
       "when_to_use": "Read a single motor's current position (parsed float).",
       "enabled": true,
       "sample_input": {
-        "motor": "example"
+        "motor": "energy"
       },
-      "sample_output": "{\"motor\": \"th\", \"position\": 15.003}",
-      "working": false,
+      "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"value\": 12199.998, \"raw\": \"\\n            energy\\n            energy\\nUser\\n High    25000.000\\n Current 12199.998\\n Low     5100.000\\nDial\\n ...\"}}",
+      "working": true,
       "comments": ""
     },
     {
@@ -520,7 +520,7 @@
       "cli_path": "spec-read",
       "description": "Send one of a tiny allow-list of *read-only* SPEC commands (wa / pwd / fon / get_S) and return the log output. The hard allow-list makes this safe to expose to the LLM.",
       "when_to_use": "Send a command to the running SPEC session. Allowed: wa \u2014 motor positions | pwd \u2014 current directory | fon \u2014 open files | get_S \u2014 counter values. Check the log file for output.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "command": "wa"
       },
@@ -537,7 +537,7 @@
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0053\"}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\"}",
       "working": false,
       "comments": ""
     },
@@ -550,7 +550,7 @@
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0012\", \"spec_result\": \"align_the_beamline complete\"}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"align_the_beamline complete.\\nfinal_energy_ev=7100 beam_size_h=0.35 beam_size_v=0.12 anchor=saved\", \"elapsed_s\": 120.5}, \"elapsed_s\": 120.5}",
       "working": false,
       "comments": ""
     },
@@ -563,7 +563,7 @@
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0015\", \"per_crystal_pitch_roll\": {\"1\": [0.12, -0.03], \"2\": [0.11, -0.02]}, \"xes_en_offset\": -0.3}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"crystals\": \"1234567\", \"raw\": \"run_spec_align complete. XES_EN_OFFSET=-0.42\", \"elapsed_s\": 90.0}, \"elapsed_s\": 90.0}",
       "working": false,
       "comments": ""
     },
@@ -577,7 +577,7 @@
         "justification": "Testing tool via tool-tester",
         "tabulated_edge_ev": 0.0
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0010\", \"inflection_ev\": 7112.3, \"offset_ev\": -0.3}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"tabulated_ev\": 7112.0, \"raw\": \"calibrate_mono complete. offset=-0.11\", \"elapsed_s\": 5.2}, \"elapsed_s\": 5.2}",
       "working": false,
       "comments": ""
     },
@@ -589,11 +589,11 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "motor": "example",
-        "position": 0.0
+        "motor": "Sz",
+        "position": 1
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0020\", \"final_position\": 12.5}",
-      "working": false,
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"energy\", \"target\": 7200.0, \"raw\": \"Move complete.\", \"elapsed_s\": 0.5}, \"elapsed_s\": 0.5}",
+      "working": true,
       "comments": ""
     },
     {
@@ -604,11 +604,11 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "motor": "example",
-        "delta": 0.0
+        "motor": "Sz",
+        "delta": 1
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0021\", \"final_position\": 2.60}",
-      "working": false,
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"Sx\", \"delta\": 0.1, \"raw\": \"Move complete.\", \"elapsed_s\": 0.3}, \"elapsed_s\": 0.3}",
+      "working": true,
       "comments": ""
     },
     {
@@ -621,7 +621,7 @@
         "justification": "Testing tool via tool-tester",
         "energy_ev": 0.0
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0030\", \"energy_ev\": 8979.0}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"target_ev\": 8979.0, \"raw\": \"Move complete.\", \"elapsed_s\": 2.1}, \"elapsed_s\": 2.1}",
       "working": false,
       "comments": ""
     },
@@ -635,7 +635,7 @@
         "justification": "Testing tool via tool-tester",
         "filename": "example"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0035\", \"filename\": \"Cu_XAS_0001\"}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"filename\": \"Fe_XAS_0001\", \"raw\": \"new file: Fe_XAS_0001\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
       "working": false,
       "comments": ""
     },
@@ -648,7 +648,7 @@
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0011\", \"new_pitch\": 0.0342}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"peak_mono_pitch complete. gain=1.18\", \"elapsed_s\": 3.5}, \"elapsed_s\": 3.5}",
       "working": false,
       "comments": ""
     },
@@ -662,7 +662,7 @@
         "justification": "Testing tool via tool-tester",
         "mode": "cen"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0023\", \"final_position\": 12.48}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"Moved scanned motor to feature.\", \"elapsed_s\": 0.3}, \"elapsed_s\": 0.3}",
       "working": false,
       "comments": ""
     },
@@ -675,7 +675,7 @@
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0029\", \"granted\": true}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"gap granted.\", \"granted\": true, \"elapsed_s\": 5.0}, \"elapsed_s\": 5.0}",
       "working": false,
       "comments": ""
     },
@@ -689,7 +689,7 @@
         "justification": "Testing tool via tool-tester",
         "name": "example"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0014\", \"scan_number\": 7}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"name\": \"vvv\", \"raw\": \"vvv scan complete. scan_n=1001\", \"elapsed_s\": 8.0}, \"elapsed_s\": 8.0}",
       "working": false,
       "comments": ""
     },
@@ -702,7 +702,7 @@
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0040\", \"files_opened\": [\"Fe2O3_01_0001\", \"FeOOH_02_0001\", \"Cu_ref_0001\"]}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"run_collection complete. samples_completed=6 files=6\", \"elapsed_s\": 3600.0}, \"elapsed_s\": 3600.0}",
       "working": false,
       "comments": ""
     },
@@ -719,7 +719,7 @@
         "n_reps": 1,
         "emission_ev": 0.0
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0045\", \"scans_started\": 3}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"element\": \"Fe\", \"count_time\": 0.5, \"n_reps\": 3, \"emission_ev\": 6400.0, \"filter\": 0, \"raw\": \"Fe_cee complete. reps=3 scan_n=1003\", \"elapsed_s\": 45.0}, \"elapsed_s\": 45.0}",
       "working": false,
       "comments": ""
     },
@@ -737,7 +737,7 @@
         "npoints": 1,
         "count_time": 0.0
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0022\", \"scan_number\": 8, \"file_name\": \"Fe_HERFD_0001\"}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"m1vert\", \"start\": 1.92, \"end\": 1.94, \"npoints\": 21, \"count_time\": 0.5, \"raw\": \"Scan #1001 complete. File=mock.01\", \"elapsed_s\": 15.0}, \"elapsed_s\": 15.0}",
       "working": false,
       "comments": ""
     },
@@ -755,7 +755,7 @@
         "npoints": 1,
         "count_time": 0.0
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0024\", \"scan_number\": 9, \"file_name\": \"Fe_HERFD_0001\"}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"m1vert\", \"delta_start\": -0.01, \"delta_end\": 0.01, \"npoints\": 21, \"count_time\": 0.5, \"raw\": \"Scan #1002 complete. File=mock.01\", \"elapsed_s\": 15.0}, \"elapsed_s\": 15.0}",
       "working": false,
       "comments": ""
     },
@@ -768,7 +768,7 @@
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0025\", \"samples\": [{\"id\": \"Fe2O3_01\", \"Sx\": 2.50, \"Sy\": 0.0, \"Sz\": 12.5}, {\"id\": \"FeOOH_02\", \"Sx\": 2.48, \"Sy\": 0.0, \"Sz\": 18.3}]}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"auto_sample_align complete. samples_found=6\", \"elapsed_s\": 30.0}, \"elapsed_s\": 30.0}",
       "working": false,
       "comments": ""
     },
@@ -784,7 +784,7 @@
         "count_time": 0.0,
         "n_reps": 1
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0042\", \"scans_started\": 5}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"element\": \"Fe\", \"count_time\": 0.5, \"n_reps\": 3, \"raw\": \"Fe_xas complete. reps=3 scan_n=1005\", \"elapsed_s\": 60.0}, \"elapsed_s\": 60.0}",
       "working": false,
       "comments": ""
     },
@@ -797,7 +797,7 @@
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0046\"}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"filters removed.\", \"elapsed_s\": 0.3}, \"elapsed_s\": 0.3}",
       "working": false,
       "comments": ""
     },
@@ -811,7 +811,7 @@
         "justification": "Testing tool via tool-tester",
         "element": "example"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0031\"}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"element\": \"Fe\", \"raw\": \"select_element complete.\", \"elapsed_s\": 2.0}, \"elapsed_s\": 2.0}",
       "working": false,
       "comments": ""
     },
@@ -823,10 +823,10 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "bitmask": 1
+        "bitmask": 3
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0032\", \"bitmask\": 3}",
-      "working": false,
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"filter\", \"target\": \"3\", \"raw\": \"Move complete.\", \"elapsed_s\": 0.3}, \"elapsed_s\": 0.3}",
+      "working": true,
       "comments": ""
     },
     {
@@ -838,9 +838,9 @@
       "sample_input": {
         "justification": "Testing tool via tool-tester",
         "which": "i0",
-        "gain_setting": "example"
+        "gain_setting": "10 nA/V"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0033\", \"gain\": \"50 nA/V\"}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"gain\": \"50 nA/V\", \"raw\": \"gain set.\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
       "working": false,
       "comments": ""
     },
@@ -854,7 +854,7 @@
         "justification": "Testing tool via tool-tester",
         "mode": "auto"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0034\", \"roi\": {\"channel\": 1, \"lo_ev\": 6200, \"hi_ev\": 6600}}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"args\": [\"auto\", \"3\"], \"raw\": \"ROI set.\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
       "working": false,
       "comments": ""
     },
@@ -868,7 +868,7 @@
         "justification": "Testing tool via tool-tester",
         "command": "fsopen"
       },
-      "sample_output": "{\"ok\": true, \"action_id\": \"act_0036\"}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"command\": \"fsopen\", \"raw\": \"shutter: fsopen\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
       "working": false,
       "comments": ""
     },
