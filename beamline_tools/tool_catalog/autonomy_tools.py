@@ -300,7 +300,7 @@ def t_set_vortex_roi(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
     mode = args.get("mode", "auto")
     if mode == "auto":
-        a = ["auto", str(args.get("channel", 3))]
+        a = ["auto", str(args.get("channel", 1))]
     else:
         a = [str(args["channel"]), str(args["lo_ev"]), str(args["hi_ev"])]
     res = spec_cmd.call("set_vortex_roi", a, justification=j)

@@ -586,8 +586,9 @@ TOOL_LINEAGE: dict[str, dict] = {
     },
     "set_vortex_roi": {
         "long_description": (
-            "Set the Vortex ROI. 'auto' uses the element default; "
-            "'explicit' takes channel + lo_ev/hi_ev."
+            "Set the Vortex ROI. mode='auto': bounds ±200 eV around the emission "
+            "line for channel (1=vortDT, 3=vortDT2 for a second emission peak). "
+            "mode='explicit': set channel + lo_ev/hi_ev in eV directly."
         ),
         "python_func": "spec_cmd.call('set_vortex_roi', [args...], justification)",
         "spec_command": "vortex_roi auto <channel>  |  vortex_roi <channel> <lo_ev> <hi_ev>",

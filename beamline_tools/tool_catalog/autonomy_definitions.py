@@ -344,7 +344,7 @@ AUTONOMY_TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "set_vortex_roi",
-            "description": "Set Vortex ROI (auto or explicit lo_ev/hi_ev).",
+            "description": "Set Vortex ROI. mode='auto': bounds ±200 eV around the emission line for channel (1=vortDT, 3=vortDT2). mode='explicit': set channel + lo_ev/hi_ev in eV directly.",
             "parameters": {
                 "type": "object",
                 "properties": {

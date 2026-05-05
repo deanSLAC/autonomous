@@ -479,7 +479,7 @@ def _render_emiss(a: list[str]) -> str:
 
 def _render_vortex_roi(a: list[str]) -> str:
     if a[0] == "auto":
-        channel = a[1] if len(a) > 1 else "3"
+        channel = a[1] if len(a) > 1 else "1"
         return f"vortex_roi auto {channel}"
     # explicit: channel lo hi
     return f"vortex_roi {a[0]} {a[1]} {a[2]}"
