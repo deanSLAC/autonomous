@@ -115,6 +115,29 @@ body {
 .theme-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ---- Phase banner ---- */
+.live-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 24px;
+    background: var(--red-dim);
+    border-bottom: 1px solid var(--red);
+}
+
+.live-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--red);
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+}
+
+.live-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 .phase-banner {
     display: flex;
     align-items: center;

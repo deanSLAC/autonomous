@@ -20,7 +20,10 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from dotenv import load_dotenv
+
 ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(ROOT / ".env")
 CONFIG_PATH = ROOT / "beamline_tools" / "tools_config.json"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 BEAMTIMEHERO = ROOT / "scripts" / "beamtimehero"

@@ -464,7 +464,7 @@ AUTONOMY_TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "get_current_datafile",
-            "description": "Parsed fon — active data/log file names.",
+            "description": "Returns the active SPEC data file path (DATAFILE global).",
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },

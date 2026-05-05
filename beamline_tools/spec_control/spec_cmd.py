@@ -275,10 +275,11 @@ _READ: dict[str, CommandSpec] = {
     "get_S": CommandSpec("get_S", "read", lambda a: "p S", lambda o, a: {"raw": o}),
     "ct": CommandSpec(
         "ct", "read",
-        lambda a: f"ct {a[0] if a else '0.5'}",
+        lambda a: f"ct {a[0] if a else '1'}",
         _parse_ct,
     ),
     "fon": CommandSpec("fon", "read", lambda a: "fon", lambda o, a: {"raw": o}),
+    "p_datafile": CommandSpec("p_datafile", "read", lambda a: "p DATAFILE", lambda o, a: {"datafile": o.strip(), "raw": o}),
     "pwd": CommandSpec("pwd", "read", lambda a: "pwd", lambda o, a: {"raw": o, "cwd": o.strip()}),
     "scan_n": CommandSpec("scan_n", "read", lambda a: "p SCAN_N", _parse_int),
     "beam_status": CommandSpec(

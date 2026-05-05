@@ -708,11 +708,10 @@ TOOL_LINEAGE: dict[str, dict] = {
     },
     "get_current_datafile": {
         "long_description": (
-            "Parsed fon output — lists the active SPEC data file and "
-            "log file paths."
+            "Returns the active SPEC data file path via the DATAFILE global."
         ),
-        "python_func": "spec_cmd.call('fon', [], justification='')",
-        "spec_command": "fon",
+        "python_func": "spec_cmd.call('p_datafile', [], justification='')",
+        "spec_command": "p DATAFILE",
         "output": "JSON: {ok, kind, result: {raw}}",
         "source": "spec_session",
         "source_detail": "Read-only.",

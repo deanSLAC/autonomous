@@ -362,7 +362,10 @@ async function initPhaseBanner() {
     try {
         const res = await fetch("/api/mock-status");
         const status = await res.json();
-        if (!status.mock) return;
+        if (!status.mock) {
+            document.getElementById("live-banner").style.display = "";
+            return;
+        }
 
         const banner = document.getElementById("phase-banner");
         const select = document.getElementById("phase-select");

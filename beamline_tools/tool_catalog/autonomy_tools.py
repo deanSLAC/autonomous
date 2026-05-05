@@ -384,7 +384,7 @@ def t_get_scan_number(args: dict) -> tuple[str, list[str]]:
 
 
 def t_get_current_datafile(args: dict) -> tuple[str, list[str]]:
-    res = spec_cmd.call("fon", [], justification="")
+    res = spec_cmd.call("p_datafile", [], justification="")
     return _as_json(res), []
 
 

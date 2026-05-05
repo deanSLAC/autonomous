@@ -39,11 +39,13 @@ sys.path.insert(0, str(ROOT))
 
 # Simulation bootstrap MUST happen before bl_config / beamline_tools imports,
 # because they read SPEC_MOCK / BL_SCAN_DIR / BL_LOGS_DIR at import time.
-try:
-    import simulation  # type: ignore
-    simulation.bootstrap()
-except Exception as e:  # noqa: BLE001
-    print(f"warning: simulation bootstrap failed: {e}", file=sys.stderr)
+# Skip entirely when SPEC_MOCK=0 so we never touch the sandbox or mock paths.
+if os.getenv("SPEC_MOCK", "1") != "0":
+    try:
+        import simulation  # type: ignore
+        simulation.bootstrap()
+    except Exception as e:  # noqa: BLE001
+        print(f"warning: simulation bootstrap failed: {e}", file=sys.stderr)
 
 # Importing orchestration registers CAT-8 plan tools into the catalog.
 try:

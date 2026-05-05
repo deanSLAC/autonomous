@@ -493,7 +493,7 @@
       "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"spear_current_ma\": 485.2, \"beamline_state\": \"OPEN\", \"gap_owned\": true, \"beam_good\": true, \"reason\": null, \"raw\": \"{'spear_current': 485.2, 'bl_state': 'OPEN', 'gap_owned': 1}\"}}",
       "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true
     },
     {
       "name": "get_current_datafile",
@@ -504,7 +504,7 @@
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"raw\": \"data = Fe_HERFD_0001 / log = spec.log\"}}",
       "comments": "",
-      "simulated": true,
+      "simulated": false,
       "working_live": false
     },
     {
@@ -730,7 +730,7 @@
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"gap granted.\", \"granted\": true, \"elapsed_s\": 5.0}, \"elapsed_s\": 5.0}",
       "comments": "",
-      "simulated": true,
+      "simulated": false,
       "working_live": false
     },
     {
