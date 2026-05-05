@@ -276,6 +276,9 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
             return get_counter_config(), images_b64
 
         elif name == "evaluate_spec_macro":
+            from beamline_tools.config import SPEC_MOCK
+            if not SPEC_MOCK:
+                return json.dumps({"ok": False, "error": "evaluate_spec_macro is disabled when SPEC_MOCK=0"}), images_b64
             from beamline_tools.spec_eval import evaluate_spec_macro
             result = evaluate_spec_macro(
                 macro=arguments.get("macro", ""),
