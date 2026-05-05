@@ -98,6 +98,7 @@ def _reset_recorder() -> None:
 KNOWN_MACROS: dict[str, str] = {
     # core motor/scan (mostly in standard.mac)
     "wa": "standard.mac:3716",
+    "wm": "standard.mac:3710",
     "pwd": "standard.mac:54",
     "umv": "standard.mac:3421",
     "umvr": "standard.mac:3424",
@@ -241,7 +242,7 @@ CASES_BL_ALIGN: list[Case] = [
          ["umvr m1vert 0.0"],
          note="relative move"),
     Case("read_motor_position",
-         {"motor": "m1vert"}, ["p A[m1vert]"],
+         {"motor": "m1vert"}, ["wm m1vert"],
          note="read one motor"),
     Case("read_all_positions", {}, ["wa"],
          note="wa"),

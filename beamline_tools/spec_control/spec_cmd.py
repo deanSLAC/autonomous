@@ -130,6 +130,7 @@ def _args_join(args: list[str]) -> str:
 
 def _parse_wa(out: str, _a) -> dict:
     positions: dict[str, float] = {}
+    # Try name=value format (_MockScreen fallback: "  name = value")
     for line in out.splitlines():
         m = re.match(r"\s*([A-Za-z0-9_]+)\s*=\s*(-?\d+\.?\d*)", line)
         if m:
@@ -137,7 +138,47 @@ def _parse_wa(out: str, _a) -> dict:
                 positions[m.group(1)] = float(m.group(2))
             except ValueError:
                 continue
+    if positions:
+        return {"positions": positions, "raw": out}
+    # Columnar format (real SPEC wa): repeating 4-line blocks separated
+    # by blank lines.  Each block: names, names (repeated), user vals,
+    # dial vals.  We extract user positions (3rd line of each block).
+    data_lines = []
+    for line in out.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.lower().startswith("current"):
+            continue
+        data_lines.append(stripped)
+    for i in range(0, len(data_lines) - 3, 4):
+        names = data_lines[i].split()
+        user_vals = data_lines[i + 2].split()
+        for name, val_str in zip(names, user_vals):
+            try:
+                positions[name] = float(val_str)
+            except ValueError:
+                continue
     return {"positions": positions, "raw": out}
+
+
+def _parse_wm(out: str, args: list[str]) -> dict:
+    # wm output has a "User" section with High/Current/Low lines.
+    # Extract the Current value under "User".
+    in_user = False
+    for line in out.splitlines():
+        stripped = line.strip()
+        if stripped == "User":
+            in_user = True
+            continue
+        if stripped == "Dial":
+            in_user = False
+            continue
+        if in_user and stripped.startswith("Current"):
+            for tok in stripped.split()[1:]:
+                try:
+                    return {"value": float(tok), "raw": out}
+                except ValueError:
+                    continue
+    return {"value": None, "raw": out}
 
 
 def _parse_single_float(out: str, _a) -> dict:
@@ -159,13 +200,34 @@ def _parse_int(out: str, _a) -> dict:
 
 
 def _parse_ct(out: str, _a) -> dict:
-    # e.g. "I0=1.2e5  I1=8.9e4  vortDT=3.7e3  I2=2.1e2"
     counters: dict[str, float] = {}
+    # Try name=value format first (standard SPEC show_cnts / _MockScreen)
     for m in re.finditer(r"([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?\d+\.?\d*(?:[eE][+-]?\d+)?)", out):
         try:
             counters[m.group(1)] = float(m.group(2))
         except ValueError:
             continue
+    if counters:
+        return {"counters": counters, "raw": out}
+    # Tabular fallback: a name line followed by a value line
+    lines = [l.strip() for l in out.splitlines() if l.strip()]
+    for i in range(len(lines) - 1):
+        names = lines[i].split()
+        vals = lines[i + 1].split()
+        if len(names) < 2 or len(vals) < 2 or len(names) != len(vals):
+            continue
+        if not all(re.match(r"[A-Za-z_]", n) for n in names):
+            continue
+        paired: dict[str, float] = {}
+        for n, v in zip(names, vals):
+            try:
+                paired[n] = float(v)
+            except ValueError:
+                break
+        else:
+            if paired:
+                counters = paired
+                break
     return {"counters": counters, "raw": out}
 
 
@@ -205,8 +267,8 @@ _READ: dict[str, CommandSpec] = {
     "wa": CommandSpec("wa", "read", lambda a: "wa", _parse_wa),
     "p_motor": CommandSpec(
         "p_motor", "read",
-        lambda a: f"p A[{a[0]}]" if a else "wa",
-        _parse_single_float,
+        lambda a: f"wm {a[0]}" if a else "wa",
+        _parse_wm,
     ),
     "get_S": CommandSpec("get_S", "read", lambda a: "p S", lambda o, a: {"raw": o}),
     "ct": CommandSpec(

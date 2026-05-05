@@ -151,6 +151,14 @@ class _MockScreen:
             return str(cls._scan_n)
         if low.startswith("p beam_status"):
             return "{'spear_current': 485.2, 'bl_state': 'OPEN', 'gap_owned': 1}"
+        if low.startswith("wm "):
+            motor = cmd.split()[1]
+            val = cls._positions.get(motor, 0.0)
+            return (
+                f"\n            {motor}\n            {motor}\n"
+                f"User\n High    99999.000\n Current {val}\n Low     -99999.000\n"
+                f"Dial\n High    99999.000\n Current {val}\n Low     -99999.000"
+            )
         if low.startswith("p a["):
             motor = cmd.split("[")[1].split("]")[0]
             return f"{cls._positions.get(motor, 0.0)}"
