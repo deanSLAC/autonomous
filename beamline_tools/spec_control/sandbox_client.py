@@ -1,0 +1,120 @@
+"""Sandbox transport — routes SPEC commands through the spec-eval Docker API.
+
+Same interface as tcp_client / screen_client: exports dispatch() and
+abort_current().  Also exports is_healthy() for the fallback logic in
+spec_cmd.dispatch().
+
+The spec-eval container runs sim-mode SPEC in a disposable, network-isolated
+Docker container.  Each call is stateless (fresh container).
+"""
+
+from __future__ import annotations
+
+import logging
+import threading
+import time
+
+import requests
+
+from beamline_tools.config import SPEC_EVAL_URL
+from beamline_tools.spec_control.transport import DispatchResult
+
+logger = logging.getLogger(__name__)
+
+# Bypass the HTTP proxy for all sandbox traffic (always localhost).
+_session = requests.Session()
+_session.trust_env = False
+
+# ---------------------------------------------------------------------------
+# Cached health probe
+# ---------------------------------------------------------------------------
+
+_health_lock = threading.Lock()
+_health_cache: dict[str, object] = {"healthy": False, "checked_at": 0.0}
+
+_HEALTH_TIMEOUT = 2.0  # seconds
+
+
+def is_healthy(*, ttl_s: float = 60.0, api_url: str | None = None) -> bool:
+    url = (api_url or SPEC_EVAL_URL).rstrip("/")
+    with _health_lock:
+        if time.time() - float(_health_cache["checked_at"]) < ttl_s:
+            return bool(_health_cache["healthy"])
+    try:
+        resp = _session.get(f"{url}/healthz", timeout=_HEALTH_TIMEOUT)
+        ok = resp.status_code == 200
+    except Exception:
+        ok = False
+    with _health_lock:
+        _health_cache["healthy"] = ok
+        _health_cache["checked_at"] = time.time()
+    if not ok:
+        logger.debug("sandbox health check failed (%s)", url)
+    return ok
+
+
+def clear_health_cache() -> None:
+    with _health_lock:
+        _health_cache["healthy"] = False
+        _health_cache["checked_at"] = 0.0
+
+
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
+
+def dispatch(spec_string: str, *, timeout_s: float = 1800.0,
+             api_url: str | None = None) -> DispatchResult:
+    from beamline_tools.spec_eval import evaluate_spec_macro
+
+    url = api_url or SPEC_EVAL_URL
+    t0 = time.time()
+    result = evaluate_spec_macro(
+        macro=spec_string,
+        timeout_s=int(min(timeout_s, 300)),
+        api_url=url,
+    )
+    elapsed = time.time() - t0
+
+    if result["error"]:
+        return DispatchResult(
+            ok=False,
+            output=result["output"],
+            prompt_seen=True,
+            elapsed_s=result.get("duration_s") or elapsed,
+            error=f"sandbox: {result['error']}",
+        )
+
+    if result["timed_out"]:
+        return DispatchResult(
+            ok=False,
+            output=result["output"],
+            prompt_seen=True,
+            elapsed_s=result.get("duration_s") or elapsed,
+            error="sandbox: macro timed out",
+        )
+
+    if result["exit_code"] and result["exit_code"] != 0:
+        return DispatchResult(
+            ok=False,
+            output=result["output"],
+            prompt_seen=True,
+            elapsed_s=result.get("duration_s") or elapsed,
+            error=f"sandbox: SPEC exited with code {result['exit_code']}",
+        )
+
+    return DispatchResult(
+        ok=True,
+        output=result["output"],
+        prompt_seen=True,
+        elapsed_s=result.get("duration_s") or elapsed,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Abort (no-op — sandbox commands are synchronous one-shot containers)
+# ---------------------------------------------------------------------------
+
+def abort_current() -> bool:
+    logger.info("[sandbox] abort (no-op — sandbox commands are stateless)")
+    return True

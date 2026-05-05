@@ -32,6 +32,7 @@ from beamline_tools.action_log.db import (
 from beamline_tools.config import SPEC_MOCK, SPEC_TRANSPORT
 from beamline_tools.spec_control import (
     phase_allowlist,
+    sandbox_client,
     screen_client,
     tcp_client,
     transport,
@@ -52,20 +53,38 @@ logger = logging.getLogger(__name__)
 
 
 def dispatch(spec_string: str, *, timeout_s: float = 1800.0) -> DispatchResult:
-    """Route a SPEC command to the active transport (mock / tcp / screen)."""
+    """Route a SPEC command to the active transport.
+
+    When SPEC_MOCK=1 the sandbox is tried first; _MockScreen is the fallback
+    if the sandbox API is unreachable.  When SPEC_MOCK=0, SPEC_TRANSPORT
+    selects among sandbox / tcp / screen with no fallback.
+    """
     if SPEC_MOCK:
+        if sandbox_client.is_healthy():
+            result = sandbox_client.dispatch(spec_string, timeout_s=timeout_s)
+            # Fall back to _MockScreen only on API-level failures (transport
+            # error, server error).  SPEC-level failures (non-zero exit,
+            # macro timeout) are valid sandbox results — return them.
+            err = result.error or ""
+            api_failure = ("transport error" in err or "server error" in err)
+            if not api_failure:
+                return result
+            logger.warning("sandbox transport failed, falling back to _MockScreen: %s",
+                           result.error)
         started = time.time()
         output = transport._MockScreen.inject(spec_string)
         return DispatchResult(
             ok=True, output=output, prompt_seen=True,
             elapsed_s=time.time() - started,
         )
+    if SPEC_TRANSPORT == "sandbox":
+        return sandbox_client.dispatch(spec_string, timeout_s=timeout_s)
     if SPEC_TRANSPORT == "tcp":
         return tcp_client.dispatch(spec_string, timeout_s=timeout_s)
     if SPEC_TRANSPORT == "screen":
         return screen_client.dispatch(spec_string, timeout_s=timeout_s)
     raise ValueError(
-        f"unknown SPEC_TRANSPORT={SPEC_TRANSPORT!r} (expected 'tcp' or 'screen')"
+        f"unknown SPEC_TRANSPORT={SPEC_TRANSPORT!r} (expected 'tcp', 'screen', or 'sandbox')"
     )
 
 
@@ -75,12 +94,14 @@ def abort_current() -> bool:
         logger.info("[mock] abort")
         transport.release(output=None, errored=False)
         return True
+    if SPEC_TRANSPORT == "sandbox":
+        return sandbox_client.abort_current()
     if SPEC_TRANSPORT == "tcp":
         return tcp_client.abort_current()
     if SPEC_TRANSPORT == "screen":
         return screen_client.abort_current()
     raise ValueError(
-        f"unknown SPEC_TRANSPORT={SPEC_TRANSPORT!r} (expected 'tcp' or 'screen')"
+        f"unknown SPEC_TRANSPORT={SPEC_TRANSPORT!r} (expected 'tcp', 'screen', or 'sandbox')"
     )
 
 
