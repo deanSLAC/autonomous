@@ -91,7 +91,6 @@ PROCEDURAL_PHASE = {
     "select_element": {PHASE_SAMPLE_ALIGN, PHASE_COLLECTION},
     "xas": {PHASE_COLLECTION},
     "emiss_scan": {PHASE_COLLECTION},
-    "newfile": {PHASE_COLLECTION},
     "run_shortcut": {PHASE_BL_ALIGN},
 }
 
@@ -102,7 +101,7 @@ PROCEDURAL_ANY_PHASE = {
     "umv", "umvr", "mv", "ascan", "dscan",
     "cen", "peak", "shutter", "mv_energy", "gaprequest",
     "safely_remove_filters", "set_i0_gain", "set_i1_gain",
-    "set_i2_gain", "set_vortex_roi", "abort",
+    "set_i2_gain", "set_vortex_roi", "newfile", "abort",
     # Read-only:
     "wa", "p_motor", "get_S", "ct", "fon", "pwd", "scan_n",
     "beam_status", "p_global",
