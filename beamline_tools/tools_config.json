@@ -745,7 +745,7 @@
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"name\": \"vvv\", \"raw\": \"vvv scan complete. scan_n=1001\", \"elapsed_s\": 8.0}, \"elapsed_s\": 8.0}",
       "comments": "",
-      "simulated": false,
+      "simulated": true,
       "working_live": false
     },
     {
@@ -792,11 +792,11 @@
         "start": 0,
         "end": 5,
         "npoints": 20,
-        "count_time": 1
+        "count_time": 0.2
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"m1vert\", \"start\": 1.92, \"end\": 1.94, \"npoints\": 21, \"count_time\": 0.5, \"raw\": \"Scan #1001 complete. File=mock.01\", \"elapsed_s\": 15.0}, \"elapsed_s\": 15.0}",
       "comments": "doesnt allow .5 entry for count time, hangs when it should have been able to finish ok.",
-      "simulated": false,
+      "simulated": true,
       "working_live": false
     },
     {
@@ -815,7 +815,7 @@
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"m1vert\", \"delta_start\": -0.01, \"delta_end\": 0.01, \"npoints\": 21, \"count_time\": 0.5, \"raw\": \"Scan #1002 complete. File=mock.01\", \"elapsed_s\": 15.0}, \"elapsed_s\": 15.0}",
       "comments": "",
-      "simulated": false,
+      "simulated": true,
       "working_live": false
     },
     {
