@@ -61,7 +61,8 @@ def dispatch(spec_string: str, *, timeout_s: float = 1800.0) -> DispatchResult:
     """
     if SPEC_MOCK:
         if sandbox_client.is_healthy():
-            result = sandbox_client.dispatch(spec_string, timeout_s=timeout_s)
+            sim_string = f"check_beam_off; {spec_string}"
+            result = sandbox_client.dispatch(sim_string, timeout_s=timeout_s)
             # Fall back to _MockScreen only on API-level failures (transport
             # error, server error).  SPEC-level failures (non-zero exit,
             # macro timeout) are valid sandbox results — return them.
