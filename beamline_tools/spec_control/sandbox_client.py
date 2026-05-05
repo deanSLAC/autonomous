@@ -16,7 +16,7 @@ import time
 
 import requests
 
-from beamline_tools.config import SPEC_EVAL_URL, SPEC_MOCK, SPEC_TRANSPORT
+from beamline_tools.config import SPEC_EVAL_URL, SPEC_TRANSPORT
 from beamline_tools.spec_control.transport import DispatchResult
 
 logger = logging.getLogger(__name__)
@@ -36,8 +36,6 @@ _HEALTH_TIMEOUT = 2.0  # seconds
 
 
 def is_healthy(*, ttl_s: float = 60.0, api_url: str | None = None) -> bool:
-    if not SPEC_MOCK:
-        return False
     url = (api_url or SPEC_EVAL_URL).rstrip("/")
     with _health_lock:
         if time.time() - float(_health_cache["checked_at"]) < ttl_s:
