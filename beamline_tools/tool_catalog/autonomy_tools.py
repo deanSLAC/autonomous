@@ -348,12 +348,24 @@ def t_get_beam_status(args: dict) -> tuple[str, list[str]]:
     return _as_json(res), []
 
 
-def t_get_i0_value(args: dict) -> tuple[str, list[str]]:
+def t_get_counts(args: dict) -> tuple[str, list[str]]:
     t = args.get("count_time", 0.5)
-    res_ct = spec_cmd.call("ct", [str(t)], justification="")
-    res_s = spec_cmd.call("p_global", ["S[I0]"], justification="")
-    payload = {"ct": res_ct, "i0": res_s}
-    return _as_json(payload), []
+    res = spec_cmd.call("ct", [str(t)], justification="")
+    return _as_json(res), []
+
+
+def t_get_counter(args: dict) -> tuple[str, list[str]]:
+    t = args.get("count_time", 0.5)
+    res = spec_cmd.call("ct", [str(t)], justification="")
+    if res.get("ok") and "counters" in res.get("result", {}):
+        name = args["counter"]
+        counters = res["result"]["counters"]
+        if name in counters:
+            res["result"] = {"value": counters[name], "counter": name, "raw": res["result"].get("raw", "")}
+        else:
+            available = list(counters.keys())
+            res = {"ok": False, "error": f"Counter '{name}' not found. Available: {available}"}
+    return _as_json(res), []
 
 
 def t_request_gap_ownership(args: dict) -> tuple[str, list[str]]:
@@ -718,7 +730,8 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "post_scan_move": t_post_scan_move,
     # CAT-6
     "get_beam_status": t_get_beam_status,
-    "get_i0_value": t_get_i0_value,
+    "get_counts": t_get_counts,
+    "get_counter": t_get_counter,
     "request_gap_ownership": t_request_gap_ownership,
     # CAT-7
     "get_scan_number": t_get_scan_number,

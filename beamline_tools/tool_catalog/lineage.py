@@ -655,17 +655,29 @@ TOOL_LINEAGE: dict[str, dict] = {
         "source_detail": "Read-only. The SPEC side is a custom function (spec.d/check_beam.mac) that prints an associative array of SPEAR/BL15/gap state.",
         "depends_on": [],
     },
-    "get_i0_value": {
+    "get_counts": {
         "long_description": (
-            "Take a short count (ct <t>) and read the I0 scaler value. "
-            "Used as a sanity check before launching a long scan."
+            "Count for the specified time (default 0.5 s) and return all "
+            "counter values as a {name: value} map."
         ),
-        "python_func": "spec_cmd.call('ct', [count_time]) + spec_cmd.call('p_global', ['S[I0]'])",
-        "spec_command": "ct <count_time>   then   p S[I0]",
-        "output": "JSON: {ct: {ok, kind, result: {counters, raw}}, i0: {ok, kind, result: {value, raw}}}",
+        "python_func": "spec_cmd.call('ct', [count_time], justification='')",
+        "spec_command": "ct <count_time>",
+        "output": "JSON: {ok, kind, result: {counters: {name: value, ...}, raw}}",
         "source": "spec_session",
-        "source_detail": "Two sequential SPEC queries; no action_log rows (read-only).",
+        "source_detail": "Read-only; logs to query_log.",
         "depends_on": [],
+    },
+    "get_counter": {
+        "long_description": (
+            "Count for the specified time (default 0.5 s) and return one "
+            "specific counter's value. Runs ct and extracts the named counter."
+        ),
+        "python_func": "spec_cmd.call('ct', [count_time], justification='') → filter by counter name",
+        "spec_command": "ct <count_time>",
+        "output": "JSON: {ok, kind, result: {value, counter, raw}}",
+        "source": "spec_session",
+        "source_detail": "Read-only; logs to query_log.",
+        "depends_on": ["get_counts"],
     },
     "request_gap_ownership": {
         "long_description": (

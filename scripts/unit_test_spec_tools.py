@@ -14,7 +14,7 @@ For each tool we:
 
   1. Call the tool function with representative `args`.
   2. Assert the returned JSON has `ok: true` (or for special-cases like
-     `abort_current_scan` and `get_i0_value`, the equivalent shape).
+     `abort_current_scan`, the equivalent shape).
   3. Capture the SPEC command string(s) that actually hit the
      dispatcher (via a monkey-patched recorder on `_MockScreen.inject`),
      and compare to an expected value.
@@ -71,7 +71,7 @@ from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE  # noqa: E402
 
 # ---- Dispatch recorder -----------------------------------------------------
 # Every SPEC string we send to the mock screen is appended here. Tools
-# that fan out to multiple SPEC calls (e.g. get_i0_value → ct + p S[I0])
+# that fan out to multiple SPEC calls
 # will accumulate multiple entries per tool invocation.
 
 _DISPATCHED: list[str] = []
@@ -201,7 +201,7 @@ class Case:
     * args           — dict we'd build from tool_use input JSON.
     * expected_spec  — the SPEC strings we expect to see on the wire, in
                        order. One tool call can produce multiple SPEC
-                       sends (e.g. get_i0_value).
+                       sends.
     * phase          — phase to set first. None leaves it.
     * expect_ok      — if True, returned JSON must include ok:true.
                        Set False for tools whose JSON shape differs.
@@ -302,8 +302,10 @@ CASES_BL_ALIGN: list[Case] = [
     # CAT-6 beam monitoring (read-only)
     Case("get_beam_status", {}, ["p beam_status()"],
          note="beam snapshot (custom spec.d function)"),
-    Case("get_i0_value", {"count_time": 0.5}, ["ct 0.5", "p S[I0]"],
-         note="I0 via ct+p"),
+    Case("get_counts", {"count_time": 0.5}, ["ct 0.5"],
+         note="all counters via ct"),
+    Case("get_counter", {"counter": "I0", "count_time": 0.5}, ["ct 0.5"],
+         note="single counter via ct"),
     Case("request_gap_ownership", {"justification": "test"},
          ["gaprequest"], note="SPEAR gap request"),
 
@@ -407,20 +409,7 @@ def run_case(case: Case) -> None:
         _record(label, False, str(parsed))
         return
 
-    # get_i0_value returns {"ct": ..., "i0": ...} — not a single ok:true.
-    # Treat "both sub-results dicts" as a success shape.
-    if case.tool == "get_i0_value":
-        sub_ok = (
-            isinstance(parsed, dict)
-            and isinstance(parsed.get("ct"), dict)
-            and isinstance(parsed.get("i0"), dict)
-            and parsed["ct"].get("ok") is True
-            and parsed["i0"].get("ok") is True
-        )
-        if not sub_ok:
-            _record(label, False, f"sub-results not both ok: {parsed}")
-            return
-    elif case.expect_ok:
+    if case.expect_ok:
         if parsed.get("ok") is not True:
             _record(label, False, f"ok!=true: {parsed}")
             return

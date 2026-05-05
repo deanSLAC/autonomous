@@ -12,7 +12,8 @@ You have three classes of tools:
 
   ANALYSIS / READ (no-arg safe): list_scans, read_scan, plot_scan, analyze_*,
     search_logs, list_files, read_file, get_beam_status, get_scan_number,
-    read_all_positions, read_motor_position, get_i0_value, get_experiment_plan,
+    read_all_positions, read_motor_position, get_counts, get_counter,
+    get_experiment_plan,
     get_remaining_beamtime, get_staff_guidance, list_open_interventions,
     recent_actions.
 

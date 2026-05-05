@@ -508,13 +508,27 @@
       "working_live": false
     },
     {
-      "name": "get_i0_value",
+      "name": "get_counts",
       "cli_path": "spec-read",
-      "description": "Take a short count (ct <t>) and read the I0 scaler value. Used as a sanity check before launching a long scan.",
-      "when_to_use": "Quick I0 count \u2014 verifies beam on sample before a long scan.",
+      "description": "Count for <count_time> seconds (default 0.5) and return all counter values (I0, I1, vortDT, etc.) as a {name: value} map.",
+      "when_to_use": "Read all counter values after a fresh count.",
       "enabled": true,
       "sample_input": {},
-      "sample_output": "{\"ct\": {\"ok\": true, \"kind\": \"read\", \"result\": {\"counters\": {\"I0\": 120000.0, \"I1\": 89000.0, \"vortDT\": 3700.0, \"I2\": 210.0}, \"raw\": \"I0=1.2e5  I1=8.9e4  vortDT=3.7e3  I2=2.1e2\"}}, \"i0\": {\"ok\": true, \"kind\": \"read\", \"result\": {\"value\": 120000.0, \"raw\": \"120000.0\"}}}",
+      "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"counters\": {\"I0\": 120000.0, \"I1\": 89000.0, \"vortDT\": 3700.0, \"I2\": 210.0}, \"raw\": \"I0=1.2e5  I1=8.9e4  vortDT=3.7e3  I2=2.1e2\"}}",
+      "comments": "",
+      "simulated": true,
+      "working_live": false
+    },
+    {
+      "name": "get_counter",
+      "cli_path": "spec-read",
+      "description": "Count for <count_time> seconds (default 0.5) and return one specific counter's value by name.",
+      "when_to_use": "Read a single counter value (e.g. I0, I1, vortDT) after a fresh count.",
+      "enabled": true,
+      "sample_input": {
+        "counter": "I0"
+      },
+      "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"value\": 120000.0, \"counter\": \"I0\", \"raw\": \"I0=1.2e5  I1=8.9e4  vortDT=3.7e3  I2=2.1e2\"}}",
       "comments": "",
       "simulated": true,
       "working_live": false
@@ -576,7 +590,7 @@
       "cli_path": "spec-write",
       "description": "Run the full beamline alignment macro. Multi-minute: optimizes M1/M2, peaks mono pitch, aligns the mono slits, optimizes the B stage, zeros the pinhole, measures beam size. One-shot \u2014 refuses a re-run if the action_log shows it already succeeded this experiment.",
       "when_to_use": "Run the full `align_the_beamline` macro. Multi-minute, optimizes M1/M2, peaks mono pitch, aligns mono slits, optimizes B stage, zeros pinhole, measures beam size. Only in phase beamline_alignment.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
@@ -590,7 +604,7 @@
       "cli_path": "spec-write",
       "description": "Align the 7-crystal HERFD analyzer via run_spec_align. One-shot per experiment. Crystals arg selects a subset (e.g. '1234' aligns only crystals 1\u20134).",
       "when_to_use": "Run `run_spec_align` to align the 7-crystal HERFD analyzer. Only in phase xes_alignment.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
@@ -673,7 +687,7 @@
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"filename\": \"Fe_XAS_0001\", \"raw\": \"new file: Fe_XAS_0001\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
       "comments": "",
-      "simulated": false,
+      "simulated": true,
       "working_live": false
     },
     {
@@ -687,7 +701,7 @@
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"peak_mono_pitch complete. gain=1.18\", \"elapsed_s\": 3.5}, \"elapsed_s\": 3.5}",
       "comments": "",
-      "simulated": false,
+      "simulated": true,
       "working_live": false
     },
     {
@@ -702,7 +716,7 @@
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"Moved scanned motor to feature.\", \"elapsed_s\": 0.3}, \"elapsed_s\": 0.3}",
       "comments": "",
-      "simulated": false,
+      "simulated": true,
       "working_live": false
     },
     {
@@ -727,7 +741,7 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "name": "example"
+        "name": "vvv"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"name\": \"vvv\", \"raw\": \"vvv scan complete. scan_n=1001\", \"elapsed_s\": 8.0}, \"elapsed_s\": 8.0}",
       "comments": "",
@@ -739,7 +753,7 @@
       "cli_path": "spec-write",
       "description": "Multi-sample data-collection loop. Cycles through every enabled sample, producing one SPEC file per sample.",
       "when_to_use": "Run `run_collection` \u2014 the multi-sample data collection loop that cycles through every enabled sample. Only in phase collection.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
@@ -753,7 +767,7 @@
       "cli_path": "spec-write",
       "description": "Element-specific emission-energy scan (<element>_cee). Requires an emission_ev; filter is an optional 0-255 bitmask.",
       "when_to_use": "Element-specific emission-energy (_cee) scan.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
         "element": "example",
@@ -774,14 +788,14 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "motor": "example",
-        "start": 0.0,
-        "end": 0.0,
-        "npoints": 1,
-        "count_time": 0.0
+        "motor": "Sz",
+        "start": 0,
+        "end": 5,
+        "npoints": 20,
+        "count_time": 1
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"m1vert\", \"start\": 1.92, \"end\": 1.94, \"npoints\": 21, \"count_time\": 0.5, \"raw\": \"Scan #1001 complete. File=mock.01\", \"elapsed_s\": 15.0}, \"elapsed_s\": 15.0}",
-      "comments": "",
+      "comments": "doesnt allow .5 entry for count time, hangs when it should have been able to finish ok.",
       "simulated": false,
       "working_live": false
     },
@@ -793,11 +807,11 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "motor": "example",
-        "delta_start": 0.0,
-        "delta_end": 0.0,
-        "npoints": 1,
-        "count_time": 0.0
+        "motor": "Sz",
+        "delta_start": 0,
+        "delta_end": 2,
+        "npoints": 10,
+        "count_time": 0.2
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"m1vert\", \"delta_start\": -0.01, \"delta_end\": 0.01, \"npoints\": 21, \"count_time\": 0.5, \"raw\": \"Scan #1002 complete. File=mock.01\", \"elapsed_s\": 15.0}, \"elapsed_s\": 15.0}",
       "comments": "",
@@ -809,7 +823,7 @@
       "cli_path": "spec-write",
       "description": "Run auto_sample_align: Sz survey plus per-sample centering. Populates each sample's Sx/Sy/Sz in the plan.",
       "when_to_use": "Run `auto_sample_align`. Only in phase sample_alignment.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
@@ -823,7 +837,7 @@
       "cli_path": "spec-write",
       "description": "Element-specific XAS scan (<element>_xas). Guards: beam must be present, count_time \u2264 60 s, n_reps \u2264 20.",
       "when_to_use": "Element-specific XAS (<element>_xas). Beam must be present; count_time \u2264 60 s; reps \u2264 20.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
         "element": "example",
@@ -854,7 +868,7 @@
       "cli_path": "spec-write",
       "description": "Switch the beamline to the configured per-element geometry \u2014 sets energy, emission energy, Vortex ROI, and runs xes_setup.",
       "when_to_use": "Switch the beamline to the experiment's configured geometry for a single element (energy, emiss, Vortex ROI, xes_setup).",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
         "element": "example"
@@ -903,14 +917,12 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "mode": "explicit",
-        "channel": 1,
-        "lo_ev": 626,
-        "hi_ev": 666
+        "mode": "auto",
+        "channel": 1
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"args\": [\"1\", \"626\", \"666\"], \"raw\": \"ROI set.\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
       "comments": "",
-      "simulated": false,
+      "simulated": true,
       "working_live": false
     },
     {
@@ -952,8 +964,8 @@
       "sample_input": {},
       "sample_output": "[Reference document text returned]",
       "comments": "",
-      "simulated": false,
-      "working_live": false
+      "simulated": true,
+      "working_live": true
     },
     {
       "name": "spec-commands",
@@ -964,8 +976,8 @@
       "sample_input": {},
       "sample_output": "[Reference document text returned]",
       "comments": "",
-      "simulated": false,
-      "working_live": false
+      "simulated": true,
+      "working_live": true
     },
     {
       "name": "user-operations",
@@ -976,8 +988,8 @@
       "sample_input": {},
       "sample_output": "[Reference document text returned]",
       "comments": "",
-      "simulated": false,
-      "working_live": false
+      "simulated": true,
+      "working_live": true
     }
   ]
 }

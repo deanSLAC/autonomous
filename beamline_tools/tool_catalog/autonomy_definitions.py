@@ -416,12 +416,27 @@ AUTONOMY_TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
-            "name": "get_i0_value",
-            "description": "Quick I0 count — verifies beam on sample before a long scan.",
+            "name": "get_counts",
+            "description": "Count for <count_time> seconds and return all counter values (I0, I1, vortDT, etc.).",
             "parameters": {
                 "type": "object",
                 "properties": {"count_time": {"type": "number"}},
                 "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_counter",
+            "description": "Count for <count_time> seconds and return one specific counter's value.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "counter": {"type": "string"},
+                    "count_time": {"type": "number"},
+                },
+                "required": ["counter"],
             },
         },
     },
@@ -730,7 +745,7 @@ AUTONOMY_TOOL_CATEGORIES = [
         "set_gain", "set_vortex_roi", "open_data_file",
     ]),
     ("CAT-4 Align Fallbacks", ["run_align_shortcut", "post_scan_move"]),
-    ("CAT-6 Beam", ["get_beam_status", "get_i0_value", "request_gap_ownership"]),
+    ("CAT-6 Beam", ["get_beam_status", "get_counts", "get_counter", "request_gap_ownership"]),
     ("CAT-7 State", ["get_scan_number", "get_current_datafile", "abort_current_scan"]),
     ("CAT-8 Orchestration", [
         "transition_phase", "request_human_intervention", "post_status_update",

@@ -99,7 +99,7 @@ Implement all tools from `needed-tools-for-autonomy.md` as Python functions regi
 - **Scan execution wrappers**: `run_motor_scan`, `run_motor_scan_relative`, `run_xas`, `run_emiss_scan`.
 - **Alignment fallbacks (CAT-4)**: `run_align_shortcut`, `post_scan_move`, `optimize_motor_on_signal`, `zero_pinhole`, `find_pinhole`, `center_on_pinhole`, `center_on_sample`.
 - **Sample management (CAT-5)**: `move_to_sample`, `store_sample_position`, `scan_sz_for_samples`.
-- **Beam monitoring (CAT-6)**: `get_beam_status`, `get_i0_value`, `wait_for_stable_beam`, `request_gap_ownership`.
+- **Beam monitoring (CAT-6)**: `get_beam_status`, `get_counts`, `get_counter`, `wait_for_stable_beam`, `request_gap_ownership`.
 - **Run state (CAT-7)**: `get_scan_number`, `get_current_datafile`.
 - **Orchestration (CAT-8)**: `transition_phase`, `post_status_update`, `request_human_intervention`, `update_experiment_plan`, `get_experiment_plan`, `get_remaining_beamtime`, `get_staff_guidance`.
 
