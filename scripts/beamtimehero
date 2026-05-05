@@ -115,7 +115,7 @@ def _json_arg(s: str):
 
 def _add_arg(p: argparse.ArgumentParser, key: str, prop: dict, required: bool) -> None:
     """Add one argparse flag derived from a JSON-schema property."""
-    flag = f"--{key}"
+    flag = f"--{key.replace('_', '-')}"
     desc = (prop.get("description") or "").strip()
     kwargs: dict = {"help": desc}
     if "default" in prop:
