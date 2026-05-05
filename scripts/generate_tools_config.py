@@ -6,7 +6,7 @@ JSON config used by the tool-tester UI and the main app's enable/disable
 filtering.
 
 Idempotent: re-running merges new tools and removes deleted ones while
-preserving user-edited fields (working, comments, sample_output, enabled).
+preserving user-edited fields (simulated, working_live, comments, sample_output, enabled).
 """
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ TOOL_DEFINITIONS = list(_BT_TOOLS) + list(_AUTONOMY_TOOLS) + _EXTRA
 CONFIG_PATH = ROOT / "beamline_tools" / "tools_config.json"
 
 # User-edited fields that survive re-generation
-_PRESERVE_KEYS = {"enabled", "working", "comments", "sample_output"}
+_PRESERVE_KEYS = {"enabled", "simulated", "working_live", "comments", "sample_output"}
 
 
 def _categorize(tool_def: dict) -> str:
@@ -119,7 +119,8 @@ def _build_tool_entry(tool_def: dict) -> dict:
         "enabled": True,
         "sample_input": _build_sample_input(tool_def),
         "sample_output": "",
-        "working": False,
+        "simulated": False,
+        "working_live": False,
         "comments": "",
     }
 
@@ -134,7 +135,8 @@ def _build_ref_entry(ref_name: str, ref_info: dict) -> dict:
         "enabled": True,
         "sample_input": {},
         "sample_output": "",
-        "working": False,
+        "simulated": False,
+        "working_live": False,
         "comments": "",
     }
 

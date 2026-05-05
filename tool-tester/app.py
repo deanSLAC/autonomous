@@ -57,7 +57,8 @@ async def get_config():
 
 class ToolUpdate(BaseModel):
     enabled: bool | None = None
-    working: bool | None = None
+    simulated: bool | None = None
+    working_live: bool | None = None
     comments: str | None = None
     sample_input: dict | None = None
     sample_output: str | None = None

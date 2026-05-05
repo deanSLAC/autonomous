@@ -77,27 +77,36 @@ function groupByCategory(tools) {
 function renderSummary(tools) {
     const bar = document.getElementById("summary-bar");
     const total = tools.length;
-    const working = tools.filter(t => t.working).length;
-    const untested = tools.filter(t => !t.working && t.enabled).length;
+    const live = tools.filter(t => t.working_live).length;
+    const simulated = tools.filter(t => t.simulated && !t.working_live).length;
+    const untested = tools.filter(t => !t.simulated && !t.working_live && t.enabled).length;
     const disabled = tools.filter(t => !t.enabled).length;
     bar.innerHTML = `
         <div class="summary-stat"><span class="count blue">${total}</span> Total</div>
-        <div class="summary-stat"><span class="count green">${working}</span> Working</div>
+        <div class="summary-stat"><span class="count green">${live}</span> Live</div>
+        <div class="summary-stat"><span class="count cyan">${simulated}</span> Simulated</div>
         <div class="summary-stat"><span class="count yellow">${untested}</span> Untested</div>
         <div class="summary-stat"><span class="count red">${disabled}</span> Disabled</div>
     `;
 }
 
+function statusClass(tool) {
+    if (!tool.enabled) return "disabled";
+    if (tool.working_live) return "live";
+    if (tool.simulated) return "simulated";
+    return "untested";
+}
+
 function renderToolCard(tool) {
-    const statusClass = !tool.enabled ? "disabled" : tool.working ? "working" : "untested";
+    const sc = statusClass(tool);
     const inputJson = JSON.stringify(tool.sample_input || {}, null, 2);
     const shortDesc = tool.when_to_use || tool.description || "";
 
     return `
-    <div class="tool-card" data-tool="${tool.name}" data-working="${tool.working}" data-enabled="${tool.enabled}">
+    <div class="tool-card" data-tool="${tool.name}" data-simulated="${tool.simulated}" data-working-live="${tool.working_live}" data-enabled="${tool.enabled}">
         <div class="tool-card-header collapsed" onclick="toggleCard(this)">
             <span class="chevron">▼</span>
-            <span class="status-dot ${statusClass}"></span>
+            <span class="status-dot ${sc}"></span>
             <span class="tool-name">${tool.name}</span>
             <span class="tool-short-desc">${escHtml(shortDesc)}</span>
         </div>
@@ -118,9 +127,14 @@ function renderToolCard(tool) {
                     Enabled
                 </label>
                 <label class="checkbox-item">
-                    <input type="checkbox" ${tool.working ? "checked" : ""}
-                           onchange="onToggleWorking('${tool.name}', this.checked)">
-                    Working
+                    <input type="checkbox" ${tool.simulated ? "checked" : ""}
+                           onchange="onToggleSimulated('${tool.name}', this.checked)">
+                    Simulated
+                </label>
+                <label class="checkbox-item">
+                    <input type="checkbox" ${tool.working_live ? "checked" : ""}
+                           onchange="onToggleLive('${tool.name}', this.checked)">
+                    Live
                 </label>
             </div>
 
@@ -163,8 +177,9 @@ function renderCategories(tools) {
         const catTools = groups[cat] || [];
         if (catTools.length === 0) continue;
 
-        const working = catTools.filter(t => t.working);
-        const untested = catTools.filter(t => !t.working);
+        const live = catTools.filter(t => t.working_live);
+        const simulated = catTools.filter(t => t.simulated && !t.working_live);
+        const untested = catTools.filter(t => !t.simulated && !t.working_live);
         const disabledCount = catTools.filter(t => !t.enabled).length;
 
         html += `<div class="category" data-category="${cat}">`;
@@ -174,16 +189,21 @@ function renderCategories(tools) {
                 <h2>${CATEGORY_LABELS[cat] || cat}</h2>
                 <span class="cat-badge">${cat}</span>
                 <div class="category-counts">
-                    <span class="cc-working">${working.length} working</span>
+                    ${live.length ? `<span class="cc-live">${live.length} live</span>` : ""}
+                    <span class="cc-simulated">${simulated.length} simulated</span>
                     <span class="cc-untested">${untested.length} untested</span>
                     ${disabledCount ? `<span class="cc-disabled">${disabledCount} disabled</span>` : ""}
                 </div>
             </div>
             <div class="category-body">`;
 
-        if (working.length > 0) {
-            html += `<div class="sub-section-label working">Working (${working.length})</div>`;
-            for (const t of working) html += renderToolCard(t);
+        if (live.length > 0) {
+            html += `<div class="sub-section-label live">Live (${live.length})</div>`;
+            for (const t of live) html += renderToolCard(t);
+        }
+        if (simulated.length > 0) {
+            html += `<div class="sub-section-label simulated">Simulated (${simulated.length})</div>`;
+            for (const t of simulated) html += renderToolCard(t);
         }
         if (untested.length > 0) {
             html += `<div class="sub-section-label untested">Untested (${untested.length})</div>`;
@@ -211,36 +231,41 @@ async function onToggleEnabled(name, checked) {
     refreshToolState(name, { enabled: checked });
 }
 
-async function onToggleWorking(name, checked) {
-    await updateTool(name, { working: checked });
-    refreshToolState(name, { working: checked });
+async function onToggleSimulated(name, checked) {
+    await updateTool(name, { simulated: checked });
+    refreshToolState(name, { simulated: checked });
+}
+
+async function onToggleLive(name, checked) {
+    await updateTool(name, { working_live: checked });
+    refreshToolState(name, { working_live: checked });
 }
 
 function refreshToolState(name, updates) {
     const tool = allTools.find(t => t.name === name);
     if (tool) Object.assign(tool, updates);
     renderSummary(allTools);
-    // Update status dot and card position
     const card = document.querySelector(`.tool-card[data-tool="${name}"]`);
     if (card) {
         const dot = card.querySelector(".status-dot");
-        const statusClass = !tool.enabled ? "disabled" : tool.working ? "working" : "untested";
-        dot.className = `status-dot ${statusClass}`;
-        card.dataset.working = tool.working;
+        dot.className = `status-dot ${statusClass(tool)}`;
+        card.dataset.simulated = tool.simulated;
+        card.dataset.workingLive = tool.working_live;
         card.dataset.enabled = tool.enabled;
     }
-    // Update category counts
     const groups = groupByCategory(allTools);
     for (const cat of CATEGORY_ORDER) {
         const catEl = document.querySelector(`.category[data-category="${cat}"]`);
         if (!catEl) continue;
         const catTools = groups[cat] || [];
-        const w = catTools.filter(t => t.working).length;
-        const u = catTools.filter(t => !t.working).length;
+        const l = catTools.filter(t => t.working_live).length;
+        const s = catTools.filter(t => t.simulated && !t.working_live).length;
+        const u = catTools.filter(t => !t.simulated && !t.working_live).length;
         const d = catTools.filter(t => !t.enabled).length;
         const counts = catEl.querySelector(".category-counts");
         counts.innerHTML = `
-            <span class="cc-working">${w} working</span>
+            ${l ? `<span class="cc-live">${l} live</span>` : ""}
+            <span class="cc-simulated">${s} simulated</span>
             <span class="cc-untested">${u} untested</span>
             ${d ? `<span class="cc-disabled">${d} disabled</span>` : ""}
         `;

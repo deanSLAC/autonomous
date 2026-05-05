@@ -13,8 +13,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"per_scan_similarity\": [0.9812, 0.9934, 0.9971, 0.9985], \"cumulative\": [0.9812, 0.9873, 0.9906, 0.9926], \"std_error\": 0.0038, \"verdict\": \"converged\", \"file_name\": \"Fe_HERFD_0001\", \"active_counter\": \"vortDT\", \"scan_numbers\": [1, 2, 3, 4]}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "analyze_efficiency",
@@ -24,8 +25,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"convergence\": 0.9926, \"cv\": 0.041, \"poisson_ratio\": 1.12, \"recommended_n\": 6, \"verdict\": \"reasonable\", \"file_name\": \"Cu_XAS_0002\", \"active_counter\": \"vortDT\", \"scan_numbers\": [1, 2, 3, 4, 5]}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "average_scans",
@@ -35,8 +37,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"x\": [7090.0, 7095.0, \"...\", 7200.0], \"mean\": [0.01, 0.02, \"...\", 1.02], \"std\": [0.003, 0.004, \"...\", 0.008], \"n_scans\": 5, \"file_name\": \"Fe_HERFD_0001\"}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "evaluate_spec_macro",
@@ -48,8 +51,9 @@
         "macro": "print \"hello from sandbox\""
       },
       "sample_output": "{\"ok\": true, \"exit_code\": 0, \"timed_out\": false, \"output\": \"hello from sandbox\\n\", \"log\": \"(full session transcript)\", \"duration_s\": 0.42, \"run_id\": \"abc123def456\", \"error\": null}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "extend_beamtime_budget",
@@ -61,8 +65,9 @@
         "hours_delta": 0.0
       },
       "sample_output": "{\"ok\": true, \"new_total_hours\": 14.0}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "get_active_counter",
@@ -75,8 +80,9 @@
         "scan_number": 1
       },
       "sample_output": "{\"counter\": \"vortDT\", \"reason\": \"vortDT has highest max counts (48523)\"}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "get_counter_config",
@@ -86,8 +92,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "CNT000  EPICS_SC  0  0  1  0x001  sec  Seconds\nCNT001  EPICS_SC  0  1  1  0x002  I0   I0\nCNT002  EPICS_SC  0  2  1  0x000  I1   I1\n...",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "get_experiment_plan",
@@ -97,8 +104,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"sample_queue\": [{\"sample_id\": \"Fe2O3_01\", \"element\": \"Fe\", \"status\": \"queued\", \"reps\": 5}], \"holder_budgets\": {\"holder_A\": {\"count_time_s\": 1.0, \"reps\": 5}}, \"budget\": {\"total_hours\": 12.0}}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "get_latest_log_entries",
@@ -108,8 +116,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"log_file\": \"spec_log_20260504.log\", \"lines\": [\"1234> Fe_xas 1.0 3\", \"Starting scan 42...\", \"Scan 42 complete, 301 points.\"]}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "get_latest_scan",
@@ -119,8 +128,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 5, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"Seconds\", \"I0\", \"I1\", \"vortDT\"], \"data_preview\": \"   energy  Seconds       I0  ...\\n0  7090.0      1.0  125000  ...\"}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "get_motor_config",
@@ -130,8 +140,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "MOT000  EPICS_M1  2000  1.0  0x003  th     Theta\nMOT001  EPICS_M1  2000  1.0  0x003  phi    Phi\nMOT002  EPICS_M1  2000  1.0  0x003  chi    Chi\n...",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "get_remaining_beamtime",
@@ -141,8 +152,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"total_hours\": 12.0, \"elapsed_hours\": 4.5, \"remaining_hours\": 7.5}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "get_scan_deadtime",
@@ -155,8 +167,9 @@
         "scan_number": 1
       },
       "sample_output": "{\"wall_s\": 420.5, \"acq_s\": 301.0, \"dead_s\": 119.5, \"dead_pct\": 28.4}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "get_staff_guidance",
@@ -166,8 +179,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[{\"timestamp\": \"2026-05-04T10:30:00Z\", \"author\": \"staff_jane\", \"text\": \"Use 1s count time for Fe samples, they are radiation sensitive.\"}]",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "list_files",
@@ -177,8 +191,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[{\"name\": \"run01.mac\", \"size\": 2048, \"mtime\": \"2026-05-04T09:15:00\"}, {\"name\": \"setup_Fe.mac\", \"size\": 1536, \"mtime\": \"2026-05-04T08:00:00\"}]",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "list_logs",
@@ -188,8 +203,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[{\"name\": \"spec_log_20260504.log\", \"size\": 524288, \"mtime\": \"2026-05-04T11:00:00\"}, {\"name\": \"spec_log_20260503.log\", \"size\": 1048576, \"mtime\": \"2026-05-03T23:59:00\"}]",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "list_open_interventions",
@@ -199,8 +215,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[{\"id\": \"intv_001\", \"kind\": \"sample_mount\", \"detail\": \"Mount holder B with Cu reference samples\", \"created_at\": \"2026-05-04T10:00:00Z\"}]",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "list_scans",
@@ -210,8 +227,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 5, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"I0\", \"I1\", \"vortDT\"], \"npoints\": 301, \"timestamp\": \"2026-05-04T10:45:00\"}]",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "normalize_scan",
@@ -224,8 +242,9 @@
         "scan_number": 1
       },
       "sample_output": "{\"x\": [7090.0, 7095.0, \"...\", 7200.0], \"y\": [0.002, 0.005, \"...\", 1.01], \"counter\": \"vortDT\", \"normalize_by\": \"I0\"}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "plot_averaged_scans",
@@ -237,8 +256,9 @@
         "file_names": []
       },
       "sample_output": "Overlay plot of 2 samples (Fe_HERFD_0001: 5 scans averaged, Fe_HERFD_0002: 3 scans averaged). [PNG image returned]",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "plot_data",
@@ -251,8 +271,9 @@
         "y": []
       },
       "sample_output": "Plot generated: Fe K-edge XANES (5 points, 1 series). [PNG image returned]",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "plot_scan",
@@ -265,8 +286,9 @@
         "scan_number": 1
       },
       "sample_output": "Fe_HERFD_0001 scan #3: ascan energy 7090 7200 301 1.0 (counter: vortDT). [PNG image returned]",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "post_status_update",
@@ -278,8 +300,9 @@
         "text": "example"
       },
       "sample_output": "{\"posted\": true}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "read_file",
@@ -291,8 +314,9 @@
         "path": "example"
       },
       "sample_output": "# run01.mac - Fe HERFD collection\ndef run01 '\n  newfile Fe_HERFD_0001\n  Fe_xas 1.0 5\n'",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "read_scan",
@@ -305,8 +329,9 @@
         "scan_number": 1
       },
       "sample_output": "{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 3, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"Seconds\", \"I0\", \"I1\", \"vortDT\"], \"data\": \"   energy  Seconds       I0      I1   vortDT\\n0  7090.0      1.0  125340    3201    412\\n1  7091.0      1.0  125122    3198    418\\n...\"}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "recent_actions",
@@ -316,8 +341,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[{\"id\": 42, \"timestamp\": \"2026-05-04T10:30:00Z\", \"phase\": \"collection\", \"command\": \"Fe_xas 1.0 5\", \"justification\": \"Collecting Fe K-edge XAS on sample Fe2O3_01\", \"success\": true}]",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "record_sample_progress",
@@ -329,8 +355,9 @@
         "sample_id": "example"
       },
       "sample_output": "{\"ok\": true}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "regenerate_plan",
@@ -340,8 +367,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"sample_count\": 8}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "request_human_intervention",
@@ -354,8 +382,9 @@
         "detail": "example"
       },
       "sample_output": "{\"resolved\": true, \"note\": \"Fe foil inserted\", \"resolver\": \"staff_jane\"}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "search_logs",
@@ -367,8 +396,9 @@
         "query": "example"
       },
       "sample_output": "[{\"log_file\": \"spec_log_20260504.log\", \"line_number\": 1423, \"line\": \"ERROR: motor limit hit on th at 45.002\"}, {\"log_file\": \"spec_log_20260504.log\", \"line_number\": 1425, \"line\": \"WARNING: motor limit check failed for th\"}]",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "set_beamtime_budget",
@@ -380,8 +410,9 @@
         "hours_total": 0.0
       },
       "sample_output": "{\"ok\": true, \"new_total_hours\": 12.0}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "set_holder_time_budget",
@@ -391,8 +422,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"samples_updated\": 4}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "set_sample_time_budget",
@@ -404,8 +436,9 @@
         "sample_id": "example"
       },
       "sample_output": "{\"ok\": true}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "update_experiment_plan",
@@ -417,8 +450,9 @@
         "plan": {}
       },
       "sample_output": "{\"ok\": true}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "write_macro",
@@ -431,8 +465,9 @@
         "content": "example"
       },
       "sample_output": "Edited macro saved: run01_heroic_2026-05-04.mac",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "write_summary",
@@ -444,8 +479,9 @@
         "content": "example"
       },
       "sample_output": "Summary saved: beamtimehero_conversation_summary_20260504_114500.txt",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "get_beam_status",
@@ -455,8 +491,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"spear_current_ma\": 485.2, \"beamline_state\": \"OPEN\", \"gap_owned\": true, \"beam_good\": true, \"reason\": null, \"raw\": \"{'spear_current': 485.2, 'bl_state': 'OPEN', 'gap_owned': 1}\"}}",
-      "working": true,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "get_current_datafile",
@@ -466,8 +503,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"raw\": \"data = Fe_HERFD_0001 / log = spec.log\"}}",
-      "working": true,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "get_i0_value",
@@ -477,8 +515,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"ct\": {\"ok\": true, \"kind\": \"read\", \"result\": {\"counters\": {\"I0\": 120000.0, \"I1\": 89000.0, \"vortDT\": 3700.0, \"I2\": 210.0}, \"raw\": \"I0=1.2e5  I1=8.9e4  vortDT=3.7e3  I2=2.1e2\"}}, \"i0\": {\"ok\": true, \"kind\": \"read\", \"result\": {\"value\": 120000.0, \"raw\": \"120000.0\"}}}",
-      "working": true,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "get_scan_number",
@@ -488,8 +527,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"value\": 1042, \"raw\": \"1042\"}}",
-      "working": true,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "read_all_positions",
@@ -499,8 +539,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"positions\": {\"energy\": 12199.998, \"emiss\": 9713.0, \"Sx\": -4.0, \"Sy\": 0.0, \"Sz\": 8.369, \"Sr\": -0.354, \"filter\": 0.0, \"mono\": 12199.998}, \"raw\": \"Current Positions  (user, dial)\\n     energy       emiss ...\"}}",
-      "working": true,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "read_motor_position",
@@ -512,21 +553,9 @@
         "motor": "energy"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"value\": 12199.998, \"raw\": \"\\n            energy\\n            energy\\nUser\\n High    25000.000\\n Current 12199.998\\n Low     5100.000\\nDial\\n ...\"}}",
-      "working": true,
-      "comments": ""
-    },
-    {
-      "name": "spec_command",
-      "cli_path": "spec-read",
-      "description": "Send one of a tiny allow-list of *read-only* SPEC commands (wa / pwd / fon / get_S) and return the log output. The hard allow-list makes this safe to expose to the LLM.",
-      "when_to_use": "Send a command to the running SPEC session. Allowed: wa \u2014 motor positions | pwd \u2014 current directory | fon \u2014 open files | get_S \u2014 counter values. Check the log file for output.",
-      "enabled": false,
-      "sample_input": {
-        "command": "wa"
-      },
-      "sample_output": "th      15.003\nphi      0.000\nchi     90.000\nenergy 7112.000\nm1_x     0.125\nm1_z    -0.340\n...",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "abort_current_scan",
@@ -538,8 +567,9 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\"}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "align_beamline",
@@ -551,8 +581,9 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"align_the_beamline complete.\\nfinal_energy_ev=7100 beam_size_h=0.35 beam_size_v=0.12 anchor=saved\", \"elapsed_s\": 120.5}, \"elapsed_s\": 120.5}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "align_xes_spectrometer",
@@ -564,8 +595,9 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"crystals\": \"1234567\", \"raw\": \"run_spec_align complete. XES_EN_OFFSET=-0.42\", \"elapsed_s\": 90.0}, \"elapsed_s\": 90.0}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "calibrate_mono_from_foil_scan",
@@ -578,8 +610,9 @@
         "tabulated_edge_ev": 0.0
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"tabulated_ev\": 7112.0, \"raw\": \"calibrate_mono complete. offset=-0.11\", \"elapsed_s\": 5.2}, \"elapsed_s\": 5.2}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "move_motor",
@@ -593,8 +626,9 @@
         "position": 1
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"energy\", \"target\": 7200.0, \"raw\": \"Move complete.\", \"elapsed_s\": 0.5}, \"elapsed_s\": 0.5}",
-      "working": true,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "move_motor_relative",
@@ -608,8 +642,9 @@
         "delta": 1
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"Sx\", \"delta\": 0.1, \"raw\": \"Move complete.\", \"elapsed_s\": 0.3}, \"elapsed_s\": 0.3}",
-      "working": true,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "mv_energy",
@@ -619,11 +654,12 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "energy_ev": 0.0
+        "energy_ev": 12300
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"target_ev\": 8979.0, \"raw\": \"Move complete.\", \"elapsed_s\": 2.1}, \"elapsed_s\": 2.1}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "open_data_file",
@@ -633,11 +669,12 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "filename": "example"
+        "filename": "alignment"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"filename\": \"Fe_XAS_0001\", \"raw\": \"new file: Fe_XAS_0001\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "peak_mono_pitch",
@@ -649,8 +686,9 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"peak_mono_pitch complete. gain=1.18\", \"elapsed_s\": 3.5}, \"elapsed_s\": 3.5}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "post_scan_move",
@@ -663,8 +701,9 @@
         "mode": "cen"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"Moved scanned motor to feature.\", \"elapsed_s\": 0.3}, \"elapsed_s\": 0.3}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "request_gap_ownership",
@@ -676,8 +715,9 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"gap granted.\", \"granted\": true, \"elapsed_s\": 5.0}, \"elapsed_s\": 5.0}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "run_align_shortcut",
@@ -690,8 +730,9 @@
         "name": "example"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"name\": \"vvv\", \"raw\": \"vvv scan complete. scan_n=1001\", \"elapsed_s\": 8.0}, \"elapsed_s\": 8.0}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "run_collection",
@@ -703,8 +744,9 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"run_collection complete. samples_completed=6 files=6\", \"elapsed_s\": 3600.0}, \"elapsed_s\": 3600.0}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "run_emiss_scan",
@@ -720,8 +762,9 @@
         "emission_ev": 0.0
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"element\": \"Fe\", \"count_time\": 0.5, \"n_reps\": 3, \"emission_ev\": 6400.0, \"filter\": 0, \"raw\": \"Fe_cee complete. reps=3 scan_n=1003\", \"elapsed_s\": 45.0}, \"elapsed_s\": 45.0}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "run_motor_scan",
@@ -738,8 +781,9 @@
         "count_time": 0.0
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"m1vert\", \"start\": 1.92, \"end\": 1.94, \"npoints\": 21, \"count_time\": 0.5, \"raw\": \"Scan #1001 complete. File=mock.01\", \"elapsed_s\": 15.0}, \"elapsed_s\": 15.0}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "run_motor_scan_relative",
@@ -756,8 +800,9 @@
         "count_time": 0.0
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"m1vert\", \"delta_start\": -0.01, \"delta_end\": 0.01, \"npoints\": 21, \"count_time\": 0.5, \"raw\": \"Scan #1002 complete. File=mock.01\", \"elapsed_s\": 15.0}, \"elapsed_s\": 15.0}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "run_sample_alignment",
@@ -769,8 +814,9 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"auto_sample_align complete. samples_found=6\", \"elapsed_s\": 30.0}, \"elapsed_s\": 30.0}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "run_xas",
@@ -785,8 +831,9 @@
         "n_reps": 1
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"element\": \"Fe\", \"count_time\": 0.5, \"n_reps\": 3, \"raw\": \"Fe_xas complete. reps=3 scan_n=1005\", \"elapsed_s\": 60.0}, \"elapsed_s\": 60.0}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "safely_remove_filters",
@@ -798,8 +845,9 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"filters removed.\", \"elapsed_s\": 0.3}, \"elapsed_s\": 0.3}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "select_element",
@@ -812,8 +860,9 @@
         "element": "example"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"element\": \"Fe\", \"raw\": \"select_element complete.\", \"elapsed_s\": 2.0}, \"elapsed_s\": 2.0}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "set_filter",
@@ -826,8 +875,9 @@
         "bitmask": 3
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"filter\", \"target\": \"3\", \"raw\": \"Move complete.\", \"elapsed_s\": 0.3}, \"elapsed_s\": 0.3}",
-      "working": true,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "set_gain",
@@ -841,22 +891,27 @@
         "gain_setting": "10 nA/V"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"gain\": \"50 nA/V\", \"raw\": \"gain set.\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "set_vortex_roi",
       "cli_path": "spec-write",
-      "description": "Set the Vortex ROI. 'auto' uses the element default; 'explicit' takes channel + lo_ev/hi_ev.",
-      "when_to_use": "Set Vortex ROI (auto or explicit lo_ev/hi_ev).",
+      "description": "Set the Vortex ROI. mode='auto': bounds \u00b1200 eV around the emission line for channel (1=vortDT, 3=vortDT2 for a second emission peak). mode='explicit': set channel + lo_ev/hi_ev in eV directly.",
+      "when_to_use": "Set Vortex ROI (auto or explicit channel + lo_ev/hi_ev).",
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "mode": "auto"
+        "mode": "explicit",
+        "channel": 1,
+        "lo_ev": 626,
+        "hi_ev": 666
       },
-      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"args\": [\"auto\", \"3\"], \"raw\": \"ROI set.\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
-      "working": false,
-      "comments": ""
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"args\": [\"1\", \"626\", \"666\"], \"raw\": \"ROI set.\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "shutter",
@@ -866,11 +921,12 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "command": "fsopen"
+        "command": "fson"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"command\": \"fsopen\", \"raw\": \"shutter: fsopen\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": true,
+      "working_live": false
     },
     {
       "name": "transition_phase",
@@ -883,8 +939,9 @@
         "target_phase": "setup"
       },
       "sample_output": "{\"allowed\": true, \"previous_phase\": \"beamline_alignment\", \"current_phase\": \"xes_alignment\", \"preconditions\": [{\"name\": \"align_beamline_done\", \"met\": true}], \"reason\": \"all preconditions met\"}",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "cryostat-procedures",
@@ -894,8 +951,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[Reference document text returned]",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "spec-commands",
@@ -905,8 +963,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[Reference document text returned]",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     },
     {
       "name": "user-operations",
@@ -916,8 +975,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[Reference document text returned]",
-      "working": false,
-      "comments": ""
+      "comments": "",
+      "simulated": false,
+      "working_live": false
     }
   ]
 }
