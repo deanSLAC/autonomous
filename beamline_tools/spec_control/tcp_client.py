@@ -57,6 +57,7 @@ SV_CLOSE = 1
 SV_ABORT = 2
 SV_CMD = 3
 SV_CMD_WITH_RETURN = 4
+SV_REGISTER = 6
 SV_EVENT = 8
 SV_REPLY = 13
 SV_HELLO = 14
@@ -169,7 +170,20 @@ def _connect() -> _Conn:
         "Connected to SPEC %s:%s (process=%r)",
         SPEC_HOST, SPEC_PORT, conn.server_name,
     )
+    _register_output(conn)
     return conn
+
+
+def _register_output(conn: _Conn) -> None:
+    """Subscribe to output/tty events so printed text is delivered."""
+    prop = b"output/tty\x00"
+    with conn.send_lock:
+        conn.serial += 1
+        pkt = _pack_header(SV_REGISTER, SV_STRING, len(prop), conn.serial, "output/tty")
+        try:
+            conn.sock.sendall(pkt + prop)
+        except OSError as e:
+            logger.warning("output/tty registration failed: %s", e)
 
 
 def _get_conn() -> _Conn:
@@ -209,6 +223,7 @@ def dispatch(spec_string: str, *, timeout_s: float = 1800.0) -> DispatchResult:
             ok=False, output="", prompt_seen=False,
             elapsed_s=time.time() - started,
             error=f"spec connect failed ({SPEC_HOST}:{SPEC_PORT}): {e}",
+            transport="tcp",
         )
 
     data_bytes = spec_string.encode("latin-1") + b"\x00"
@@ -226,48 +241,58 @@ def dispatch(spec_string: str, *, timeout_s: float = 1800.0) -> DispatchResult:
                 ok=False, output="", prompt_seen=False,
                 elapsed_s=time.time() - started,
                 error=f"spec send failed: {e}",
+                transport="tcp",
             )
 
-    # Wait for the REPLY whose serial matches. Discard intervening
-    # EVENTs (we haven't subscribed to any, but a stray one during
-    # reconnect is possible).
+    # Collect output/tty SV_EVENT packets until SV_REPLY arrives.
+    # SV_REPLY is guaranteed to be the last packet for a SV_CMD_WITH_RETURN
+    # sequence; all output/tty events arrive before it.
+    output_parts: list[str] = []
     conn.sock.settimeout(max(timeout_s, 1.0))
     try:
         while True:
             hdr, data = _read_packet(conn.sock)
+            if hdr["cmd"] == SV_EVENT:
+                text = data.split(b"\x00", 1)[0].decode("latin-1", errors="replace")
+                output_parts.append(text)
+                continue
             if hdr["cmd"] == SV_REPLY and hdr["sn"] == serial:
-                output = data.split(b"\x00", 1)[0].decode("latin-1", errors="replace")
+                reply_payload = data.split(b"\x00", 1)[0].decode(
+                    "latin-1", errors="replace"
+                )
                 err = hdr["err"]
                 is_err = err != 0 or hdr["type"] == SV_ERROR
                 return DispatchResult(
                     ok=not is_err,
-                    output=output,
+                    output="".join(output_parts),
                     prompt_seen=True,
                     elapsed_s=time.time() - started,
                     error=(
-                        f"spec error (err={err}): {output or 'no message'}"
+                        f"spec error (err={err}): {reply_payload or 'no message'}"
                         if is_err else None
                     ),
+                    reply=reply_payload,
+                    reply_err=err,
+                    transport="tcp",
                 )
-            if hdr["cmd"] == SV_EVENT:
-                logger.debug("ignoring SV_EVENT for %r", hdr["name"])
-                continue
             logger.warning(
                 "unexpected SPEC packet cmd=%s sn=%s name=%r (waiting for sn=%s)",
                 hdr["cmd"], hdr["sn"], hdr["name"], serial,
             )
     except socket.timeout:
         return DispatchResult(
-            ok=False, output="", prompt_seen=False,
+            ok=False, output="".join(output_parts), prompt_seen=False,
             elapsed_s=time.time() - started,
             error=f"spec timeout after {timeout_s}s",
+            transport="tcp",
         )
     except ConnectionError as e:
         _drop_conn(str(e))
         return DispatchResult(
-            ok=False, output="", prompt_seen=False,
+            ok=False, output="".join(output_parts), prompt_seen=False,
             elapsed_s=time.time() - started,
             error=f"spec connection lost: {e}",
+            transport="tcp",
         )
 
 

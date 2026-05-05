@@ -46,6 +46,7 @@ def dispatch(
             ok=False, output="", prompt_seen=False,
             elapsed_s=time.time() - started,
             error=f"screen session '{SPEC_SCREEN_NAME}' not running",
+            transport="screen",
         )
 
     try:
@@ -58,6 +59,7 @@ def dispatch(
             ok=False, output="", prompt_seen=False,
             elapsed_s=time.time() - started,
             error=f"screen stuff failed: {e}",
+            transport="screen",
         )
 
     # Short settle before first capture (many motor moves return <1s)
@@ -91,6 +93,7 @@ def dispatch(
             prompt_seen=prompt_seen,
             elapsed_s=time.time() - started,
             error=None if prompt_seen else "timeout waiting for SPEC> prompt",
+            transport="screen",
         )
     finally:
         try:

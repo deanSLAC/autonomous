@@ -77,6 +77,7 @@ def dispatch(spec_string: str, *, timeout_s: float = 1800.0) -> DispatchResult:
         return DispatchResult(
             ok=True, output=output, prompt_seen=True,
             elapsed_s=time.time() - started,
+            transport="mock",
         )
     if SPEC_TRANSPORT == "sandbox":
         return sandbox_client.dispatch(spec_string, timeout_s=timeout_s)
@@ -637,6 +638,10 @@ def call(
             except ValueError:
                 pass
     parsed["elapsed_s"] = dr.elapsed_s
+    if dr.reply is not None:
+        parsed["_reply"] = dr.reply
+    if dr.transport:
+        parsed["_transport"] = dr.transport
     finish_action(
         row.id, success=True, result=parsed,
         screen_output=dr.output, scan_number=scan_number,

@@ -16,7 +16,7 @@ import time
 
 import requests
 
-from beamline_tools.config import SPEC_EVAL_URL
+from beamline_tools.config import SPEC_EVAL_URL, SPEC_TRANSPORT
 from beamline_tools.spec_control.transport import DispatchResult
 
 logger = logging.getLogger(__name__)
@@ -68,13 +68,25 @@ def dispatch(spec_string: str, *, timeout_s: float = 1800.0,
     from beamline_tools.spec_eval import evaluate_spec_macro
 
     url = api_url or SPEC_EVAL_URL
+    mode = "tcp" if SPEC_TRANSPORT == "tcp" else "screen"
     t0 = time.time()
     result = evaluate_spec_macro(
         macro=spec_string,
         timeout_s=int(min(timeout_s, 300)),
         api_url=url,
+        mode=mode,
     )
     elapsed = time.time() - t0
+
+    _enriched = dict(
+        exit_code=result.get("exit_code"),
+        timed_out=result.get("timed_out"),
+        output_complete=result.get("output_complete"),
+        run_id=result.get("run_id"),
+        log=result.get("log"),
+        reply=result.get("reply"),
+        transport="sandbox",
+    )
 
     if result["error"]:
         return DispatchResult(
@@ -83,6 +95,7 @@ def dispatch(spec_string: str, *, timeout_s: float = 1800.0,
             prompt_seen=True,
             elapsed_s=result.get("duration_s") or elapsed,
             error=f"sandbox: {result['error']}",
+            **_enriched,
         )
 
     if result["timed_out"]:
@@ -92,6 +105,7 @@ def dispatch(spec_string: str, *, timeout_s: float = 1800.0,
             prompt_seen=True,
             elapsed_s=result.get("duration_s") or elapsed,
             error="sandbox: macro timed out",
+            **_enriched,
         )
 
     if result["exit_code"] and result["exit_code"] != 0:
@@ -101,6 +115,7 @@ def dispatch(spec_string: str, *, timeout_s: float = 1800.0,
             prompt_seen=True,
             elapsed_s=result.get("duration_s") or elapsed,
             error=f"sandbox: SPEC exited with code {result['exit_code']}",
+            **_enriched,
         )
 
     return DispatchResult(
@@ -108,6 +123,7 @@ def dispatch(spec_string: str, *, timeout_s: float = 1800.0,
         output=result["output"],
         prompt_seen=True,
         elapsed_s=result.get("duration_s") or elapsed,
+        **_enriched,
     )
 
 

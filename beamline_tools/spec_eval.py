@@ -31,6 +31,8 @@ class SpecEvalResult(TypedDict):
     duration_s: float | None
     run_id: str | None
     error: str | None
+    reply: str | None           # SV_REPLY payload (TCP mode only)
+    output_complete: bool | None
 
 
 def _error_result(message: str) -> SpecEvalResult:
@@ -43,6 +45,8 @@ def _error_result(message: str) -> SpecEvalResult:
         duration_s=None,
         run_id=None,
         error=message,
+        reply=None,
+        output_complete=None,
     )
 
 
@@ -51,6 +55,7 @@ def evaluate_spec_macro(
     preload: list[str] | None = None,
     timeout_s: int = 30,
     api_url: str = DEFAULT_API_URL,
+    mode: str = "screen",
 ) -> SpecEvalResult:
     """Run a SPEC macro in a disposable sandbox container and return the log.
 
@@ -62,7 +67,8 @@ def evaluate_spec_macro(
         "preload": preload or [],
         "timeout_s": timeout_s,
     }
-    url = api_url.rstrip("/") + "/evaluate"
+    endpoint = "/evaluate_tcp" if mode == "tcp" else "/evaluate"
+    url = api_url.rstrip("/") + endpoint
 
     try:
         resp = _session.post(url, json=payload, timeout=_HTTP_TIMEOUT)
@@ -91,4 +97,6 @@ def evaluate_spec_macro(
         duration_s=data.get("duration_s"),
         run_id=data.get("run_id"),
         error=None,
+        reply=data.get("reply"),
+        output_complete=data.get("output_complete"),
     )

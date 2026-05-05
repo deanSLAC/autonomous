@@ -32,6 +32,15 @@ class DispatchResult:
     prompt_seen: bool
     elapsed_s: float
     error: Optional[str] = None
+    # --- enriched (transport-dependent; None when unavailable) ---
+    reply: Optional[str] = None
+    reply_err: Optional[int] = None
+    exit_code: Optional[int] = None
+    timed_out: Optional[bool] = None
+    output_complete: Optional[bool] = None
+    run_id: Optional[str] = None
+    log: Optional[str] = None
+    transport: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
