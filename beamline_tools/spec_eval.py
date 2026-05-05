@@ -5,24 +5,29 @@ in a disposable, network-isolated container before recommending it.
 """
 from __future__ import annotations
 
-import json
 import logging
-import os
 from typing import Any, TypedDict
 
 import requests
 
+from beamline_tools.config import SPEC_EVAL_URL
+
 logger = logging.getLogger(__name__)
 
-DEFAULT_API_URL = os.environ.get("SPEC_EVAL_URL", "http://127.0.0.1:5005")
+DEFAULT_API_URL = SPEC_EVAL_URL
 _HTTP_TIMEOUT = 600  # must comfortably exceed SPEC's own timeout
+
+# Bypass the HTTP proxy for all spec-eval traffic (always localhost).
+_session = requests.Session()
+_session.trust_env = False
 
 
 class SpecEvalResult(TypedDict):
     ok: bool
     exit_code: int | None
     timed_out: bool
-    log: str
+    output: str          # clean command output (between SPEC_EVAL markers)
+    log: str             # full session log including startup/teardown noise
     duration_s: float | None
     run_id: str | None
     error: str | None
@@ -33,6 +38,7 @@ def _error_result(message: str) -> SpecEvalResult:
         ok=False,
         exit_code=None,
         timed_out=False,
+        output="",
         log="",
         duration_s=None,
         run_id=None,
@@ -59,7 +65,7 @@ def evaluate_spec_macro(
     url = api_url.rstrip("/") + "/evaluate"
 
     try:
-        resp = requests.post(url, json=payload, timeout=_HTTP_TIMEOUT)
+        resp = _session.post(url, json=payload, timeout=_HTTP_TIMEOUT)
     except requests.RequestException as e:
         logger.warning("spec-eval transport error: %s", e)
         return _error_result(f"transport error: {e}")
@@ -80,6 +86,7 @@ def evaluate_spec_macro(
         ok=(exit_code == 0 and not timed_out),
         exit_code=exit_code,
         timed_out=timed_out,
+        output=data.get("output", ""),
         log=data.get("log", ""),
         duration_s=data.get("duration_s"),
         run_id=data.get("run_id"),

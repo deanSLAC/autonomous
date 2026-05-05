@@ -48,6 +48,11 @@ SPEC_HOST = os.getenv("SPEC_HOST", "localhost")
 SPEC_PORT = int(os.getenv("SPEC_PORT", "2033"))
 SPEC_NAME = os.getenv("SPEC_NAME", "spec")
 
+# Sandbox API for evaluate_spec_macro (Docker container running sim-mode SPEC).
+# Also used as transport when SPEC_MOCK=1 (with _MockScreen fallback) or
+# when SPEC_TRANSPORT=sandbox.
+SPEC_EVAL_URL = os.getenv("SPEC_EVAL_URL", "http://127.0.0.1:5006")
+
 # ---------------------------------------------------------------------------
 # Database — action_log + query_log live in their own sqlite file so the
 # tools layer carries no schema from the orchestration layer.
