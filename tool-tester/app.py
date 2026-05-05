@@ -7,6 +7,7 @@ Serves at: http://localhost:8418
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -25,6 +26,12 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 BEAMTIMEHERO = ROOT / "scripts" / "beamtimehero"
 
 PORT = 8418
+SPEC_MOCK = os.environ.get("SPEC_MOCK", "1") == "1"
+
+ALL_PHASES = [
+    "setup", "beamline_alignment", "xes_alignment",
+    "sample_alignment", "collection", "complete",
+]
 
 app = FastAPI(title="BeamtimeHero Tool Tester")
 _lock = threading.Lock()
@@ -69,8 +76,14 @@ async def update_tool(tool_name: str, update: ToolUpdate):
     return {"ok": True, "tool": tool}
 
 
+@app.get("/api/mock-status")
+async def mock_status():
+    return {"mock": SPEC_MOCK, "phases": ALL_PHASES}
+
+
 class TestRequest(BaseModel):
     args: dict = {}
+    phase_override: str | None = None
 
 
 @app.post("/api/test/{tool_name}")
@@ -97,10 +110,15 @@ async def test_tool(tool_name: str, req: TestRequest):
             else:
                 cmd += [flag, str(value)]
 
+    env = None
+    if SPEC_MOCK and req.phase_override and req.phase_override in ALL_PHASES:
+        env = {**os.environ, "SPEC_PHASE_OVERRIDE": req.phase_override}
+
     t0 = time.monotonic()
     try:
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=120, cwd=str(ROOT),
+            env=env,
         )
         duration_ms = int((time.monotonic() - t0) * 1000)
         return {

@@ -318,6 +318,11 @@ def _run_tool_leaf(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def main(argv: list[str] | None = None) -> int:
+    phase_override = os.environ.get("SPEC_PHASE_OVERRIDE")
+    if phase_override:
+        from beamline_tools.spec_control import spec_cmd
+        spec_cmd.set_phase(phase_override)
+
     parser = _build_parser()
     args = parser.parse_args(argv)
 

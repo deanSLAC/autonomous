@@ -9,6 +9,7 @@ const CATEGORY_LABELS = {
 };
 
 let allTools = [];
+let currentPhase = localStorage.getItem("tool-tester-phase") || "beamline_alignment";
 
 // ---- Theme ----
 
@@ -52,10 +53,12 @@ async function updateTool(name, fields) {
 }
 
 async function testTool(name, args) {
+    const body = { args };
+    if (currentPhase) body.phase_override = currentPhase;
     return fetch(`/api/test/${name}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ args }),
+        body: JSON.stringify(body),
     }).then(r => r.json());
 }
 
@@ -330,6 +333,31 @@ function escHtml(str) {
 
 // ---- Init ----
 
+async function initPhaseBanner() {
+    try {
+        const res = await fetch("/api/mock-status");
+        const status = await res.json();
+        if (!status.mock) return;
+
+        const banner = document.getElementById("phase-banner");
+        const select = document.getElementById("phase-select");
+        for (const phase of status.phases) {
+            const opt = document.createElement("option");
+            opt.value = phase;
+            opt.textContent = phase.replace(/_/g, " ");
+            select.appendChild(opt);
+        }
+        select.value = currentPhase;
+        select.addEventListener("change", () => {
+            currentPhase = select.value;
+            localStorage.setItem("tool-tester-phase", currentPhase);
+        });
+        banner.style.display = "";
+    } catch (e) {
+        // mock-status unavailable — leave banner hidden
+    }
+}
+
 async function init() {
     initTheme();
     document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
@@ -339,6 +367,7 @@ async function init() {
     allTools = data.tools || [];
     renderSummary(allTools);
     renderCategories(allTools);
+    await initPhaseBanner();
 }
 
 init();
