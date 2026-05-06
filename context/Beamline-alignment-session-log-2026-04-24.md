@@ -1,7 +1,5 @@
 # Beamline Alignment Session — 2026-04-24
 
-Claude (Opus 4.7) drove this alignment via screen-stuffing into the running spec session. Per-command log with timestamps and justifications: `/usr/local/projects/claude_spec_logs/alignment_2026-04-24.log`.
-
 This doc is the "how to do it again" companion — what we did, why, what went wrong, and what to copy-paste next time.
 
 ---
@@ -159,7 +157,6 @@ I1 stable through the rezero (~395 counts/mA). Confirms the beam was not lost in
 
 ### What I'd do differently next time
 
-- Run `pp disable` (or whatever's noisy) **before** the first `ct` so the baseline is clean.
 - For the iteration loop: use `m1m1big` only in pass 1 (or only if pass-1 m1m1 fine showed an at-edge problem); skip it in pass 2 once we're known to be in the aperture. Saves ~2 min per pass.
 - Consider skipping `dscan monvgap` always unless the user wants the snapshot.
 - Establish baseline `ct 1`, then post-step `ct 1` after each `peak`/`cen` — log both raw counts AND I1/mA. The normalized number is what matters; the raw is what's seen on screen.
