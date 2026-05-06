@@ -83,7 +83,7 @@ Only needed when changing to an energy near an absorption edge, or when absev di
 
 1. Insert reference foil in I1 path.
 2. Edge scan: `run-motor-scan-relative --motor energy --start -15 --finish 15 --intervals 60 --count-time 0.2`.
-3. Find inflection with `calibrate-mono-from-foil-scan --tabulated-edge-ev <NIST_value>`.
+3. Find the inflection point of the edge scan and apply calibration against the tabulated NIST edge value. The calibration step itself is not currently exposed through the `beamtimehero` CLI -- request a human intervention with the foil scan number and tabulated edge.
 4. Self-check: finer edge scan, re-find inflection. Accept if within ~0.2 eV.
 5. Iterate steps 2–4 **without** `reset-gap`.
 6. Once converged, `reset-gap` **once** at the end.

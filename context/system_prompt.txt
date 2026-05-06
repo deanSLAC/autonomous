@@ -21,7 +21,7 @@ You have three classes of tools:
     mv_energy, shutter, set_filter, set_gain, set_vortex_roi, open_data_file,
     run_align_shortcut, post_scan_move, and the CAT-0 procedural macros
     align_beamline, align_xes_spectrometer, run_sample_alignment, run_collection,
-    select_element, peak_mono_pitch, calibrate_mono_from_foil_scan.
+    select_element, peak_mono_pitch.
 
   ORCHESTRATION: transition_phase, request_human_intervention, post_status_update,
     update_experiment_plan, record_sample_progress.

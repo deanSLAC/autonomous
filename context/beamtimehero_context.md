@@ -51,7 +51,6 @@ Never type raw SPEC. Every beamline action maps to a `beamtimehero` command.
 | `set_i1_gain("1 mA/V")` | `spec-write set-gain --which i1 --gain-setting "1 mA/V" --justification "..."` |
 | `newfile X` | `spec-write open-data-file --filename X --justification "..."` |
 | `umv energy EV` | `spec-write mv-energy --energy-ev EV --justification "..."` |
-| `calibrate_mono + reset_gap` | `spec-write calibrate-mono-from-foil-scan --tabulated-edge-ev EV --justification "..."` |
 | `p SCAN_N` | `spec-read get-scan-number` |
 | `p DATAFILE` | `spec-read get-current-datafile` |
 | beam status check | `spec-read get-beam-status` |
@@ -74,7 +73,7 @@ Alignment shortcuts available via `run-align-shortcut --name`: `vvv`, `hhh`, `m1
 
 1. **Undulator** -- insertion device that produces the X-ray beam. Motor: `gap`. Diagnostic: `ggg` shortcut scan. Gap ownership from SPEAR via `request-gap-ownership`.
 2. **Mono slits** -- define the beam aperture entering the monochromator. Motors: `monvtra`, `monhtra` (translation), `monvgap`, `monhgap` (gap size). Diagnostics: `vvv` (vertical), `hhh` (horizontal) shortcut scans.
-3. **Monochromator** -- selects photon energy via Bragg diffraction. Motors: `mono`, `crystal`, `energy` (pseudo-motor that coordinates mono angle + gap). Tools: `mv-energy`, `calibrate-mono-from-foil-scan`, `peak-mono-pitch`. The `energy` pseudo-motor auto-selects harmonic: 3rd (4597-7682 eV), 5th (7683-10761 eV), 7th (10762-14000+ eV).
+3. **Monochromator** -- selects photon energy via Bragg diffraction. Motors: `mono`, `crystal`, `energy` (pseudo-motor that coordinates mono angle + gap). Tools: `mv-energy`, `peak-mono-pitch`. The `energy` pseudo-motor auto-selects harmonic: 3rd (4597-7682 eV), 5th (7683-10761 eV), 7th (10762-14000+ eV).
 4. **KB mirrors** -- Kirkpatrick-Baez focusing pair. M1 (vertical focus): `m1vert`, `m1pitch`; diagnostics `m1m1` shortcut. M2 (horizontal focus): `m2vert`, `m2horz`; diagnostic `m2m2` shortcut. Table: `Tz`, `Tp`.
 5. **B-stage** -- houses I2 diode (with calibration foil), absorption filters, I0 ion chamber, and the fast shutter. Motors: `Bx`, `Bz`; diagnostics `bzbz`, `bxbx` shortcuts. `filter` motor (0-255 bitmask, 8 attenuator pads). Fast shutter: `shutter --command fsopen/fsclose/fson/fsoff`.
 6. **Sample** -- `Sx` (horizontal), `Sy` (depth/along beam), `Sz` (vertical), `Sr` (rotation).
@@ -136,7 +135,7 @@ These are summaries. Consult reference docs for full detail before unfamiliar pr
    - `run-align-shortcut vvv` then `post-scan-move peak`.  This should not change with an energy move.
    - `run-align-shortcut bzbz` then `post-scan-move cen`
    - `get-counts` to confirm no regression
-5. Horizontal optics (hhh, m2m2, bxbx) should not change much after energy moves.
+5. Horizontal optics (hhh, m2m2, bxbx) should not change much after energy moves, but you should verify them anyway.
 6. `peak-mono-pitch` -- Occasionally this fails and needs to be repeated a second time. Pay close attention to counts before and after,there should not be dramatic changes.
 7. For full detail: `beamtimehero ref changing-energy`
 
@@ -150,11 +149,11 @@ These are summaries. Consult reference docs for full detail before unfamiliar pr
 - For full detail: `beamtimehero ref beamline-alignment`
 
 **Energy calibration:**
-- Foil scan over reference edge, find inflection point
-- `spec-write calibrate-mono-from-foil-scan --tabulated-edge-ev <NIST_value>`
-- Iterate WITHOUT reset_gap until self-check < 0.5 eV from tabulated
-- Then single reset_gap at the end
+- Foil scan over reference edge, find inflection point against the tabulated NIST edge (use unrounded values, e.g. Au K = 11918.7 eV, Cu K = 8979.0 eV, Fe K = 7112.0 eV)
+- Iterate the foil scan + calibration WITHOUT `reset_gap` until self-check < 0.5 eV from tabulated
+- Then single `reset_gap` at the end
 - Verify `absev` matches calibrated energy via `get-counts`
+- The calibration step itself is not currently exposed through the `beamtimehero` CLI -- request a human intervention to perform the calibration update once the foil scan is in hand
 
 **Data collection:**
 - One SPEC file per sample (`open-data-file`)
