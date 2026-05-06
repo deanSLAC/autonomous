@@ -56,3 +56,6 @@ user_suggestions/
 # ---- Simulation runtime (mock SPEC files + logs are seeded on startup) ----
 simulation/data/
 simulation/logs/
+
+.claude/settings.local.json
+plans/*
