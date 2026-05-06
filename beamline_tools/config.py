@@ -27,9 +27,11 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONTEXT_DIR = PROJECT_ROOT / "context"
 DATA_DIR = PROJECT_ROOT / "data"
+PLANS_DIR = PROJECT_ROOT / "plans"
 OPENCODE_DIR = PROJECT_ROOT / ".opencode"
 OPENCODE_TOOLS_DIR = OPENCODE_DIR / "tools"
 DATA_DIR.mkdir(exist_ok=True)
+PLANS_DIR.mkdir(exist_ok=True)
 
 # ---------------------------------------------------------------------------
 # SPEC dispatcher — defaults to mock so the app boots out-of-box on a
@@ -92,6 +94,8 @@ _DATA_ROOT = Path(os.getenv("BL_SCAN_DIR", "/data/fifteen"))
 def _resolve_scan_dir(root: Path) -> Path:
     """Pick the most recently modified YYYY-mm_* subdirectory, or fall back."""
     if root.is_dir():
+        if re.match(r"\d{4}-\d{2}_", root.name):
+            return root
         subdirs = [d for d in root.iterdir()
                     if d.is_dir() and re.match(r"\d{4}-\d{2}_", d.name)]
         if subdirs:

@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at": "2026-05-04T08:39:54.369558+00:00",
-    "total_tools": 71,
+    "generated_at": "2026-05-06T07:24:15.198995+00:00",
+    "total_tools": 85,
     "generator": "scripts/generate_tools_config.py"
   },
   "tools": [
@@ -13,9 +13,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"per_scan_similarity\": [0.9812, 0.9934, 0.9971, 0.9985], \"cumulative\": [0.9812, 0.9873, 0.9906, 0.9926], \"std_error\": 0.0038, \"verdict\": \"converged\", \"file_name\": \"Fe_HERFD_0001\", \"active_counter\": \"vortDT\", \"scan_numbers\": [1, 2, 3, 4]}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "analyze_efficiency",
@@ -25,9 +25,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"convergence\": 0.9926, \"cv\": 0.041, \"poisson_ratio\": 1.12, \"recommended_n\": 6, \"verdict\": \"reasonable\", \"file_name\": \"Cu_XAS_0002\", \"active_counter\": \"vortDT\", \"scan_numbers\": [1, 2, 3, 4, 5]}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "average_scans",
@@ -37,37 +37,37 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"x\": [7090.0, 7095.0, \"...\", 7200.0], \"mean\": [0.01, 0.02, \"...\", 1.02], \"std\": [0.003, 0.004, \"...\", 0.008], \"n_scans\": 5, \"file_name\": \"Fe_HERFD_0001\"}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "evaluate_spec_macro",
       "cli_path": "tool",
-      "description": "Run a SPEC macro in a disposable, network-isolated sandbox container. Returns JSON with an `output` key containing the clean command result and a `log` key with the full session transcript (startup noise included). Use `output` for parsing; use `log` only for debugging. Each call is a cold start: no state persists between calls. Sim-only \u2014 does not affect real hardware. Always check `output` even on ok=True; SPEC sometimes exits 0 despite warnings.",
-      "when_to_use": "Validate macros you authored or edited, or reproduce a SPEC error in isolation. The `output` key has the clean result; `log` has the full verbose session transcript. Each call is a cold start: no state persists between calls. Sim-only \u2014 does not affect real hardware.",
+      "description": "Run a SPEC macro in a disposable, network-isolated Docker container and return the execution log. Use to validate macros you authored or edited, or to reproduce a SPEC error in isolation. Each call is a cold start with no state from prior runs. The container has read-only access to production beamline macros but no network and no host devices \u2014 it cannot affect the live beamline. Always read the log even on ok=True; SPEC sometimes exits 0 despite warnings.",
+      "when_to_use": "Run a SPEC macro in a disposable, network-isolated sandbox container. Returns JSON with an `output` key containing the clean command result and a `log` key with the full session transcript (startup noise included). Use `output` for parsing; use `log` only for debugging. Each call is a cold start: no state persists between calls. Sim-only \u2014 does not affect real hardware. Always check `output` even on ok=True; SPEC sometimes exits 0 despite warnings.",
       "enabled": true,
       "sample_input": {
-        "macro": "print \"hello from sandbox\""
+        "macro": "example"
       },
       "sample_output": "{\"ok\": true, \"exit_code\": 0, \"timed_out\": false, \"output\": \"hello from sandbox\\n\", \"log\": \"(full session transcript)\", \"duration_s\": 0.42, \"run_id\": \"abc123def456\", \"error\": null}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "extend_beamtime_budget",
       "cli_path": "tool",
       "description": "Add (or subtract, with a negative delta) hours to the beamtime budget. Use this for small adjustments; use set_beamtime_budget for absolute resets.",
       "when_to_use": "Add (or subtract, with a negative delta) hours to the beamtime budget.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "hours_delta": 0.0
       },
       "sample_output": "{\"ok\": true, \"new_total_hours\": 14.0}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "get_active_counter",
@@ -80,9 +80,9 @@
         "scan_number": 1
       },
       "sample_output": "{\"counter\": \"vortDT\", \"reason\": \"vortDT has highest max counts (48523)\"}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "get_counter_config",
@@ -92,21 +92,21 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "CNT000  EPICS_SC  0  0  1  0x001  sec  Seconds\nCNT001  EPICS_SC  0  1  1  0x002  I0   I0\nCNT002  EPICS_SC  0  2  1  0x000  I1   I1\n...",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "get_experiment_plan",
       "cli_path": "tool",
       "description": "Return the live experiment plan \u2014 config, sample queue, holder budgets, and the beamtime budget.",
       "when_to_use": "Return the live experiment plan (config + sample queue + budget).",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {},
       "sample_output": "{\"sample_queue\": [{\"sample_id\": \"Fe2O3_01\", \"element\": \"Fe\", \"status\": \"queued\", \"reps\": 5}], \"holder_budgets\": {\"holder_A\": {\"count_time_s\": 1.0, \"reps\": 5}}, \"budget\": {\"total_hours\": 12.0}}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "get_latest_log_entries",
@@ -116,9 +116,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"log_file\": \"spec_log_20260504.log\", \"lines\": [\"1234> Fe_xas 1.0 3\", \"Starting scan 42...\", \"Scan 42 complete, 301 points.\"]}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "get_latest_scan",
@@ -128,9 +128,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 5, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"Seconds\", \"I0\", \"I1\", \"vortDT\"], \"data_preview\": \"   energy  Seconds       I0  ...\\n0  7090.0      1.0  125000  ...\"}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "get_motor_config",
@@ -140,21 +140,21 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "MOT000  EPICS_M1  2000  1.0  0x003  th     Theta\nMOT001  EPICS_M1  2000  1.0  0x003  phi    Phi\nMOT002  EPICS_M1  2000  1.0  0x003  chi    Chi\n...",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "get_remaining_beamtime",
       "cli_path": "tool",
       "description": "Return total / elapsed / remaining beamtime in hours. Elapsed is computed from the action_log timestamps.",
       "when_to_use": "Total / elapsed / remaining beamtime in hours.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {},
       "sample_output": "{\"total_hours\": 12.0, \"elapsed_hours\": 4.5, \"remaining_hours\": 7.5}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "get_scan_deadtime",
@@ -167,21 +167,21 @@
         "scan_number": 1
       },
       "sample_output": "{\"wall_s\": 420.5, \"acq_s\": 301.0, \"dead_s\": 119.5, \"dead_pct\": 28.4}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "get_staff_guidance",
       "cli_path": "tool",
       "description": "Recent staff/user guidance messages \u2014 either typed into the dashboard guidance panel or posted to Slack.",
       "when_to_use": "Recent staff / user guidance messages (Slack or web).",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {},
       "sample_output": "[{\"timestamp\": \"2026-05-04T10:30:00Z\", \"author\": \"staff_jane\", \"text\": \"Use 1s count time for Fe samples, they are radiation sensitive.\"}]",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "list_files",
@@ -191,9 +191,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[{\"name\": \"run01.mac\", \"size\": 2048, \"mtime\": \"2026-05-04T09:15:00\"}, {\"name\": \"setup_Fe.mac\", \"size\": 1536, \"mtime\": \"2026-05-04T08:00:00\"}]",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "list_logs",
@@ -203,21 +203,21 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[{\"name\": \"spec_log_20260504.log\", \"size\": 524288, \"mtime\": \"2026-05-04T11:00:00\"}, {\"name\": \"spec_log_20260503.log\", \"size\": 1048576, \"mtime\": \"2026-05-03T23:59:00\"}]",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "list_open_interventions",
       "cli_path": "tool",
       "description": "List pause-for-human requests that are still waiting for staff to resolve.",
       "when_to_use": "List pause-for-human requests still waiting.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {},
       "sample_output": "[{\"id\": \"intv_001\", \"kind\": \"sample_mount\", \"detail\": \"Mount holder B with Cu reference samples\", \"created_at\": \"2026-05-04T10:00:00Z\"}]",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "list_scans",
@@ -227,9 +227,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 5, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"I0\", \"I1\", \"vortDT\"], \"npoints\": 301, \"timestamp\": \"2026-05-04T10:45:00\"}]",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "normalize_scan",
@@ -242,9 +242,9 @@
         "scan_number": 1
       },
       "sample_output": "{\"x\": [7090.0, 7095.0, \"...\", 7200.0], \"y\": [0.002, 0.005, \"...\", 1.01], \"counter\": \"vortDT\", \"normalize_by\": \"I0\"}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "plot_averaged_scans",
@@ -256,9 +256,9 @@
         "file_names": []
       },
       "sample_output": "Overlay plot of 2 samples (Fe_HERFD_0001: 5 scans averaged, Fe_HERFD_0002: 3 scans averaged). [PNG image returned]",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "plot_data",
@@ -271,9 +271,9 @@
         "y": []
       },
       "sample_output": "Plot generated: Fe K-edge XANES (5 points, 1 series). [PNG image returned]",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "plot_scan",
@@ -286,9 +286,9 @@
         "scan_number": 1
       },
       "sample_output": "Fe_HERFD_0001 scan #3: ascan energy 7090 7200 301 1.0 (counter: vortDT). [PNG image returned]",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "post_status_update",
@@ -300,9 +300,9 @@
         "text": "example"
       },
       "sample_output": "{\"posted\": true}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "read_file",
@@ -314,9 +314,9 @@
         "path": "example"
       },
       "sample_output": "# run01.mac - Fe HERFD collection\ndef run01 '\n  newfile Fe_HERFD_0001\n  Fe_xas 1.0 5\n'",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "read_scan",
@@ -329,9 +329,9 @@
         "scan_number": 1
       },
       "sample_output": "{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 3, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"Seconds\", \"I0\", \"I1\", \"vortDT\"], \"data\": \"   energy  Seconds       I0      I1   vortDT\\n0  7090.0      1.0  125340    3201    412\\n1  7091.0      1.0  125122    3198    418\\n...\"}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "recent_actions",
@@ -341,50 +341,65 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[{\"id\": 42, \"timestamp\": \"2026-05-04T10:30:00Z\", \"phase\": \"collection\", \"command\": \"Fe_xas 1.0 5\", \"justification\": \"Collecting Fe K-edge XAS on sample Fe2O3_01\", \"success\": true}]",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "record_sample_progress",
       "cli_path": "tool",
       "description": "Update per-sample status (queued/in_progress/done/skipped/failed), SNR estimate, efficiency verdict, and reps completed. Preserves the rest of the plan.",
       "when_to_use": "Update per-sample status (snr_estimate, efficiency_verdict, reps_completed, note).",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "sample_id": "example"
       },
       "sample_output": "{\"ok\": true}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "regenerate_plan",
       "cli_path": "tool",
       "description": "Rebuild the sample plan from the DB while preserving per-sample progress (status, reps_completed, notes) and user overrides (thresholds, holder_budgets, total budget). Call this after a sample holder is added or edited.",
       "when_to_use": "Rebuild the sample plan from the database while preserving per-sample progress (status, reps_completed, notes) and user overrides (thresholds, holder_budgets, budget). Call this after a new sample holder is configured or an existing one is edited.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"sample_count\": 8}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "request_human_intervention",
       "cli_path": "tool",
       "description": "Pause the agent and ask a human to perform a physical action (crystal install, sample mount, foil insert, hardware reset, or custom). Posts to Slack and blocks until staff resolves it from the dashboard or Slack.",
       "when_to_use": "Pause the agent and ask a human to complete a physical action (crystal install, sample mount, foil insert, etc.). Posts to Slack and blocks until resolved.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "kind": "crystal_install",
         "detail": "example"
       },
       "sample_output": "{\"resolved\": true, \"note\": \"Fe foil inserted\", \"resolver\": \"staff_jane\"}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "save_plan",
+      "cli_path": "tool",
+      "description": "Persist a markdown plan into the project's plans/ directory. Used at the start of multi-step tasks (typically beamline optimization) to record the step-by-step plan the agent intends to follow, so future sessions can review what was attempted and why. Filenames are validated against a strict allow-list and writes are confined to PLANS_DIR \u2014 no path traversal, no overwriting unless explicitly requested.",
+      "when_to_use": "Save a markdown plan to the project's plans/ directory. Use this at the start of a beamline-optimization session (or any multi-step task) to persist the step-by-step plan you generated, so future sessions can review what was attempted and why.",
+      "enabled": true,
+      "sample_input": {
+        "filename": "example",
+        "content": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "search_logs",
@@ -396,63 +411,63 @@
         "query": "example"
       },
       "sample_output": "[{\"log_file\": \"spec_log_20260504.log\", \"line_number\": 1423, \"line\": \"ERROR: motor limit hit on th at 45.002\"}, {\"log_file\": \"spec_log_20260504.log\", \"line_number\": 1425, \"line\": \"WARNING: motor limit check failed for th\"}]",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "set_beamtime_budget",
       "cli_path": "tool",
       "description": "Set the total beamtime budget (in hours) to an absolute value. Use this when a new allocation is granted.",
       "when_to_use": "Set the total beamtime budget (in hours) to an absolute value.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "hours_total": 0.0
       },
       "sample_output": "{\"ok\": true, \"new_total_hours\": 12.0}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "set_holder_time_budget",
       "cli_path": "tool",
       "description": "Set a default per-sample time budget for a whole sample holder. New samples inherit the default; when apply_to_existing is true (default), existing samples on that holder also pick up the change.",
       "when_to_use": "Set a default per-sample time budget for an entire sample holder. Stored under the plan's holder_budgets so new samples inherit it; when apply_to_existing=true (default), existing samples on that holder also get the new count_time/reps.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"samples_updated\": 4}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "set_sample_time_budget",
       "cli_path": "tool",
       "description": "Adjust the time budget for a single sample \u2014 change the per-rep count_time and/or the number of reps. Mode restricts the change to one of xas or emiss.",
       "when_to_use": "Adjust the time budget for a single sample \u2014 change either the per-repetition count time or the number of reps (or both). Optionally restrict to one mode ('xas' or 'emiss').",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "sample_id": "example"
       },
       "sample_output": "{\"ok\": true}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "update_experiment_plan",
       "cli_path": "tool",
       "description": "Replace the live experiment plan JSON wholesale. The structure is up to the agent, but downstream views expect a sample_queue + holder_budgets + budget shape.",
       "when_to_use": "Replace the live experiment plan JSON (structure decided by the agent).",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "plan": {}
       },
       "sample_output": "{\"ok\": true}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "write_macro",
@@ -465,9 +480,9 @@
         "content": "example"
       },
       "sample_output": "Edited macro saved: run01_heroic_2026-05-04.mac",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "write_summary",
@@ -479,9 +494,9 @@
         "content": "example"
       },
       "sample_output": "Summary saved: beamtimehero_conversation_summary_20260504_114500.txt",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "get_beam_status",
@@ -491,47 +506,47 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"spear_current_ma\": 485.2, \"beamline_state\": \"OPEN\", \"gap_owned\": true, \"beam_good\": true, \"reason\": null, \"raw\": \"{'spear_current': 485.2, 'bl_state': 'OPEN', 'gap_owned': 1}\"}}",
-      "comments": "",
       "simulated": true,
-      "working_live": true
-    },
-    {
-      "name": "get_current_datafile",
-      "cli_path": "spec-read",
-      "description": "Parsed fon output \u2014 lists the active SPEC data file and log file paths.",
-      "when_to_use": "Parsed fon \u2014 active data/log file names.",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"raw\": \"data = Fe_HERFD_0001 / log = spec.log\"}}",
-      "comments": "",
-      "simulated": false,
-      "working_live": false
-    },
-    {
-      "name": "get_counts",
-      "cli_path": "spec-read",
-      "description": "Count for <count_time> seconds (default 0.5) and return all counter values (I0, I1, vortDT, etc.) as a {name: value} map.",
-      "when_to_use": "Read all counter values after a fresh count.",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"counters\": {\"I0\": 120000.0, \"I1\": 89000.0, \"vortDT\": 3700.0, \"I2\": 210.0}, \"raw\": \"I0=1.2e5  I1=8.9e4  vortDT=3.7e3  I2=2.1e2\"}}",
-      "comments": "",
-      "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "get_counter",
       "cli_path": "spec-read",
-      "description": "Count for <count_time> seconds (default 0.5) and return one specific counter's value by name.",
-      "when_to_use": "Read a single counter value (e.g. I0, I1, vortDT) after a fresh count.",
+      "description": "Count for the specified time (default 0.5 s) and return one specific counter's value. Runs ct and extracts the named counter.",
+      "when_to_use": "Count for <count_time> seconds and return one specific counter's value.",
       "enabled": true,
       "sample_input": {
-        "counter": "I0"
+        "counter": "example"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"value\": 120000.0, \"counter\": \"I0\", \"raw\": \"I0=1.2e5  I1=8.9e4  vortDT=3.7e3  I2=2.1e2\"}}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "get_counts",
+      "cli_path": "spec-read",
+      "description": "Count for the specified time (default 0.5 s) and return all counter values as a {name: value} map.",
+      "when_to_use": "Count for <count_time> seconds and return all counter values (I0, I1, vortDT, etc.).",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"counters\": {\"I0\": 120000.0, \"I1\": 89000.0, \"vortDT\": 3700.0, \"I2\": 210.0}, \"raw\": \"I0=1.2e5  I1=8.9e4  vortDT=3.7e3  I2=2.1e2\"}}",
+      "simulated": true,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "get_current_datafile",
+      "cli_path": "spec-read",
+      "description": "Returns the active SPEC data file path via the DATAFILE global.",
+      "when_to_use": "Returns the active SPEC data file path (DATAFILE global).",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"datafile\": \"/data/fifteen/2026-05_User/Fe_HERFD_0001\", \"raw\": \"/data/fifteen/2026-05_User/Fe_HERFD_0001\"}}",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "get_scan_number",
@@ -541,9 +556,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"value\": 1042, \"raw\": \"1042\"}}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "read_all_positions",
@@ -553,9 +568,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"positions\": {\"energy\": 12199.998, \"emiss\": 9713.0, \"Sx\": -4.0, \"Sy\": 0.0, \"Sz\": 8.369, \"Sr\": -0.354, \"filter\": 0.0, \"mono\": 12199.998}, \"raw\": \"Current Positions  (user, dial)\\n     energy       emiss ...\"}}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "read_motor_position",
@@ -564,12 +579,12 @@
       "when_to_use": "Read a single motor's current position (parsed float).",
       "enabled": true,
       "sample_input": {
-        "motor": "energy"
+        "motor": "example"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"value\": 12199.998, \"raw\": \"\\n            energy\\n            energy\\nUser\\n High    25000.000\\n Current 12199.998\\n Low     5100.000\\nDial\\n ...\"}}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "abort_current_scan",
@@ -581,9 +596,9 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\"}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "align_beamline",
@@ -595,9 +610,9 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"align_the_beamline complete.\\nfinal_energy_ev=7100 beam_size_h=0.35 beam_size_v=0.12 anchor=saved\", \"elapsed_s\": 120.5}, \"elapsed_s\": 120.5}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "align_xes_spectrometer",
@@ -609,24 +624,52 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"crystals\": \"1234567\", \"raw\": \"run_spec_align complete. XES_EN_OFFSET=-0.42\", \"elapsed_s\": 90.0}, \"elapsed_s\": 90.0}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "big_beam",
+      "cli_path": "spec-write",
+      "description": "Set the KB-mirror benders to the big-beam (mm-scale, standard LiSA) preset. Moves m1ubend/m1dbend/m2ubend/m2dbend to the configured big-beam values and tags both beamsize_mode axes as 'big'.",
+      "when_to_use": "Set the KB-mirror benders to the big-beam preset (mm-scale, standard LiSA configuration). Moves m1ubend/m1dbend/m2ubend/m2dbend to the configured big-beam positions and tags both beamsize_mode axes as 'big'.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "calibrate_mono_from_foil_scan",
       "cli_path": "spec-write",
       "description": "Standard mono calibration: dscan energy \u00b115 eV over a reference foil, find the inflection, then call calibrate_mono + reset_gap. The tabulated edge energy must be within 5 eV of the current energy.",
       "when_to_use": "Standard calibration: dscan energy \u00b115 eV around a reference foil, find the inflection, and call calibrate_mono + reset_gap. `tabulated_edge_ev` must be within 5 eV of current energy.",
-      "enabled": true,
+      "enabled": false,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
         "tabulated_edge_ev": 0.0
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"tabulated_ev\": 7112.0, \"raw\": \"calibrate_mono complete. offset=-0.11\", \"elapsed_s\": 5.2}, \"elapsed_s\": 5.2}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "measure_beam_size",
+      "cli_path": "spec-write",
+      "description": "Knife-edge scan to measure horizontal and vertical beam FWHM. Multi-minute. Removes filters, ensures DATAFILE=alignment, runs centered knife-edge scans on Sx and Sz, stores results in the global beamsize[] array. Each axis supports 'big' (large mm-scale beam) or 'small' (~50um focused) modes \u2014 wrong mode produces artifacts.",
+      "when_to_use": "Knife-edge scan to measure horizontal and vertical beam FWHM. Multi-minute. Removes filters and ensures DATAFILE=alignment. Each axis can be measured in 'big' (false, ~mm-scale beam) or 'small' (true, ~50um focused) mode; wrong mode produces artifacts. Standard LiSA configuration is small_x=false, small_z=false.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "move_motor",
@@ -636,13 +679,13 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "motor": "Sz",
-        "position": 1
+        "motor": "example",
+        "position": 0.0
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"energy\", \"target\": 7200.0, \"raw\": \"Move complete.\", \"elapsed_s\": 0.5}, \"elapsed_s\": 0.5}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "move_motor_relative",
@@ -652,13 +695,13 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "motor": "Sz",
-        "delta": 1
+        "motor": "example",
+        "delta": 0.0
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"Sx\", \"delta\": 0.1, \"raw\": \"Move complete.\", \"elapsed_s\": 0.3}, \"elapsed_s\": 0.3}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "mv_energy",
@@ -668,12 +711,68 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "energy_ev": 12300
+        "energy_ev": 0.0
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"target_ev\": 8979.0, \"raw\": \"Move complete.\", \"elapsed_s\": 2.1}, \"elapsed_s\": 2.1}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "mv_knife_clear",
+      "cli_path": "spec-write",
+      "description": "Move the sample stage so the knife-edge blades are clear of the beam. Fast move, but the diagnostic body may still partially clip the beam to I1 \u2014 prefer mv_knife_out before trusting I1 for upstream-optic alignment.",
+      "when_to_use": "Move the sample stage so the knife-edge blades are clear of the beam. Fast move, but the diagnostic body may still partially clip the beam to I1. Use mv_knife_out instead before trusting I1 for upstream-optic alignment.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "mv_knife_out",
+      "cli_path": "spec-write",
+      "description": "Move the sample stage so the entire diagnostic tool is fully out of the beam path. Slower than mv_knife_clear (large Sr rotation) but unambiguous: nothing diagnostic-related is in the beam.",
+      "when_to_use": "Move the sample stage so the entire diagnostic tool is fully out of the beam. Slower than mv_knife_clear (large Sr rotation), but unambiguous: nothing diagnostic-related is in the beam path. Use this before optimizing upstream optics with I1.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "mv_pinhole",
+      "cli_path": "spec-write",
+      "description": "Move the sample stage so the diagnostic-tool pinhole is in the beam. Sx/Sy/Sz/Sr are driven to the pinhole pose, plus any active pinhole_offset.",
+      "when_to_use": "Move the sample stage so the diagnostic-tool pinhole is in the beam. Used to set the sample reference position. Sx/Sy/Sz/Sr are driven to the pinhole pose (plus any active pinhole_offset).",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "mv_plastic",
+      "cli_path": "spec-write",
+      "description": "Move the sample stage so the diagnostic-tool plastic scatterer is in the beam. Used to generate elastic scatter for XES spectrometer alignment.",
+      "when_to_use": "Move the sample stage so the diagnostic-tool plastic scatterer is in the beam. Used to generate elastic scatter for XES spectrometer alignment.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "open_data_file",
@@ -683,12 +782,12 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "filename": "alignment"
+        "filename": "example"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"filename\": \"Fe_XAS_0001\", \"raw\": \"new file: Fe_XAS_0001\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "peak_mono_pitch",
@@ -700,9 +799,24 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"peak_mono_pitch complete. gain=1.18\", \"elapsed_s\": 3.5}, \"elapsed_s\": 3.5}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "plotselect",
+      "cli_path": "spec-write",
+      "description": "Select which counter SPEC uses for plotting during scans. Use I1 for alignment optimization (downstream signal), vortDT for fluorescence, I0 for upstream flux monitoring. Does not affect data collection \u2014 only the live plot display.",
+      "when_to_use": "Select which counter SPEC plots during subsequent scans. Use I1 for alignment optimization, vortDT for fluorescence.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "counter": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "post_scan_move",
@@ -715,9 +829,9 @@
         "mode": "cen"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"Moved scanned motor to feature.\", \"elapsed_s\": 0.3}, \"elapsed_s\": 0.3}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "request_gap_ownership",
@@ -729,9 +843,23 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"gap granted.\", \"granted\": true, \"elapsed_s\": 5.0}, \"elapsed_s\": 5.0}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "reset_gap",
+      "cli_path": "spec-write",
+      "description": "Recalibrate the undulator gap encoder zero. Runs ggg (gap dscan), peaks on the flux maximum, then redefines the gap encoder so the original (pre-scan) reading is preserved on the new peak. Run ONCE at the end of an energy-calibration sequence -- iterating reset_gap during calibration fights the calibrate_mono loop.",
+      "when_to_use": "Recalibrate the undulator gap encoder. Runs ggg (gap dscan), peaks on the flux maximum, then redefines the gap encoder so the original (pre-scan) reading is preserved on the new peak. Run ONCE at the end of an energy-calibration sequence -- iterating reset_gap during calibration fights the calibrate_mono loop.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "run_align_shortcut",
@@ -741,12 +869,12 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "name": "vvv"
+        "name": "example"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"name\": \"vvv\", \"raw\": \"vvv scan complete. scan_n=1001\", \"elapsed_s\": 8.0}, \"elapsed_s\": 8.0}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "run_collection",
@@ -758,9 +886,9 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"run_collection complete. samples_completed=6 files=6\", \"elapsed_s\": 3600.0}, \"elapsed_s\": 3600.0}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "run_emiss_scan",
@@ -776,9 +904,9 @@
         "emission_ev": 0.0
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"element\": \"Fe\", \"count_time\": 0.5, \"n_reps\": 3, \"emission_ev\": 6400.0, \"filter\": 0, \"raw\": \"Fe_cee complete. reps=3 scan_n=1003\", \"elapsed_s\": 45.0}, \"elapsed_s\": 45.0}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "run_motor_scan",
@@ -788,16 +916,16 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "motor": "Sz",
-        "start": 0,
-        "end": 5,
-        "npoints": 20,
-        "count_time": 0.2
+        "motor": "example",
+        "start": 0.0,
+        "end": 0.0,
+        "npoints": 1,
+        "count_time": 0.0
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"m1vert\", \"start\": 1.92, \"end\": 1.94, \"npoints\": 21, \"count_time\": 0.5, \"raw\": \"Scan #1001 complete. File=mock.01\", \"elapsed_s\": 15.0}, \"elapsed_s\": 15.0}",
-      "comments": "doesnt allow .5 entry for count time, hangs when it should have been able to finish ok.",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": "doesnt allow .5 entry for count time, hangs when it should have been able to finish ok."
     },
     {
       "name": "run_motor_scan_relative",
@@ -807,16 +935,16 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "motor": "Sz",
-        "delta_start": 0,
-        "delta_end": 2,
-        "npoints": 10,
-        "count_time": 0.2
+        "motor": "example",
+        "delta_start": 0.0,
+        "delta_end": 0.0,
+        "npoints": 1,
+        "count_time": 0.0
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"m1vert\", \"delta_start\": -0.01, \"delta_end\": 0.01, \"npoints\": 21, \"count_time\": 0.5, \"raw\": \"Scan #1002 complete. File=mock.01\", \"elapsed_s\": 15.0}, \"elapsed_s\": 15.0}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "run_sample_alignment",
@@ -828,9 +956,9 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"auto_sample_align complete. samples_found=6\", \"elapsed_s\": 30.0}, \"elapsed_s\": 30.0}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "run_xas",
@@ -845,9 +973,9 @@
         "n_reps": 1
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"element\": \"Fe\", \"count_time\": 0.5, \"n_reps\": 3, \"raw\": \"Fe_xas complete. reps=3 scan_n=1005\", \"elapsed_s\": 60.0}, \"elapsed_s\": 60.0}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "safely_remove_filters",
@@ -859,9 +987,9 @@
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"filters removed.\", \"elapsed_s\": 0.3}, \"elapsed_s\": 0.3}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "select_element",
@@ -874,9 +1002,23 @@
         "element": "example"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"element\": \"Fe\", \"raw\": \"select_element complete.\", \"elapsed_s\": 2.0}, \"elapsed_s\": 2.0}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "set_anchor",
+      "cli_path": "spec-write",
+      "description": "Capture mono/m1vert/m1vert1/m1vert2/Tz/Tz1/Tz2 (plus monvtra for SPEAR steering) as the tracking-anchor reference, and persist to anchor.cfg + a timestamped backup. The anchor is the fixed beam-position pivot that energy-tracking uses to keep the focused beam on the sample as the mono Bragg angle changes. Call once the beam is aligned at a known reference energy.",
+      "when_to_use": "Capture the current positions of mono (energy), m1vert/m1vert1/m1vert2, and Tz/Tz1/Tz2 (plus monvtra for SPEAR steering) as the tracking-anchor reference. Subsequent energy moves with tracking enabled use this anchor as the fixed beam-position pivot. Also writes the anchor to /usr/local/lib/spec.d/anchor.cfg and a timestamped backup. Call this once the beam is aligned at a known reference energy.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "set_filter",
@@ -886,12 +1028,12 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "bitmask": 3
+        "bitmask": 1
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"motor\": \"filter\", \"target\": \"3\", \"raw\": \"Move complete.\", \"elapsed_s\": 0.3}, \"elapsed_s\": 0.3}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "set_gain",
@@ -902,28 +1044,27 @@
       "sample_input": {
         "justification": "Testing tool via tool-tester",
         "which": "i0",
-        "gain_setting": "10 nA/V"
+        "gain_setting": "example"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"gain\": \"50 nA/V\", \"raw\": \"gain set.\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "set_vortex_roi",
       "cli_path": "spec-write",
       "description": "Set the Vortex ROI. mode='auto': bounds \u00b1200 eV around the emission line for channel (1=vortDT, 3=vortDT2 for a second emission peak). mode='explicit': set channel + lo_ev/hi_ev in eV directly.",
-      "when_to_use": "Set Vortex ROI (auto or explicit channel + lo_ev/hi_ev).",
+      "when_to_use": "Set Vortex ROI. mode='auto': bounds \u00b1200 eV around the emission line for channel (1=vortDT, 3=vortDT2). mode='explicit': set channel + lo_ev/hi_ev in eV directly.",
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "mode": "auto",
-        "channel": 1
+        "mode": "auto"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"args\": [\"1\", \"626\", \"666\"], \"raw\": \"ROI set.\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
     },
     {
       "name": "shutter",
@@ -933,12 +1074,41 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "command": "fson"
+        "command": "fsopen"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"command\": \"fsopen\", \"raw\": \"shutter: fsopen\", \"elapsed_s\": 0.2}, \"elapsed_s\": 0.2}",
-      "comments": "",
       "simulated": true,
-      "working_live": false
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "small_beam",
+      "cli_path": "spec-write",
+      "description": "Set the KB-mirror benders to the small-beam (~50um focused) preset. Moves m1ubend/m1dbend/m2ubend/m2dbend to the configured small-beam values and tags both beamsize_mode axes as 'small'.",
+      "when_to_use": "Set the KB-mirror benders to the small-beam preset (~50um focused). Moves m1ubend/m1dbend/m2ubend/m2dbend to the configured small-beam positions and tags both beamsize_mode axes as 'small'. After running, alignment routines and measure_beam_size should be invoked in their small-beam mode.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "tracking",
+      "cli_path": "spec-write",
+      "description": "Toggle energy-tracking on (1) or off (0). With tracking enabled, every energy move also drives m1vert and Tz so the focused beam stays at the anchor position as the mono Bragg angle changes. Requires set_anchor first -- without an anchor, tracking has no reference and the beam will drift. Disable before procedures that need m1vert/Tz free of automatic motion (e.g. KB-mirror alignment).",
+      "when_to_use": "Enable or disable energy tracking. When enabled, every energy move also drives m1vert and Tz so the focused beam stays at the anchor position as the mono Bragg angle changes. Requires set_anchor to have been called first -- without an anchor, tracking has no reference and the beam will drift. Disable before procedures that should leave m1vert/Tz untouched (e.g. independent KB-mirror alignment).",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "enabled": true
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "transition_phase",
@@ -951,9 +1121,61 @@
         "target_phase": "setup"
       },
       "sample_output": "{\"allowed\": true, \"previous_phase\": \"beamline_alignment\", \"current_phase\": \"xes_alignment\", \"preconditions\": [{\"name\": \"align_beamline_done\", \"met\": true}], \"reason\": \"all preconditions met\"}",
-      "comments": "",
       "simulated": false,
-      "working_live": false
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "xtal_align",
+      "cli_path": "spec-write",
+      "description": "Recalibrate the crystal-motor encoder zero. Runs a dscan over the crystal motor, peaks on the diffraction feature, then redefines the current encoder reading to the original (pre-scan) value. The motor stays in place; its zero is now anchored on the peak. Used after a crystal swap or when the crystal feature has drifted.",
+      "when_to_use": "Recalibrate the crystal motor encoder zero. Runs a dscan over the crystal motor, peaks on the diffraction feature, then redefines the current encoder reading to the original (pre-scan) value -- so the motor effectively stays in place but its zero is now on the peak. Use after a crystal swap or when the crystal feature has drifted.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "zero_pinhole",
+      "cli_path": "spec-write",
+      "description": "Center the beam on the diagnostic-tool pinhole, then zero (or apply the configured pinhole_offset to) Tz/Sz/Bz/Tx/Sx/Bx. Multi-minute. Refuses to run if the table is not in its usual position (Tz < 15.5 with no offset configured).",
+      "when_to_use": "Center the beam on the diagnostic-tool pinhole, then zero (or apply the configured pinhole_offset to) Tz/Sz/Bz/Tx/Sx/Bx. Multi-minute. Refuses to run if the table is not in its usual position (Tz < 15.5 with no offset configured).",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "beamline-alignment",
+      "cli_path": "ref",
+      "description": "Beamline alignment session notes with lessons learned",
+      "when_to_use": "When operator asks about beamline alignment session notes with lessons learned",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "changing-energy",
+      "cli_path": "ref",
+      "description": "Minimal procedure for switching between absorption edges",
+      "when_to_use": "When operator asks about minimal procedure for switching between absorption edges",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
     },
     {
       "name": "cryostat-procedures",
@@ -963,33 +1185,9 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[Reference document text returned]",
-      "comments": "",
       "simulated": true,
-      "working_live": true
-    },
-    {
-      "name": "spec-commands",
-      "cli_path": "ref",
-      "description": "SPEC beamline control software command reference",
-      "when_to_use": "When operator asks about spec beamline control software command reference",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "[Reference document text returned]",
-      "comments": "",
-      "simulated": true,
-      "working_live": true
-    },
-    {
-      "name": "user-operations",
-      "cli_path": "ref",
-      "description": "BL15-2 user operations quick reference guide",
-      "when_to_use": "When operator asks about bl15-2 user operations quick reference guide",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "[Reference document text returned]",
-      "comments": "",
-      "simulated": true,
-      "working_live": true
+      "working_live": true,
+      "comments": ""
     }
   ]
 }

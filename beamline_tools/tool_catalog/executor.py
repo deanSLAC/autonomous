@@ -75,11 +75,12 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
             if not entries:
                 return "No processed scans found.", images_b64
             entry = entries[0]
-            df = scan_data.read_processed_scan(entry["file_name"], entry["scan_number"])
-            if df is not None:
-                entry["data_preview"] = df.head(10).to_string()
-                entry["counters"] = list(df.columns)
-            return json.dumps(entry, indent=2), images_b64
+            trimmed = {
+                k: entry[k]
+                for k in ("file_name", "scan_number", "scan_command", "date_time", "num_points")
+                if k in entry
+            }
+            return json.dumps(trimmed, indent=2), images_b64
 
         elif name == "list_scans":
             result = scan_data.list_processed_scans(limit=arguments.get("limit", 20))
@@ -266,6 +267,42 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
             filename = f"{base}_heroic_{ts}.mac"
             rel_path = local_data.write_file(filename, arguments.get("content", ""))
             return f"Edited macro saved: {rel_path}", images_b64
+
+        elif name == "save_plan":
+            import re as _re
+            from beamline_tools.config import PLANS_DIR
+            filename = (arguments.get("filename") or "").strip()
+            content = arguments.get("content") or ""
+            overwrite = bool(arguments.get("overwrite", False))
+            if not _re.match(r"^[A-Za-z0-9_\-.]+\.md$", filename) or filename.startswith("."):
+                return json.dumps({
+                    "ok": False,
+                    "error": (
+                        "filename must match ^[A-Za-z0-9_\\-.]+\\.md$ and not start with "
+                        "'.' (no path separators, traversal, or hidden files)"
+                    ),
+                }), images_b64
+            target = (PLANS_DIR / filename).resolve()
+            try:
+                target.relative_to(PLANS_DIR.resolve())
+            except ValueError:
+                return json.dumps({
+                    "ok": False,
+                    "error": f"resolved path escapes PLANS_DIR: {target}",
+                }), images_b64
+            existed = target.exists()
+            if existed and not overwrite:
+                return json.dumps({
+                    "ok": False,
+                    "error": f"file exists: {filename}; pass overwrite=true to replace",
+                }), images_b64
+            target.write_text(content, encoding="utf-8")
+            return json.dumps({
+                "ok": True,
+                "path": str(target),
+                "bytes": len(content.encode("utf-8")),
+                "overwrote": existed,
+            }, indent=2), images_b64
 
         elif name == "get_motor_config":
             from beamline_tools.spec_data.spec_config import get_motor_config

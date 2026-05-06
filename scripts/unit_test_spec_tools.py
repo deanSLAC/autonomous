@@ -133,6 +133,21 @@ KNOWN_MACROS: dict[str, str] = {
     "vvv": "beam_diagnostics.mac:43",
     "hhh": "beam_diagnostics.mac:44",
     "ggg": "beam_diagnostics.mac:45",
+    # beam-diagnostic tool moves (sample-position diagnostic)
+    "mvpinhole": "beam_diagnostics.mac:185",
+    "mvplastic": "beam_diagnostics.mac:189",
+    "mvknifeclear": "beam_diagnostics.mac:193",
+    "mvknifewayout": "beam_diagnostics.mac:187",
+    "measure_beam_size": "beam_diagnostics.mac:250",
+    "zero_pinhole": "beam_diagnostics.mac:467",
+    # KB-bender presets and encoder recalibrations
+    "smallbeam": "beam_diagnostics.mac:68",
+    "bigbeam": "beam_diagnostics.mac:78",
+    "xtalalign": "beam_diagnostics.mac:87",
+    "reset_gap": "beam_diagnostics.mac:95",
+    # Energy tracking
+    "set_anchor": "tracking.mac:268",
+    "tracking": "tracking.mac:139",
     # per-element xas (verified Fe only; other element files exist in xas_macs/)
     "Fe_xas": "xas_macs/Fe_xas.mac:37",
     # per-element emission (only some elements have _cee — see audit)
@@ -147,7 +162,7 @@ KNOWN_MACROS: dict[str, str] = {
 }
 
 # Tokens that are SPEC built-ins, not macros. Treated as existing.
-KNOWN_BUILTINS: set[str] = {"p", "cen", "peak"}
+KNOWN_BUILTINS: set[str] = {"p", "cen", "peak", "plotselect"}
 
 # Tokens that are not real SPEC commands but internal sentinels we send
 # through the dispatcher for side effects (e.g. abort → Ctrl-C on screen,
@@ -290,6 +305,8 @@ CASES_BL_ALIGN: list[Case] = [
     Case("set_vortex_roi",
          {"mode": "explicit", "channel": 3, "lo_ev": 100, "hi_ev": 200, "justification": "test"},
          ["vortex_roi 3 100 200"], note="vortex ROI explicit"),
+    Case("plotselect", {"counter": "I1", "justification": "test"},
+         ["plotselect I1"], note="select counter for plotting"),
 
     # CAT-4 alignment fallbacks
     Case("run_align_shortcut", {"name": "vvv", "justification": "test"},
@@ -298,6 +315,38 @@ CASES_BL_ALIGN: list[Case] = [
          ["cen"], note="move to center"),
     Case("post_scan_move", {"mode": "peak", "justification": "test"},
          ["peak"], note="move to peak"),
+
+    # CAT-5 beam diagnostic
+    Case("mv_pinhole", {"justification": "test"},
+         ["mvpinhole"], note="diagnostic pinhole into beam"),
+    Case("mv_plastic", {"justification": "test"},
+         ["mvplastic"], note="diagnostic plastic scatterer into beam"),
+    Case("mv_knife_clear", {"justification": "test"},
+         ["mvknifeclear"], note="knife-edge blades clear of beam"),
+    Case("mv_knife_out", {"justification": "test"},
+         ["mvknifewayout"], note="diagnostic fully out of beam"),
+    Case("measure_beam_size",
+         {"small_x": False, "small_z": False, "justification": "test"},
+         ["measure_beam_size 0 0"], note="beam-size knife-edge (big-beam)"),
+    Case("measure_beam_size",
+         {"small_x": True, "small_z": True, "justification": "test"},
+         ["measure_beam_size 1 1"], note="beam-size knife-edge (small focused)"),
+    Case("zero_pinhole", {"justification": "test"},
+         ["zero_pinhole"], note="center on pinhole + zero stage offsets"),
+    Case("small_beam", {"justification": "test"},
+         ["smallbeam"], note="KB benders → small-beam preset"),
+    Case("big_beam", {"justification": "test"},
+         ["bigbeam"], note="KB benders → big-beam preset"),
+    Case("xtal_align", {"justification": "test"},
+         ["xtalalign"], note="recalibrate crystal encoder"),
+    Case("reset_gap", {"justification": "test"},
+         ["reset_gap"], note="recalibrate gap encoder"),
+    Case("set_anchor", {"justification": "test"},
+         ["set_anchor"], note="capture tracking anchor"),
+    Case("tracking", {"enabled": True, "justification": "test"},
+         ["tracking 1"], note="enable energy tracking"),
+    Case("tracking", {"enabled": False, "justification": "test"},
+         ["tracking 0"], note="disable energy tracking"),
 
     # CAT-6 beam monitoring (read-only)
     Case("get_beam_status", {}, ["p beam_status()"],
@@ -311,7 +360,7 @@ CASES_BL_ALIGN: list[Case] = [
 
     # CAT-7 run state
     Case("get_scan_number", {}, ["p SCAN_N"], note="current scan number"),
-    Case("get_current_datafile", {}, ["fon"], note="active datafile"),
+    Case("get_current_datafile", {}, ["p DATAFILE"], note="active datafile"),
     Case("abort_current_scan", {"justification": "test"}, ["__ABORT__"],
          note="Ctrl-C"),
 ]

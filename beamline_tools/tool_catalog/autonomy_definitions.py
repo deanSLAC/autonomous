@@ -371,6 +371,28 @@ AUTONOMY_TOOL_DEFINITIONS = [
         },
     },
 
+    {
+        "type": "function",
+        "function": {
+            "name": "plotselect",
+            "description": (
+                "Select which counter SPEC plots during subsequent scans. "
+                "Use I1 for alignment optimization, vortDT for fluorescence."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    **_J,
+                    "counter": {
+                        "type": "string",
+                        "description": "Counter name (e.g. 'I0', 'I1', 'vortDT')",
+                    },
+                },
+                "required": ["justification", "counter"],
+            },
+        },
+    },
+
     # -----------------------------------------------------------------
     # CAT-4 · Alignment fallbacks
     # -----------------------------------------------------------------
@@ -398,6 +420,194 @@ AUTONOMY_TOOL_DEFINITIONS = [
                 "type": "object",
                 "properties": {**_J, "mode": {"type": "string", "enum": ["cen", "peak"]}},
                 "required": ["justification", "mode"],
+            },
+        },
+    },
+
+    # -----------------------------------------------------------------
+    # CAT-5 · Beam-diagnostic tool (sample-position diagnostic, alignment)
+    # -----------------------------------------------------------------
+    {
+        "type": "function",
+        "function": {
+            "name": "mv_pinhole",
+            "description": (
+                "Move the sample stage so the diagnostic-tool pinhole is in the beam. "
+                "Used to set the sample reference position. Sx/Sy/Sz/Sr are driven to "
+                "the pinhole pose (plus any active pinhole_offset)."
+            ),
+            "parameters": {"type": "object", "properties": _J, "required": ["justification"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mv_plastic",
+            "description": (
+                "Move the sample stage so the diagnostic-tool plastic scatterer is in the beam. "
+                "Used to generate elastic scatter for XES spectrometer alignment."
+            ),
+            "parameters": {"type": "object", "properties": _J, "required": ["justification"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mv_knife_clear",
+            "description": (
+                "Move the sample stage so the knife-edge blades are clear of the beam. "
+                "Fast move, but the diagnostic body may still partially clip the beam to I1. "
+                "Use mv_knife_out instead before trusting I1 for upstream-optic alignment."
+            ),
+            "parameters": {"type": "object", "properties": _J, "required": ["justification"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mv_knife_out",
+            "description": (
+                "Move the sample stage so the entire diagnostic tool is fully out of the beam. "
+                "Slower than mv_knife_clear (large Sr rotation), but unambiguous: nothing "
+                "diagnostic-related is in the beam path. Use this before optimizing upstream "
+                "optics with I1."
+            ),
+            "parameters": {"type": "object", "properties": _J, "required": ["justification"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "measure_beam_size",
+            "description": (
+                "Knife-edge scan to measure horizontal and vertical beam FWHM. Multi-minute. "
+                "Removes filters and ensures DATAFILE=alignment. Each axis can be measured "
+                "in 'big' (false, ~mm-scale beam) or 'small' (true, ~50um focused) mode; "
+                "wrong mode produces artifacts. Standard LiSA configuration is small_x=false, "
+                "small_z=false."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    **_J,
+                    "small_x": {
+                        "type": "boolean",
+                        "description": "True for tightly-focused horizontal beam (~50um); false (default) for big-beam benders.",
+                        "default": False,
+                    },
+                    "small_z": {
+                        "type": "boolean",
+                        "description": "True for tightly-focused vertical beam (~50um); false (default) for big-beam benders.",
+                        "default": False,
+                    },
+                },
+                "required": ["justification"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "zero_pinhole",
+            "description": (
+                "Center the beam on the diagnostic-tool pinhole, then zero (or apply the "
+                "configured pinhole_offset to) Tz/Sz/Bz/Tx/Sx/Bx. Multi-minute. Refuses to "
+                "run if the table is not in its usual position (Tz < 15.5 with no offset "
+                "configured)."
+            ),
+            "parameters": {"type": "object", "properties": _J, "required": ["justification"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "small_beam",
+            "description": (
+                "Set the KB-mirror benders to the small-beam preset (~50um focused). Moves "
+                "m1ubend/m1dbend/m2ubend/m2dbend to the configured small-beam positions and "
+                "tags both beamsize_mode axes as 'small'. After running, alignment routines "
+                "and measure_beam_size should be invoked in their small-beam mode."
+            ),
+            "parameters": {"type": "object", "properties": _J, "required": ["justification"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "big_beam",
+            "description": (
+                "Set the KB-mirror benders to the big-beam preset (mm-scale, standard LiSA "
+                "configuration). Moves m1ubend/m1dbend/m2ubend/m2dbend to the configured "
+                "big-beam positions and tags both beamsize_mode axes as 'big'."
+            ),
+            "parameters": {"type": "object", "properties": _J, "required": ["justification"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "xtal_align",
+            "description": (
+                "Recalibrate the crystal motor encoder zero. Runs a dscan over the "
+                "crystal motor, peaks on the diffraction feature, then redefines the "
+                "current encoder reading to the original (pre-scan) value -- so the "
+                "motor effectively stays in place but its zero is now on the peak. Use "
+                "after a crystal swap or when the crystal feature has drifted."
+            ),
+            "parameters": {"type": "object", "properties": _J, "required": ["justification"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "reset_gap",
+            "description": (
+                "Recalibrate the undulator gap encoder. Runs ggg (gap dscan), peaks on "
+                "the flux maximum, then redefines the gap encoder so the original "
+                "(pre-scan) reading is preserved on the new peak. Run ONCE at the end of "
+                "an energy-calibration sequence -- iterating reset_gap during calibration "
+                "fights the calibrate_mono loop."
+            ),
+            "parameters": {"type": "object", "properties": _J, "required": ["justification"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "set_anchor",
+            "description": (
+                "Capture the current positions of mono (energy), m1vert/m1vert1/m1vert2, "
+                "and Tz/Tz1/Tz2 (plus monvtra for SPEAR steering) as the tracking-anchor "
+                "reference. Subsequent energy moves with tracking enabled use this anchor "
+                "as the fixed beam-position pivot. Also writes the anchor to "
+                "/usr/local/lib/spec.d/anchor.cfg and a timestamped backup. Call this "
+                "once the beam is aligned at a known reference energy."
+            ),
+            "parameters": {"type": "object", "properties": _J, "required": ["justification"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "tracking",
+            "description": (
+                "Enable or disable energy tracking. When enabled, every energy move also "
+                "drives m1vert and Tz so the focused beam stays at the anchor position as "
+                "the mono Bragg angle changes. Requires set_anchor to have been called "
+                "first -- without an anchor, tracking has no reference and the beam will "
+                "drift. Disable before procedures that should leave m1vert/Tz untouched "
+                "(e.g. independent KB-mirror alignment)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    **_J,
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "True to enable tracking, false to disable.",
+                    },
+                },
+                "required": ["justification", "enabled"],
             },
         },
     },
@@ -742,9 +952,15 @@ AUTONOMY_TOOL_CATEGORIES = [
     ]),
     ("CAT-3 Config", [
         "mv_energy", "shutter", "set_filter", "safely_remove_filters",
-        "set_gain", "set_vortex_roi", "open_data_file",
+        "set_gain", "set_vortex_roi", "open_data_file", "plotselect",
     ]),
     ("CAT-4 Align Fallbacks", ["run_align_shortcut", "post_scan_move"]),
+    ("CAT-5 Beam Diagnostic", [
+        "mv_pinhole", "mv_plastic", "mv_knife_clear", "mv_knife_out",
+        "measure_beam_size", "zero_pinhole",
+        "small_beam", "big_beam", "xtal_align", "reset_gap",
+        "set_anchor", "tracking",
+    ]),
     ("CAT-6 Beam", ["get_beam_status", "get_counts", "get_counter", "request_gap_ownership"]),
     ("CAT-7 State", ["get_scan_number", "get_current_datafile", "abort_current_scan"]),
     ("CAT-8 Orchestration", [

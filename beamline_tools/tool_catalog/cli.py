@@ -28,13 +28,13 @@ REFERENCE_DOCS = {
         "file": "cryostat_procedures.txt",
         "description": "Liquid helium cryostat operating procedures and safety rules",
     },
-    "spec-commands": {
-        "file": "BL15-2_SPEC_Reference.txt",
-        "description": "SPEC beamline control software command reference",
+    "changing-energy": {
+        "file": "changing-energy.md",
+        "description": "Minimal procedure for switching between absorption edges",
     },
-    "user-operations": {
-        "file": "BL15-2_user_reference.txt",
-        "description": "BL15-2 user operations quick reference guide",
+    "beamline-alignment": {
+        "file": "Beamline-alignment-by-claude.md",
+        "description": "Beamline alignment session notes with lessons learned",
     },
 }
 
@@ -128,6 +128,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("write-macro", help="Save an edited macro as a new .mac file in the scan directory")
     p.add_argument("--original-name", required=True, help="Original macro filename (e.g. run01.mac)")
     p.add_argument("--content", required=True, help="The edited macro content")
+
+    p = sub.add_parser("save-plan", help="Save a markdown plan into the project's plans/ directory")
+    p.add_argument("--filename", required=True,
+                   help="Plan filename. Must end in .md; no path separators or traversal.")
+    p.add_argument("--content", help="Plan markdown body (use this OR --content-file)")
+    p.add_argument("--content-file", help="Path to a file whose contents become the plan body")
+    p.add_argument("--overwrite", action="store_true",
+                   help="Overwrite an existing plan with the same filename")
 
     # --- SPEC config commands ---
     sub.add_parser("get-motor-config", help="Get SPEC motor configuration (controller, steps, mnemonic, name)")
@@ -289,6 +297,23 @@ def run_cli(command_str: str) -> tuple[str, list[str]]:
         return execute_tool(tool_name, {
             "original_name": args.original_name,
             "content": args.content,
+        })
+    elif tool_name == "save_plan":
+        if args.content is not None and args.content_file is not None:
+            return "Error: pass either --content or --content-file, not both.", []
+        if args.content_file is not None:
+            try:
+                content = Path(args.content_file).read_text(encoding="utf-8")
+            except OSError as e:
+                return f"Error reading --content-file: {e}", []
+        elif args.content is not None:
+            content = args.content
+        else:
+            return "Error: --content or --content-file is required.", []
+        return execute_tool(tool_name, {
+            "filename": args.filename,
+            "content": content,
+            "overwrite": args.overwrite,
         })
     elif tool_name in ("get_motor_config", "get_counter_config"):
         return execute_tool(tool_name, {})

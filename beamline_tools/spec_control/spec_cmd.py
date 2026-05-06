@@ -409,6 +409,11 @@ _ACTION: dict[str, CommandSpec] = {
         lambda a: f"newfile {a[0]}",
         lambda o, a: {"filename": a[0], "raw": o}, timeout_s=15,
     ),
+    "plotselect": CommandSpec(
+        "plotselect", "action",
+        lambda a: f"plotselect {a[0]}",
+        lambda o, a: {"counter": a[0], "raw": o}, timeout_s=5,
+    ),
     "run_shortcut": CommandSpec(
         "run_shortcut", "action",
         lambda a: a[0],
@@ -450,6 +455,75 @@ _ACTION: dict[str, CommandSpec] = {
         "calibrate_mono", "action",
         lambda a: f"calibrate_mono {a[0]}",
         lambda o, a: {"tabulated_ev": float(a[0]), "raw": o}, timeout_s=180,
+    ),
+
+    # Beam-diagnostic tool moves (sample-position diagnostic, alignment only)
+    "mvpinhole": CommandSpec(
+        "mvpinhole", "action",
+        lambda a: "mvpinhole",
+        lambda o, a: {"raw": o}, timeout_s=60,
+    ),
+    "mvplastic": CommandSpec(
+        "mvplastic", "action",
+        lambda a: "mvplastic",
+        lambda o, a: {"raw": o}, timeout_s=60,
+    ),
+    "mvknifeclear": CommandSpec(
+        "mvknifeclear", "action",
+        lambda a: "mvknifeclear",
+        lambda o, a: {"raw": o}, timeout_s=60,
+    ),
+    "mvknifewayout": CommandSpec(
+        "mvknifewayout", "action",
+        lambda a: "mvknifewayout",
+        lambda o, a: {"raw": o}, timeout_s=120,
+    ),
+
+    # Long-running diagnostic procedures
+    "measure_beam_size": CommandSpec(
+        "measure_beam_size", "action",
+        lambda a: f"measure_beam_size {a[0]} {a[1]}",
+        lambda o, a: {"mode_x": int(a[0]), "mode_z": int(a[1]), "raw": o},
+        timeout_s=600,
+    ),
+    "zero_pinhole": CommandSpec(
+        "zero_pinhole", "action",
+        lambda a: "zero_pinhole",
+        lambda o, a: {"raw": o}, timeout_s=600,
+    ),
+
+    # KB-mirror bender presets and encoder recalibrations
+    "smallbeam": CommandSpec(
+        "smallbeam", "action",
+        lambda a: "smallbeam",
+        lambda o, a: {"raw": o, "mode": "small"}, timeout_s=60,
+    ),
+    "bigbeam": CommandSpec(
+        "bigbeam", "action",
+        lambda a: "bigbeam",
+        lambda o, a: {"raw": o, "mode": "big"}, timeout_s=60,
+    ),
+    "xtalalign": CommandSpec(
+        "xtalalign", "action",
+        lambda a: "xtalalign",
+        lambda o, a: {"raw": o}, timeout_s=120,
+    ),
+    "reset_gap": CommandSpec(
+        "reset_gap", "action",
+        lambda a: "reset_gap",
+        lambda o, a: {"raw": o}, timeout_s=180,
+    ),
+
+    # Energy tracking — anchor + on/off
+    "set_anchor": CommandSpec(
+        "set_anchor", "action",
+        lambda a: "set_anchor",
+        lambda o, a: {"raw": o}, timeout_s=30,
+    ),
+    "tracking": CommandSpec(
+        "tracking", "action",
+        lambda a: f"tracking {a[0]}",
+        lambda o, a: {"enabled": int(a[0]) == 1, "raw": o}, timeout_s=15,
     ),
 }
 
@@ -511,7 +585,7 @@ _PHASE_STATE: dict[str, Any] = {"phase": phase_allowlist.PHASE_SETUP, "experimen
 
 
 def set_phase(phase: str, experiment_id: str | None = None) -> None:
-    if phase not in phase_allowlist.ALL_PHASES:
+    if phase not in phase_allowlist.VALID_PHASES:
         raise ValueError(f"unknown phase: {phase}")
     _PHASE_STATE["phase"] = phase
     if experiment_id:

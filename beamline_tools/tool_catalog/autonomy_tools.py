@@ -313,6 +313,12 @@ def t_open_data_file(args: dict) -> tuple[str, list[str]]:
     return _as_json(res), []
 
 
+def t_plotselect(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("plotselect", [str(args["counter"])], justification=j)
+    return _as_json(res), []
+
+
 # ===========================================================================
 # CAT-4 · Alignment fallbacks
 # ===========================================================================
@@ -340,6 +346,87 @@ def t_post_scan_move(args: dict) -> tuple[str, list[str]]:
 
 
 # ===========================================================================
+# CAT-5 · Beam-diagnostic tool (sample-position diagnostic, alignment)
+# ===========================================================================
+
+def t_mv_pinhole(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("mvpinhole", [], justification=j)
+    return _as_json(res), []
+
+
+def t_mv_plastic(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("mvplastic", [], justification=j)
+    return _as_json(res), []
+
+
+def t_mv_knife_clear(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("mvknifeclear", [], justification=j)
+    return _as_json(res), []
+
+
+def t_mv_knife_out(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("mvknifewayout", [], justification=j)
+    return _as_json(res), []
+
+
+def t_measure_beam_size(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    mode_x = "1" if bool(args.get("small_x", False)) else "0"
+    mode_z = "1" if bool(args.get("small_z", False)) else "0"
+    res = spec_cmd.call("measure_beam_size", [mode_x, mode_z], justification=j)
+    return _as_json(res), []
+
+
+def t_zero_pinhole(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("zero_pinhole", [], justification=j)
+    return _as_json(res), []
+
+
+def t_small_beam(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("smallbeam", [], justification=j)
+    return _as_json(res), []
+
+
+def t_big_beam(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("bigbeam", [], justification=j)
+    return _as_json(res), []
+
+
+def t_xtal_align(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("xtalalign", [], justification=j)
+    return _as_json(res), []
+
+
+def t_reset_gap(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("reset_gap", [], justification=j)
+    return _as_json(res), []
+
+
+def t_set_anchor(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    res = spec_cmd.call("set_anchor", [], justification=j)
+    return _as_json(res), []
+
+
+def t_tracking(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    if "enabled" not in args:
+        return json.dumps({"ok": False, "error": "'enabled' (boolean) is required"}), []
+    flag = "1" if bool(args["enabled"]) else "0"
+    res = spec_cmd.call("tracking", [flag], justification=j)
+    return _as_json(res), []
+
+
+# ===========================================================================
 # CAT-6 · Beam monitoring
 # ===========================================================================
 
@@ -349,13 +436,13 @@ def t_get_beam_status(args: dict) -> tuple[str, list[str]]:
 
 
 def t_get_counts(args: dict) -> tuple[str, list[str]]:
-    t = args.get("count_time", 0.5)
+    t = args.get("count_time", 1)
     res = spec_cmd.call("ct", [str(t)], justification="")
     return _as_json(res), []
 
 
 def t_get_counter(args: dict) -> tuple[str, list[str]]:
-    t = args.get("count_time", 0.5)
+    t = args.get("count_time", 1)
     res = spec_cmd.call("ct", [str(t)], justification="")
     if res.get("ok") and "counters" in res.get("result", {}):
         name = args["counter"]
@@ -505,7 +592,18 @@ def t_post_status_update(args: dict) -> tuple[str, list[str]]:
     if orch is not None:
         orch._safe_invoke(orch.slack_status_post, text)
         orch._safe_emit({"type": "status_update", "text": text})
-    return json.dumps({"posted": True}), []
+        return json.dumps({"posted": True}), []
+    try:
+        import os
+        from ui.adapters.slack_notify import SlackNotifier
+        channel = os.getenv("SLACK_LLM_CHANNEL_ID")
+        notifier = SlackNotifier(enabled=True, channel=channel)
+        if notifier.enabled:
+            notifier.post_message(text)
+            return json.dumps({"posted": True, "via": "direct_slack"}), []
+        return json.dumps({"posted": False, "error": "Slack not configured"}), []
+    except Exception as e:
+        return json.dumps({"posted": False, "error": str(e)}), []
 
 
 def t_update_experiment_plan(args: dict) -> tuple[str, list[str]]:
@@ -725,9 +823,23 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "set_gain": t_set_gain,
     "set_vortex_roi": t_set_vortex_roi,
     "open_data_file": t_open_data_file,
+    "plotselect": t_plotselect,
     # CAT-4
     "run_align_shortcut": t_run_align_shortcut,
     "post_scan_move": t_post_scan_move,
+    # CAT-5 (beam diagnostic)
+    "mv_pinhole": t_mv_pinhole,
+    "mv_plastic": t_mv_plastic,
+    "mv_knife_clear": t_mv_knife_clear,
+    "mv_knife_out": t_mv_knife_out,
+    "measure_beam_size": t_measure_beam_size,
+    "zero_pinhole": t_zero_pinhole,
+    "small_beam": t_small_beam,
+    "big_beam": t_big_beam,
+    "xtal_align": t_xtal_align,
+    "reset_gap": t_reset_gap,
+    "set_anchor": t_set_anchor,
+    "tracking": t_tracking,
     # CAT-6
     "get_beam_status": t_get_beam_status,
     "get_counts": t_get_counts,

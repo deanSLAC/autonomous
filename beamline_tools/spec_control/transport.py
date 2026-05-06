@@ -247,6 +247,59 @@ class _MockScreen:
         if low.startswith("safely_remove_filters"):
             cls._positions["filter"] = 0
             return "filters removed."
+        if low.startswith("mvpinhole"):
+            cls._positions["Sx"] = 0.0
+            cls._positions["Sy"] = 0.0
+            cls._positions["Sz"] = 0.0
+            cls._positions["Sr"] = 0.0
+            return "mvpinhole complete. Sx=0 Sy=0 Sz=0 Sr=0"
+        if low.startswith("mvplastic"):
+            cls._positions["Sx"] = 0.0
+            cls._positions["Sy"] = 0.0
+            cls._positions["Sz"] = -7.0
+            cls._positions["Sr"] = -45.0
+            return "mvplastic complete. Sx=0 Sy=0 Sz=-7 Sr=-45"
+        if low.startswith("mvknifeclear"):
+            cls._positions["Sx"] = 0.0
+            cls._positions["Sy"] = 0.0
+            cls._positions["Sz"] = 4.3
+            cls._positions["Sr"] = 0.0
+            return "mvknifeclear complete. Both slits are out of beam."
+        if low.startswith("mvknifewayout"):
+            cls._positions["Sx"] = 15.0
+            cls._positions["Sy"] = 0.0
+            cls._positions["Sz"] = 0.0
+            cls._positions["Sr"] = 80.0
+            return "mvknifewayout complete. Sx=15 Sy=0 Sz=0 Sr=80"
+        if low.startswith("measure_beam_size"):
+            time.sleep(0.1)
+            return "measure_beam_size complete. beamsize_x=0.35 beamsize_z=0.12 mm"
+        if low.startswith("zero_pinhole"):
+            time.sleep(0.1)
+            return "zero_pinhole complete. pinhole_offset x=0 y=0 z=0"
+        if low.startswith("smallbeam"):
+            return "Beam mode set to: small (both)"
+        if low.startswith("bigbeam"):
+            return "Beam mode set to: big (both)"
+        if low.startswith("xtalalign"):
+            time.sleep(0.05)
+            return "xtalalign complete. crystal encoder restored to original position."
+        if low.startswith("reset_gap"):
+            time.sleep(0.05)
+            return "reset_gap complete. gap encoder restored to original position."
+        if low.startswith("set_anchor"):
+            return (
+                "Storing the current positions of energy, Tz, m1vert to track the beam\n"
+                "Anchor positions:\n"
+                "  energy: 7100.0\n"
+                "  m1vert: 1.93\n"
+                "  Tz: 0.0\n"
+                "anchor saved to /usr/local/lib/spec.d/anchor.cfg"
+            )
+        if low.startswith("tracking"):
+            tokens = cmd.split()
+            arg = tokens[1] if len(tokens) >= 2 else ""
+            return f"Set tracking to {arg}"
         if low.startswith(("vvv", "hhh", "m1m1", "m2m2", "ggg", "bzbz", "bxbx",
                            "dmm", "beamx", "beamz", "cm1m1", "cm2m2")):
             alias = low.split()[0]

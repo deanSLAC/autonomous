@@ -369,6 +369,44 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "save_plan",
+            "description": (
+                "Save a markdown plan to the project's plans/ directory. Use this at the "
+                "start of a beamline-optimization session (or any multi-step task) to "
+                "persist the step-by-step plan you generated, so future sessions can "
+                "review what was attempted and why."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "filename": {
+                        "type": "string",
+                        "description": (
+                            "Filename for the plan. Must end with .md and contain only "
+                            "alphanumerics, underscore, hyphen, dot. No path separators "
+                            "or directory traversal."
+                        ),
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Markdown body of the plan.",
+                    },
+                    "overwrite": {
+                        "type": "boolean",
+                        "description": (
+                            "If false (default), refuse to write when the file already "
+                            "exists. Set true to overwrite an existing plan."
+                        ),
+                        "default": False,
+                    },
+                },
+                "required": ["filename", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_motor_config",
             "description": "Get SPEC motor configuration from the config file. Shows controller, steps/unit, slew rate, flags, mnemonic, and name for each motor. Motor index (MOTnnn) maps to the A[] array.",
             "parameters": {"type": "object", "properties": {}, "required": []},

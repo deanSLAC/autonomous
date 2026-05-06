@@ -364,7 +364,6 @@ async function initPhaseBanner() {
         const status = await res.json();
         if (!status.mock) {
             document.getElementById("live-banner").style.display = "";
-            return;
         }
 
         const banner = document.getElementById("phase-banner");

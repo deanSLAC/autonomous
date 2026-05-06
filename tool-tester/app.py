@@ -115,7 +115,7 @@ async def test_tool(tool_name: str, req: TestRequest):
                 cmd += [flag, str(value)]
 
     env = None
-    if SPEC_MOCK and req.phase_override and req.phase_override in ALL_PHASES:
+    if req.phase_override and req.phase_override in ALL_PHASES:
         env = {**os.environ, "SPEC_PHASE_OVERRIDE": req.phase_override}
 
     t0 = time.monotonic()

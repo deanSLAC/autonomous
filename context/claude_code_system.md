@@ -34,7 +34,8 @@ arg shapes with `beamtimehero <tree> <cmd> --help`.
   scans, energy moves, shutter, filters, gains, alignment macros, data
   collection. **Every leaf requires `--justification`** explaining why
   this action is happening right now. The justification is logged to
-  `action_log` before dispatch. Empty justifications are rejected.
+  `action_log` before dispatch. Empty justifications are rejected. The beamline
+  is sensitive and actions should be weighed carefully.
 
 Rules:
 

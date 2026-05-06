@@ -22,6 +22,7 @@ PHASE_XES_ALIGN = "xes_alignment"
 PHASE_SAMPLE_ALIGN = "sample_alignment"
 PHASE_COLLECTION = "collection"
 PHASE_COMPLETE = "complete"
+PHASE_UNRESTRICTED = "unrestricted"
 
 ALL_PHASES = [
     PHASE_SETUP,
@@ -31,6 +32,11 @@ ALL_PHASES = [
     PHASE_COLLECTION,
     PHASE_COMPLETE,
 ]
+
+# All phase identifiers accepted by `set_phase`. `unrestricted` is a bypass
+# mode (no allowlist enforcement) and is intentionally not in the ordered
+# workflow sequence above, so transition_phase / PHASE_ORDER ignore it.
+VALID_PHASES = set(ALL_PHASES) | {PHASE_UNRESTRICTED}
 
 # Forward sequence used to judge forward vs. backward transitions.
 PHASE_ORDER = {name: i for i, name in enumerate(ALL_PHASES)}
@@ -66,6 +72,8 @@ _SAMPLE_ALIGN_MOTORS: Set[str] = {
 _COLLECTION_MOTORS: Set[str] = _SAMPLE_ALIGN_MOTORS
 
 
+_ALL_MOTORS: Set[str] = _BL_ALIGN_MOTORS | _XES_ALIGN_MOTORS | _SAMPLE_ALIGN_MOTORS
+
 MOTOR_ALLOWLIST = {
     PHASE_BL_ALIGN: _BL_ALIGN_MOTORS,
     PHASE_XES_ALIGN: _XES_ALIGN_MOTORS,
@@ -74,6 +82,7 @@ MOTOR_ALLOWLIST = {
     # Setup has no motor ops yet; complete is a no-op phase.
     PHASE_SETUP: set(),
     PHASE_COMPLETE: set(),
+    PHASE_UNRESTRICTED: _ALL_MOTORS,
 }
 
 
@@ -92,6 +101,21 @@ PROCEDURAL_PHASE = {
     "xas": {PHASE_COLLECTION},
     "emiss_scan": {PHASE_COLLECTION},
     "run_shortcut": {PHASE_BL_ALIGN},
+    # Beam-diagnostic tool moves (sample-position diagnostic, alignment only)
+    "mvpinhole": {PHASE_BL_ALIGN},
+    "mvplastic": {PHASE_BL_ALIGN, PHASE_XES_ALIGN},
+    "mvknifeclear": {PHASE_BL_ALIGN},
+    "mvknifewayout": {PHASE_BL_ALIGN},
+    "measure_beam_size": {PHASE_BL_ALIGN},
+    "zero_pinhole": {PHASE_BL_ALIGN},
+    # KB-mirror bender presets and encoder recalibrations
+    "smallbeam": {PHASE_BL_ALIGN},
+    "bigbeam": {PHASE_BL_ALIGN},
+    "xtalalign": {PHASE_BL_ALIGN},
+    "reset_gap": {PHASE_BL_ALIGN},
+    # Energy tracking
+    "set_anchor": {PHASE_BL_ALIGN},
+    "tracking": {PHASE_BL_ALIGN, PHASE_XES_ALIGN, PHASE_SAMPLE_ALIGN, PHASE_COLLECTION},
 }
 
 # "All" tier — any phase except PHASE_COMPLETE.
@@ -101,9 +125,9 @@ PROCEDURAL_ANY_PHASE = {
     "umv", "umvr", "mv", "ascan", "dscan",
     "cen", "peak", "shutter", "mv_energy", "gaprequest",
     "safely_remove_filters", "set_i0_gain", "set_i1_gain",
-    "set_i2_gain", "set_vortex_roi", "newfile", "abort",
+    "set_i2_gain", "set_vortex_roi", "newfile", "abort", "plotselect",
     # Read-only:
-    "wa", "p_motor", "get_S", "ct", "fon", "pwd", "scan_n",
+    "wa", "p_motor", "get_S", "ct", "fon", "p_datafile", "pwd", "scan_n",
     "beam_status", "p_global",
 }
 
@@ -119,6 +143,8 @@ def motor_allowed(phase: str, motor: str) -> bool:
 
 def command_allowed(phase: str, command: str) -> tuple[bool, str]:
     """Return (allowed, reason). reason is '' on success."""
+    if phase == PHASE_UNRESTRICTED:
+        return True, ""
     if phase == PHASE_COMPLETE:
         return False, f"experiment is in '{PHASE_COMPLETE}' — no more actions"
     if command in PROCEDURAL_ANY_PHASE:

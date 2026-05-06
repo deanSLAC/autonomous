@@ -293,6 +293,23 @@ TOOL_LINEAGE: dict[str, dict] = {
         "source_detail": "Writes into BL_SCAN_DIR alongside existing macros.",
         "depends_on": ["read_file"],
     },
+    "save_plan": {
+        "long_description": (
+            "Persist a markdown plan into the project's plans/ directory. "
+            "Used at the start of multi-step tasks (typically beamline "
+            "optimization) to record the step-by-step plan the agent "
+            "intends to follow, so future sessions can review what was "
+            "attempted and why. Filenames are validated against a strict "
+            "allow-list and writes are confined to PLANS_DIR — no path "
+            "traversal, no overwriting unless explicitly requested."
+        ),
+        "python_func": "PLANS_DIR.joinpath(filename).write_text(content)  (with regex + path-confinement checks)",
+        "spec_command": None,
+        "output": "JSON: {ok, path, bytes, overwrote}",
+        "source": "filesystem",
+        "source_detail": "Writes into PLANS_DIR (./plans/ under the project root).",
+        "depends_on": [],
+    },
     "get_motor_config": {
         "long_description": (
             "Return SPEC's motor table: per-motor controller, steps/unit, "
@@ -610,6 +627,21 @@ TOOL_LINEAGE: dict[str, dict] = {
         "depends_on": [],
     },
 
+    "plotselect": {
+        "long_description": (
+            "Select which counter SPEC uses for plotting during scans. "
+            "Use I1 for alignment optimization (downstream signal), "
+            "vortDT for fluorescence, I0 for upstream flux monitoring. "
+            "Does not affect data collection — only the live plot display."
+        ),
+        "python_func": "spec_cmd.call('plotselect', [counter], justification)",
+        "spec_command": "plotselect <counter>",
+        "output": "JSON: {ok, kind, action_id, result: {counter, raw, elapsed_s}, elapsed_s}",
+        "source": "spec_session",
+        "source_detail": "Instantaneous SPEC command; no scan context required.",
+        "depends_on": [],
+    },
+
     # ---------- Autonomy tools — CAT-4: alignment fallbacks -----------------
 
     "run_align_shortcut": {
@@ -638,6 +670,187 @@ TOOL_LINEAGE: dict[str, dict] = {
         "source": "spec_session",
         "source_detail": "Uses SPEC's built-in CEN/PEAK detection on the last scan.",
         "depends_on": ["run_motor_scan", "run_motor_scan_relative"],
+    },
+
+    # ---------- Autonomy tools — CAT-5: beam-diagnostic tool ----------------
+
+    "mv_pinhole": {
+        "long_description": (
+            "Move the sample stage so the diagnostic-tool pinhole is in "
+            "the beam. Sx/Sy/Sz/Sr are driven to the pinhole pose, plus "
+            "any active pinhole_offset."
+        ),
+        "python_func": "spec_cmd.call('mvpinhole', [], justification)",
+        "spec_command": "mvpinhole",
+        "output": "JSON: {ok, kind, action_id, result: {raw, elapsed_s}, elapsed_s}",
+        "source": "spec_session",
+        "source_detail": "Defined in beam_diagnostics.mac via rdef; pose updates whenever update_pinhole_pos is called.",
+        "depends_on": [],
+    },
+    "mv_plastic": {
+        "long_description": (
+            "Move the sample stage so the diagnostic-tool plastic "
+            "scatterer is in the beam. Used to generate elastic scatter "
+            "for XES spectrometer alignment."
+        ),
+        "python_func": "spec_cmd.call('mvplastic', [], justification)",
+        "spec_command": "mvplastic",
+        "output": "JSON: {ok, kind, action_id, result: {raw, elapsed_s}, elapsed_s}",
+        "source": "spec_session",
+        "source_detail": "Defined in beam_diagnostics.mac via rdef.",
+        "depends_on": [],
+    },
+    "mv_knife_clear": {
+        "long_description": (
+            "Move the sample stage so the knife-edge blades are clear of "
+            "the beam. Fast move, but the diagnostic body may still "
+            "partially clip the beam to I1 — prefer mv_knife_out before "
+            "trusting I1 for upstream-optic alignment."
+        ),
+        "python_func": "spec_cmd.call('mvknifeclear', [], justification)",
+        "spec_command": "mvknifeclear",
+        "output": "JSON: {ok, kind, action_id, result: {raw, elapsed_s}, elapsed_s}",
+        "source": "spec_session",
+        "source_detail": "Defined in beam_diagnostics.mac via rdef.",
+        "depends_on": [],
+    },
+    "mv_knife_out": {
+        "long_description": (
+            "Move the sample stage so the entire diagnostic tool is "
+            "fully out of the beam path. Slower than mv_knife_clear "
+            "(large Sr rotation) but unambiguous: nothing diagnostic-"
+            "related is in the beam."
+        ),
+        "python_func": "spec_cmd.call('mvknifewayout', [], justification)",
+        "spec_command": "mvknifewayout",
+        "output": "JSON: {ok, kind, action_id, result: {raw, elapsed_s}, elapsed_s}",
+        "source": "spec_session",
+        "source_detail": "Defined in beam_diagnostics.mac via rdef; sets Sr=80 so the full diagnostic body clears the beam.",
+        "depends_on": [],
+    },
+    "measure_beam_size": {
+        "long_description": (
+            "Knife-edge scan to measure horizontal and vertical beam "
+            "FWHM. Multi-minute. Removes filters, ensures DATAFILE="
+            "alignment, runs centered knife-edge scans on Sx and Sz, "
+            "stores results in the global beamsize[] array. Each axis "
+            "supports 'big' (large mm-scale beam) or 'small' (~50um "
+            "focused) modes — wrong mode produces artifacts."
+        ),
+        "python_func": "spec_cmd.call('measure_beam_size', [mode_x, mode_z], justification)",
+        "spec_command": "measure_beam_size <mode_x> <mode_z>",
+        "output": "JSON: {ok, kind, action_id, result: {mode_x, mode_z, raw, elapsed_s}, elapsed_s}",
+        "source": "spec_session",
+        "source_detail": "Defined in beam_diagnostics.mac:250; chains center_knife_edge_x/z + beamx/beamz scans.",
+        "depends_on": [],
+    },
+    "zero_pinhole": {
+        "long_description": (
+            "Center the beam on the diagnostic-tool pinhole, then zero "
+            "(or apply the configured pinhole_offset to) Tz/Sz/Bz/Tx/Sx/"
+            "Bx. Multi-minute. Refuses to run if the table is not in "
+            "its usual position (Tz < 15.5 with no offset configured)."
+        ),
+        "python_func": "spec_cmd.call('zero_pinhole', [], justification)",
+        "spec_command": "zero_pinhole",
+        "output": "JSON: {ok, kind, action_id, result: {raw, elapsed_s}, elapsed_s}",
+        "source": "spec_session",
+        "source_detail": "Defined in beam_diagnostics.mac:467; chains find_pinhole + center_on_pinhole + table/sample/B-stage zeroing.",
+        "depends_on": [],
+    },
+    "small_beam": {
+        "long_description": (
+            "Set the KB-mirror benders to the small-beam (~50um focused) "
+            "preset. Moves m1ubend/m1dbend/m2ubend/m2dbend to the "
+            "configured small-beam values and tags both beamsize_mode "
+            "axes as 'small'."
+        ),
+        "python_func": "spec_cmd.call('smallbeam', [], justification)",
+        "spec_command": "smallbeam",
+        "output": "JSON: {ok, kind, action_id, result: {raw, mode: 'small', elapsed_s}, elapsed_s}",
+        "source": "spec_session",
+        "source_detail": "Defined in beam_diagnostics.mac:68.",
+        "depends_on": [],
+    },
+    "big_beam": {
+        "long_description": (
+            "Set the KB-mirror benders to the big-beam (mm-scale, "
+            "standard LiSA) preset. Moves m1ubend/m1dbend/m2ubend/"
+            "m2dbend to the configured big-beam values and tags both "
+            "beamsize_mode axes as 'big'."
+        ),
+        "python_func": "spec_cmd.call('bigbeam', [], justification)",
+        "spec_command": "bigbeam",
+        "output": "JSON: {ok, kind, action_id, result: {raw, mode: 'big', elapsed_s}, elapsed_s}",
+        "source": "spec_session",
+        "source_detail": "Defined in beam_diagnostics.mac:78.",
+        "depends_on": [],
+    },
+    "xtal_align": {
+        "long_description": (
+            "Recalibrate the crystal-motor encoder zero. Runs a dscan "
+            "over the crystal motor, peaks on the diffraction feature, "
+            "then redefines the current encoder reading to the original "
+            "(pre-scan) value. The motor stays in place; its zero is "
+            "now anchored on the peak. Used after a crystal swap or "
+            "when the crystal feature has drifted."
+        ),
+        "python_func": "spec_cmd.call('xtalalign', [], justification)",
+        "spec_command": "xtalalign",
+        "output": "JSON: {ok, kind, action_id, result: {raw, elapsed_s}, elapsed_s}",
+        "source": "spec_session",
+        "source_detail": "Defined in beam_diagnostics.mac:87; valid_dscan crystal + peak + set crystal <old>.",
+        "depends_on": [],
+    },
+    "reset_gap": {
+        "long_description": (
+            "Recalibrate the undulator gap encoder zero. Runs ggg (gap "
+            "dscan), peaks on the flux maximum, then redefines the gap "
+            "encoder so the original (pre-scan) reading is preserved on "
+            "the new peak. Run ONCE at the end of an energy-calibration "
+            "sequence -- iterating reset_gap during calibration fights "
+            "the calibrate_mono loop."
+        ),
+        "python_func": "spec_cmd.call('reset_gap', [], justification)",
+        "spec_command": "reset_gap",
+        "output": "JSON: {ok, kind, action_id, result: {raw, elapsed_s}, elapsed_s}",
+        "source": "spec_session",
+        "source_detail": "Defined in beam_diagnostics.mac:95; ggg + peak + set gap <old>.",
+        "depends_on": [],
+    },
+    "set_anchor": {
+        "long_description": (
+            "Capture mono/m1vert/m1vert1/m1vert2/Tz/Tz1/Tz2 (plus "
+            "monvtra for SPEAR steering) as the tracking-anchor "
+            "reference, and persist to anchor.cfg + a timestamped "
+            "backup. The anchor is the fixed beam-position pivot that "
+            "energy-tracking uses to keep the focused beam on the "
+            "sample as the mono Bragg angle changes. Call once the "
+            "beam is aligned at a known reference energy."
+        ),
+        "python_func": "spec_cmd.call('set_anchor', [], justification)",
+        "spec_command": "set_anchor",
+        "output": "JSON: {ok, kind, action_id, result: {raw, elapsed_s}, elapsed_s}",
+        "source": "spec_session",
+        "source_detail": "Defined in tracking.mac:268; calls save_anchor → /usr/local/lib/spec.d/anchor.cfg + ANCHOR_DIR backup.",
+        "depends_on": [],
+    },
+    "tracking": {
+        "long_description": (
+            "Toggle energy-tracking on (1) or off (0). With tracking "
+            "enabled, every energy move also drives m1vert and Tz so "
+            "the focused beam stays at the anchor position as the mono "
+            "Bragg angle changes. Requires set_anchor first -- without "
+            "an anchor, tracking has no reference and the beam will "
+            "drift. Disable before procedures that need m1vert/Tz "
+            "free of automatic motion (e.g. KB-mirror alignment)."
+        ),
+        "python_func": "spec_cmd.call('tracking', ['0'|'1'], justification)",
+        "spec_command": "tracking <0|1>",
+        "output": "JSON: {ok, kind, action_id, result: {enabled, raw, elapsed_s}, elapsed_s}",
+        "source": "spec_session",
+        "source_detail": "Defined in tracking.mac:139; flips global _TRACKING which gates the _track() hook on energy moves.",
+        "depends_on": ["set_anchor"],
     },
 
     # ---------- Autonomy tools — CAT-6: beam monitoring ---------------------
