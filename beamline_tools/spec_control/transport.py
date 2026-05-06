@@ -14,6 +14,7 @@ The transport router lives in `spec_cmd.py` — see `spec_cmd.dispatch`.
 from __future__ import annotations
 
 import itertools
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -143,9 +144,14 @@ class _MockScreen:
         if eng:
             eng.set_current_file(name)
 
+    _JUSTIFICATION_PRINT_RE = re.compile(r'^print\s+"(?:[^"\\]|\\.)*"\s*;\s*')
+
     @classmethod
     def inject(cls, cmd: str) -> str:
         cmd = cmd.strip()
+        m = cls._JUSTIFICATION_PRINT_RE.match(cmd)
+        if m:
+            cmd = cmd[m.end():].strip()
         low = cmd.lower()
         if low == "wa":
             parts = ["Current motor positions:"]
@@ -209,6 +215,30 @@ class _MockScreen:
                         f"File={meta['file_name']}  motor={motor}")
             cls._scan_n += 1
             return f"Scan #{cls._scan_n} complete. File={cls._filename}"
+        if low.startswith("d2scan "):
+            tokens = cmd.split()
+            try:
+                m1 = tokens[1]
+                d_lo1 = float(tokens[2]); d_hi1 = float(tokens[3])
+                m2 = tokens[4]
+                d_lo2 = float(tokens[5]); d_hi2 = float(tokens[6])
+                npts = int(tokens[7]); ct = float(tokens[8])
+                # d2scan leaves both motors at their end-of-scan position
+                cls._positions[m1] = cls._positions.get(m1, 0.0) + d_hi1
+                cls._positions[m2] = cls._positions.get(m2, 0.0) + d_hi2
+            except (IndexError, ValueError):
+                cls._scan_n += 1
+                return f"Scan #{cls._scan_n} complete. File={cls._filename}"
+            cls._scan_n += 1
+            return (f"Scan #{cls._scan_n} complete. File={cls._filename}  "
+                    f"motors={m1},{m2} npts={npts} ct={ct}")
+        if low.startswith("get_herfd_energy"):
+            # SPEC macro prints the fit's suggested emission energy. Pin
+            # to a value the parser can pull out so dispatcher tests get
+            # a structured result back.
+            return ("get_HERFD_energy: fitted Pseudo-Voigt + skew on the "
+                    "current scan.\n"
+                    "Suggested new emission value is 6404.20")
         if low.startswith("cen") or low.startswith("peak"):
             return "Moved scanned motor to feature."
         if low.startswith("align_the_beamline"):
@@ -287,6 +317,19 @@ class _MockScreen:
         if low.startswith("reset_gap"):
             time.sleep(0.05)
             return "reset_gap complete. gap encoder restored to original position."
+        if low.startswith("get_anchor"):
+            return (
+                "\nAnchor positions: \n"
+                "energy: 7100\n"
+                "(m1vert: 1.93)\n"
+                "m1vert1: 1.83\n"
+                "m1vert2: 2.03\n"
+                "(Tz: 0.0)\n"
+                "Tz1: 0.0\n"
+                "Tz2: 0.0\n"
+                "crystal: A\n"
+                "SPEAR steering: -0.05"
+            )
         if low.startswith("set_anchor"):
             return (
                 "Storing the current positions of energy, Tz, m1vert to track the beam\n"

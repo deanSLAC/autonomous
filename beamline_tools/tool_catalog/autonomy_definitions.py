@@ -233,6 +233,70 @@ AUTONOMY_TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "run_diagonal_scan",
+            "description": (
+                "d2scan — relative scan of two motors moving in lockstep, "
+                "each spanning the same delta range over the same number "
+                "of points. Common use: map a sample's footprint in the "
+                "Sx/Sy plane to find its edges (the staple of "
+                "auto_sample_align's per-sample boundary detection). "
+                "Default range is ±8."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    **_J,
+                    "motor1": {"type": "string",
+                               "description": "First motor (e.g. 'Sx')."},
+                    "motor2": {"type": "string",
+                               "description": "Second motor (e.g. 'Sy')."},
+                    "npoints": {"type": "integer"},
+                    "count_time": {"type": "number",
+                                   "description": "Seconds per point."},
+                    "delta_lo": {
+                        "type": "number", "default": -8,
+                        "description": "Lower delta bound. Applied to both motors. Default -8.",
+                    },
+                    "delta_hi": {
+                        "type": "number", "default": 8,
+                        "description": "Upper delta bound. Applied to both motors. Default 8.",
+                    },
+                },
+                "required": ["justification", "motor1", "motor2",
+                             "npoints", "count_time"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fit_emission_peak",
+            "description": (
+                "Fit the most recent (or specified) emission scan with the "
+                "lab's Pseudo-Voigt+skew model and return the suggested "
+                "emission energy in eV. Does NOT move the spectrometer — "
+                "the agent decides whether/how to apply the value. Wraps "
+                "the SPEC `get_HERFD_energy` macro."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    **_J,
+                    "scan_number": {
+                        "type": "integer",
+                        "description": (
+                            "Scan number to fit. If omitted, the most "
+                            "recent scan in the active datafile is used."
+                        ),
+                    },
+                },
+                "required": ["justification"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "run_xas",
             "description": (
                 "Element-specific XAS (<element>_xas). Beam must be present; count_time ≤ 60 s; reps ≤ 20."
@@ -569,6 +633,22 @@ AUTONOMY_TOOL_DEFINITIONS = [
                 "fights the calibrate_mono loop."
             ),
             "parameters": {"type": "object", "properties": _J, "required": ["justification"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_anchor",
+            "description": (
+                "Read the current tracking anchor from the SPEC session: "
+                "stored energy, m1vert/Tz (and their 1/2 constituents), "
+                "crystal id, and SPEAR steering offset captured at "
+                "anchor time. Also reports whether SPEAR has visibly "
+                "drifted since the anchor was set, or whether the "
+                "crystal set has changed (which would invalidate the "
+                "anchor for the current geometry)."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
     {
@@ -948,7 +1028,8 @@ AUTONOMY_TOOL_CATEGORIES = [
         "read_all_positions",
     ]),
     ("CAT-2 Scans", [
-        "run_motor_scan", "run_motor_scan_relative", "run_xas", "run_emiss_scan",
+        "run_motor_scan", "run_motor_scan_relative", "run_diagonal_scan",
+        "run_xas", "run_emiss_scan", "fit_emission_peak",
     ]),
     ("CAT-3 Config", [
         "mv_energy", "shutter", "set_filter", "safely_remove_filters",
@@ -959,7 +1040,7 @@ AUTONOMY_TOOL_CATEGORIES = [
         "mv_pinhole", "mv_plastic", "mv_knife_clear", "mv_knife_out",
         "measure_beam_size", "zero_pinhole",
         "small_beam", "big_beam", "xtal_align", "reset_gap",
-        "set_anchor", "tracking",
+        "get_anchor", "set_anchor", "tracking",
     ]),
     ("CAT-6 Beam", ["get_beam_status", "get_counts", "get_counter", "request_gap_ownership"]),
     ("CAT-7 State", ["get_scan_number", "get_current_datafile", "abort_current_scan"]),

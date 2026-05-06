@@ -42,6 +42,25 @@ from beamline_tools.spec_control.transport import DispatchResult
 logger = logging.getLogger(__name__)
 
 
+_JUSTIFICATION_MAX = 200
+
+
+def _spec_print_prefix(justification: str) -> str:
+    """Render a SPEC `print` statement that echoes the justification.
+
+    Returns "" when the justification is empty so callers can prepend
+    unconditionally.
+    """
+    s = (justification or "").strip()
+    if not s:
+        return ""
+    s = " ".join(s.split())
+    if len(s) > _JUSTIFICATION_MAX:
+        s = s[: _JUSTIFICATION_MAX - 1] + "…"
+    s = s.replace("\\", "\\\\").replace('"', '\\"')
+    return f'print "BeamtimeHero: {s}"; '
+
+
 # ---------------------------------------------------------------------------
 # Transport router
 # ---------------------------------------------------------------------------
@@ -233,6 +252,50 @@ def _parse_ct(out: str, _a) -> dict:
     return {"counters": counters, "raw": out}
 
 
+def _parse_anchor(out: str, _a) -> dict:
+    # Macro prints lines like:
+    #   energy: 8979
+    #   (m1vert: 0.95)
+    #   m1vert1: 0.836
+    #   crystal: B
+    #   SPEAR steering: -0.42
+    # …plus optional WARNING blocks if SPEAR drifted or the crystal changed.
+    def _num(label: str):
+        m = re.search(rf"\b{label}\s*:\s*([\-+\d.eE]+)", out)
+        if not m:
+            return None
+        try:
+            return float(m.group(1))
+        except ValueError:
+            return None
+
+    crystal_m = re.search(r"\bcrystal\s*:\s*(\S+)", out)
+    return {
+        "energy":          _num("energy"),
+        "m1vert":          _num("m1vert"),
+        "m1vert1":         _num("m1vert1"),
+        "m1vert2":         _num("m1vert2"),
+        "Tz":              _num("Tz"),
+        "Tz1":             _num("Tz1"),
+        "Tz2":             _num("Tz2"),
+        "crystal":         crystal_m.group(1) if crystal_m else None,
+        "spear_steering":  _num("SPEAR steering"),
+        "spear_drift":     "SPEAR has apparently moved" in out,
+        "crystal_changed": "CRYSTAL SET HAS CHANGED" in out,
+        "raw": out,
+    }
+
+
+def _parse_herfd_energy(out: str, _a) -> dict:
+    # The macro prints "Suggested new emission value is <float>" once the
+    # external fitter has converged. Anything else means the fit failed
+    # or the scan was unusable; surface that with energy_ev=None and
+    # the raw output so the agent can decide what to do.
+    m = re.search(r"Suggested new emission value is\s*([-+]?\d+\.?\d*)", out)
+    energy = float(m.group(1)) if m else None
+    return {"emission_ev": energy, "raw": out}
+
+
 def _parse_beam_status(out: str, _a) -> dict:
     # Accept either Python-dict-like or k=v format.
     sp = re.search(r"spear_current[^\d-]*([\d.]+)", out)
@@ -292,6 +355,11 @@ _READ: dict[str, CommandSpec] = {
         lambda a: f"p {a[0]}" if a else "wa",
         _parse_single_float,
     ),
+    "get_anchor": CommandSpec(
+        "get_anchor", "read",
+        lambda a: "get_anchor",
+        _parse_anchor,
+    ),
 }
 
 _ACTION: dict[str, CommandSpec] = {
@@ -329,6 +397,16 @@ _ACTION: dict[str, CommandSpec] = {
         lambda o, a: {
             "motor": a[0], "delta_start": float(a[1]), "delta_end": float(a[2]),
             "npoints": int(a[3]), "count_time": float(a[4]), "raw": o,
+        },
+        needs_motor_allow=True, motor_arg_index=0, timeout_s=1800,
+    ),
+    "d2scan": CommandSpec(
+        "d2scan", "action",
+        lambda a: f"d2scan {a[0]} {a[1]} {a[2]} {a[3]} {a[4]} {a[5]} {a[6]} {a[7]}",
+        lambda o, a: {
+            "motor1": a[0], "delta_lo1": float(a[1]), "delta_hi1": float(a[2]),
+            "motor2": a[3], "delta_lo2": float(a[4]), "delta_hi2": float(a[5]),
+            "npoints": int(a[6]), "count_time": float(a[7]), "raw": o,
         },
         needs_motor_allow=True, motor_arg_index=0, timeout_s=1800,
     ),
@@ -455,6 +533,12 @@ _ACTION: dict[str, CommandSpec] = {
         "calibrate_mono", "action",
         lambda a: f"calibrate_mono {a[0]}",
         lambda o, a: {"tabulated_ev": float(a[0]), "raw": o}, timeout_s=180,
+    ),
+    "get_HERFD_energy": CommandSpec(
+        "get_HERFD_energy", "action",
+        lambda a: f"get_HERFD_energy {a[0]}" if a else "get_HERFD_energy",
+        _parse_herfd_energy,
+        timeout_s=120,
     ),
 
     # Beam-diagnostic tool moves (sample-position diagnostic, alignment only)
@@ -688,8 +772,9 @@ def call(
         return {"ok": False, "kind": "action", "action_id": row.id, "error": "SPEC is busy"}
 
     mark_action_started(row.id)
+    wire_string = _spec_print_prefix(justification) + spec_string
     try:
-        dr: DispatchResult = dispatch(spec_string, timeout_s=spec.timeout_s)
+        dr: DispatchResult = dispatch(wire_string, timeout_s=spec.timeout_s)
     finally:
         transport.release(output=None, errored=False)
 

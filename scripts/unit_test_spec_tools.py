@@ -76,10 +76,19 @@ from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE  # noqa: E402
 
 _DISPATCHED: list[str] = []
 _orig_inject = _MockScreen.inject.__func__  # classmethod underlying fn
+_PRINT_PREFIX_RE = _MockScreen._JUSTIFICATION_PRINT_RE
 
 
 def _recording_inject(cls, cmd: str) -> str:
-    _DISPATCHED.append(cmd)
+    # spec_cmd.call() now prepends `print "<justification>"; ` to action
+    # commands so the operator at the SPEC prompt sees the agent's
+    # reasoning. The audit assertions here compare against the *intent*
+    # (umv, ascan, ...), so strip that wrapper before recording.
+    stripped = cmd.lstrip()
+    m = _PRINT_PREFIX_RE.match(stripped)
+    if m:
+        stripped = stripped[m.end():].strip()
+    _DISPATCHED.append(stripped)
     return _orig_inject(cls, cmd)
 
 
@@ -105,6 +114,7 @@ KNOWN_MACROS: dict[str, str] = {
     "mv": "standard.mac:3420",
     "ascan": "standard.mac:1120",
     "dscan": "standard.mac:1125",
+    "d2scan": "standard.mac:1126",
     "ct": "standard.mac:3233",
     "fon": "standard.mac:80",
     # shutter
@@ -129,6 +139,7 @@ KNOWN_MACROS: dict[str, str] = {
     "auto_sample_align": "auto_sample_align.mac:39",
     "select_element": "select_element.mac:21",
     "run_collection": "run_collection.mac:24",
+    "get_HERFD_energy": "get_HERFD_energy.mac:2",
     # alignment shortcuts
     "vvv": "beam_diagnostics.mac:43",
     "hhh": "beam_diagnostics.mac:44",
@@ -146,6 +157,7 @@ KNOWN_MACROS: dict[str, str] = {
     "xtalalign": "beam_diagnostics.mac:87",
     "reset_gap": "beam_diagnostics.mac:95",
     # Energy tracking
+    "get_anchor": "tracking.mac:249",
     "set_anchor": "tracking.mac:268",
     "tracking": "tracking.mac:139",
     # per-element xas (verified Fe only; other element files exist in xas_macs/)
@@ -341,6 +353,8 @@ CASES_BL_ALIGN: list[Case] = [
          ["xtalalign"], note="recalibrate crystal encoder"),
     Case("reset_gap", {"justification": "test"},
          ["reset_gap"], note="recalibrate gap encoder"),
+    Case("get_anchor", {}, ["get_anchor"],
+         note="read tracking anchor"),
     Case("set_anchor", {"justification": "test"},
          ["set_anchor"], note="capture tracking anchor"),
     Case("tracking", {"enabled": True, "justification": "test"},
@@ -378,6 +392,29 @@ CASES_SAMPLE_ALIGN: list[Case] = [
          ["auto_sample_align"],
          phase=phase_allowlist.PHASE_SAMPLE_ALIGN,
          note="per-sample centering"),
+    Case("run_diagonal_scan",
+         {"motor1": "Sx", "motor2": "Sy", "npoints": 40, "count_time": 0.5,
+          "justification": "test"},
+         ["d2scan Sx -8 8 Sy -8 8 40 0.5"],
+         phase=phase_allowlist.PHASE_SAMPLE_ALIGN,
+         note="d2scan default ±8 range"),
+    Case("run_diagonal_scan",
+         {"motor1": "Sx", "motor2": "Sy",
+          "delta_lo": -5, "delta_hi": 5,
+          "npoints": 20, "count_time": 0.2,
+          "justification": "test"},
+         ["d2scan Sx -5 5 Sy -5 5 20 0.2"],
+         phase=phase_allowlist.PHASE_SAMPLE_ALIGN,
+         note="d2scan explicit range"),
+    Case("fit_emission_peak", {"justification": "test"},
+         ["get_HERFD_energy"],
+         phase=phase_allowlist.PHASE_SAMPLE_ALIGN,
+         note="HERFD energy fit (latest scan)"),
+    Case("fit_emission_peak",
+         {"scan_number": 42, "justification": "test"},
+         ["get_HERFD_energy 42"],
+         phase=phase_allowlist.PHASE_SAMPLE_ALIGN,
+         note="HERFD energy fit (specific scan)"),
 ]
 
 CASES_COLLECTION: list[Case] = [

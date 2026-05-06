@@ -116,19 +116,21 @@ PROCEDURAL_PHASE = {
     # Energy tracking
     "set_anchor": {PHASE_BL_ALIGN},
     "tracking": {PHASE_BL_ALIGN, PHASE_XES_ALIGN, PHASE_SAMPLE_ALIGN, PHASE_COLLECTION},
+    # Sample-alignment helpers
+    "get_HERFD_energy": {PHASE_SAMPLE_ALIGN, PHASE_COLLECTION},
 }
 
 # "All" tier — any phase except PHASE_COMPLETE.
 _ANY_RUNNING = set(ALL_PHASES) - {PHASE_COMPLETE}
 
 PROCEDURAL_ANY_PHASE = {
-    "umv", "umvr", "mv", "ascan", "dscan",
+    "umv", "umvr", "mv", "ascan", "dscan", "d2scan",
     "cen", "peak", "shutter", "mv_energy", "gaprequest",
     "safely_remove_filters", "set_i0_gain", "set_i1_gain",
     "set_i2_gain", "set_vortex_roi", "newfile", "abort", "plotselect",
     # Read-only:
     "wa", "p_motor", "get_S", "ct", "fon", "p_datafile", "pwd", "scan_n",
-    "beam_status", "p_global",
+    "beam_status", "p_global", "get_anchor",
 }
 
 

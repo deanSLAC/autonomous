@@ -510,6 +510,62 @@ TOOL_LINEAGE: dict[str, dict] = {
         "source_detail": "Produces a new #S block; leaves motor at end position (or peak/cen if followed up).",
         "depends_on": ["read_motor_position"],
     },
+    "run_diagonal_scan": {
+        "long_description": (
+            "Two-motor diagonal scan (SPEC's d2scan) — both motors move "
+            "in lockstep over the same delta range and number of points. "
+            "Used during sample alignment to map a sample's footprint in "
+            "the Sx/Sy plane (the d2scan in auto_sample_align's per-sample "
+            "boundary detection). Default range is ±8 if delta_lo / "
+            "delta_hi aren't provided. The dispatcher checks motor1 "
+            "against the phase allow-list; the wrapper additionally "
+            "validates motor2 before dispatch."
+        ),
+        "python_func": (
+            "spec_cmd.call('d2scan', "
+            "[motor1, delta_lo, delta_hi, motor2, delta_lo, delta_hi, "
+            "npoints, count_time], justification)"
+        ),
+        "spec_command": (
+            "d2scan <motor1> <delta_lo> <delta_hi> "
+            "<motor2> <delta_lo> <delta_hi> <npoints> <count_time>"
+        ),
+        "output": (
+            "JSON: {ok, kind, action_id, "
+            "result: {motor1, delta_lo1, delta_hi1, motor2, delta_lo2, "
+            "delta_hi2, npoints, count_time, raw, elapsed_s}, elapsed_s}"
+        ),
+        "source": "spec_session",
+        "source_detail": "d2scan defined in standard.mac:1126 via _angle_scan_prep.",
+        "depends_on": ["read_motor_position"],
+    },
+    "fit_emission_peak": {
+        "long_description": (
+            "Fit the most recent (or specified) emission scan with the "
+            "lab's Pseudo-Voigt+skew model and return the suggested "
+            "emission energy in eV. Wraps the SPEC `get_HERFD_energy` "
+            "macro, which shells out to "
+            "/usr/local/projects/HERFD_energy/get_HERFD_energy.py and "
+            "prints `Suggested new emission value is <eV>`. Does NOT "
+            "move the spectrometer — the agent decides whether/how to "
+            "apply the value (e.g. via a follow-up emiss move)."
+        ),
+        "python_func": (
+            "spec_cmd.call('get_HERFD_energy', [scan_number?], justification)"
+        ),
+        "spec_command": "get_HERFD_energy [<scan_number>]",
+        "output": (
+            "JSON: {ok, kind, action_id, "
+            "result: {emission_ev, raw, elapsed_s}, elapsed_s}"
+        ),
+        "source": "spec_session",
+        "source_detail": (
+            "Defined in get_HERFD_energy.mac:2; reads the active DATAFILE "
+            "and the current PLOT_SEL counter, then runs the external "
+            "fitter."
+        ),
+        "depends_on": ["run_motor_scan_relative"],
+    },
     "run_xas": {
         "long_description": (
             "Element-specific XAS scan (<element>_xas). Guards: beam "
@@ -816,6 +872,29 @@ TOOL_LINEAGE: dict[str, dict] = {
         "output": "JSON: {ok, kind, action_id, result: {raw, elapsed_s}, elapsed_s}",
         "source": "spec_session",
         "source_detail": "Defined in beam_diagnostics.mac:95; ggg + peak + set gap <old>.",
+        "depends_on": [],
+    },
+    "get_anchor": {
+        "long_description": (
+            "Read the current tracking-anchor state from the SPEC "
+            "session: energy + m1vert + Tz at anchor time, the "
+            "constituent m1vert1/m1vert2/Tz1/Tz2 motor positions, the "
+            "crystal id, and the SPEAR steering offset stored at "
+            "anchor time. Also reports whether SPEAR has visibly "
+            "drifted (monvtra moved since anchoring) and whether the "
+            "crystal set has changed (which makes the anchor invalid "
+            "for the current geometry). Read-only — no justification "
+            "required."
+        ),
+        "python_func": "spec_cmd.call('get_anchor', [], justification='')",
+        "spec_command": "get_anchor",
+        "output": (
+            "JSON: {ok, kind, result: {energy, m1vert, m1vert1, m1vert2, "
+            "Tz, Tz1, Tz2, crystal, spear_steering, spear_drift, "
+            "crystal_changed, raw}}"
+        ),
+        "source": "spec_session",
+        "source_detail": "Defined in tracking.mac:249.",
         "depends_on": [],
     },
     "set_anchor": {

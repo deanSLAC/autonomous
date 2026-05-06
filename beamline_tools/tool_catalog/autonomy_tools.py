@@ -229,6 +229,41 @@ def t_run_motor_scan_relative(args: dict) -> tuple[str, list[str]]:
     return _as_json(res), []
 
 
+def t_run_diagonal_scan(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    motor1 = str(args["motor1"])
+    motor2 = str(args["motor2"])
+    # Pre-validate motor2: the dispatcher's motor allow-check only sees
+    # args[motor_arg_index=0] (motor1). motor2 lives at args[3] in the
+    # rendered list, so we have to gate it here.
+    phase = spec_cmd.get_phase()
+    if phase != phase_allowlist.PHASE_UNRESTRICTED and \
+            not phase_allowlist.motor_allowed(phase, motor2):
+        return json.dumps({
+            "ok": False,
+            "error": f"motor '{motor2}' not on allowlist for phase '{phase}'",
+        }), []
+    delta_lo = args.get("delta_lo", -8)
+    delta_hi = args.get("delta_hi", 8)
+    a = [
+        motor1, str(delta_lo), str(delta_hi),
+        motor2, str(delta_lo), str(delta_hi),
+        str(args["npoints"]), str(args["count_time"]),
+    ]
+    res = spec_cmd.call("d2scan", a, justification=j)
+    return _as_json(res), []
+
+
+def t_fit_emission_peak(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    a: list[str] = []
+    sn = args.get("scan_number")
+    if sn is not None:
+        a.append(str(int(sn)))
+    res = spec_cmd.call("get_HERFD_energy", a, justification=j)
+    return _as_json(res), []
+
+
 def t_run_xas(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
     a = [
@@ -408,6 +443,11 @@ def t_xtal_align(args: dict) -> tuple[str, list[str]]:
 def t_reset_gap(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
     res = spec_cmd.call("reset_gap", [], justification=j)
+    return _as_json(res), []
+
+
+def t_get_anchor(args: dict) -> tuple[str, list[str]]:
+    res = spec_cmd.call("get_anchor", [], justification="")
     return _as_json(res), []
 
 
@@ -813,8 +853,10 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     # CAT-2
     "run_motor_scan": t_run_motor_scan,
     "run_motor_scan_relative": t_run_motor_scan_relative,
+    "run_diagonal_scan": t_run_diagonal_scan,
     "run_xas": t_run_xas,
     "run_emiss_scan": t_run_emiss_scan,
+    "fit_emission_peak": t_fit_emission_peak,
     # CAT-3
     "mv_energy": t_mv_energy,
     "shutter": t_shutter,
@@ -838,6 +880,7 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "big_beam": t_big_beam,
     "xtal_align": t_xtal_align,
     "reset_gap": t_reset_gap,
+    "get_anchor": t_get_anchor,
     "set_anchor": t_set_anchor,
     "tracking": t_tracking,
     # CAT-6
