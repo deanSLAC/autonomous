@@ -7,7 +7,8 @@
       "Bash(beamtimehero spec-read:*)",
       "Bash(beamtimehero spec-write:*)",
       "Bash(beamtimehero --help)",
-      "Bash(beamtimehero -h)"
+      "Bash(beamtimehero -h)",
+      "Bash(awk:*)"
     ]
   },
   "model": "claude-opus-4-6"
