@@ -1,7 +1,6 @@
 # Beamline Alignment — Procedure
 
 For CLI usage, translation table, decision heuristics, and gotchas see `beamtimehero_context.md`.
-For the raw-spec-command version (screen stuffing), see `Beamline-alignment-spec.md`.
 
 Reference macro: `/usr/local/lib/spec.d/beamline_align.mac` (`align_the_beamline`).
 Scan definitions: `/usr/local/lib/spec.d/beam_diagnostics.mac`.
@@ -46,13 +45,13 @@ If I1 already has good signal (>= ~100 kcps), `plotselect I1` from the start —
 |------|----------|-------|-------|
 | 1 | `vvv` | monvtra | `peak` |
 | 2 | `hhh` | monhtra | `peak` |
-| 3 | `cm1m1` (pass 1 only) | m1vert | `peak` |
+| 3 | `m1m1big` (pass 1 only, if aperture clipping suspected) | m1vert | `peak` |
 | 4 | `m1m1` (fine) | m1vert | `cen` |
 | 5 | `m2m2` | m2horz | `peak` |
 
 After each step: `get-counts`, compare I1/mA to baseline.
 
-**Pass 2:** skip `cm1m1` — only needed in pass 1 to get into the aperture.
+**Pass 2:** skip `m1m1big` — only needed in pass 1 to get into the aperture.
 
 ### B-stage centering (after iteration loop)
 
