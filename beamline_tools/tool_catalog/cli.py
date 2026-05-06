@@ -33,7 +33,7 @@ REFERENCE_DOCS = {
         "description": "Minimal procedure for switching between absorption edges",
     },
     "beamline-alignment": {
-        "file": "Beamline-alignment-by-claude.md",
+        "file": "Beamline-alignment.md",
         "description": "Beamline alignment session notes with lessons learned",
     },
 }

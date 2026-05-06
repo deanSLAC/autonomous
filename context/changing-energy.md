@@ -8,7 +8,7 @@ future energy switches don't repeat the full alignment.
 Companion docs:
 - `/usr/local/lib/spec.d/CLAUDE.md` — top-level macro index
 - `claude_notes/BL15-2_alignment_reference.md` — full alignment workflow
-- `Beamline-alignment-by-claude.md` — session writeups (Cu align, Cu→Au switch)
+- `Beamline-alignment.md` — session writeups (Cu align, Cu→Au switch)
 
 (Lives at the spec.d top level for now because dean lacks write perms in
 `claude_notes/`. Move it under `claude_notes/` when convenient.)
@@ -155,7 +155,7 @@ value for downstream science. After `calibrate_mono` and before declaring
 done, `ct 1` should show `absev` essentially equal to the calibrated
 energy. If absev is ~10 eV off but the energy motor reads correctly,
 the calibration is incomplete — see the morning Cu session in
-Beamline-alignment-by-claude.md for an example of this exact failure.
+Beamline-alignment.md for an example of this exact failure.
 
 **Tabulated edge values:** use NIST values, not rounded ones. E.g.
 - Au K = **11918.7** eV  (NOT 11919)
@@ -226,7 +226,7 @@ Per the standard pattern:
   numbers, scan numbers, notes).
 - `/usr/local/projects/claude_spec_logs/alignment_<date>.log` — per-step
   command + justification + result entries throughout.
-- `Beamline-alignment-by-claude.md` — session-level writeup with
+- `Beamline-alignment.md` — session-level writeup with
   lessons learned.
 - This file (`changing-energy.md`) — keep updated with new lessons
   every time we run an energy switch.
