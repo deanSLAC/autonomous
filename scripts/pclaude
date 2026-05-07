@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# pclaude — run Claude non-interactively (claude -p) with a prompt
+# supplied either as a literal string or as a path to a text file.
+# Same sandbox/env as tester-claude.sh: phase-unlocked, beamtimehero CLI only.
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  echo "usage: pclaude <prompt-string-or-prompt-file> [extra claude args...]" >&2
+  exit 64
+fi
+
+ARG="$1"
+shift
+
+# Resolve the prompt against the caller's CWD *before* we cd into the project
+# root, so a relative path like ./prompt.txt still works.
+if [ -f "$ARG" ]; then
+  PROMPT="$(cat -- "$ARG")"
+else
+  PROMPT="$ARG"
+fi
+
+cd "$(dirname "$0")/.."
+
+# Load .env so SPEC_MOCK / SPEC_TRANSPORT / etc. propagate to claude and
+# to every beamtimehero subprocess it spawns.
+if [ -f .env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+
+export PATH="$(pwd)/scripts:$PATH"
+export SPEC_PHASE_OVERRIDE=unrestricted
+
+exec claude \
+  --settings .claude/settings.json \
+  --append-system-prompt-file context/beamtimehero_context.md \
+  --allowedTools "Bash(beamtimehero *),Agent" \
+  --disallowedTools "Edit,Write" \
+  --tools "Bash,Read,Agent" \
+  --model "opus" \
+  --effort xhigh \
+  -p "$PROMPT" "$@"

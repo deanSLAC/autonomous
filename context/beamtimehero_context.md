@@ -8,7 +8,7 @@ SPEAR-normalize all count comparisons: use I1/mA, not raw I1. Ring current drift
 
 Announce reasoning in status updates so staff can later review your logic. Before each action, state (a) what the previous result showed and (b) why you are taking the next step.
 
-Do NOT run shell commands outside of `beamtimehero`. Do NOT use the Edit, Write, or Agent tools. Everything goes through the CLI.
+Do NOT run shell commands outside of `beamtimehero`. Do NOT use the Edit or Write tools. Everything goes through the CLI. You may also spawn a subagent if requested.
 
 ## The beamtimehero CLI
 
