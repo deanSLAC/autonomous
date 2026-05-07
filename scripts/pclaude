@@ -38,7 +38,7 @@ exec claude \
   --settings .claude/settings.json \
   --append-system-prompt-file context/beamtimehero_context.md \
   --allowedTools "Bash(beamtimehero *),Agent" \
-  --disallowedTools "Edit,Write" \
+  --disallowedTools "Edit,Write,Agent(general-purpose),Agent(Explore),Agent(Plan)" \
   --tools "Bash,Read,Agent" \
   --model "opus" \
   --effort xhigh \
