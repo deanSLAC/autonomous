@@ -17,10 +17,12 @@ smoke tests) can use this directly.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 from beamline_tools.action_log.db import (
@@ -40,6 +42,35 @@ from beamline_tools.spec_control import (
 from beamline_tools.spec_control.transport import DispatchResult
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Safety switches — re-read from disk on every call so flipping the file
+# takes effect immediately without restarting the process.
+# ---------------------------------------------------------------------------
+
+_SAFETY_SWITCHES_PATH = Path(__file__).resolve().parent.parent / "safety_switches.json"
+
+
+_KIND_TO_SWITCH = {"read": "spec_read_enabled", "action": "spec_write_enabled"}
+
+
+def _safety_check(kind: str) -> str | None:
+    """Return an error string if the safety switch for *kind* is off, else None."""
+    key = _KIND_TO_SWITCH.get(kind)
+    if key is None:
+        return None
+    try:
+        with open(_SAFETY_SWITCHES_PATH) as f:
+            switches = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return None  # fail-open: missing/corrupt file doesn't block
+    if switches.get(key, True) is False:
+        label = "read" if kind == "read" else "write"
+        return (
+            f"SAFETY SWITCH: spec {label} commands are disabled "
+            f"(set {key}=true in {_SAFETY_SWITCHES_PATH.name} to re-enable)"
+        )
+    return None
 
 
 _JUSTIFICATION_MAX = 200
@@ -752,6 +783,11 @@ def call(
     spec = _READ.get(command) or _ACTION.get(command)
     if spec is None:
         return {"ok": False, "kind": "unknown", "error": f"unknown command: {command}"}
+
+    # Safety switch — checked on every call by re-reading the file
+    safety_err = _safety_check(spec.kind)
+    if safety_err:
+        return {"ok": False, "kind": spec.kind, "error": safety_err}
 
     # Phase gate
     allowed, reason = phase_allowlist.command_allowed(phase, command)
