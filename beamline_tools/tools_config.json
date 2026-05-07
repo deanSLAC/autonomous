@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T00:40:39.295572+00:00",
+    "generated_at": "2026-05-07T19:50:05.418523+00:00",
     "total_tools": 93,
     "generator": "scripts/generate_tools_config.py"
   },
@@ -56,20 +56,6 @@
       "comments": ""
     },
     {
-      "name": "extend_beamtime_budget",
-      "cli_path": "tool",
-      "description": "Add (or subtract, with a negative delta) hours to the beamtime budget. Use this for small adjustments; use set_beamtime_budget for absolute resets.",
-      "when_to_use": "Add (or subtract, with a negative delta) hours to the beamtime budget.",
-      "enabled": false,
-      "sample_input": {
-        "hours_delta": 0.0
-      },
-      "sample_output": "{\"ok\": true, \"new_total_hours\": 14.0}",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
       "name": "get_active_counter",
       "cli_path": "tool",
       "description": "Pick the 'meaningful' counter for an energy scan. Heuristic: ppboff if it exists, else the vortDT/vortDT2/vortDT3/vortDT4 with the highest max count, else I1.",
@@ -97,18 +83,6 @@
       "comments": ""
     },
     {
-      "name": "get_experiment_plan",
-      "cli_path": "tool",
-      "description": "Return the live experiment plan \u2014 config, sample queue, holder budgets, and the beamtime budget.",
-      "when_to_use": "Return the live experiment plan (config + sample queue + budget).",
-      "enabled": false,
-      "sample_input": {},
-      "sample_output": "{\"sample_queue\": [{\"sample_id\": \"Fe2O3_01\", \"element\": \"Fe\", \"status\": \"queued\", \"reps\": 5}], \"holder_budgets\": {\"holder_A\": {\"count_time_s\": 1.0, \"reps\": 5}}, \"budget\": {\"total_hours\": 12.0}}",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
       "name": "get_latest_log_entries",
       "cli_path": "tool",
       "description": "Return the tail of the beamline control log. The agent uses this to see what SPEC just printed \u2014 prompts, warnings, the text of recent commands.",
@@ -129,7 +103,7 @@
       "sample_input": {},
       "sample_output": "{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 5, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"Seconds\", \"I0\", \"I1\", \"vortDT\"], \"data_preview\": \"   energy  Seconds       I0  ...\\n0  7090.0      1.0  125000  ...\"}",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -145,18 +119,6 @@
       "comments": ""
     },
     {
-      "name": "get_remaining_beamtime",
-      "cli_path": "tool",
-      "description": "Return total / elapsed / remaining beamtime in hours. Elapsed is computed from the action_log timestamps.",
-      "when_to_use": "Total / elapsed / remaining beamtime in hours.",
-      "enabled": false,
-      "sample_input": {},
-      "sample_output": "{\"total_hours\": 12.0, \"elapsed_hours\": 4.5, \"remaining_hours\": 7.5}",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
       "name": "get_scan_deadtime",
       "cli_path": "tool",
       "description": "Compute how much of a scan was acquisition vs overhead (motor moves, settling, comms). Useful when optimizing count time or diagnosing slow scans.",
@@ -168,19 +130,7 @@
       },
       "sample_output": "{\"wall_s\": 420.5, \"acq_s\": 301.0, \"dead_s\": 119.5, \"dead_pct\": 28.4}",
       "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "get_staff_guidance",
-      "cli_path": "tool",
-      "description": "Recent staff/user guidance messages \u2014 either typed into the dashboard guidance panel or posted to Slack.",
-      "when_to_use": "Recent staff / user guidance messages (Slack or web).",
-      "enabled": false,
-      "sample_input": {},
-      "sample_output": "[{\"timestamp\": \"2026-05-04T10:30:00Z\", \"author\": \"staff_jane\", \"text\": \"Use 1s count time for Fe samples, they are radiation sensitive.\"}]",
-      "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -205,18 +155,6 @@
       "sample_output": "[{\"name\": \"spec_log_20260504.log\", \"size\": 524288, \"mtime\": \"2026-05-04T11:00:00\"}, {\"name\": \"spec_log_20260503.log\", \"size\": 1048576, \"mtime\": \"2026-05-03T23:59:00\"}]",
       "simulated": false,
       "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "list_open_interventions",
-      "cli_path": "tool",
-      "description": "List pause-for-human requests that are still waiting for staff to resolve.",
-      "when_to_use": "List pause-for-human requests still waiting.",
-      "enabled": false,
-      "sample_input": {},
-      "sample_output": "[{\"id\": \"intv_001\", \"kind\": \"sample_mount\", \"detail\": \"Mount holder B with Cu reference samples\", \"created_at\": \"2026-05-04T10:00:00Z\"}]",
-      "simulated": false,
-      "working_live": false,
       "comments": ""
     },
     {
@@ -297,7 +235,7 @@
       "when_to_use": "Post a high-level progress message to Slack + UI.",
       "enabled": true,
       "sample_input": {
-        "text": "example"
+        "text": "hey"
       },
       "sample_output": "{\"posted\": true}",
       "simulated": false,
@@ -334,63 +272,10 @@
       "comments": ""
     },
     {
-      "name": "recent_actions",
-      "cli_path": "tool",
-      "description": "Most recent action_log entries for the current experiment \u2014 every SPEC-mutating tool call appears here. Also used by the phase-transition gate to verify prior success.",
-      "when_to_use": "Most recent action_log entries for the current experiment.",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "[{\"id\": 42, \"timestamp\": \"2026-05-04T10:30:00Z\", \"phase\": \"collection\", \"command\": \"Fe_xas 1.0 5\", \"justification\": \"Collecting Fe K-edge XAS on sample Fe2O3_01\", \"success\": true}]",
-      "simulated": false,
-      "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "record_sample_progress",
-      "cli_path": "tool",
-      "description": "Update per-sample status (queued/in_progress/done/skipped/failed), SNR estimate, efficiency verdict, and reps completed. Preserves the rest of the plan.",
-      "when_to_use": "Update per-sample status (snr_estimate, efficiency_verdict, reps_completed, note).",
-      "enabled": false,
-      "sample_input": {
-        "sample_id": "example"
-      },
-      "sample_output": "{\"ok\": true}",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "regenerate_plan",
-      "cli_path": "tool",
-      "description": "Rebuild the sample plan from the DB while preserving per-sample progress (status, reps_completed, notes) and user overrides (thresholds, holder_budgets, total budget). Call this after a sample holder is added or edited.",
-      "when_to_use": "Rebuild the sample plan from the database while preserving per-sample progress (status, reps_completed, notes) and user overrides (thresholds, holder_budgets, budget). Call this after a new sample holder is configured or an existing one is edited.",
-      "enabled": false,
-      "sample_input": {},
-      "sample_output": "{\"ok\": true, \"sample_count\": 8}",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "request_human_intervention",
-      "cli_path": "tool",
-      "description": "Pause the agent and ask a human to perform a physical action (crystal install, sample mount, foil insert, hardware reset, or custom). Posts to Slack and blocks until staff resolves it from the dashboard or Slack.",
-      "when_to_use": "Pause the agent and ask a human to complete a physical action (crystal install, sample mount, foil insert, etc.). Posts to Slack and blocks until resolved.",
-      "enabled": false,
-      "sample_input": {
-        "kind": "crystal_install",
-        "detail": "example"
-      },
-      "sample_output": "{\"resolved\": true, \"note\": \"Fe foil inserted\", \"resolver\": \"staff_jane\"}",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
       "name": "save_plan",
       "cli_path": "tool",
-      "description": "Persist a markdown plan into the project's plans/ directory. Used at the start of multi-step tasks (typically beamline optimization) to record the step-by-step plan the agent intends to follow, so future sessions can review what was attempted and why. Filenames are validated against a strict allow-list and writes are confined to PLANS_DIR \u2014 no path traversal, no overwriting unless explicitly requested.",
-      "when_to_use": "Save a markdown plan to the project's plans/ directory. Use this at the start of a beamline-optimization session (or any multi-step task) to persist the step-by-step plan you generated, so future sessions can review what was attempted and why.",
+      "description": "Persist a markdown plan into the project's logs/plans/ directory. Used at the start of multi-step tasks (typically beamline optimization) to record the step-by-step plan the agent intends to follow, so future sessions can review what was attempted and why. Filenames are validated against a strict allow-list and writes are confined to PLANS_DIR \u2014 no path traversal, no overwriting unless explicitly requested.",
+      "when_to_use": "Save a markdown plan to the project's logs/plans/ directory. Use this at the start of a beamline-optimization session (or any multi-step task) to persist the step-by-step plan you generated, so future sessions can review what was attempted and why.",
       "enabled": true,
       "sample_input": {
         "filename": "example",
@@ -398,7 +283,7 @@
       },
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -413,60 +298,6 @@
       "sample_output": "[{\"log_file\": \"spec_log_20260504.log\", \"line_number\": 1423, \"line\": \"ERROR: motor limit hit on th at 45.002\"}, {\"log_file\": \"spec_log_20260504.log\", \"line_number\": 1425, \"line\": \"WARNING: motor limit check failed for th\"}]",
       "simulated": false,
       "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "set_beamtime_budget",
-      "cli_path": "tool",
-      "description": "Set the total beamtime budget (in hours) to an absolute value. Use this when a new allocation is granted.",
-      "when_to_use": "Set the total beamtime budget (in hours) to an absolute value.",
-      "enabled": false,
-      "sample_input": {
-        "hours_total": 0.0
-      },
-      "sample_output": "{\"ok\": true, \"new_total_hours\": 12.0}",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "set_holder_time_budget",
-      "cli_path": "tool",
-      "description": "Set a default per-sample time budget for a whole sample holder. New samples inherit the default; when apply_to_existing is true (default), existing samples on that holder also pick up the change.",
-      "when_to_use": "Set a default per-sample time budget for an entire sample holder. Stored under the plan's holder_budgets so new samples inherit it; when apply_to_existing=true (default), existing samples on that holder also get the new count_time/reps.",
-      "enabled": false,
-      "sample_input": {},
-      "sample_output": "{\"ok\": true, \"samples_updated\": 4}",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "set_sample_time_budget",
-      "cli_path": "tool",
-      "description": "Adjust the time budget for a single sample \u2014 change the per-rep count_time and/or the number of reps. Mode restricts the change to one of xas or emiss.",
-      "when_to_use": "Adjust the time budget for a single sample \u2014 change either the per-repetition count time or the number of reps (or both). Optionally restrict to one mode ('xas' or 'emiss').",
-      "enabled": false,
-      "sample_input": {
-        "sample_id": "example"
-      },
-      "sample_output": "{\"ok\": true}",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "update_experiment_plan",
-      "cli_path": "tool",
-      "description": "Replace the live experiment plan JSON wholesale. The structure is up to the agent, but downstream views expect a sample_queue + holder_budgets + budget shape.",
-      "when_to_use": "Replace the live experiment plan JSON (structure decided by the agent).",
-      "enabled": false,
-      "sample_input": {
-        "plan": {}
-      },
-      "sample_output": "{\"ok\": true}",
-      "simulated": false,
-      "working_live": false,
       "comments": ""
     },
     {
@@ -496,6 +327,190 @@
       "sample_output": "Summary saved: beamtimehero_conversation_summary_20260504_114500.txt",
       "simulated": false,
       "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "extend_beamtime_budget",
+      "cli_path": "db",
+      "description": "Add (or subtract, with a negative delta) hours to the beamtime budget. Use this for small adjustments; use set_beamtime_budget for absolute resets.",
+      "when_to_use": "Add (or subtract, with a negative delta) hours to the beamtime budget.",
+      "enabled": false,
+      "sample_input": {
+        "hours_delta": 0.0
+      },
+      "sample_output": "{\"ok\": true, \"new_total_hours\": 14.0}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "get_experiment_plan",
+      "cli_path": "db",
+      "description": "Return the live experiment plan \u2014 config, sample queue, holder budgets, and the beamtime budget.",
+      "when_to_use": "Return the live experiment plan (config + sample queue + budget).",
+      "enabled": false,
+      "sample_input": {},
+      "sample_output": "{\"sample_queue\": [{\"sample_id\": \"Fe2O3_01\", \"element\": \"Fe\", \"status\": \"queued\", \"reps\": 5}], \"holder_budgets\": {\"holder_A\": {\"count_time_s\": 1.0, \"reps\": 5}}, \"budget\": {\"total_hours\": 12.0}}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "get_remaining_beamtime",
+      "cli_path": "db",
+      "description": "Return total / elapsed / remaining beamtime in hours. Elapsed is computed from the action_log timestamps.",
+      "when_to_use": "Total / elapsed / remaining beamtime in hours.",
+      "enabled": false,
+      "sample_input": {},
+      "sample_output": "{\"total_hours\": 12.0, \"elapsed_hours\": 4.5, \"remaining_hours\": 7.5}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "get_staff_guidance",
+      "cli_path": "db",
+      "description": "Recent staff/user guidance messages \u2014 either typed into the dashboard guidance panel or posted to Slack.",
+      "when_to_use": "Recent staff / user guidance messages (Slack or web).",
+      "enabled": false,
+      "sample_input": {},
+      "sample_output": "[{\"timestamp\": \"2026-05-04T10:30:00Z\", \"author\": \"staff_jane\", \"text\": \"Use 1s count time for Fe samples, they are radiation sensitive.\"}]",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "list_open_interventions",
+      "cli_path": "db",
+      "description": "List pause-for-human requests that are still waiting for staff to resolve.",
+      "when_to_use": "List pause-for-human requests still waiting.",
+      "enabled": false,
+      "sample_input": {},
+      "sample_output": "[{\"id\": \"intv_001\", \"kind\": \"sample_mount\", \"detail\": \"Mount holder B with Cu reference samples\", \"created_at\": \"2026-05-04T10:00:00Z\"}]",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "recent_actions",
+      "cli_path": "db",
+      "description": "Most recent action_log entries for the current experiment \u2014 every SPEC-mutating tool call appears here. Also used by the phase-transition gate to verify prior success.",
+      "when_to_use": "Most recent action_log entries for the current experiment.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "[{\"id\": 42, \"timestamp\": \"2026-05-04T10:30:00Z\", \"phase\": \"collection\", \"command\": \"Fe_xas 1.0 5\", \"justification\": \"Collecting Fe K-edge XAS on sample Fe2O3_01\", \"success\": true}]",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "record_sample_progress",
+      "cli_path": "db",
+      "description": "Update per-sample status (queued/in_progress/done/skipped/failed), SNR estimate, efficiency verdict, and reps completed. Preserves the rest of the plan.",
+      "when_to_use": "Update per-sample status (snr_estimate, efficiency_verdict, reps_completed, note).",
+      "enabled": false,
+      "sample_input": {
+        "sample_id": "example"
+      },
+      "sample_output": "{\"ok\": true}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "regenerate_plan",
+      "cli_path": "db",
+      "description": "Rebuild the sample plan from the DB while preserving per-sample progress (status, reps_completed, notes) and user overrides (thresholds, holder_budgets, total budget). Call this after a sample holder is added or edited.",
+      "when_to_use": "Rebuild the sample plan from the database while preserving per-sample progress (status, reps_completed, notes) and user overrides (thresholds, holder_budgets, budget). Call this after a new sample holder is configured or an existing one is edited.",
+      "enabled": false,
+      "sample_input": {},
+      "sample_output": "{\"ok\": true, \"sample_count\": 8}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "request_human_intervention",
+      "cli_path": "db",
+      "description": "Pause the agent and ask a human to perform a physical action (crystal install, sample mount, foil insert, hardware reset, or custom). Posts to Slack and blocks until staff resolves it from the dashboard or Slack.",
+      "when_to_use": "Pause the agent and ask a human to complete a physical action (crystal install, sample mount, foil insert, etc.). Posts to Slack and blocks until resolved.",
+      "enabled": false,
+      "sample_input": {
+        "kind": "crystal_install",
+        "detail": "example"
+      },
+      "sample_output": "{\"resolved\": true, \"note\": \"Fe foil inserted\", \"resolver\": \"staff_jane\"}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "set_beamtime_budget",
+      "cli_path": "db",
+      "description": "Set the total beamtime budget (in hours) to an absolute value. Use this when a new allocation is granted.",
+      "when_to_use": "Set the total beamtime budget (in hours) to an absolute value.",
+      "enabled": false,
+      "sample_input": {
+        "hours_total": 0.0
+      },
+      "sample_output": "{\"ok\": true, \"new_total_hours\": 12.0}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "set_holder_time_budget",
+      "cli_path": "db",
+      "description": "Set a default per-sample time budget for a whole sample holder. New samples inherit the default; when apply_to_existing is true (default), existing samples on that holder also pick up the change.",
+      "when_to_use": "Set a default per-sample time budget for an entire sample holder. Stored under the plan's holder_budgets so new samples inherit it; when apply_to_existing=true (default), existing samples on that holder also get the new count_time/reps.",
+      "enabled": false,
+      "sample_input": {},
+      "sample_output": "{\"ok\": true, \"samples_updated\": 4}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "set_sample_time_budget",
+      "cli_path": "db",
+      "description": "Adjust the time budget for a single sample \u2014 change the per-rep count_time and/or the number of reps. Mode restricts the change to one of xas or emiss.",
+      "when_to_use": "Adjust the time budget for a single sample \u2014 change either the per-repetition count time or the number of reps (or both). Optionally restrict to one mode ('xas' or 'emiss').",
+      "enabled": false,
+      "sample_input": {
+        "sample_id": "example"
+      },
+      "sample_output": "{\"ok\": true}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "transition_phase",
+      "cli_path": "db",
+      "description": "Advance the experiment phase, or request a revert. Forward moves are gated by machine-checked preconditions; backward moves require a human approval posted to Slack.",
+      "when_to_use": "Advance (or request to revert) the experiment phase. Preconditions gate forward moves; backward moves go through Slack approval.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "target_phase": "setup"
+      },
+      "sample_output": "{\"allowed\": true, \"previous_phase\": \"beamline_alignment\", \"current_phase\": \"xes_alignment\", \"preconditions\": [{\"name\": \"align_beamline_done\", \"met\": true}], \"reason\": \"all preconditions met\"}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "update_experiment_plan",
+      "cli_path": "db",
+      "description": "Replace the live experiment plan JSON wholesale. The structure is up to the agent, but downstream views expect a sample_queue + holder_budgets + budget shape.",
+      "when_to_use": "Replace the live experiment plan JSON (structure decided by the agent).",
+      "enabled": false,
+      "sample_input": {
+        "plan": {}
+      },
+      "sample_output": "{\"ok\": true}",
+      "simulated": false,
+      "working_live": false,
       "comments": ""
     },
     {
@@ -575,7 +590,7 @@
     {
       "name": "get_element",
       "cli_path": "spec-read",
-      "description": "Return the currently active element and all configured elements with their incident and emission energies. Pair of select_element \u2014 read-only query of experiment element configuration.",
+      "description": "Return the value of the SPEC variable ELEMENT \u2014 the currently active element for the experiment.",
       "when_to_use": "Return the currently active element and all configured elements with their incident and emission energies.",
       "enabled": true,
       "sample_input": {},
@@ -1173,21 +1188,6 @@
       "sample_output": "",
       "simulated": false,
       "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "transition_phase",
-      "cli_path": "spec-write",
-      "description": "Advance the experiment phase, or request a revert. Forward moves are gated by machine-checked preconditions; backward moves require a human approval posted to Slack.",
-      "when_to_use": "Advance (or request to revert) the experiment phase. Preconditions gate forward moves; backward moves go through Slack approval.",
-      "enabled": true,
-      "sample_input": {
-        "justification": "Testing tool via tool-tester",
-        "target_phase": "setup"
-      },
-      "sample_output": "{\"allowed\": true, \"previous_phase\": \"beamline_alignment\", \"current_phase\": \"xes_alignment\", \"preconditions\": [{\"name\": \"align_beamline_done\", \"met\": true}], \"reason\": \"all preconditions met\"}",
-      "simulated": false,
-      "working_live": false,
       "comments": ""
     },
     {

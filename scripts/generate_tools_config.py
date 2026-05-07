@@ -58,11 +58,14 @@ _PRESERVE_KEYS = {"enabled", "simulated", "working_live", "comments", "sample_ou
 def _categorize(tool_def: dict) -> str:
     """Derive CLI tree from tool schema (mirrors scripts/beamtimehero logic)."""
     name = tool_def["function"]["name"]
+    lineage = TOOL_LINEAGE.get(name) or {}
+    if lineage.get("source") == "autonomy_db":
+        return "db"
     params = tool_def["function"].get("parameters", {}) or {}
     required = set(params.get("required", []) or [])
     if "justification" in required:
         return "spec-write"
-    spec_cmd = (TOOL_LINEAGE.get(name) or {}).get("spec_command")
+    spec_cmd = lineage.get("spec_command")
     if spec_cmd is not None:
         return "spec-read"
     return "tool"
@@ -173,7 +176,7 @@ def generate() -> dict:
         tools.append(entry)
 
     # Sort by cli_path then name for readability
-    category_order = {"tool": 0, "spec-read": 1, "spec-write": 2, "ref": 3}
+    category_order = {"tool": 0, "db": 1, "spec-read": 2, "spec-write": 3, "ref": 4}
     tools.sort(key=lambda t: (category_order.get(t["cli_path"], 99), t["name"]))
 
     config = {

@@ -1,9 +1,10 @@
 # How to add a tool to the BeamtimeHero CLI
 
-This guide is the recipe for landing a new tool in the autonomous-beamline tool catalog. It covers two flavors:
+This guide is the recipe for landing a new tool in the autonomous-beamline tool catalog. It covers three flavors:
 
 1. **SPEC-bound tools** — anything that injects a SPEC command (motor moves, scans, alignment macros). Eight files to touch.
-2. **Non-SPEC tools** — anything that doesn't talk to SPEC (file I/O, plan saving, analysis). Five files.
+2. **Non-SPEC tools** — anything that doesn't talk to SPEC or the orchestration DB (file I/O, analysis). Five files.
+3. **DB tools** — tools with `source: "autonomy_db"` in lineage that read/write the orchestration SQLite DB (experiment plan, budget, sample progress, guidance, interventions). Auto-route to `beamtimehero db`. Same five files as non-SPEC tools; the only difference is the lineage `source` field.
 
 The architecture has many layers because each layer enforces a different invariant — phase gating, action logging, schema validation, mock outputs. Adding a tool means making a small append in each of those places, not editing one big switch statement.
 
@@ -288,7 +289,7 @@ Same as for SPEC tools, but `spec_command` is `None`:
 },
 ```
 
-`spec_command: None` is what causes the auto-generated CLI to put the tool under `tool` (not `spec-read` or `spec-write`).
+`spec_command: None` with `source: "autonomy_db"` routes the tool to `beamtimehero db`. `spec_command: None` with any other source routes to `beamtimehero tool`.
 
 ### File 4 — `beamline_tools/config.py` (only if you need a new directory)
 
@@ -398,3 +399,11 @@ For a new non-SPEC tool:
 - [ ] `config.py`: new directory constant if needed
 - [ ] Run `scripts/generate_tools_config.py`
 - [ ] Inline smoke test via `execute_tool(...)` and through `scripts/beamtimehero tool <name>`
+
+For a new DB tool:
+
+- [ ] `autonomy_definitions.py` or `definitions.py`: schema (no `justification` unless the tool genuinely needs one)
+- [ ] `autonomy_tools.py` or `executor.py`: implementation
+- [ ] `lineage.py`: metadata entry with `spec_command: None`, `source: "autonomy_db"`
+- [ ] Run `scripts/generate_tools_config.py`
+- [ ] Smoke-test through `scripts/beamtimehero db <name>`

@@ -12,10 +12,11 @@ Do NOT run shell commands outside of `beamtimehero`. Do NOT use the Edit or Writ
 
 ## The beamtimehero CLI
 
-Four command trees, split by safety scope:
+Five command trees, split by safety scope:
 
 - `beamtimehero ref` -- reference documents (procedures, safety rules). Start with `ref --list`, fetch with `ref <name>`. These docs are authoritative over training knowledge.
-- `beamtimehero tool` -- non-SPEC tools: scan/log queries, analysis, plotting, plan edits, file I/O, beamtime budget, intervention bookkeeping. Safe to call freely.
+- `beamtimehero tool` -- non-SPEC, non-DB tools: scan/log queries, analysis, plotting, file I/O. Safe to call freely.
+- `beamtimehero db` -- database tools: experiment plan CRUD, beamtime budgets, sample progress, staff guidance, interventions, action history, phase transitions. Safe to call freely.
 - `beamtimehero spec-read` -- read-only SPEC queries: motor positions, beam status, scan number, datafile, counts. No mutation.
 - `beamtimehero spec-write` -- SPEC-mutating actions: motor moves, scans, energy moves, shutter, filters, gains, alignment macros, data collection. **Every command requires `--justification "..."`** explaining why this action is happening right now. The justification is logged to `action_log` before dispatch. Empty justifications are rejected.
 

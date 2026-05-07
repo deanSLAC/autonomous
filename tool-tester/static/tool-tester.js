@@ -1,8 +1,9 @@
 /* Tool Tester — client-side logic */
 
-const CATEGORY_ORDER = ["tool", "spec-read", "spec-write", "ref"];
+const CATEGORY_ORDER = ["tool", "db", "spec-read", "spec-write", "ref"];
 const CATEGORY_LABELS = {
     "tool": "Tool (non-SPEC)",
+    "db": "Database (Plan & State)",
     "spec-read": "SPEC Read",
     "spec-write": "SPEC Write",
     "ref": "Reference Docs",
