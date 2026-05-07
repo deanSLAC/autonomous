@@ -1004,16 +1004,14 @@ TOOL_LINEAGE: dict[str, dict] = {
 
     "get_element": {
         "long_description": (
-            "Return the currently active element and all configured "
-            "elements with their incident and emission energies. "
-            "Pair of select_element — read-only query of experiment "
-            "element configuration."
+            "Return the value of the SPEC variable ELEMENT — the "
+            "currently active element for the experiment."
         ),
-        "python_func": "spec_cmd.call('show_elements', [], justification='')",
-        "spec_command": "show_elements",
-        "output": "JSON: {ok, kind, result: {current_element, elements: [{name, incident_ev, emission_ev}], raw}}",
+        "python_func": "spec_cmd.call('p_element', [], justification='')",
+        "spec_command": "p ELEMENT",
+        "output": "JSON: {ok, kind, result: {element, raw}}",
         "source": "spec_session",
-        "source_detail": "Read-only. Defined in select_element.mac; reads ELEMENT_CURRENT and ELEMENT_N_* config globals.",
+        "source_detail": "Read-only. Prints the ELEMENT global variable.",
         "depends_on": [],
     },
     "get_scan_number": {

@@ -392,6 +392,11 @@ _READ: dict[str, CommandSpec] = {
         lambda a: "show_elements",
         _parse_show_elements,
     ),
+    "p_element": CommandSpec(
+        "p_element", "read",
+        lambda a: "p ELEMENT",
+        lambda o, a: {"element": o.strip(), "raw": o},
+    ),
     "wbeamsize": CommandSpec(
         "wbeamsize", "read",
         lambda a: "wbeamsize",

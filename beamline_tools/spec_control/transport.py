@@ -169,6 +169,8 @@ class _MockScreen:
                 "\n  Configured elements (1):\n"
                 "    1. Au  (incident=14353 eV, emission=11610 eV)  << CURRENT\n"
             )
+        if low.startswith("p element"):
+            return "Au"
         if low.startswith("wbeamsize"):
             return "Beam size (X, Z): 0.35, 0.12 mm\nBeam mode (X, Z): small, small"
         if low.startswith("p beam_status"):

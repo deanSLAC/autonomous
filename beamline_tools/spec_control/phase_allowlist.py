@@ -130,7 +130,7 @@ PROCEDURAL_ANY_PHASE = {
     "set_i2_gain", "set_vortex_roi", "newfile", "abort", "plotselect",
     # Read-only:
     "wa", "p_motor", "get_S", "ct", "fon", "p_datafile", "pwd", "scan_n",
-    "beam_status", "p_global", "get_anchor", "wbeamsize", "show_elements",
+    "beam_status", "p_global", "get_anchor", "wbeamsize", "show_elements", "p_element",
 }
 
 

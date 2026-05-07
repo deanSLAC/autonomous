@@ -514,7 +514,7 @@ def t_request_gap_ownership(args: dict) -> tuple[str, list[str]]:
 # ===========================================================================
 
 def t_get_element(args: dict) -> tuple[str, list[str]]:
-    res = spec_cmd.call("show_elements", [], justification="")
+    res = spec_cmd.call("p_element", [], justification="")
     return _as_json(res), []
 
 
