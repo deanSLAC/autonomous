@@ -98,7 +98,7 @@ PROCEDURAL_PHASE = {
     "peak_mono_pitch": {PHASE_BL_ALIGN},
     "calibrate_mono": {PHASE_BL_ALIGN},
     "select_element": {PHASE_SAMPLE_ALIGN, PHASE_COLLECTION},
-    "xas": {PHASE_COLLECTION},
+    "run_xas": {PHASE_COLLECTION},
     "emiss_scan": {PHASE_COLLECTION},
     "run_shortcut": {PHASE_BL_ALIGN},
     # Beam-diagnostic tool moves (sample-position diagnostic, alignment only)
@@ -130,7 +130,7 @@ PROCEDURAL_ANY_PHASE = {
     "set_i2_gain", "set_vortex_roi", "newfile", "abort", "plotselect",
     # Read-only:
     "wa", "p_motor", "get_S", "ct", "fon", "p_datafile", "pwd", "scan_n",
-    "beam_status", "p_global", "get_anchor",
+    "beam_status", "p_global", "get_anchor", "wbeamsize", "show_elements",
 }
 
 

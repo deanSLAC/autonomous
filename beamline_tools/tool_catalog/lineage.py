@@ -568,14 +568,16 @@ TOOL_LINEAGE: dict[str, dict] = {
     },
     "run_xas": {
         "long_description": (
-            "Element-specific XAS scan (<element>_xas). Guards: beam "
-            "must be present, count_time ≤ 60 s, n_reps ≤ 20."
+            "Calls the SPEC run_xas macro, which dispatches to <El>_xas "
+            "for the element set by the prior select_element. "
+            "Args: cntSec (null→1 s), nbrScan (null→1), emission "
+            "(0 → emiss motor unchanged), nbrFilter (<0 → filter motor unchanged)."
         ),
-        "python_func": "spec_cmd.call('xas', [element, count_time, n_reps, emission_ev?], justification)",
-        "spec_command": "<element>_xas <count_time> <n_reps> [<emission_ev>]",
-        "output": "JSON: {ok, kind, action_id, result: {element, count_time, n_reps, raw, elapsed_s}, elapsed_s}",
+        "python_func": "spec_cmd.call('run_xas', [count_time, n_reps, emission_ev, filter], justification)",
+        "spec_command": "run_xas <cntSec> <nbrScan> <emission> <nbrFilter>",
+        "output": "JSON: {ok, kind, action_id, result: {count_time, n_reps, emission_ev, filter, raw, elapsed_s}, elapsed_s}",
         "source": "spec_session",
-        "source_detail": "Gated by get_beam_status; each rep writes its own #S block.",
+        "source_detail": "Element-side dispatch lives in run_xas.mac; each rep writes its own #S block.",
         "depends_on": ["get_beam_status", "select_element"],
     },
     "run_emiss_scan": {
@@ -934,6 +936,20 @@ TOOL_LINEAGE: dict[str, dict] = {
 
     # ---------- Autonomy tools — CAT-6: beam monitoring ---------------------
 
+    "get_beam_size": {
+        "long_description": (
+            "Return the last-measured horizontal and vertical beam FWHM "
+            "(mm) and the current beam-size mode (big/small/unknown) for "
+            "each axis. Read-only — reads SPEC globals set by "
+            "measure_beam_size / beamx / beamz."
+        ),
+        "python_func": "spec_cmd.call('wbeamsize', [], justification='')",
+        "spec_command": "wbeamsize",
+        "output": "JSON: {ok, kind, result: {horizontal_fwhm_mm, vertical_fwhm_mm, horizontal_mode, vertical_mode, raw}}",
+        "source": "spec_session",
+        "source_detail": "Read-only. Defined in beam_diagnostics.mac; prints beamsize[] and beamsize_mode[] globals.",
+        "depends_on": [],
+    },
     "get_beam_status": {
         "long_description": (
             "Compact snapshot of whether the beam is usable: SPEAR ring "
@@ -986,6 +1002,20 @@ TOOL_LINEAGE: dict[str, dict] = {
 
     # ---------- Autonomy tools — CAT-7: run state ---------------------------
 
+    "get_element": {
+        "long_description": (
+            "Return the currently active element and all configured "
+            "elements with their incident and emission energies. "
+            "Pair of select_element — read-only query of experiment "
+            "element configuration."
+        ),
+        "python_func": "spec_cmd.call('show_elements', [], justification='')",
+        "spec_command": "show_elements",
+        "output": "JSON: {ok, kind, result: {current_element, elements: [{name, incident_ev, emission_ev}], raw}}",
+        "source": "spec_session",
+        "source_detail": "Read-only. Defined in select_element.mac; reads ELEMENT_CURRENT and ELEMENT_N_* config globals.",
+        "depends_on": [],
+    },
     "get_scan_number": {
         "long_description": (
             "Return SPEC's current SCAN_N counter. Use get_current_"

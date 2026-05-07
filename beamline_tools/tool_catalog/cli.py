@@ -36,6 +36,18 @@ REFERENCE_DOCS = {
         "file": "Beamline-alignment.md",
         "description": "Beamline alignment session notes with lessons learned",
     },
+    "spectrometer-alignment": {
+        "file": "spectrometer-alignment.md",
+        "description": "Procedure for aligning the 7-crystal HERFD spectrometer to a chosen emission line",
+    },
+    "sample-alignment": {
+        "file": "sample-alignment.md",
+        "description": "Procedure for aligning the cryostat sample holder (per-sample Sx/Sy/Sz + emiss)",
+    },
+    "sample-data-collection": {
+        "file": "sample-data-collection.md",
+        "description": "Procedure for collecting HERFD spectra spot-by-spot, with beam-damage and statistics guidance",
+    },
 }
 
 # Files that should always stay in the system prompt (even in CLI mode)

@@ -299,18 +299,35 @@ AUTONOMY_TOOL_DEFINITIONS = [
         "function": {
             "name": "run_xas",
             "description": (
-                "Element-specific XAS (<element>_xas). Beam must be present; count_time ≤ 60 s; reps ≤ 20."
+                "This command will call the _xas macro function for spectrum "
+                "collection based on the element set by select_element. All "
+                "args get passed onto the <El>_xas func: \"<El>_xas  cntSec  "
+                "nbrScan  emission  nbrFilter\". Null value for cntSec "
+                "defaults to 1s, nbrScan to 1, if emission is zero the emiss "
+                "is not moved, if nbrFilter <0 then filter motor isnt moved"
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     **_J,
-                    "element": {"type": "string"},
-                    "count_time": {"type": "number"},
-                    "n_reps": {"type": "integer"},
-                    "emission_ev": {"type": "number"},
+                    "count_time": {
+                        "type": "number",
+                        "description": "cntSec — null defaults to 1 s.",
+                    },
+                    "n_reps": {
+                        "type": "integer",
+                        "description": "nbrScan — null defaults to 1.",
+                    },
+                    "emission_ev": {
+                        "type": "number",
+                        "description": "emission — 0 leaves emiss motor unchanged.",
+                    },
+                    "filter": {
+                        "type": "integer",
+                        "description": "nbrFilter — value <0 leaves filter motor unchanged.",
+                    },
                 },
-                "required": ["justification", "element", "count_time", "n_reps"],
+                "required": ["justification"],
             },
         },
     },
@@ -698,6 +715,17 @@ AUTONOMY_TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "get_beam_size",
+            "description": (
+                "Return the last-measured horizontal and vertical beam FWHM (mm) "
+                "and the current beam-size mode (big/small/unknown) for each axis."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_beam_status",
             "description": "SPEAR current + BL15 state + gap ownership + beam_good flag.",
             "parameters": {"type": "object", "properties": {}, "required": []},
@@ -742,6 +770,17 @@ AUTONOMY_TOOL_DEFINITIONS = [
     # -----------------------------------------------------------------
     # CAT-7 · Run state
     # -----------------------------------------------------------------
+    {
+        "type": "function",
+        "function": {
+            "name": "get_element",
+            "description": (
+                "Return the currently active element and all configured elements "
+                "with their incident and emission energies."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
     {
         "type": "function",
         "function": {
@@ -1042,8 +1081,8 @@ AUTONOMY_TOOL_CATEGORIES = [
         "small_beam", "big_beam", "xtal_align", "reset_gap",
         "get_anchor", "set_anchor", "tracking",
     ]),
-    ("CAT-6 Beam", ["get_beam_status", "get_counts", "get_counter", "request_gap_ownership"]),
-    ("CAT-7 State", ["get_scan_number", "get_current_datafile", "abort_current_scan"]),
+    ("CAT-6 Beam", ["get_beam_size", "get_beam_status", "get_counts", "get_counter", "request_gap_ownership"]),
+    ("CAT-7 State", ["get_element", "get_scan_number", "get_current_datafile", "abort_current_scan"]),
     ("CAT-8 Orchestration", [
         "transition_phase", "request_human_intervention", "post_status_update",
         "update_experiment_plan", "record_sample_progress", "get_experiment_plan",

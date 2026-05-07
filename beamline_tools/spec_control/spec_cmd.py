@@ -296,6 +296,38 @@ def _parse_herfd_energy(out: str, _a) -> dict:
     return {"emission_ev": energy, "raw": out}
 
 
+def _parse_show_elements(out: str, _a) -> dict:
+    current = None
+    elements = []
+    for m in re.finditer(
+        r"(\d+)\.\s+(\S+)\s+\(incident=([\d.]+)\s*eV,\s*emission=([\d.]+)\s*eV\)"
+        r"(\s*<<\s*CURRENT)?",
+        out,
+    ):
+        name = m.group(2)
+        entry = {
+            "name": name,
+            "incident_ev": float(m.group(3)),
+            "emission_ev": float(m.group(4)),
+        }
+        elements.append(entry)
+        if m.group(5):
+            current = name
+    return {"current_element": current, "elements": elements, "raw": out}
+
+
+def _parse_wbeamsize(out: str, _a) -> dict:
+    size_m = re.search(r"Beam size \(X, Z\):\s*([\d.]+)\s*,\s*([\d.]+)", out)
+    mode_m = re.search(r"Beam mode \(X, Z\):\s*(\S+)\s*,\s*(\S+)", out)
+    return {
+        "horizontal_fwhm_mm": float(size_m.group(1)) if size_m else None,
+        "vertical_fwhm_mm": float(size_m.group(2)) if size_m else None,
+        "horizontal_mode": mode_m.group(1) if mode_m else None,
+        "vertical_mode": mode_m.group(2) if mode_m else None,
+        "raw": out,
+    }
+
+
 def _parse_beam_status(out: str, _a) -> dict:
     # Accept either Python-dict-like or k=v format.
     sp = re.search(r"spear_current[^\d-]*([\d.]+)", out)
@@ -354,6 +386,16 @@ _READ: dict[str, CommandSpec] = {
         "p_global", "read",
         lambda a: f"p {a[0]}" if a else "wa",
         _parse_single_float,
+    ),
+    "show_elements": CommandSpec(
+        "show_elements", "read",
+        lambda a: "show_elements",
+        _parse_show_elements,
+    ),
+    "wbeamsize": CommandSpec(
+        "wbeamsize", "read",
+        lambda a: "wbeamsize",
+        _parse_wbeamsize,
     ),
     "get_anchor": CommandSpec(
         "get_anchor", "read",
@@ -442,10 +484,13 @@ _ACTION: dict[str, CommandSpec] = {
         lambda o, a: {"element": a[0], "raw": o},
         timeout_s=120,
     ),
-    "xas": CommandSpec(
-        "xas", "action",
-        lambda a: _render_xas(a),
-        lambda o, a: {"element": a[0], "count_time": float(a[1]), "n_reps": int(a[2]), "raw": o},
+    "run_xas": CommandSpec(
+        "run_xas", "action",
+        lambda a: _render_run_xas(a),
+        lambda o, a: {
+            "count_time": float(a[0]), "n_reps": int(a[1]),
+            "emission_ev": float(a[2]), "filter": int(a[3]), "raw": o,
+        },
         timeout_s=36000,
     ),
     "emiss_scan": CommandSpec(
@@ -625,12 +670,10 @@ def _render_shutter(a: list[str]) -> str:
     return cmd
 
 
-def _render_xas(a: list[str]) -> str:
-    # element_xas <count_time> <reps> [<emiss>]
-    base = f"{a[0]}_xas {a[1]} {a[2]}"
-    if len(a) > 3:
-        return f"{base} {a[3]}"
-    return base
+def _render_run_xas(a: list[str]) -> str:
+    # run_xas <cntSec> <nbrScan> <emission> <nbrFilter>
+    # Element is set by select_element; SPEC dispatches to <El>_xas.
+    return f"run_xas {a[0]} {a[1]} {a[2]} {a[3]}"
 
 
 def _render_emiss(a: list[str]) -> str:
@@ -789,7 +832,7 @@ def call(
         parsed = {"raw": dr.output, "parse_error": str(e)}
 
     scan_number = None
-    if command in ("ascan", "dscan", "xas", "emiss_scan", "run_shortcut"):
+    if command in ("ascan", "dscan", "run_xas", "emiss_scan", "run_shortcut"):
         # Best-effort scan-number capture
         m = re.search(r"(?:scan[_ ]?n|scan)\s*=?\s*#?(\d+)", dr.output, re.IGNORECASE)
         if m:

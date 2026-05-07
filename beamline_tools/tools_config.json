@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at": "2026-05-06T18:36:23.326193+00:00",
-    "total_tools": 88,
+    "generated_at": "2026-05-07T00:40:39.295572+00:00",
+    "total_tools": 93,
     "generator": "scripts/generate_tools_config.py"
   },
   "tools": [
@@ -301,7 +301,7 @@
       },
       "sample_output": "{\"posted\": true}",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -507,7 +507,19 @@
       "sample_input": {},
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "get_beam_size",
+      "cli_path": "spec-read",
+      "description": "Return the last-measured horizontal and vertical beam FWHM (mm) and the current beam-size mode (big/small/unknown) for each axis. Read-only \u2014 reads SPEC globals set by measure_beam_size / beamx / beamz.",
+      "when_to_use": "Return the last-measured horizontal and vertical beam FWHM (mm) and the current beam-size mode (big/small/unknown) for each axis.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -558,6 +570,18 @@
       "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"datafile\": \"/data/fifteen/2026-05_User/Fe_HERFD_0001\", \"raw\": \"/data/fifteen/2026-05_User/Fe_HERFD_0001\"}}",
       "simulated": false,
       "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "get_element",
+      "cli_path": "spec-read",
+      "description": "Return the currently active element and all configured elements with their incident and emission energies. Pair of select_element \u2014 read-only query of experiment element configuration.",
+      "when_to_use": "Return the currently active element and all configured elements with their incident and emission energies.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
       "comments": ""
     },
     {
@@ -694,7 +718,7 @@
       },
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -769,7 +793,7 @@
       },
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -783,7 +807,7 @@
       },
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -841,7 +865,7 @@
       },
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -884,7 +908,7 @@
       },
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -1007,16 +1031,13 @@
     {
       "name": "run_xas",
       "cli_path": "spec-write",
-      "description": "Element-specific XAS scan (<element>_xas). Guards: beam must be present, count_time \u2264 60 s, n_reps \u2264 20.",
-      "when_to_use": "Element-specific XAS (<element>_xas). Beam must be present; count_time \u2264 60 s; reps \u2264 20.",
+      "description": "Calls the SPEC run_xas macro, which dispatches to <El>_xas for the element set by the prior select_element. Args: cntSec (null\u21921 s), nbrScan (null\u21921), emission (0 \u2192 emiss motor unchanged), nbrFilter (<0 \u2192 filter motor unchanged).",
+      "when_to_use": "This command will call the _xas macro function for spectrum collection based on the element set by select_element. All args get passed onto the <El>_xas func: \"<El>_xas  cntSec  nbrScan  emission  nbrFilter\". Null value for cntSec defaults to 1s, nbrScan to 1, if emission is zero the emiss is not moved, if nbrFilter <0 then filter motor isnt moved",
       "enabled": false,
       "sample_input": {
-        "justification": "Testing tool via tool-tester",
-        "element": "example",
-        "count_time": 0.0,
-        "n_reps": 1
+        "justification": "Testing tool via tool-tester"
       },
-      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"element\": \"Fe\", \"count_time\": 0.5, \"n_reps\": 3, \"raw\": \"Fe_xas complete. reps=3 scan_n=1005\", \"elapsed_s\": 60.0}, \"elapsed_s\": 60.0}",
+      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"count_time\": 1.0, \"n_reps\": 1, \"emission_ev\": 0.0, \"filter\": -1, \"raw\": \"Fe_xas complete. reps=1 scan_n=1005\", \"elapsed_s\": 60.0}, \"elapsed_s\": 60.0}",
       "simulated": false,
       "working_live": false,
       "comments": ""
@@ -1061,7 +1082,7 @@
       },
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -1151,7 +1172,7 @@
       },
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -1194,7 +1215,7 @@
       },
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -1205,8 +1226,8 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "",
-      "simulated": false,
-      "working_live": false,
+      "simulated": true,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -1217,8 +1238,8 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "",
-      "simulated": false,
-      "working_live": false,
+      "simulated": true,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -1231,6 +1252,42 @@
       "sample_output": "[Reference document text returned]",
       "simulated": true,
       "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "sample-alignment",
+      "cli_path": "ref",
+      "description": "Procedure for aligning the cryostat sample holder (per-sample Sx/Sy/Sz + emiss)",
+      "when_to_use": "When operator asks about procedure for aligning the cryostat sample holder (per-sample sx/sy/sz + emiss)",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "sample-data-collection",
+      "cli_path": "ref",
+      "description": "Procedure for collecting HERFD spectra spot-by-spot, with beam-damage and statistics guidance",
+      "when_to_use": "When operator asks about procedure for collecting herfd spectra spot-by-spot, with beam-damage and statistics guidance",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "spectrometer-alignment",
+      "cli_path": "ref",
+      "description": "Procedure for aligning the 7-crystal HERFD spectrometer to a chosen emission line",
+      "when_to_use": "When operator asks about procedure for aligning the 7-crystal herfd spectrometer to a chosen emission line",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
       "comments": ""
     }
   ]

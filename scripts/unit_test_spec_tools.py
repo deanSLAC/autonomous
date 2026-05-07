@@ -166,7 +166,9 @@ KNOWN_MACROS: dict[str, str] = {
     "As_cee": "xas_macs/As_xas.mac:51",
     "Gd_cee": "xas_macs/Gd_xas.mac:91",
     "Pb_cee": "xas_macs/Pb_xas.mac:48",
-    # beam status helpers
+    # element / beam size / beam status helpers
+    "show_elements": "select_element.mac:91",
+    "wbeamsize": "beam_diagnostics.mac:231",
     "get_beam_status": "check_beam.mac:49",
     "beam_status": "check_beam.mac:70",
     # file ops
@@ -363,6 +365,8 @@ CASES_BL_ALIGN: list[Case] = [
          ["tracking 0"], note="disable energy tracking"),
 
     # CAT-6 beam monitoring (read-only)
+    Case("get_beam_size", {}, ["wbeamsize"],
+         note="beam FWHM + mode from beamsize[] globals"),
     Case("get_beam_status", {}, ["p beam_status()"],
          note="beam snapshot (custom spec.d function)"),
     Case("get_counts", {"count_time": 0.5}, ["ct 0.5"],
@@ -373,6 +377,8 @@ CASES_BL_ALIGN: list[Case] = [
          ["gaprequest"], note="SPEAR gap request"),
 
     # CAT-7 run state
+    Case("get_element", {}, ["show_elements"],
+         note="current + configured elements"),
     Case("get_scan_number", {}, ["p SCAN_N"], note="current scan number"),
     Case("get_current_datafile", {}, ["p DATAFILE"], note="active datafile"),
     Case("abort_current_scan", {"justification": "test"}, ["__ABORT__"],
@@ -425,12 +431,12 @@ CASES_COLLECTION: list[Case] = [
     Case("open_data_file", {"filename": "smoke_test", "justification": "test"},
          ["newfile smoke_test"], note="start new SPEC file"),
     Case("run_xas",
-         {"element": "Fe", "count_time": 0.1, "n_reps": 1, "justification": "test"},
-         ["Fe_xas 0.1 1"], note="XAS — Fe, 2-arg form"),
+         {"count_time": 0.1, "n_reps": 1, "justification": "test"},
+         ["run_xas 0.1 1 0 -1"], note="run_xas — defaults for emission/filter"),
     Case("run_xas",
-         {"element": "Fe", "count_time": 0.1, "n_reps": 1,
-          "emission_ev": 6400, "justification": "test"},
-         ["Fe_xas 0.1 1 6400"], note="XAS — Fe, 3-arg form"),
+         {"count_time": 0.1, "n_reps": 1,
+          "emission_ev": 6400, "filter": 0, "justification": "test"},
+         ["run_xas 0.1 1 6400 0"], note="run_xas — full 4-arg form"),
     # Fe_cee is expected to be MISSING in spec.d — test anyway to surface it.
     Case("run_emiss_scan",
          {"element": "Fe", "count_time": 0.1, "n_reps": 1,

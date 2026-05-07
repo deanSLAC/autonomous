@@ -164,6 +164,13 @@ class _MockScreen:
             return "/data/fifteen/mock"
         if low.startswith("p scan_n"):
             return str(cls._scan_n)
+        if low.startswith("show_elements"):
+            return (
+                "\n  Configured elements (1):\n"
+                "    1. Au  (incident=14353 eV, emission=11610 eV)  << CURRENT\n"
+            )
+        if low.startswith("wbeamsize"):
+            return "Beam size (X, Z): 0.35, 0.12 mm\nBeam mode (X, Z): small, small"
         if low.startswith("p beam_status"):
             return "{'spear_current': 485.2, 'bl_state': 'OPEN', 'gap_owned': 1}"
         if low.startswith("wm "):

@@ -266,14 +266,17 @@ def t_fit_emission_peak(args: dict) -> tuple[str, list[str]]:
 
 def t_run_xas(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
+    cnt_sec = args.get("count_time")
+    nbr_scan = args.get("n_reps")
+    emission = args.get("emission_ev")
+    nbr_filter = args.get("filter")
     a = [
-        str(args["element"]),
-        str(args["count_time"]),
-        str(args["n_reps"]),
+        str(1.0 if cnt_sec is None else cnt_sec),
+        str(1 if nbr_scan is None else nbr_scan),
+        str(0 if emission is None else emission),
+        str(-1 if nbr_filter is None else nbr_filter),
     ]
-    if "emission_ev" in args and args["emission_ev"] is not None:
-        a.append(str(args["emission_ev"]))
-    res = spec_cmd.call("xas", a, justification=j)
+    res = spec_cmd.call("run_xas", a, justification=j)
     return _as_json(res), []
 
 
@@ -470,6 +473,11 @@ def t_tracking(args: dict) -> tuple[str, list[str]]:
 # CAT-6 · Beam monitoring
 # ===========================================================================
 
+def t_get_beam_size(args: dict) -> tuple[str, list[str]]:
+    res = spec_cmd.call("wbeamsize", [], justification="")
+    return _as_json(res), []
+
+
 def t_get_beam_status(args: dict) -> tuple[str, list[str]]:
     res = spec_cmd.call("beam_status", [], justification="")
     return _as_json(res), []
@@ -504,6 +512,11 @@ def t_request_gap_ownership(args: dict) -> tuple[str, list[str]]:
 # ===========================================================================
 # CAT-7 · Run state
 # ===========================================================================
+
+def t_get_element(args: dict) -> tuple[str, list[str]]:
+    res = spec_cmd.call("show_elements", [], justification="")
+    return _as_json(res), []
+
 
 def t_get_scan_number(args: dict) -> tuple[str, list[str]]:
     res = spec_cmd.call("scan_n", [], justification="")
@@ -884,11 +897,13 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "set_anchor": t_set_anchor,
     "tracking": t_tracking,
     # CAT-6
+    "get_beam_size": t_get_beam_size,
     "get_beam_status": t_get_beam_status,
     "get_counts": t_get_counts,
     "get_counter": t_get_counter,
     "request_gap_ownership": t_request_gap_ownership,
     # CAT-7
+    "get_element": t_get_element,
     "get_scan_number": t_get_scan_number,
     "get_current_datafile": t_get_current_datafile,
     "abort_current_scan": t_abort_current_scan,
