@@ -581,7 +581,7 @@
       "sample_input": {},
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -1263,7 +1263,7 @@
       "sample_input": {},
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -1275,7 +1275,7 @@
       "sample_input": {},
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -1287,7 +1287,7 @@
       "sample_input": {},
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     }
   ]
