@@ -371,7 +371,7 @@ TOOL_DEFINITIONS = [
         "function": {
             "name": "save_plan",
             "description": (
-                "Save a markdown plan to the project's plans/ directory. Use this at the "
+                "Save a markdown plan to the project's logs/plans/ directory. Use this at the "
                 "start of a beamline-optimization session (or any multi-step task) to "
                 "persist the step-by-step plan you generated, so future sessions can "
                 "review what was attempted and why."

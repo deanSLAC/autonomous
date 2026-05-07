@@ -295,7 +295,7 @@ TOOL_LINEAGE: dict[str, dict] = {
     },
     "save_plan": {
         "long_description": (
-            "Persist a markdown plan into the project's plans/ directory. "
+            "Persist a markdown plan into the project's logs/plans/ directory. "
             "Used at the start of multi-step tasks (typically beamline "
             "optimization) to record the step-by-step plan the agent "
             "intends to follow, so future sessions can review what was "
@@ -307,7 +307,7 @@ TOOL_LINEAGE: dict[str, dict] = {
         "spec_command": None,
         "output": "JSON: {ok, path, bytes, overwrote}",
         "source": "filesystem",
-        "source_detail": "Writes into PLANS_DIR (./plans/ under the project root).",
+        "source_detail": "Writes into PLANS_DIR (./logs/plans/ under the project root).",
         "depends_on": [],
     },
     "get_motor_config": {

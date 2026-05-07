@@ -141,7 +141,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--original-name", required=True, help="Original macro filename (e.g. run01.mac)")
     p.add_argument("--content", required=True, help="The edited macro content")
 
-    p = sub.add_parser("save-plan", help="Save a markdown plan into the project's plans/ directory")
+    p = sub.add_parser("save-plan", help="Save a markdown plan into the project's logs/plans/ directory")
     p.add_argument("--filename", required=True,
                    help="Plan filename. Must end in .md; no path separators or traversal.")
     p.add_argument("--content", help="Plan markdown body (use this OR --content-file)")
