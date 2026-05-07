@@ -59,3 +59,26 @@ class QueryLog(SQLModel, table=True):
     result_json: Optional[str] = None
     error_message: Optional[str] = None
     latency_ms: Optional[int] = None
+
+
+class CliInvocationLog(SQLModel, table=True):
+    """Every `beamtimehero` CLI invocation gets one row here.
+
+    Written from `scripts/beamtimehero:main()` after dispatch returns (or
+    raises). Broader scope than ActionLog/QueryLog: covers ref docs, tool
+    leaves, parse failures, --help — everything the CLI can be asked to do.
+    Writer never raises; logging failure must not break the CLI.
+    """
+    id: str = Field(default_factory=generate_id, primary_key=True)
+    timestamp: datetime = Field(default_factory=datetime.now, index=True)
+    argv_json: str                                                  # sys.argv[1:] verbatim
+    tree: Optional[str] = Field(default=None, index=True)           # ref/tool/db/spec-read/spec-write
+    leaf: Optional[str] = Field(default=None, index=True)           # kebab cli name
+    tool_name: Optional[str] = Field(default=None, index=True)      # canonical snake_case
+    justification: Optional[str] = None                             # spec-write --justification, verbatim
+    exit_code: int = Field(index=True)
+    latency_ms: int
+    stdout_tail: Optional[str] = None                               # truncated tail of captured stdout
+    error_message: Optional[str] = None
+    spec_mock: Optional[int] = None                                 # 1/0 — sandbox vs live
+    pid: int

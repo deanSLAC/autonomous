@@ -62,6 +62,13 @@ SPEC_EVAL_URL = os.getenv("SPEC_EVAL_URL", "http://127.0.0.1:5006")
 DB_PATH = os.environ.get("BEAMLINE_TOOLS_DB_PATH", str(DATA_DIR / "beamline_tools.db"))
 os.environ.setdefault("BEAMLINE_TOOLS_DB_PATH", DB_PATH)
 
+# ---------------------------------------------------------------------------
+# beamtimehero CLI invocation log — one row per `beamtimehero` call.
+# Shares the action_log DB. Disable with BEAMTIMEHERO_CLI_LOG=0.
+# ---------------------------------------------------------------------------
+CLI_LOG_ENABLED = os.getenv("BEAMTIMEHERO_CLI_LOG", "1") == "1"
+CLI_LOG_MAX_RESULT_BYTES = int(os.getenv("BEAMTIMEHERO_CLI_LOG_MAX_BYTES", "65536"))
+
 # TOOLS_MODE: 'cli' (progressive discovery via beamtimehero --help) or
 # 'mcp' (full tool surface in every LLM request). Read by the agent.
 TOOLS_MODE = os.getenv("TOOLS_MODE", "cli")

@@ -26,9 +26,11 @@ and exit 0.
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import sys
+import time
 import traceback
 from pathlib import Path
 
@@ -327,19 +329,55 @@ def _run_tool_leaf(args: argparse.Namespace) -> int:
     return 0
 
 
+_KNOWN_TREES = frozenset({"ref", "tool", "db", "spec-read", "spec-write"})
+
+
+# ---------------------------------------------------------------------------
+# stdout tee — capture what the CLI prints so the cli_log can store it
+# ---------------------------------------------------------------------------
+
+class _TeeStdout(io.TextIOBase):
+    """Forward writes to the real stdout AND a capture buffer.
+
+    Buffer is kept bounded by trimming to the last `max_bytes` after each
+    write — we want the *tail* (errors and JSON envelopes land at the end).
+    """
+
+    def __init__(self, real, max_bytes: int) -> None:
+        self._real = real
+        self._buf = io.StringIO()
+        self._max = max_bytes
+
+    def write(self, s):  # noqa: D401
+        self._real.write(s)
+        self._buf.write(s)
+        # Trim to keep memory bounded for image-heavy plot tools.
+        cur = self._buf.getvalue()
+        if len(cur) > self._max * 2:
+            self._buf = io.StringIO()
+            self._buf.write(cur[-self._max:])
+        return len(s)
+
+    def flush(self):
+        self._real.flush()
+
+    def captured(self) -> str:
+        s = self._buf.getvalue()
+        return s[-self._max:] if len(s) > self._max else s
+
+    def isatty(self):
+        try:
+            return self._real.isatty()
+        except Exception:
+            return False
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
-def main(argv: list[str] | None = None) -> int:
-    phase_override = os.environ.get("SPEC_PHASE_OVERRIDE")
-    if phase_override:
-        from beamline_tools.spec_control import spec_cmd
-        spec_cmd.set_phase(phase_override)
-
-    parser = _build_parser()
-    args = parser.parse_args(argv)
-
+def _dispatch(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    """Dispatch already-parsed args. Returns exit code."""
     if not getattr(args, "tree", None):
         parser.print_help()
         return 0
@@ -354,6 +392,83 @@ def main(argv: list[str] | None = None) -> int:
         return 0  # argparse exits on --help
 
     return _run_tool_leaf(args)
+
+
+def main(argv: list[str] | None = None) -> int:
+    phase_override = os.environ.get("SPEC_PHASE_OVERRIDE")
+    if phase_override:
+        from beamline_tools.spec_control import spec_cmd
+        spec_cmd.set_phase(phase_override)
+
+    raw_argv = list(sys.argv[1:]) if argv is None else list(argv)
+
+    # Lazy-import to avoid pulling SQLModel into --help paths if logging
+    # is disabled (and to keep the failure mode local).
+    try:
+        from beamline_tools.config import CLI_LOG_ENABLED, CLI_LOG_MAX_RESULT_BYTES, SPEC_MOCK
+        log_enabled = CLI_LOG_ENABLED
+        max_bytes = CLI_LOG_MAX_RESULT_BYTES
+        spec_mock_flag = 1 if SPEC_MOCK else 0
+    except Exception:
+        log_enabled = False
+        max_bytes = 65536
+        spec_mock_flag = None
+
+    if not log_enabled:
+        parser = _build_parser()
+        args = parser.parse_args(argv)
+        return _dispatch(parser, args)
+
+    started = time.monotonic()
+    real_stdout = sys.stdout
+    tee = _TeeStdout(real_stdout, max_bytes)
+    sys.stdout = tee
+
+    parsed: argparse.Namespace | None = None
+    rc = 0
+    error_message: str | None = None
+    try:
+        try:
+            parser = _build_parser()
+            parsed = parser.parse_args(argv)
+            rc = _dispatch(parser, parsed)
+        except SystemExit as e:
+            # argparse calls sys.exit() on --help (rc=0) and parse errors (rc=2).
+            # _ToolParser.error() also lands here. Capture and re-raise.
+            rc = int(e.code) if isinstance(e.code, int) else (0 if e.code is None else 1)
+            raise
+        except Exception as e:  # noqa: BLE001 — surface as nonzero, log, re-raise
+            rc = 1
+            error_message = f"{type(e).__name__}: {e}"
+            raise
+    finally:
+        sys.stdout = real_stdout
+        latency_ms = int((time.monotonic() - started) * 1000)
+        try:
+            from beamline_tools.action_log.cli_log import record_cli_invocation
+            # Best-effort fallback for paths where argparse SystemExit fires
+            # during parse_args (e.g. `tool --help`) before we see a Namespace.
+            tree_hint = raw_argv[0] if raw_argv and raw_argv[0] in _KNOWN_TREES else None
+            tree = getattr(parsed, "tree", None) if parsed is not None else tree_hint
+            leaf = getattr(parsed, "leaf", None) if parsed is not None else None
+            tool_name = getattr(parsed, "_tool_name", None) if parsed is not None else None
+            justification = getattr(parsed, "justification", None) if parsed is not None else None
+            record_cli_invocation(
+                argv=raw_argv,
+                tree=tree,
+                leaf=leaf,
+                tool_name=tool_name,
+                justification=justification,
+                exit_code=rc,
+                latency_ms=latency_ms,
+                stdout_tail=tee.captured() or None,
+                error_message=error_message,
+                spec_mock=spec_mock_flag,
+            )
+        except Exception:  # noqa: BLE001 — never break the CLI
+            pass
+
+    return rc
 
 
 if __name__ == "__main__":
