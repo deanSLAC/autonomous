@@ -14,7 +14,7 @@
       "sample_input": {},
       "sample_output": "{\"per_scan_similarity\": [0.9812, 0.9934, 0.9971, 0.9985], \"cumulative\": [0.9812, 0.9873, 0.9906, 0.9926], \"std_error\": 0.0038, \"verdict\": \"converged\", \"file_name\": \"Fe_HERFD_0001\", \"active_counter\": \"vortDT\", \"scan_numbers\": [1, 2, 3, 4]}",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -26,7 +26,7 @@
       "sample_input": {},
       "sample_output": "{\"convergence\": 0.9926, \"cv\": 0.041, \"poisson_ratio\": 1.12, \"recommended_n\": 6, \"verdict\": \"reasonable\", \"file_name\": \"Cu_XAS_0002\", \"active_counter\": \"vortDT\", \"scan_numbers\": [1, 2, 3, 4, 5]}",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -38,7 +38,7 @@
       "sample_input": {},
       "sample_output": "{\"x\": [7090.0, 7095.0, \"...\", 7200.0], \"mean\": [0.01, 0.02, \"...\", 1.02], \"std\": [0.003, 0.004, \"...\", 0.008], \"n_scans\": 5, \"file_name\": \"Fe_HERFD_0001\"}",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -243,7 +243,7 @@
       },
       "sample_output": "{\"x\": [7090.0, 7095.0, \"...\", 7200.0], \"y\": [0.002, 0.005, \"...\", 1.01], \"counter\": \"vortDT\", \"normalize_by\": \"I0\"}",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -257,7 +257,7 @@
       },
       "sample_output": "Overlay plot of 2 samples (Fe_HERFD_0001: 5 scans averaged, Fe_HERFD_0002: 3 scans averaged). [PNG image returned]",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -704,7 +704,7 @@
       },
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -955,7 +955,7 @@
       },
       "sample_output": "",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -1033,13 +1033,13 @@
       "cli_path": "spec-write",
       "description": "Calls the SPEC run_xas macro, which dispatches to <El>_xas for the element set by the prior select_element. Args: cntSec (null\u21921 s), nbrScan (null\u21921), emission (0 \u2192 emiss motor unchanged), nbrFilter (<0 \u2192 filter motor unchanged).",
       "when_to_use": "This command will call the _xas macro function for spectrum collection based on the element set by select_element. All args get passed onto the <El>_xas func: \"<El>_xas  cntSec  nbrScan  emission  nbrFilter\". Null value for cntSec defaults to 1s, nbrScan to 1, if emission is zero the emiss is not moved, if nbrFilter <0 then filter motor isnt moved",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"count_time\": 1.0, \"n_reps\": 1, \"emission_ev\": 0.0, \"filter\": -1, \"raw\": \"Fe_xas complete. reps=1 scan_n=1005\", \"elapsed_s\": 60.0}, \"elapsed_s\": 60.0}",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
@@ -1061,14 +1061,14 @@
       "cli_path": "spec-write",
       "description": "Switch the beamline to the configured per-element geometry \u2014 sets energy, emission energy, Vortex ROI, and runs xes_setup.",
       "when_to_use": "Switch the beamline to the experiment's configured geometry for a single element (energy, emiss, Vortex ROI, xes_setup).",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
         "element": "example"
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"element\": \"Fe\", \"raw\": \"select_element complete.\", \"elapsed_s\": 2.0}, \"elapsed_s\": 2.0}",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {

@@ -59,3 +59,4 @@ simulation/logs/
 
 .claude/settings.local.json
 plans/*
+notes.md
