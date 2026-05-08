@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BL15-2 Autonomous Beamline</title>
-    <link rel="stylesheet" href="/static/dashboard/static/dashboard.css?v=4">
-    <link rel="stylesheet" href="/static/dashboard/autonomy.css?v=5">
+    <title>BL15-2 AI Beamline</title>
+    <link rel="stylesheet" href="/static/dashboard/static/dashboard.css?v=5">
+    <link rel="stylesheet" href="/static/dashboard/autonomy.css?v=8">
 </head>
 <body>
 
@@ -16,7 +16,7 @@
             <span class="topbar-logo-text">BL15-2</span>
         </div>
         <div class="topbar-divider"></div>
-        <div class="topbar-title">Autonomous Beamline</div>
+        <div class="topbar-title">AI Beamline</div>
         <span id="sim-pill" class="sim-pill" style="display:none;">SIM</span>
     </div>
     <div class="topbar-right">
@@ -40,30 +40,25 @@
     <div><span class="label">Beam</span><span class="value" id="exp-beam">--</span></div>
     <div><span class="label">Environment</span><span class="value" id="exp-env">--</span></div>
     <div><span class="label">Samples</span><span class="value"><span id="exp-samples-done">–</span> / <span id="exp-samples-total">–</span></span></div>
-    <div><span class="label">Phase</span><span class="value" id="cur-phase">setup</span></div>
-    <div><span class="label">Status</span><span class="value" id="exp-status">--</span></div>
 </div>
 
 <!-- Autonomy strip — start/pause/resume/stop/reset retired. Each phase
      tile owns its own Run/Kill buttons; this strip is now read-only. -->
 <div class="autonomy-bar">
     <div class="autonomy-bar-left">
-        <button class="btn-autonomy" id="btn-stop-spec" onclick="stopSpec()" title="Issue a ctrl-C in SPEC">⏹ Stop SPEC</button>
-        <button class="btn-autonomy" id="btn-stop-agents" onclick="stopAgents()" title="SIGTERM every running phase agent">⏹ Stop agents</button>
-        <button class="btn-autonomy" id="btn-post-status" onclick="postStatusUpdate()" title="Post a status update to the Slack Chat channel.">✉ Post status</button>
-    </div>
-    <div class="autonomy-bar-center">
-        <span class="metric-pill"><span class="label">Beamtime</span>
-            <span id="orc-elapsed">–</span>h / <span id="orc-total">–</span>h</span>
+        <button class="btn-autonomy" id="btn-stop-spec" onclick="stopSpec()" title="Issue a ctrl-C in SPEC">Stop SPEC</button>
+        <button class="btn-autonomy" id="btn-stop-agents" onclick="stopAgents()" title="SIGTERM every running phase agent">Stop agents</button>
     </div>
     <div class="autonomy-bar-right">
-        <label class="safety-switch" title="Allow agents to issue read-only spec_cmd calls">
+        <label class="safety-toggle" title="Allow agents to issue read-only spec_cmd calls">
             <input type="checkbox" id="sw-spec-read" onchange="setSafetySwitch('spec_read_enabled', this.checked)">
-            <span class="safety-switch-label">SPEC read</span>
+            <span class="safety-toggle-track"></span>
+            <span class="safety-toggle-label">SPEC read</span>
         </label>
-        <label class="safety-switch" title="Allow agents to issue mutating spec_cmd calls (mv, scans, macros)">
+        <label class="safety-toggle" title="Allow agents to issue mutating spec_cmd calls (mv, scans, macros)">
             <input type="checkbox" id="sw-spec-write" onchange="setSafetySwitch('spec_write_enabled', this.checked)">
-            <span class="safety-switch-label">SPEC write</span>
+            <span class="safety-toggle-track"></span>
+            <span class="safety-toggle-label">SPEC write</span>
         </label>
         <span class="metric-pill" id="orc-agent-pill" title="Agent backend status">
             <span class="label">Agent</span>
@@ -120,7 +115,7 @@
                 <div class="tile-actions" hidden></div>
                 <div class="phase-io phase-output">
                     <div class="io-label">Outputs</div>
-                    <div class="io-body">Aligned beam &amp; beam-size measurement; anchor position saved</div>
+                    <div class="io-body">Optimized beam &amp; beam-size measurement</div>
                 </div>
             </div>
 
@@ -143,7 +138,7 @@
                 <div class="tile-actions" hidden></div>
                 <div class="phase-io phase-output">
                     <div class="io-label">Outputs</div>
-                    <div class="io-body">Crystal pitch/roll set, <code>XES_EN_OFFSET</code> calibrated</div>
+                    <div class="io-body">Crystal pitch/roll set; elastic peaks overlapped</div>
                 </div>
             </div>
 
@@ -232,7 +227,7 @@
             </div>
         </div>
 
-        <!-- Agent I/O row: summary, guidance, chat -->
+        <!-- Agent I/O row: full-width agent output + plots, then steering+chat (50/50), then full-width spec. -->
         <div class="agent-row">
             <div class="panel">
                 <div class="panel-header">
@@ -242,6 +237,35 @@
                 <pre id="agent-output" class="log-tail"><span class="muted">Waiting for the agent…</span></pre>
             </div>
 
+            <div class="agent-row-top">
+                <div class="panel">
+                    <div class="panel-header">
+                        Experimenter Steering
+                        <span class="panel-warn" title="Steering messages can prompt the agent to move motors, run scans, and otherwise act on the live beamline.">⚠ results in live beamline actions</span>
+                    </div>
+                    <div id="guidance-feed" class="guidance-feed"><div class="muted">No steering yet.</div></div>
+                    <div class="guidance-compose">
+                        <input type="text" id="guidance-input" placeholder="Tell the agent what to do next (e.g. 'prioritize Cu samples')">
+                        <button onclick="submitGuidance()">Send</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        Chat with the agent
+                        <span class="panel-sub" id="chat-status"></span>
+                    </div>
+                    <div id="chat-log" class="chat-log"><div class="muted">No messages yet.</div></div>
+                    <div class="chat-compose">
+                        <textarea id="chat-input" rows="3"
+                                  placeholder="Ask the agent anything…  (Enter sends, Shift+Enter newline)"
+                                  onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+                        <button class="chat-send-btn" onclick="sendChat()">Send</button>
+                        <button class="chat-clear-btn" onclick="clearChat()" title="Archive this session and start a fresh one.">Clear</button>
+                    </div>
+                </div>
+            </div>
+
             <div class="panel">
                 <div class="panel-header">
                     SPEC Output
@@ -249,31 +273,6 @@
                 </div>
                 <pre id="spec-output" class="log-tail"><span class="muted">Waiting for SPEC log…</span></pre>
             </div>
-
-            <div class="panel">
-                <div class="panel-header">Experimenter Guidance</div>
-                <div id="guidance-feed" class="guidance-feed"><div class="muted">No guidance yet.</div></div>
-                <div class="guidance-compose">
-                    <input type="text" id="guidance-input" placeholder="Tell the agent what to do next (e.g. 'prioritize Cu samples')">
-                    <button onclick="submitGuidance()">Send</button>
-                </div>
-            </div>
-
-            <div class="panel">
-                <div class="panel-header">
-                    Chat with the agent
-                    <span class="panel-sub" id="chat-status"></span>
-                </div>
-                <div id="chat-log" class="chat-log"><div class="muted">No messages yet.</div></div>
-                <div class="chat-compose">
-                    <textarea id="chat-input" rows="3"
-                              placeholder="Ask the agent anything…  (Enter sends, Shift+Enter newline)"
-                              onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChat();}"></textarea>
-                    <button class="chat-send-btn" onclick="sendChat()">Send</button>
-                    <button class="chat-clear-btn" onclick="clearChat()" title="Archive this session and start a fresh one.">Clear</button>
-                </div>
-            </div>
-
         </div>
 
         <div class="panel">
@@ -288,7 +287,7 @@
     </div>
 </div>
 
-<script src="/static/dashboard/static/dashboard.js?v=4"></script>
-<script src="/static/dashboard/autonomy.js?v=5"></script>
+<script src="/static/dashboard/static/dashboard.js?v=5"></script>
+<script src="/static/dashboard/autonomy.js?v=6"></script>
 </body>
 </html>

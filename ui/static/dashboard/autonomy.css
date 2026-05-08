@@ -170,14 +170,22 @@
 
 .col-left, .col-right { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 
-/* Agent interaction row: Latest output | Guidance | Chat | Capabilities.
-   Auto-fit so a 4-up tall layout collapses to 2-up on medium screens and
-   1-up on phones, without ever overlapping the phase tiles. */
+/* Agent interaction row: top is Steering | Chat (50/50, taller),
+   below it the agent + spec output panels each span the full width. */
 .agent-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 16px;
-    align-items: start;
+}
+.agent-row-top {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: stretch;
+}
+.agent-row-top > .panel { display: flex; flex-direction: column; }
+@media (max-width: 720px) {
+    .agent-row-top { grid-template-columns: 1fr; }
 }
 
 .panel {
@@ -311,18 +319,57 @@
     margin: 0 0 0.5em 0.25em;
 }
 
-.safety-switch {
+.safety-toggle {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    margin-right: 8px;
+    gap: 8px;
+    margin-right: 12px;
     font-size: 0.85em;
-    color: var(--text-dim, #aaa);
+    color: var(--text-dim, #888);
     user-select: none;
     cursor: pointer;
 }
-.safety-switch input { cursor: pointer; }
-.safety-switch-label { white-space: nowrap; }
+.safety-toggle input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+}
+.safety-toggle-track {
+    position: relative;
+    width: 32px;
+    height: 18px;
+    background: #c0c0c0;
+    border-radius: 999px;
+    transition: background 0.15s ease;
+    flex-shrink: 0;
+}
+.safety-toggle-track::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    transition: transform 0.15s ease;
+}
+.safety-toggle input:checked + .safety-toggle-track {
+    background: var(--accent, #9b1b30);
+}
+.safety-toggle input:checked + .safety-toggle-track::after {
+    transform: translateX(14px);
+}
+.safety-toggle:hover .safety-toggle-track { filter: brightness(1.05); }
+.safety-toggle input:focus-visible + .safety-toggle-track {
+    outline: 2px solid var(--accent, #9b1b30);
+    outline-offset: 2px;
+}
+[data-theme="dark"] .safety-toggle-track { background: #4a4f5d; }
+.safety-toggle-label { white-space: nowrap; }
 
 .log-tail {
     max-height: 320px;
@@ -340,7 +387,6 @@
     white-space: pre-wrap;
     word-break: break-word;
 }
-
 .action-tape {
     max-height: 320px;
     overflow-y: auto;
@@ -383,7 +429,9 @@
 }
 
 .guidance-feed {
-    max-height: 220px;
+    flex: 1;
+    min-height: 360px;
+    max-height: 520px;
     overflow-y: auto;
     font-size: 0.9em;
 }
@@ -428,8 +476,9 @@
 .chat-compose button:disabled { opacity: 0.5; cursor: wait; }
 
 .chat-log {
-    min-height: 80px;
-    max-height: 420px;
+    flex: 1;
+    min-height: 360px;
+    max-height: 520px;
     overflow-y: auto;
     font-size: 0.9em;
     display: flex;
@@ -462,6 +511,25 @@
     letter-spacing: 0;
     color: #888;
     font-size: 0.85em;
+}
+
+.panel-warn {
+    float: right;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: #c0392b;
+    background: rgba(192, 57, 43, 0.08);
+    border: 1px solid rgba(192, 57, 43, 0.25);
+    border-radius: 999px;
+    padding: 1px 8px;
+    font-size: 0.78em;
+    cursor: help;
+}
+[data-theme="dark"] .panel-warn {
+    color: #ff8a7a;
+    background: rgba(255, 138, 122, 0.10);
+    border-color: rgba(255, 138, 122, 0.30);
 }
 
 .plan-table {

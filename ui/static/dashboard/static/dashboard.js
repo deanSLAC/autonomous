@@ -201,7 +201,6 @@ function renderExperimentInfo(exp) {
     set("exp-crystal", formatCrystal(exp.mono_crystal));
     set("exp-beam", formatBeamSize(exp));
     set("exp-env", exp.sample_env || "ambient");
-    set("exp-status", exp.status);
 }
 
 function renderPhases(phases) {

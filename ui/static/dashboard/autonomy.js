@@ -654,7 +654,6 @@ function renderAutonomy(orc, dash) {
                 : `H:${dash.experiment.beam_size_h || "?"} V:${dash.experiment.beam_size_v || "?"}`),
         );
         setText("exp-env", dash.experiment.sample_env || "--");
-        setText("exp-status", dash.experiment.status || "--");
     }
 
     applyPhaseRunStatusToTiles();
@@ -839,26 +838,6 @@ async function resolveIntervention(id, status) {
     refreshAutonomy();
 }
 
-async function postStatusUpdate() {
-    const text = prompt("Status text to post to Chat channel:");
-    if (!text) return;
-    try {
-        const r = await fetch(API + "/api/slack/status", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text }),
-        });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok) {
-            alert("Error: " + (j.detail || j.error || r.status));
-            return;
-        }
-        alert("Posted!");
-    } catch (e) {
-        alert("Post failed: " + (e && e.message ? e.message : e));
-    }
-}
-
 async function stopSpec() {
     try {
         const r = await fetch(API + "/api/orchestrator/abort_spec", { method: "POST" });
@@ -877,7 +856,7 @@ async function stopSpec() {
 
 const _tailState = {
     agent: { path: null, offset: 0, started: false },
-    spec:  { path: null, offset: 0, started: false },
+    spec:  { path: null, offset: -1, started: false },
 };
 
 const _LOG_TAIL_MAX_CHARS = 64 * 1024;
@@ -938,27 +917,18 @@ async function refreshSpecOutput() {
         const j = await r.json();
         const sub = document.getElementById("spec-output-sub");
         if (sub && j.path) {
-            // Show just the basename.
             const parts = j.path.split("/");
             sub.textContent = parts[parts.length - 1];
         } else if (sub) {
             sub.textContent = "no log";
         }
+        // Log rotated (or first poll): reset panel; the offset=-1 fetch
+        // already returned the file's tail in j.content.
         if (j.path !== st.path) {
             st.path = j.path;
-            st.offset = 0;
             st.started = false;
             const el = document.getElementById("spec-output");
             if (el) el.innerHTML = '<span class="muted">Waiting for SPEC log…</span>';
-            if (j.path) {
-                const r2 = await fetch(`${API}/api/spec_log/tail?offset=0`);
-                if (r2.ok) {
-                    const j2 = await r2.json();
-                    if (j2.content) _appendToLogPanel("spec-output", j2.content);
-                    st.offset = j2.offset;
-                }
-            }
-            return;
         }
         if (j.content) _appendToLogPanel("spec-output", j.content);
         st.offset = j.offset;
