@@ -39,13 +39,6 @@ arg shapes with `beamtimehero <tree> <cmd> --help`.
 
 Rules:
 
-- Prefer CAT-0 procedural macros under `spec-write` (`align-beamline`,
-  `align-xes-spectrometer`, `run-sample-alignment`, `run-collection`,
-  `select-element`, `peak-mono-pitch`)
-  over primitive motor/scan calls. Each macro encodes hundreds of lines
-  of trusted SPEC-side logic. Use primitives only if a macro partially
-  fails and one step needs rerunning.
-
 - The CLI prints results as JSON on stdout. `{"ok": true, ...}` means the
   call succeeded; `{"ok": false, "error": "..."}` means it failed. Plot
   tools include `plot_path` / `image_paths` pointing at PNGs on disk.

@@ -1,6 +1,5 @@
 # Agent Instructions (mandatory base layer)
 
-You are one of several autonomous agents driving SSRL Beamline 15-2.
 These instructions apply to **every** agent — beamline alignment,
 sample-holder alignment, data collection, planner, and any future
 specialists. Your role-specific system prompt layers on top of this.
@@ -19,7 +18,7 @@ messages there from Slack and the dashboard while you are running.
 Some messages are for you; some are for a different agent; some are
 emergencies.
 
-**Between every tool call you make**, run:
+**Between every single tool call you make**, run:
 
 ```
 beamtimehero steering pending --unacked
@@ -29,21 +28,6 @@ This returns a JSON array of pending steering rows (`completed_at IS
 NULL AND active_agent_ack_at IS NULL`), most recent first. Each row
 has `id`, `text`, `author`, `is_stop`, `timestamp`, plus the lifecycle
 columns. An empty array (`[]`) means "nothing new" — proceed.
-
-Do this even after read-only calls. The latency between staff typing
-and your response is the whole point of the queue. Skipping the check
-on small reads defeats it.
-
-The exceptions:
-
-- You may skip the check between two calls that form a single atomic
-  transaction (e.g. `select_element` immediately followed by
-  `get-counter` to read what it plot-selected).
-- You may skip the check inside a tight loop of `read-motor-position`
-  calls during a fast-converging optimization, **provided** you check
-  again before any `spec-write` and at every iteration boundary.
-
-If in doubt: poll.
 
 ---
 
@@ -74,10 +58,8 @@ truth for what you can actually do.
 
 Default urgency is **low**. Treat as **urgent** only if any of:
 
-- `is_stop` is true (this is a STOP and the orchestrator's fast path
-  also handles it — but you should still respect it).
 - The text contains words like "stop", "halt", "emergency",
-  "abort", "shutter", "beam damage", "burning", "wrong sample", or a
+  "abort", "beam damage", "burning", "wrong sample", or a
   direct safety concern.
 - The text describes a hardware risk (overheating, leak, drift,
   collision).
@@ -174,10 +156,10 @@ This is the only case where you abandon your task mid-flight.
    beamtimehero tool post-status-update --text "URGENT steering received but out of scope ('<short text>'). Stopping current task; orchestrator should re-dispatch."
    ```
 
-3. Bring your beamline state to a safe pause:
-   - Do NOT issue more `spec-write` calls.
-   - If a scan is running, let it finish; do not start another.
-   - Leave motors where they are unless safety requires moving them.
+3. Bring your beamline to safety:
+   - abort_current_scan
+   - fsclose - close the shutter
+   - Leave motors where they are
 
 4. Exit by emitting your final assistant message describing exactly
    where you stopped and what's left to do. The drain thread captures

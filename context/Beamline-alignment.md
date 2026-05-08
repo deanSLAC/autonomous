@@ -2,8 +2,7 @@
 
 For CLI usage, translation table, decision heuristics, and gotchas see `beamtimehero_context.md`.
 
-Reference macro: `/usr/local/lib/spec.d/beamline_align.mac` (`align_the_beamline`).
-Scan definitions: `/usr/local/lib/spec.d/beam_diagnostics.mac`.
+While spec does have a align_the_beamline script on which this guide is based, it is susceptible to tiny quirks here and there which have affected its reliable performance. The hope is that with you following the general recipe, but applying greater flexibility and reviewing the step by step results as you go, we can get a better result.
 
 ---
 
@@ -11,25 +10,37 @@ Scan definitions: `/usr/local/lib/spec.d/beam_diagnostics.mac`.
 
 | Phase | What |
 |------:|------|
-| 0 | Pre-flight: snapshot positions, disable noisy counters, `mv-knife-out`, set gains, verify counts |
-| 1 | Energy move: set m2vert for correct stripe, enable tracking, `mv-energy` |
+| 0 | Pre-flight: snapshot positions, `mv_knife_out`, set gains, verify counts |
+| 1 | Energy move: set m2vert for correct stripe, set mirror bends, enable tracking, `mv-energy` |
 | 2 | Beam optimization: iterative slit/mirror loop on I1, then B-stage centering |
 | 3 | Pinhole zero + beam size |
-| 4 | Foil calibration (if needed) |
+| 4 | Energy calibration w/ foil |
 | 5 | `set-anchor` |
+
+---
+
+## Phase 0 — Pre-flight
+1. run read_all_positions
+2. mv_knife_out moves the diagnostic tool out of the beam path so I1 sees the beam signal
+3. set_gain, i0 50 nA/V, i1 1 mA/V
+4. safely_remove_filters; get_counts as a starting reference point
 
 ---
 
 ## Phase 1 — Energy move
 
-Reference: `/usr/local/lib/spec.d/energy.mac`.
-
 1. Record baseline: read `energy`, `m2vert`, `m2horz`.
-2. Set **m2vert** for the correct reflective stripe:
+2. `tracking --enabled true` — so m1vert/Tz follow the mono. (assuming we want the mirrors in)
+3. `mv-energy --energy-ev <target>`.
+4. smallbeam looks like: 
+mv m1ubend 8.41 m1dbend .39 m2ubend 15 m2dbend -4.7
+big beam looks like:
+mv m1ubend 10 m1dbend 8 m2ubend 24 m2dbend 32
+check our current bend values. if experiment config says we're supposed to have a big beam but we're much closer to small beam values, then run bigbeam (and vice versa). if we are close to these values and the mode matches, do not issue the bigbeam/smallbeam command.
+5. Set **m2vert** for the correct reflective stripe: m2_stripe <eV>  
+   Then get the m2vert position. expected:
    - Rh stripe: m2vert ~ -3.5 (for E > ~6200 eV).
-   - Si stripe: m2vert ~ +4.0 (for E < ~6200 eV).
-3. `tracking --enabled true` — so m1vert/Tz follow the mono.
-4. `mv-energy --energy-ev <target>`.
+   - Si stripe: m2vert ~ >4.0 (for E < ~6200 eV).
 
 **Verification:** check gap against the expected harmonic polynomial, and confirm m1vert/Tz shifts are consistent with `2 * MONO_MIN_GAP_A * (cos theta_target - cos theta_anchor)`.
 
@@ -37,7 +48,7 @@ Reference: `/usr/local/lib/spec.d/energy.mac`.
 
 ## Phase 2 — Beam optimization (iterative loop)
 
-If I1 already has good signal (>= ~100 kcps), `plotselect I1` from the start — skip the macro's I0-first safety pattern.
+If I1 already has good signal (>= ~20 kcps), `plotselect I1` from the start — skip the macro's I0-first safety pattern.
 
 ### Iteration loop (run 2 passes)
 
@@ -53,6 +64,13 @@ After each step: `get-counts`, compare I1/mA to baseline.
 
 **Pass 2:** skip `m1m1big` — only needed in pass 1 to get into the aperture.
 
+NOTE: if abs(monvtra) > .25 after these steps on I0 and I1, our source beam is not being delivered correctly. Raise human attention via post_status_update. But it is ok to proceed in the meantime. 
+
+
+### peak_mono_pitch
+Be sure to check counts before and after. Sometimes this one fails if the signal is noisy. You might have to run it a second time.
+If a second time still doesnt recover counts, its time to HALT and get staff attention.
+
 ### B-stage centering (after iteration loop)
 
 | Step | Shortcut | Motor | Apply |
@@ -62,7 +80,7 @@ After each step: `get-counts`, compare I1/mA to baseline.
 
 ### Optional: diagnostic dscan monvgap
 
-`run-motor-scan-relative --motor monvgap --start -0.3 --finish 0.3 --intervals 20 --count-time 0.2` between the iteration loop and B-stage is a no-action snapshot of mono acceptance. Skip if pressed for time.
+`run-motor-scan-relative --motor monvgap --start -0.3 --finish 0.3 --intervals 20 --count-time 0.2` between the iteration loop and B-stage is a no-action snapshot of mono acceptance.
 
 ---
 
@@ -77,16 +95,10 @@ Verify I1 is stable through the rezero — if counts change, the beam was lost i
 
 ---
 
-## Phase 4 — Foil calibration
+## Phase 4 — Monochromator Energy calibration w/ Foil
 
-Only needed when changing to an energy near an absorption edge, or when absev disagrees with the energy pseudo-motor by more than ~0.5 eV. See `beamtimehero_context.md` "Energy calibration" for the iteration protocol and gotchas.
+see energy calibration ref tool
 
-1. Insert reference foil in I1 path.
-2. Edge scan: `run-motor-scan-relative --motor energy --start -15 --finish 15 --intervals 60 --count-time 0.2`.
-3. Find the inflection point of the edge scan and apply calibration against the tabulated NIST edge value. The calibration step itself is not currently exposed through the `beamtimehero` CLI -- request a human intervention with the foil scan number and tabulated edge.
-4. Self-check: finer edge scan, re-find inflection. Accept if within ~0.2 eV.
-5. Iterate steps 2–4 **without** `reset-gap`.
-6. Once converged, `reset-gap` **once** at the end.
 
 ---
 
@@ -98,19 +110,11 @@ Pinhole zero before `set-anchor` matters — the anchor should be tied to a know
 
 ---
 
-## Post-alignment phases (documented separately)
+## Reference docs
+Consult reference docs BEFORE attempting unfamiliar procedures:
 
-1. Camera crosshair onto pinhole.
-2. Install analyzer crystals + bag.
-3. Spectrometer alignment (`xes_setup` / `xes_align`).
-4. `vortex enable` when ready for spectrometer alignment.
+- `beamtimehero ref --list` -- see all available docs
+- `beamtimehero ref changing-energy` -- full step-by-step energy switch procedure
+- `beamtimehero ref calibrate-energy` -- calibrate the monochromator with a foil
 
----
 
-## Reference paths
-
-- `/usr/local/lib/spec.d/beamline_align.mac` — canonical alignment macro.
-- `/usr/local/lib/spec.d/beam_diagnostics.mac` — scan definitions (vvv/hhh/m1m1/m2m2/bzbz/bxbx/zero_pinhole/measure_beam_size).
-- `/usr/local/lib/spec.d/energy.mac` — energy pseudo-motor and harmonic auto-selection.
-- `/usr/local/lib/spec.d/tracking.mac` — `_track()`, `set_anchor`/`save_anchor`.
-- `/usr/local/lib/spec.d/anchor.cfg` — current saved anchor.

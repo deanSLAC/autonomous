@@ -95,7 +95,7 @@ CLI tools for the diagnostic stage:
 - `spec-write measure-beam-size` -- knife-edge scan to measure beam FWHM (see "Beam-size mode" gotcha for arguments)
 - `spec-write mv-knife-clear` -- park the knife edge clear of the beam. Fast move, but the resulting aperture is not very large -- the diagnostic body may still partially clip the beam to I1
 - `spec-write mv-knife-out` -- park the entire diagnostic fully out of the beam. Slower (large Sr rotation), but unambiguous: nothing diagnostic-related is in the beam
-- `spec-write mv-plastic` -- move the plastic scatterer into the beam for spectrometer alignment
+- `spec-write mv-plastic` -- move the plastic scatterer into the beam for spectrometer alignment (not useful in beamline alignment)
 
 Rule of thumb: before using I1 for upstream alignment, default to `mv-knife-out`.
 
@@ -103,7 +103,7 @@ Rule of thumb: before using I1 for upstream alignment, default to `mv-knife-out`
 * IMPORTANT SAFETY NOTE: Never expose the Vortex (vortDT, vortDT2, etc) to >200kcps. Add filters to stay below this threshold * 
 
 - `I0` -- upstream ion chamber (incident beam), inside B-stage. Keep below **0.5 V** to avoid non-linearity or saturation (via set_i0_gain).
-- `I1` -- downstream ion chamber (transmitted beam), behind sample. Keep below **5 V** (via set_i1_gain)
+- `I1` -- downstream photodiode (transmitted beam), behind sample. Keep below **5 V** (via set_i1_gain)
 - `I2` -- transmission foil reference, inside B-stage (used for energy calibration). Keep below **5 V** (via set_i2_gain).
 - `vortDT`, `vortDT2`, `vortDT3`, `vortDT4` -- Vortex silicon drift detectors (fluorescence/HERFD)
 - `cryoct` -- cryostat temperature (K)
@@ -128,17 +128,8 @@ These are summaries. Consult reference docs for full detail before unfamiliar pr
 5. `spec-read get-beam-status` -- verify SPEAR has beam, BL15 open, gap owned
 
 **Energy move:**
-1. `spec-write plotselect --counter I0` -- working signal for optimization
-2. `spec-write mv-energy --energy-ev <target>` -- auto-selects harmonic
-3. `spec-read get-counts --count-time 1` -- Tread carefully if I0 is dead (zero counts = stop and investigate)
-4. If I0 suppressed >70% from baseline: run vertical touch-up:
-   - `run-align-shortcut m1m1` then `post-scan-move cen`
-   - `run-align-shortcut vvv` then `post-scan-move peak`.  This should not change with an energy move.
-   - `run-align-shortcut bzbz` then `post-scan-move cen`
-   - `get-counts` to confirm no regression
-5. Horizontal optics (hhh, m2m2, bxbx) should not change much after energy moves, but you should verify them anyway.
-6. `peak-mono-pitch` -- Occasionally this fails and needs to be repeated a second time. Pay close attention to counts before and after,there should not be dramatic changes.
-7. For full detail: `beamtimehero ref changing-energy`
+
+1. see: `beamtimehero ref changing-energy`
 
 **Beam optimization loop:**
 - **Read initial counts before planning.** `get-counts` first; the starting I0/I1 (SPEAR-normalized) are what every decision gate -- "do I need pass 2", "is this converged", "did this move help" -- compares against. If you skip this, you have nothing to compare to.
@@ -149,12 +140,6 @@ These are summaries. Consult reference docs for full detail before unfamiliar pr
 - Pattern: `plotselect <counter>` -> `run-align-shortcut` -> `tool plot-scan` (read PNG) -> predict target -> `post-scan-move` (peak or cen) -> verify motor position -> `get-counts` -> verify counts vs initial
 - For full detail: `beamtimehero ref beamline-alignment`
 
-**Energy calibration:**
-- Foil scan over reference edge, find inflection point against the tabulated NIST edge (use unrounded values, e.g. Au K = 11918.7 eV, Cu K = 8979.0 eV, Fe K = 7112.0 eV)
-- Iterate the foil scan + calibration WITHOUT `reset_gap` until self-check < 0.5 eV from tabulated
-- Then single `reset_gap` at the end
-- Verify `absev` matches calibrated energy via `get-counts`
-- The calibration step itself is not currently exposed through the `beamtimehero` CLI -- request a human intervention to perform the calibration update once the foil scan is in hand
 
 **Data collection:**
 - One SPEC file per sample (`open-data-file`)
@@ -162,6 +147,7 @@ These are summaries. Consult reference docs for full detail before unfamiliar pr
 - Monitor convergence with `beamtimehero tool analyze-convergence`
 - Monitor efficiency with `beamtimehero tool analyze-efficiency`
 - Use `beamtimehero tool get-latest-scan` and `tool plot-scan` to inspect results
+
 
 **Recovery from SPEAR downtime:**
 - Verify the position of the mono slits is still reasonable. Once the spectrometer is aligned, we do not want to move any beamline components, but we should at least log a scan of these slits. If we were in sample data collection mode, we should use I0 for these scans.

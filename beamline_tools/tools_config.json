@@ -364,7 +364,7 @@
       "sample_input": {},
       "sample_output": "{\"experiment\": {\"id\": \"9bdc03aa27cd\", \"name\": \"2026-05_Claude\", \"mono_crystal\": \"A\", \"beam_size_h\": \"big\", \"beam_size_v\": \"big\", \"mirrors_out\": false, \"sample_env\": \"ambient\", \"data_path\": \"/data/fifteen/2026-05_Claude\"}, \"elements\": [{\"symbol\": \"Au\", \"edge\": \"L1\", \"incident_energy_eV\": 14353.0, \"emission_energy_eV\": 11610.0, \"crystal_hkl\": \"5 5 5\"}], \"sample_holders\": [{\"name\": \"one\", \"holder_type\": \"flat\", \"samples\": [{\"name\": \"one\", \"element\": \"Au\", \"sx_lo\": 1.0, \"sx_hi\": 2.0}]}]}",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
