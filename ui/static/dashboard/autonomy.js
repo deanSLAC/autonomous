@@ -935,6 +935,34 @@ async function refreshSpecOutput() {
     } catch (_) {}
 }
 
+let _lastPlotKey = null;
+async function refreshAgentPlot() {
+    try {
+        const r = await fetch(API + "/api/tool_plots/latest");
+        if (!r.ok) return;
+        const j = await r.json();
+        const sub = document.getElementById("agent-plot-sub");
+        const box = document.getElementById("agent-plot");
+        if (!box) return;
+        if (!j.filename) {
+            if (sub) sub.textContent = "no plots yet";
+            if (_lastPlotKey !== null) {
+                box.innerHTML = '<div class="muted">No plots yet.</div>';
+                _lastPlotKey = null;
+            }
+            return;
+        }
+        const key = j.filename + "@" + j.mtime;
+        if (sub) sub.textContent = j.filename;
+        if (key !== _lastPlotKey) {
+            // Cache-bust so the browser picks up overwrites of the same name.
+            const url = `${API}/api/tool_plots/file/${encodeURIComponent(j.filename)}?t=${j.mtime}`;
+            box.innerHTML = `<img src="${url}" alt="latest agent plot">`;
+            _lastPlotKey = key;
+        }
+    } catch (_) {}
+}
+
 async function refreshSafetySwitches() {
     try {
         const r = await fetch(API + "/api/safety_switches");
@@ -1081,8 +1109,10 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(refreshSafetySwitches, 5000);
     refreshAgentOutput();
     refreshSpecOutput();
+    refreshAgentPlot();
     setInterval(refreshAgentOutput, 1500);
     setInterval(refreshSpecOutput, 1500);
+    setInterval(refreshAgentPlot, 3000);
     autonomyPollTimer = setInterval(refreshAutonomy, POLL_MS);
     // Server health signal
     const srvDot = document.getElementById("server-dot");

@@ -387,6 +387,30 @@
     white-space: pre-wrap;
     word-break: break-word;
 }
+.log-tail-tall {
+    max-height: 640px;
+    min-height: 240px;
+}
+
+.agent-plot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 240px;
+    max-height: 560px;
+    background: var(--bg-card, #181b23);
+    border: 1px solid var(--border, #2a2e3a);
+    border-radius: 6px;
+    padding: 8px;
+    overflow: hidden;
+}
+.agent-plot img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
 .action-tape {
     max-height: 320px;
     overflow-y: auto;
