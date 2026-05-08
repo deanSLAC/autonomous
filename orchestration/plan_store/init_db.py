@@ -23,6 +23,9 @@ from orchestration.plan_store.session import get_engine as get_orch_engine
 
 # Columns added since the original schema. Keep additive only.
 _PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
+    "experiment": [
+        ("spectrometer_aligned", "INTEGER NOT NULL DEFAULT 0"),
+    ],
     "experimentelement": [
         ("measurement_mode", 'TEXT NOT NULL DEFAULT "XES"'),
         ("emission_line", "TEXT"),

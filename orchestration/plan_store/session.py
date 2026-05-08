@@ -137,6 +137,25 @@ def update_experiment_status(experiment_id: str, status: str) -> Optional[Experi
     return exp
 
 
+def set_spectrometer_aligned(experiment_id: str, aligned: bool) -> Optional[Experiment]:
+    """Mark the spectrometer as aligned (or clear the flag) for an experiment.
+
+    The flag is set by the operator via the Spectrometer Alignment tile's
+    Mark Complete button after they have manually aligned the crystals.
+    Reset button on the same tile clears it. Used by the dashboard to gate
+    Sample Alignment + Data Collection.
+    """
+    with get_session() as session:
+        exp = session.get(Experiment, experiment_id)
+        if exp is None:
+            return None
+        exp.spectrometer_aligned = bool(aligned)
+        session.add(exp)
+        session.commit()
+        session.refresh(exp)
+    return exp
+
+
 # ---------------------------------------------------------------------------
 # ExperimentElement
 # ---------------------------------------------------------------------------

@@ -1216,4 +1216,13 @@ document.addEventListener('DOMContentLoaded', function () {
             _updateMirrorsOutState(this.checked);
         });
     }
+    // Honor ?tab=samples (used by the dashboard's Sample Holder
+    // Configuration tile) so the page lands directly on the samples tab.
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        if (tab === 'samples' || tab === 'experiment') {
+            switchTab(tab);
+        }
+    } catch { /* ignore */ }
 });

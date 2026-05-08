@@ -27,6 +27,7 @@ from ui.server.routers import (
     dashboard_api,
     insight_api,
     orchestrator_api,
+    phase_runner_api,
     plan_api,
     sample_holders_api,
     viewer_api,
@@ -146,6 +147,7 @@ def create_app() -> FastAPI:
     app.include_router(config_api.router)
     app.include_router(dashboard_api.router)
     app.include_router(orchestrator_api.router)
+    app.include_router(phase_runner_api.router)
     app.include_router(plan_api.router)
     app.include_router(insight_api.router)
     app.include_router(sample_holders_api.router)

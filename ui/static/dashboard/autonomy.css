@@ -225,34 +225,83 @@
 .plan-status-pill.done { background: #dfd; color: #1b7a1b; }
 .plan-status-pill.failed, .plan-status-pill.skipped { background: #fee; color: #c0392b; }
 
-/* Per-phase run/skip toggle. Sits above the phase tile in its column. */
-.phase-enable-toggle {
-    display: inline-flex;
+/* Per-tile action drawer — appears under the tile when the user clicks
+   it. Contains Run/Kill/Mark Complete/Reset/More info buttons. */
+.tile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
     align-items: center;
-    gap: 6px;
-    font-size: 0.78em;
-    color: #666;
-    padding: 4px 8px;
-    margin-bottom: 6px;
+    padding: 10px 12px;
+    margin-top: -4px;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border, #e0dbd2);
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+.tile-actions[hidden] { display: none; }
+.btn-tile {
+    background: var(--bg-surface, #f5f1e8);
+    color: var(--text, #1a1a1a);
+    border: 1px solid var(--border, #e0dbd2);
+    padding: 6px 12px;
+    border-radius: 6px;
     cursor: pointer;
-    user-select: none;
+    font-size: 0.88em;
+    font-weight: 500;
 }
-.phase-enable-toggle input[type="checkbox"] {
-    margin: 0;
-    cursor: pointer;
+.btn-tile:hover { background: rgba(0,0,0,0.05); }
+.btn-tile-primary {
+    background: var(--accent, #9b1b30);
+    color: #fff;
+    border-color: var(--accent, #9b1b30);
 }
-.phase-enable-toggle.phase-disabled {
-    color: #aaa;
+.btn-tile-primary:hover { opacity: 0.88; background: var(--accent, #9b1b30); }
+.btn-tile-danger {
+    background: #c0392b;
+    color: #fff;
+    border-color: #c0392b;
 }
-[data-theme="dark"] .phase-enable-toggle { color: #aaa; }
-[data-theme="dark"] .phase-enable-toggle.phase-disabled { color: #666; }
-.phase-tile-skipped {
-    opacity: 0.55;
+.btn-tile-danger:hover { opacity: 0.88; background: #c0392b; }
+.btn-tile-warn {
+    background: #c47a1a;
+    color: #fff;
+    border-color: #c47a1a;
+}
+.btn-tile-warn:hover { opacity: 0.88; background: #c47a1a; }
+
+.tile-action-status {
+    color: var(--success, #1b7a1b);
+    font-size: 0.88em;
+    font-weight: 600;
+    padding-right: 4px;
+}
+
+/* Greyed-out tile (e.g. Sample Alignment before spectrometer is aligned). */
+.phase-tile.tile-disabled {
+    opacity: 0.5;
+    pointer-events: none;
     background-image: repeating-linear-gradient(
         45deg,
         rgba(0,0,0,0.03) 0 8px,
         transparent 8px 16px
     );
+}
+
+/* Pulsing border for a tile whose phase agent is currently running. */
+.phase-tile[data-status="running"] {
+    border-color: var(--blue, #2a6fc9);
+    animation: tile-running-pulse 1.6s ease-in-out infinite;
+}
+@keyframes tile-running-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(42, 111, 201, 0.25); }
+    50%      { box-shadow: 0 0 0 5px rgba(42, 111, 201, 0.15); }
+}
+
+.autonomy-bar-hint {
+    font-size: 0.85em;
+    color: #888;
+    font-style: italic;
 }
 
 .action-tape {
