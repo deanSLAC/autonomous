@@ -86,8 +86,12 @@ mid-collection, that's a sample-alignment-agent job — defer.
       authoritative counter for this sample**. Even if `vortDT2`
       shows higher counts on a quick `ct`, use the plot-selected
       channel for acquisition.
-   4. `beamtimehero spec-write open-data-file --name <sample_id>` —
-      data file name = sample id, per the convention.
+   4. `beamtimehero spec-write open-data-file --filename
+      <sample_name> --justification "open per-sample datafile"` —
+      one datafile per sample, named for the sample. Use the
+      `sample_name` from the comprehensive collection plan (it came
+      in with the sampleholder config). Slugify if needed (replace
+      spaces and `/` with `_`) so SPEC accepts the name.
    5. For each spot in the comprehensive plan for this sample:
       1. Move to the spot's stored position
          (`umv Sx ... Sy ... Sz ...`).

@@ -87,14 +87,21 @@ For each queued sample, in plan order:
       SPEC plot-selected. **This is the authoritative counter for
       this sample.** Even if `vortDT2` reads higher on a quick `ct`,
       use the plot-selected channel.
-   4. Move to the **first spot** on the sample (the stored position
+   4. `beamtimehero spec-write open-data-file --filename
+      <sample_name> --justification "open per-sample datafile"` —
+      one datafile per sample, named for the sample. Use the
+      `sample_name` from the experiment-plan entry (it came in with
+      the sampleholder config). Slugify if needed (replace spaces
+      and `/` with `_`) so SPEC accepts the name. All survey scans
+      for this sample land in this file.
+   5. Move to the **first spot** on the sample (the stored position
       is fine; record Sx/Sy so you know where "fresh" spots are
       relative to it).
-   5. Move energy to **above the absorption edge** (the survey
+   6. Move energy to **above the absorption edge** (the survey
       energy — typically edge + a small offset; use what
       `select_element` set, or `mv-energy` to a sensible above-edge
       value). Do not run a full XAS yet.
-   6. **Check counts.** `beamtimehero spec-read get-counts
+   7. **Check counts.** `beamtimehero spec-read get-counts
       --count-time 1`. The survey rule:
       - **Do not exceed 50 kcps on the active counter.** If counts
         are above 50 kcps, insert filters until the rate is ≤
@@ -105,7 +112,7 @@ For each queued sample, in plan order:
         is the never-exceed safety limit. The 50 kcps line is the
         survey working point — well below the safety cap to leave
         headroom for sample variation.
-   7. **First survey-scan pair on this spot.** Run `run_xas` **one
+   8. **First survey-scan pair on this spot.** Run `run_xas` **one
       scan at a time** (do **not** pass `n_reps > 1`):
       - First scan: `beamtimehero spec-write run-xas --element <X>
         --count-time <t> --n-reps 1 --justification "survey scan 1
@@ -129,7 +136,7 @@ For each queued sample, in plan order:
       4. `beamtimehero tool plot-scan --file-name <datafile>
          --scan-number N` — generates the plot, saved with
          scan_number embedded so plan-summary can find it.
-   8. **Assess damage.** Invoke the `assess-sample-damage` skill
+   9. **Assess damage.** Invoke the `assess-sample-damage` skill
       against the two scans. Look at white-line height, pre-edge
       features, edge position, DT-corrected vs raw — the skill
       quantifies the comparison. Decide:
@@ -141,7 +148,7 @@ For each queued sample, in plan order:
          previous spot's count rate). Confirm with
          `get-counts --count-time 1`.
       3. Run **two more scans** on the new spot, one at a time, the
-         same way as step 7.
+         same way as step 8.
       4. Re-invoke `assess-sample-damage`.
       5. If damage persists, repeat: another fresh spot, another
          halving of counts (more filters), another two scans, until
@@ -162,7 +169,7 @@ For each queued sample, in plan order:
       **Branch C — no damage, filters already 0 or counts already
       near 50 kcps.** You're done with this sample's survey.
 
-   9. **Record per-sample survey result.** Once you've settled on a
+  10. **Record per-sample survey result.** Once you've settled on a
       stable `(filter_count, counts_per_sec, survey_energy)` for
       the sample, write it back to the DB:
 
@@ -178,11 +185,11 @@ For each queued sample, in plan order:
       (CLI form: `beamtimehero db upload-sample-survey-results`
       maps to the `upload_sample_survey_results` tool.)
 
-  10. `beamtimehero db record-sample-progress --sample-id <id>
+  11. `beamtimehero db record-sample-progress --sample-id <id>
       --status surveyed --note "<one-line>"` — mark survey done so
       the planner sees the sample is ready for collection planning.
 
-  11. **Carry-over.** If you needed a drastic filter adjustment
+  12. **Carry-over.** If you needed a drastic filter adjustment
       (≥ 2 filter pads added or removed beyond `suggested_filter`),
       remember that count for the **next** sample's starting point.
       Same element / similar matrix often means similar attenuation.
