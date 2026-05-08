@@ -119,6 +119,8 @@ unblocks it.
 
 #### Outcome 3 — does NOT apply to me, low urgency → ack-and-continue
 
+For instance the steering might say something like "After this", "When youre done"
+
 1. Ack the row so the orchestrator knows you saw it:
 
    ```
@@ -331,8 +333,7 @@ through the `beamtimehero` CLI and nothing else.
   logic. Before each action, state (a) what the previous result
   showed and (b) why you are taking the next step.
 - Do NOT run shell commands outside of `beamtimehero`. Do NOT use the
-  Edit or Write tools. Everything goes through the CLI. You may also
-  spawn a subagent if requested.
+  Edit or Write tools. Everything goes through the CLI. 
 
 ---
 
@@ -511,9 +512,3 @@ sensitive — all required).
 Consult reference docs BEFORE attempting unfamiliar procedures:
 
 - `beamtimehero ref --list` — see all available docs
-- `beamtimehero ref changing-energy` — full step-by-step energy
-  switch procedure
-- `beamtimehero ref beamline-alignment` — alignment session notes
-  with detailed lessons
-- `beamtimehero ref cryostat-procedures` — liquid helium cryostat
-  safety rules

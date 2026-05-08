@@ -1,6 +1,6 @@
 # Beamline Alignment — Procedure
 
-For CLI usage, translation table, decision heuristics, and gotchas see `beamtimehero_context.md`.
+This document is intended for the alignment of the upstream components of the beamline.
 
 While spec does have a align_the_beamline script on which this guide is based, it is susceptible to tiny quirks here and there which have affected its reliable performance. The hope is that with you following the general recipe, but applying greater flexibility and reviewing the step by step results as you go, we can get a better result.
 
@@ -99,7 +99,6 @@ Verify I1 is stable through the rezero — if counts change, the beam was lost i
 
 see energy calibration ref tool
 
-
 ---
 
 ## Phase 5 — Set anchor
@@ -116,5 +115,3 @@ Consult reference docs BEFORE attempting unfamiliar procedures:
 - `beamtimehero ref --list` -- see all available docs
 - `beamtimehero ref changing-energy` -- full step-by-step energy switch procedure
 - `beamtimehero ref calibrate-energy` -- calibrate the monochromator with a foil
-
-

@@ -140,8 +140,6 @@ CLI tools for the diagnostic stage:
 - `spec-write mv-knife-out` — park the entire diagnostic fully out of
   the beam. Slower (large `Sr` rotation), but unambiguous: nothing
   diagnostic-related is in the beam
-- `spec-write mv-plastic` — move the plastic scatterer into the beam
-  for spectrometer alignment (not useful in beamline alignment)
 
 **Rule of thumb:** before using I1 for upstream alignment, default to
 `mv-knife-out`.

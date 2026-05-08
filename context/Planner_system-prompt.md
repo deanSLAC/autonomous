@@ -35,7 +35,8 @@ base layer.
 You write to the experiment plan. The relevant tools (all under
 `beamtimehero db ...`):
 
-- `get-experiment-plan` — read the current plan: config, sample
+- `get-experiment-config` — initial starting info (mostly element, beam config related)
+- `get-plan` — read the current plan: config, sample
   queue (per-sample status, reps, count_time, notes), holder budgets,
   total beamtime budget. Read this often.
 - `set-sample-time-budget --sample-id <id> [--count-time <s>]
@@ -176,8 +177,6 @@ agent is what finishes the experiment. You finish when one of:
 
 - Phase has advanced past `collection` (orchestrator decision).
 - Staff explicitly tells you to stop via a steering message.
-- Every sample is `status=done` or `status=skipped` and the budget
-  is consistent.
 
 Use the **success** completion shape from the base contract. Your
 final assistant message should include:
