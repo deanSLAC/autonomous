@@ -167,6 +167,22 @@ async function refreshDashboard() {
     } catch { /* ignore */ }
 }
 
+// Beam-size display: prefer measured FWHM (in µm) once beamline_alignment
+// has run, fall back to the operator-configured big/focused mode pair.
+// The measured fields are not persisted yet — see TODO in autonomy.js.
+function formatBeamSize(exp) {
+    if (!exp) return "--";
+    if (exp.mirrors_out) return "Mirrors out";
+    const h = exp.beam_h_fwhm_um;
+    const v = exp.beam_v_fwhm_um;
+    if (h != null || v != null) {
+        const fmt = (x) => (x != null ? Number(x).toFixed(1) + " µm" : "?");
+        return `H:${fmt(h)} V:${fmt(v)}`;
+    }
+    return "H:" + (exp.beam_size_h || "?") + " V:" + (exp.beam_size_v || "?");
+}
+window.formatBeamSize = formatBeamSize;
+
 function formatCrystal(code) {
     if (!code) return "--";
     if (code === "A") return "A Si(111)";
@@ -183,7 +199,7 @@ function renderExperimentInfo(exp) {
     };
     set("exp-experimenter", exp.experimenter);
     set("exp-crystal", formatCrystal(exp.mono_crystal));
-    set("exp-beam", exp.mirrors_out ? "Mirrors out" : ("H:" + (exp.beam_size_h || "?") + " V:" + (exp.beam_size_v || "?")));
+    set("exp-beam", formatBeamSize(exp));
     set("exp-env", exp.sample_env || "ambient");
     set("exp-status", exp.status);
 }
