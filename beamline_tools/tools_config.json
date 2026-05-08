@@ -344,13 +344,25 @@
       "comments": ""
     },
     {
-      "name": "get_experiment_plan",
+      "name": "get_plan",
       "cli_path": "db",
       "description": "Return the live experiment plan \u2014 config, sample queue, holder budgets, and the beamtime budget.",
       "when_to_use": "Return the live experiment plan (config + sample queue + budget).",
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"sample_queue\": [{\"sample_id\": \"Fe2O3_01\", \"element\": \"Fe\", \"status\": \"queued\", \"reps\": 5}], \"holder_budgets\": {\"holder_A\": {\"count_time_s\": 1.0, \"reps\": 5}}, \"budget\": {\"total_hours\": 12.0}}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "get_experiment_config",
+      "cli_path": "db",
+      "description": "Return the operator-entered experiment configuration from the DB: experiment-level settings (mono crystal, beam, mirrors, sample env, data path), elements (edges, energies, crystal/HKL, vortex channel), and every sample holder with its samples (positions, gains, XAS/RIXS plan).",
+      "when_to_use": "Use when you need ground truth from the /config form, independent of the live plan JSON.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"experiment\": {\"id\": \"9bdc03aa27cd\", \"name\": \"2026-05_Claude\", \"mono_crystal\": \"A\", \"beam_size_h\": \"big\", \"beam_size_v\": \"big\", \"mirrors_out\": false, \"sample_env\": \"ambient\", \"data_path\": \"/data/fifteen/2026-05_Claude\"}, \"elements\": [{\"symbol\": \"Au\", \"edge\": \"L1\", \"incident_energy_eV\": 14353.0, \"emission_energy_eV\": 11610.0, \"crystal_hkl\": \"5 5 5\"}], \"sample_holders\": [{\"name\": \"one\", \"holder_type\": \"flat\", \"samples\": [{\"name\": \"one\", \"element\": \"Au\", \"sx_lo\": 1.0, \"sx_hi\": 2.0}]}]}",
       "simulated": false,
       "working_live": false,
       "comments": ""

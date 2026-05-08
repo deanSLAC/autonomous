@@ -103,7 +103,7 @@
                 </div>
                 <div class="phase-io phase-output">
                     <div class="io-label">Outputs</div>
-                    <div class="io-body">DB experiment record &amp; sample plan; <code>config_generated.mac</code></div>
+                    <div class="io-body">DB experiment record &amp; sample plan (<code>config_generated.mac</code> is written when the sample holder is saved)</div>
                 </div>
             </div>
 
@@ -111,7 +111,7 @@
             <div class="phase-column" data-status="pending">
                 <div class="phase-io phase-input">
                     <div class="io-label">Inputs</div>
-                    <div class="io-body">Agent tool <code>align_beamline()</code>; fallbacks <code>vvv</code>, <code>m1m1</code></div>
+                    <div class="io-body">Requires Experiment Config</div>
                 </div>
                 <div class="phase-tile" data-status="pending" data-phase="beamline_alignment" onclick="openPhase(this)">
                     <div class="tile-header">
@@ -279,6 +279,6 @@
 </div>
 
 <script src="/static/dashboard/static/dashboard.js?v=3"></script>
-<script src="/static/dashboard/autonomy.js?v=3"></script>
+<script src="/static/dashboard/autonomy.js?v=4"></script>
 </body>
 </html>

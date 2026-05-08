@@ -4,8 +4,8 @@
  *   /phase?phase=<slug>&experiment_id=<id>   — informational view (even if no run yet)
  *   /phase?id=<phase_run_id>                 — specific phase run
  *
- * Renders static phase docs (description / inputs / outputs / tools /
- * success criteria) on every load, then overlays the live run data
+ * Renders static phase docs (description / inputs / method /
+ * outputs) on every load, then overlays the live run data
  * (scan table, summary cards, collection progress) if a run exists.
  * A page-aware chat widget is mounted at the bottom so the operator
  * can ask the agent questions with the current page already loaded
@@ -24,53 +24,32 @@
                 "is loaded. Runs a sequence of short alias scans (vvv, hhh, m1m1) with " +
                 "centering / FWHM fits between each step.",
             inputs: [
-                "Anchor energy (from experiment config)",
-                "Current mono calibration + gap state",
-                "Beam status (SPEAR current, shutter)",
+                "Element + edge (e.g. FeK, PtL3)",
+                "Beam size (big or small)",
+            ],
+            method: [
+                "Agent moves to proper energy, optimizes the beamline, measures beam size",
             ],
             outputs: [
                 "Aligned M1 / M2 positions",
                 "Measured beam size (H, V) at sample",
                 "Saved anchor position for later phases",
-                "align_beamline_ok flag on the experiment",
-            ],
-            tools: [
-                "align_beamline()",
-                "fallbacks: vvv, m1m1, hhh alias scans",
-                "get_beam_status(), umv",
-            ],
-            success: [
-                "Beam FWHM within target envelope",
-                "Anchor saved and reported",
-                "No beam-drop or shutter faults left unresolved",
             ],
         },
         xes_alignment: {
             slug: "xes_alignment",
             name: "Spectrometer Alignment",
             description:
-                "Per-crystal peak optimization for the emission spectrometer plus a " +
-                "mono elastic scan to lock the XES energy offset. Runs pitcha / pitchb " +
-                "rocking curves per crystal, fits the peak, and stores the optimal " +
-                "position.",
+                "Per-crystal steering alignment, plus mono elastic peak overlapping.",
             inputs: [
-                "List of active crystals (from experiment config)",
-                "Detector Dz and Az positions",
-                "Anchor energy from beamline alignment",
+                "List of active crystals",
+                "List of emission lines",
+            ],
+            method: [
+                "Alignment by spec",
             ],
             outputs: [
-                "Crystal pitch / roll set per crystal",
-                "XES_EN_OFFSET calibration",
-                "Anomaly log for any crystal that failed to peak",
-            ],
-            tools: [
-                "align_xes_spectrometer()",
-                "peak_mono_pitch()",
-                "calibrate_mono()",
-            ],
-            success: [
-                "Every active crystal has a peak within threshold",
-                "XES_EN_OFFSET written and non-drifting",
+                "Spectrometer resolution (FWHM of elastic peak)",
             ],
         },
         spec_align: { alias: "xes_alignment" },
@@ -83,23 +62,17 @@
                 "position persisted in the plan so the collection loop can move " +
                 "between samples without re-aligning.",
             inputs: [
-                "Sample holder layout + nominal positions",
-                "Active element list (for knife-edge shape expectations)",
-                "Aligned beam from the previous phase",
+                "Sample environment (e.g. cryostat)",
+                "Element (and detector channel) per sample",
+                "Suggested starting position and suggested sample bounds",
+            ],
+            method: [
+                "Agentic alignment",
             ],
             outputs: [
-                "Per-sample Sx / Sy / Sz absolute positions",
-                "Bounds stored on each plan entry",
-                "Count of samples successfully aligned",
-            ],
-            tools: [
-                "run_sample_alignment()",
-                "auto_sample_align()",
-                "update_sample_position()",
-            ],
-            success: [
-                "Every sample in the plan has a recorded position",
-                "No samples flagged missing / collided",
+                "Per-sample Sx / Sy / Sz boundaries",
+                "Suggested filters",
+                "Count rate",
             ],
         },
         collection: {
@@ -119,17 +92,6 @@
                 "SPEC data files for every completed scan",
                 "Per-sample reps_completed, SNR estimate, efficiency verdict",
                 "Summary images for long-running samples",
-            ],
-            tools: [
-                "run_collection()",
-                "tune_detector_gain()",
-                "swap_sample_in_plan()",
-                "request_human_intervention()",
-            ],
-            success: [
-                "SNR target reached for every non-skipped sample (or documented reason)",
-                "No unresolved anomalies at end of run",
-                "Total time within budget",
             ],
         },
     };
@@ -214,9 +176,8 @@
         }
         byId("phase-description").textContent = info.description;
         setList("phase-inputs", info.inputs);
+        setList("phase-method", info.method);
         setList("phase-outputs", info.outputs);
-        setList("phase-tools", info.tools);
-        setList("phase-success", info.success);
     }
 
     function renderBadge(status) {
@@ -395,9 +356,8 @@
             phase_slug: info.slug || pageState.slug,
             description: info.description,
             inputs: info.inputs,
+            method: info.method,
             outputs: info.outputs,
-            tools_available: info.tools,
-            success_criteria: info.success,
         };
         const run = pageState.phaseRun;
         if (run) {

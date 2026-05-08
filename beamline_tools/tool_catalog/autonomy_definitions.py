@@ -906,8 +906,25 @@ AUTONOMY_TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
-            "name": "get_experiment_plan",
+            "name": "get_plan",
             "description": "Return the live experiment plan (config + sample queue + budget).",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_experiment_config",
+            "description": (
+                "Return the operator-entered experiment configuration "
+                "straight from the DB: experiment-level settings (mono "
+                "crystal, beam size, mirrors, sample env, data path), "
+                "the configured elements (edges, energies, crystal/HKL, "
+                "vortex channel), and every sample holder with its "
+                "samples (positions, gains, XAS/RIXS plan). Use this "
+                "when you need ground truth from the /config form, "
+                "independent of the live plan JSON."
+            ),
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
@@ -1085,7 +1102,8 @@ AUTONOMY_TOOL_CATEGORIES = [
     ("CAT-7 State", ["get_element", "get_scan_number", "get_current_datafile", "abort_current_scan"]),
     ("CAT-8 Orchestration", [
         "transition_phase", "request_human_intervention", "post_status_update",
-        "update_experiment_plan", "record_sample_progress", "get_experiment_plan",
+        "update_experiment_plan", "record_sample_progress", "get_plan",
+        "get_experiment_config",
         "get_remaining_beamtime", "get_staff_guidance", "list_open_interventions",
         "recent_actions",
         "set_sample_time_budget", "set_holder_time_budget",

@@ -101,7 +101,7 @@ Implement all tools from `needed-tools-for-autonomy.md` as Python functions regi
 - **Sample management (CAT-5)**: `move_to_sample`, `store_sample_position`, `scan_sz_for_samples`.
 - **Beam monitoring (CAT-6)**: `get_beam_status`, `get_counts`, `get_counter`, `wait_for_stable_beam`, `request_gap_ownership`.
 - **Run state (CAT-7)**: `get_scan_number`, `get_current_datafile`.
-- **Orchestration (CAT-8)**: `transition_phase`, `post_status_update`, `request_human_intervention`, `update_experiment_plan`, `get_experiment_plan`, `get_remaining_beamtime`, `get_staff_guidance`.
+- **Orchestration (CAT-8)**: `transition_phase`, `post_status_update`, `request_human_intervention`, `update_experiment_plan`, `get_plan`, `get_remaining_beamtime`, `get_staff_guidance`.
 
 Keep the existing beamtimehero read-only tools (analysis, plotting, logs, files) exposed unchanged — they remain the "eyes".
 

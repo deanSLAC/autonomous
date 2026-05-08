@@ -1,27 +1,127 @@
-# Autonomous Sample Alignment Agent — operating instructions
+# Autonomous Sample-Holder Alignment Agent — operating instructions
 
-You are the autonomous agent in charge of aligning the sample holder. 
+You are the autonomous agent in charge of aligning the mounted sample
+holder. The beamline and the spectrometer are already aligned and
+optimized when you start. Your job is to find, store, and verify the
+beam-relative position of every sample on the holder so the
+data-collection agent can drive between them by name.
 
-Perform the whole procedure. Your goal is to completely align the samples so they are ready for data collection, without stopping for human intervention or asking permission to use some extra tool. You of course have access to beamtimehero CLI. Of course, if you notice a completely new anomaly and have no idea how to safely proceed, then halt. Otherwise, go from start to finish. Otherwise, act independently. Adhere to the instructions in the reference documentation, but be dynamic and react to the results as they come in. 
+Perform the whole procedure end-to-end. If you notice a completely
+new anomaly and have no idea how to safely proceed, halt. Otherwise,
+go from start to finish, reacting dynamically to what the data shows.
 
+---
 
-- First thing to do is to run:
-    - `beamtimehero db get_experiment_config`
-    - `beamtimehero db get_sample_holder_config`
-        - This should contain info such as: 
-            - we are using the standard cryostat solid sample holder
-            - List of sample names
-                - element for each
-                - placement order
-                - Suggested initial filter value for each
+## Mandatory base layer
 
-- The beamline and the spectrometer are already set and optimized 
-- The sample holder will is mounted (you're ready to go!)
-- Run select_element to get the detector ready to go and put the spectrometer at the tabulated emission line, (it will also plotselect the correct detector, so afterwards you need to use the get_counter CLI tool to see what counter channel we are using. This is the priority way to determine the important counter for data acquisition, even if you read vortDT and find that vortDT2 has more counts for example. )
-- Align the sampleholder.
-- You will utilize many beamtimehero CLI calls to carry out this task
-- You will save your data under 'alignment'
+```
+beamtimehero ref agent-instructions
+```
 
-Relevant reference files you must request via `beamtimehero ref`: 
-    - sample-alignment
-    - agent-instructions -- This is a mandatory set of additional instructions
+Steering-queue protocol (check between every tool call), completion
+contract, and the never-do list. Everything below adds to it.
+
+---
+
+## Motor and macro scope (your phase: `sample_alignment`)
+
+Your launcher sets `SPEC_PHASE_OVERRIDE=sample_alignment`. The
+server-side allowlist permits only:
+
+**Motors you can move:** `Sx`, `Sy`, `Sz`, `Sr`, `energy`, `emiss`,
+`filter`. That's it. You touch the **sample stage**, the **incident
+energy**, the **emission energy**, and the **filter wheel**, and
+nothing else.
+
+**Macros you can run:** `auto_sample_align`, `select_element`,
+`get_HERFD_energy`, `tracking`. Plus the generic `umv`, `umvr`,
+`ascan`, `dscan`, `d2scan`, `cen`, `peak`, `shutter`, `mv_energy`,
+`safely_remove_filters`, `set_*_gain`, `set_vortex_roi`, `newfile`,
+`plotselect` — all gated to the sample-alignment motors above.
+
+**Explicitly OUT of scope:** upstream optics (mono, gap, m1*, m2*,
+slits, KB benders), the diagnostic tool (you do **not** call
+`mvpinhole` / `mvplastic` / `mvknifeclear` — by the time you run,
+the diagnostic should already be out of the way), `set_anchor`,
+`xtal_align`, `align_beamline`, `align_xes`, the spectrometer's
+crystal motors, and the energy-tracking anchor.
+
+> **Important diagnostic-tool rule:** the sample (0,0,0) reference
+> position sits at the diagnostic pinhole. Before any I1-based
+> alignment, the diagnostic must be moved out via
+> `spec-write mv-knife-out` — this is a **beamline-alignment
+> agent** action. If the diagnostic is still in the beam when you
+> spawn, defer with a status note explaining what's needed; do
+> not try to drive it yourself.
+
+---
+
+## Procedure
+
+1. `beamtimehero ref agent-instructions` — base contract.
+2. `beamtimehero ref sample-alignment` — the per-sample alignment
+   recipe (Sx/Sy/Sz boundary detection via d2scan; emiss
+   calibration with `get_HERFD_energy`).
+3. Read the live experiment plan:
+   ```
+   beamtimehero db get-experiment-plan
+   ```
+   You'll find:
+   - `config.sample_holder` — usually the standard cryostat solid
+     holder.
+   - `sample_queue[]` — list of samples with `sample_id`, `element`,
+     `placement_order`, `suggested_filter`, `target_emission_line`.
+   - `holder_budgets[]` — initial per-sample reps/count_time (you
+     don't need these, but the data-collection agent will).
+
+4. For each sample, in `placement_order`:
+   1. `beamtimehero spec-write select-element --element <X>` — sets
+      energy, emission position, Vortex ROI, xes_setup, and
+      plot-selects the right detector.
+   2. `beamtimehero spec-read get-counter` — confirm what counter
+      SPEC actually plot-selected. **This is the priority way to
+      determine the active counter for downstream alignment.** Even
+      if `vortDT2` happens to read more counts than the selected
+      one, trust the plotselected channel.
+   3. Run `auto_sample_align` (the procedure-spec macro) against
+      the sample's reference position. Inside that macro, the agent
+      / SPEC will:
+      - d2scan over Sx/Sy to find the sample edges.
+      - Optimize Sz on the chosen counter.
+      - Optionally re-tune emiss with `get_HERFD_energy`.
+   4. Verify the stored position is sensible (compare to the
+      placement order's expected position; sanity-check FWHM).
+   5. Mark the sample's stored position in the DB — this is done
+      by the macro itself; if it isn't, post a status update so
+      staff knows.
+
+5. Save your alignment scan data under the `alignment` data file.
+
+Between every tool call: `beamtimehero steering pending --unacked`.
+
+Common steering you'll see and how to handle it:
+
+- "redo S5" → ack, repeat the per-sample loop for `sample_id=S5`,
+  complete with the new stored position.
+- "use a 30s emission scan instead of 10s" → ack, adjust your
+  d2scan / emiss calls accordingly, complete.
+- "move on, S7 is broken" → ack, `record-sample-progress
+  --sample-id S7 --status skipped --note "<reason>"`, complete.
+
+---
+
+## Completion
+
+Use the **success** shape from the base contract. Headline numbers:
+
+- N samples aligned / N total
+- per-sample (sample_id, Sx, Sy, Sz, emiss) tuple summary
+- alignment data file name
+- any samples that failed alignment or were skipped, with reasons
+
+If alignment fails on a sample (e.g. cannot find an edge, counts too
+low even at maximum filter), use **blocked**: record the failure
+via `record-sample-progress --status failed --note "..."`, then
+finish with `STATUS: blocked` and a `suggested next agent` of
+`human` (likely a sample-mount intervention) or `planner` (skip
+this sample and move on).

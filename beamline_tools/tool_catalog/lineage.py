@@ -402,7 +402,7 @@ TOOL_LINEAGE: dict[str, dict] = {
         "output": "JSON: {ok, kind, action_id, result: {element, raw, elapsed_s}, elapsed_s}",
         "source": "spec_session",
         "source_detail": "Pulls the target geometry from the experiment plan.",
-        "depends_on": ["get_experiment_plan"],
+        "depends_on": ["get_plan"],
     },
     "peak_mono_pitch": {
         "long_description": (
@@ -1064,7 +1064,7 @@ TOOL_LINEAGE: dict[str, dict] = {
         "output": "JSON: {allowed, previous_phase, current_phase, preconditions, reason}",
         "source": "autonomy_db",
         "source_detail": "Reads preconditions via action_log + planner snapshot; writes the new phase row.",
-        "depends_on": ["get_experiment_plan", "recent_actions"],
+        "depends_on": ["get_plan", "recent_actions"],
     },
     "request_human_intervention": {
         "long_description": (
@@ -1104,7 +1104,7 @@ TOOL_LINEAGE: dict[str, dict] = {
         "output": "JSON: {ok}",
         "source": "autonomy_db",
         "source_detail": "Writes the plan JSON onto the experiment row.",
-        "depends_on": ["get_experiment_plan"],
+        "depends_on": ["get_plan"],
     },
     "record_sample_progress": {
         "long_description": (
@@ -1119,7 +1119,7 @@ TOOL_LINEAGE: dict[str, dict] = {
         "source_detail": "Patches a single sample row inside the plan JSON.",
         "depends_on": ["analyze_efficiency"],
     },
-    "get_experiment_plan": {
+    "get_plan": {
         "long_description": (
             "Return the live experiment plan — config, sample queue, "
             "holder budgets, and the beamtime budget."
@@ -1127,6 +1127,26 @@ TOOL_LINEAGE: dict[str, dict] = {
         "python_func": "db.autonomy_client.get_experiment_plan(experiment_id)",
         "spec_command": None,
         "output": "JSON: the full plan object",
+        "source": "autonomy_db",
+        "source_detail": "Read-only query against the autonomy SQLite DB.",
+        "depends_on": [],
+    },
+    "get_experiment_config": {
+        "long_description": (
+            "Return the operator-entered experiment configuration "
+            "from the DB: experiment-level settings (mono crystal, "
+            "beam, mirrors, sample env, data path), the configured "
+            "elements, and every sample holder with its samples. "
+            "This is the canonical record of what the user entered "
+            "in the /config form — distinct from get_plan, which "
+            "returns the live planner state."
+        ),
+        "python_func": (
+            "session.get(Experiment, experiment_id) + ExperimentElement "
+            "+ SampleHolder + SamplePosition rows"
+        ),
+        "spec_command": None,
+        "output": "JSON: {experiment, elements[], sample_holders[{samples[]}]}",
         "source": "autonomy_db",
         "source_detail": "Read-only query against the autonomy SQLite DB.",
         "depends_on": [],
@@ -1191,7 +1211,7 @@ TOOL_LINEAGE: dict[str, dict] = {
         "output": "JSON: {ok}",
         "source": "autonomy_db",
         "source_detail": "Also logs a plan_edit audit row.",
-        "depends_on": ["get_experiment_plan"],
+        "depends_on": ["get_plan"],
     },
     "set_holder_time_budget": {
         "long_description": (
@@ -1244,7 +1264,7 @@ TOOL_LINEAGE: dict[str, dict] = {
         "output": "JSON: {ok, sample_count}",
         "source": "autonomy_db",
         "source_detail": "Rewrites the plan JSON in place.",
-        "depends_on": ["get_experiment_plan"],
+        "depends_on": ["get_plan"],
     },
 
     # ---------- Sandbox evaluation -----------------------------------------

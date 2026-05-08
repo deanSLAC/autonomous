@@ -7,7 +7,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
-from orchestration.config import llm_enabled
+from orchestration.config import AGENT_BACKEND, llm_enabled
 from orchestration.plan_store.client import get_intervention, reset_run_state
 from orchestration.plan_store.session import get_experiment
 from orchestration.agent.opencode_client import OpenCodeClient
@@ -22,9 +22,17 @@ router = APIRouter(prefix="/api/orchestrator", tags=["orchestrator"])
 
 def _agent_reachable() -> bool:
     """Live probe of the opencode backend — used by the dashboard
-    pill so a mid-run crash shows up without a page reload."""
+    pill so a mid-run crash shows up without a page reload.
+
+    Only meaningful when AGENT_BACKEND=opencode (long-lived loopback
+    server). With AGENT_BACKEND=claude_code each turn spawns a
+    `claude -p` subprocess, so there's nothing to ping — treat as
+    always reachable.
+    """
     if not llm_enabled():
         return False
+    if AGENT_BACKEND != "opencode":
+        return True
     try:
         return OpenCodeClient().health_check()
     except Exception:
@@ -146,8 +154,17 @@ def status():
     reachable = _agent_reachable()
     orch = get_orchestrator()
     if orch is None:
-        return {"initialized": False, "agent_reachable": reachable}
-    return {"initialized": True, "agent_reachable": reachable, **orch.snapshot()}
+        return {
+            "initialized": False,
+            "agent_reachable": reachable,
+            "agent_backend": AGENT_BACKEND,
+        }
+    return {
+        "initialized": True,
+        "agent_reachable": reachable,
+        "agent_backend": AGENT_BACKEND,
+        **orch.snapshot(),
+    }
 
 
 @router.post("/guidance")

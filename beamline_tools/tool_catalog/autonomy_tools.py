@@ -692,12 +692,126 @@ def t_record_sample_progress(args: dict) -> tuple[str, list[str]]:
     return json.dumps({"ok": True}), []
 
 
-def t_get_experiment_plan(args: dict) -> tuple[str, list[str]]:
+def t_get_plan(args: dict) -> tuple[str, list[str]]:
     experiment_id = spec_cmd.get_experiment_id()
     if not experiment_id:
         return json.dumps({"error": "no active experiment"}), []
     plan = get_experiment_plan(experiment_id)
     return _as_json(plan or {}), []
+
+
+def t_get_experiment_config(args: dict) -> tuple[str, list[str]]:
+    """Return the canonical experiment configuration straight from the DB.
+
+    Distinct from `get_plan`: this surfaces the operator-entered setup
+    (mono crystal, beam, sample env, elements, holders, samples) — the
+    same data the /config form writes when the user hits Save.
+    """
+    from sqlmodel import select
+    from orchestration.plan_store.models import (
+        Experiment, ExperimentElement, SampleHolder, SamplePosition,
+    )
+    from orchestration.plan_store.session import get_session
+
+    experiment_id = spec_cmd.get_experiment_id()
+    if not experiment_id:
+        return json.dumps({"error": "no active experiment"}), []
+
+    with get_session() as session:
+        exp = session.get(Experiment, experiment_id)
+        if exp is None:
+            return json.dumps({"error": f"experiment {experiment_id} not found"}), []
+
+        elements = list(session.exec(
+            select(ExperimentElement)
+            .where(ExperimentElement.experiment_id == experiment_id)
+            .order_by(ExperimentElement.priority)
+        ))
+        holders = list(session.exec(
+            select(SampleHolder)
+            .where(SampleHolder.experiment_id == experiment_id)
+            .order_by(SampleHolder.queue_order, SampleHolder.created_at)
+        ))
+        holder_payloads = []
+        for h in holders:
+            samples = list(session.exec(
+                select(SamplePosition)
+                .where(SamplePosition.sample_holder_id == h.id)
+                .order_by(SamplePosition.sample_number)
+            ))
+            holder_payloads.append({
+                "id": h.id,
+                "name": h.name,
+                "holder_type": h.holder_type,
+                "status": h.status,
+                "n_samples": h.n_samples,
+                "queue_order": h.queue_order,
+                "samples": [
+                    {
+                        "id": s.id,
+                        "sample_number": s.sample_number,
+                        "name": s.sample_name,
+                        "element": s.element_symbol,
+                        "enabled": s.enabled,
+                        "sx_lo": s.sx_lo, "sx_hi": s.sx_hi, "sx_del": s.sx_del,
+                        "sy_lo": s.sy_lo, "sy_hi": s.sy_hi, "sy_del": s.sy_del,
+                        "sz_lo": s.sz_lo, "sz_hi": s.sz_hi, "sz_del": s.sz_del,
+                        "emiss_energy_eV": s.emiss_energy_eV,
+                        "total_spots": s.total_spots,
+                        "do_xas": s.do_xas,
+                        "xas_reps": s.xas_reps,
+                        "xas_time": s.xas_time,
+                        "xas_filter": s.xas_filter,
+                        "xas_emiss_override": s.xas_emiss_override,
+                        "do_rixs": s.do_rixs,
+                        "rixs_time": s.rixs_time,
+                        "rixs_start": s.rixs_start,
+                        "rixs_end": s.rixs_end,
+                        "rixs_step": s.rixs_step,
+                        "rixs_filter": s.rixs_filter,
+                        "i0_gain": s.i0_gain,
+                        "i0_offset": s.i0_offset,
+                        "i1_gain": s.i1_gain,
+                    }
+                    for s in samples
+                ],
+            })
+
+        payload = {
+            "experiment": {
+                "id": exp.id,
+                "name": exp.name,
+                "experimenter": exp.experimenter,
+                "beamline": exp.beamline,
+                "mono_crystal": exp.mono_crystal,
+                "beam_size_h": exp.beam_size_h,
+                "beam_size_v": exp.beam_size_v,
+                "mirrors_out": exp.mirrors_out,
+                "sample_env": exp.sample_env,
+                "status": exp.status,
+                "data_path": exp.data_path,
+                "created_at": exp.created_at.isoformat() if exp.created_at else None,
+            },
+            "elements": [
+                {
+                    "symbol": e.element_symbol,
+                    "edge": e.edge,
+                    "measurement_mode": e.measurement_mode,
+                    "emission_line": e.emission_line,
+                    "incident_energy_eV": e.incident_energy_eV,
+                    "emission_energy_eV": e.emission_energy_eV,
+                    "crystal_type": e.crystal_type,
+                    "crystal_hkl": e.crystal_hkl,
+                    "row_radius": e.row_radius,
+                    "n_crystals": e.n_crystals,
+                    "vortex_channel": e.vortex_channel,
+                    "priority": e.priority,
+                }
+                for e in elements
+            ],
+            "sample_holders": holder_payloads,
+        }
+    return _as_json(payload), []
 
 
 def t_get_remaining_beamtime(args: dict) -> tuple[str, list[str]]:
@@ -913,7 +1027,8 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "post_status_update": t_post_status_update,
     "update_experiment_plan": t_update_experiment_plan,
     "record_sample_progress": t_record_sample_progress,
-    "get_experiment_plan": t_get_experiment_plan,
+    "get_plan": t_get_plan,
+    "get_experiment_config": t_get_experiment_config,
     "get_remaining_beamtime": t_get_remaining_beamtime,
     "get_staff_guidance": t_get_staff_guidance,
     "list_open_interventions": t_list_open_interventions,

@@ -48,6 +48,10 @@ REFERENCE_DOCS = {
         "file": "sample-data-collection.md",
         "description": "Procedure for collecting HERFD spectra spot-by-spot, with beam-damage and statistics guidance",
     },
+    "agent-instructions": {
+        "file": "agent-instructions.md",
+        "description": "Mandatory base-layer instructions every autonomous agent must follow (steering queue, completion contract, escalation).",
+    },
 }
 
 # Files that should always stay in the system prompt (even in CLI mode)
