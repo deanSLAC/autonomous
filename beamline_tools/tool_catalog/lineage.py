@@ -1357,6 +1357,34 @@ TOOL_LINEAGE: dict[str, dict] = {
         "depends_on": ["get_plan", "get_experiment_config"],
     },
 
+    "record_completed_scan": {
+        "long_description": (
+            "Insert a CollectionScan row keyed by sample_id + "
+            "scan_number after each successful run_xas (or sibling "
+            "technique). Called by the Data Collection / Sample "
+            "Surveyor agents between scans so the Planner's "
+            "convergence analysis and the orchestrator's plan summary "
+            "(recent_plots lookup) can see what's been collected. "
+            "Auto-fills sample_id / scan_number / spec_datafile from "
+            "the active context when omitted."
+        ),
+        "python_func": (
+            "plan_store.session.create_collection_scan(experiment_id, "
+            "sample_id, technique, scan_number, spec_datafile, "
+            "filter_setting, count_time)"
+        ),
+        "spec_command": None,
+        "output": "JSON: {ok, scan_id, sample_id, sample_name, scan_number, technique}",
+        "source": "autonomy_db",
+        "source_detail": (
+            "Inserts a CollectionScan row keyed by sample_id + "
+            "scan_number; agents call this after each successful "
+            "run_xas to make scans queryable for plan summaries and "
+            "convergence analysis."
+        ),
+        "depends_on": ["get_scan_number", "get_current_datafile"],
+    },
+
     # ---------- Sandbox evaluation -----------------------------------------
 
     "evaluate_spec_macro": {

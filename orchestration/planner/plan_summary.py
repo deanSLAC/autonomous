@@ -39,6 +39,7 @@ from sqlmodel import select
 from orchestration.config import DATA_DIR
 from orchestration.plan_store.client import get_experiment_plan
 from orchestration.plan_store.models import (
+    CollectionScan,
     Experiment,
     SampleHolder,
     SamplePosition,
@@ -152,7 +153,9 @@ def _build_summary(experiment_id: str) -> Optional[dict]:
                 "planned_n_scans": int(n_scans),
                 "scan_duration_s": float(count_time),
                 "planned_time_s": planned_time_s,
-                "recent_plots": _find_recent_plots_for_sample(s.sample_name, max_n=2),
+                "recent_plots": _find_recent_plots_for_sample(
+                    s.id, s.sample_name, max_n=2,
+                ),
             })
         holder_payloads.append({
             "holder_id": h.id,
@@ -175,32 +178,86 @@ def _build_summary(experiment_id: str) -> Optional[dict]:
 # Plot lookup (best-effort)
 # ---------------------------------------------------------------------------
 
-def _find_recent_plots_for_sample(sample_name: str, *, max_n: int = 2) -> list[str]:
-    """Return the most recent plot paths whose filename references the sample.
+def _find_recent_plots_for_sample(
+    sample_id: str,
+    sample_name: str | None = None,
+    *,
+    max_n: int = 2,
+) -> list[str]:
+    """Return up to ``max_n`` recent plot paths for the given sample.
 
-    The CLI plot-saving convention (scripts/beamtimehero) is
-    `<tool_name>_<timestamp>_<i>.png` under data/tool_plots/. Since
-    nothing in that path identifies a sample today, we also accept
-    files that contain the sample_name as a substring (case-folded).
-    If neither match, an empty list is returned — callers handle that
-    as the no-image branch and emit a placeholder.
+    Primary path: query CollectionScan rows for ``sample_id`` (newest
+    first). For each scan, glob
+    ``data/tool_plots/plot_scan_*_scan{N}_*.png`` (the convention
+    written by scripts/tool_dispatcher.py and scripts/beamtimehero
+    when ``plot_scan`` runs with a ``file_name`` + ``scan_number``).
+    Take the most recent file per scan by mtime, and return up to two.
+
+    Backward-compat fallback: if no scans yield matches, fall back to
+    the legacy substring match against ``sample_name`` so plots from
+    before the per-scan filename convention still surface. Returns an
+    empty list if nothing matches.
     """
-    if not sample_name:
-        return []
     if not TOOL_PLOTS_DIR.exists():
         return []
+
+    matched: list[Path] = []
+    seen: set[str] = set()
+    if sample_id:
+        try:
+            with get_session() as session:
+                stmt = (
+                    select(CollectionScan)
+                    .where(CollectionScan.sample_id == sample_id)
+                    .order_by(CollectionScan.timestamp.desc())  # type: ignore[union-attr]
+                )
+                scans = list(session.exec(stmt).all())
+        except Exception as e:
+            logger.warning("plan_summary: scan lookup failed for %s: %s", sample_id, e)
+            scans = []
+
+        for scan in scans:
+            if len(matched) >= max_n:
+                break
+            try:
+                pattern = f"plot_scan_*_scan{int(scan.scan_number)}_*.png"
+            except (TypeError, ValueError):
+                continue
+            try:
+                candidates = list(TOOL_PLOTS_DIR.glob(pattern))
+            except OSError:
+                continue
+            if not candidates:
+                continue
+            candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+            best = candidates[0]
+            key = str(best)
+            if key in seen:
+                continue
+            matched.append(best)
+            seen.add(key)
+
+    if matched:
+        return [str(p) for p in matched[:max_n]]
+
+    # Fallback: substring match against sample_name for legacy plots that
+    # don't have a scan_number embedded in the filename.
+    if not sample_name:
+        return []
     needle = sample_name.lower().replace(" ", "_")
-    candidates: list[Path] = []
+    if not needle:
+        return []
+    legacy: list[Path] = []
     try:
         for p in TOOL_PLOTS_DIR.glob("*.png"):
-            if needle and needle in p.name.lower():
-                candidates.append(p)
+            if needle in p.name.lower():
+                legacy.append(p)
     except OSError:
         return []
-    if not candidates:
+    if not legacy:
         return []
-    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    return [str(p) for p in candidates[:max_n]]
+    legacy.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return [str(p) for p in legacy[:max_n]]
 
 
 # ---------------------------------------------------------------------------

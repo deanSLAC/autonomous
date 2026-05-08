@@ -102,6 +102,24 @@ mid-collection, that's a sample-alignment-agent job — defer.
          starting the next scan**: did the count rate look sane,
          did the file get written, are there any obvious
          anomalies? Then run the next scan if more are scheduled.
+
+         The post-scan inspect-and-record sequence is:
+
+         1. `beamtimehero spec-read get-scan-number` — get the
+            latest SPEC scan number `N`.
+         2. `beamtimehero spec-read get-current-datafile` — get
+            the active datafile (skip if you already know it).
+         3. `beamtimehero db record-completed-scan --justification
+            "logged scan N"` — auto-fills sample_id, scan_number,
+            and datafile from the active context. **This is what
+            makes the scan visible to the Planner's convergence
+            analysis and the orchestrator's plan summary
+            (recent_plots).** Skip it and the scan effectively
+            doesn't exist for those views.
+         4. `beamtimehero tool plot-scan --file-name <datafile>
+            --scan-number N` — generates the plot, saved with
+            scan_number embedded so plan-summary can find it.
+
       5. **Do not pass `n_reps > 1` to `run_xas`.** The planner
          re-evaluates between scans and may shorten or lengthen
          the per-sample plan based on convergence; chaining reps
@@ -111,13 +129,17 @@ mid-collection, that's a sample-alignment-agent job — defer.
       --status done --reps-completed <n> --note "<one-line>"`.
 
 6. **Signal scan completion + check the steering queue between
-   scans.** After each individual scan, post a brief status update
-   (`beamtimehero tool post-status-update --text "<sample_id> scan
-   <i>/<plan_n> done, <kcps> on counter"`) so the planner — which
-   re-spawns between scans to update the plan — sees the new scan,
-   and check `beamtimehero steering pending --unacked`. Trust the
-   planner to update the comprehensive collection plan; you do not
-   decide convergence or filter changes anymore — those are upstream.
+   scans.** Run the inspect-and-record sequence above (get-scan-
+   number → get-current-datafile → record-completed-scan →
+   plot-scan) **before** posting the status update so the DB row
+   exists when the planner re-spawns. Then post a brief status
+   update (`beamtimehero tool post-status-update --text "<sample_id>
+   scan <i>/<plan_n> done, <kcps> on counter"`) so the planner —
+   which re-spawns between scans to update the plan — sees the new
+   scan, and check `beamtimehero steering pending --unacked`. Trust
+   the planner to update the comprehensive collection plan; you do
+   not decide convergence or filter changes anymore — those are
+   upstream.
 
 Between every tool call: `beamtimehero steering pending --unacked`.
 

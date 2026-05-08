@@ -113,6 +113,22 @@ For each queued sample, in plan order:
       - Second scan: same args, justification `"survey scan 2 of 2
         for sample <id>"`.
       - Inspect each scan after it completes; do not chain blindly.
+
+      After each `run_xas`, run the inspect-and-record sequence:
+
+      1. `beamtimehero spec-read get-scan-number` — get the latest
+         SPEC scan number `N`.
+      2. `beamtimehero spec-read get-current-datafile` — get the
+         active datafile (skip if you already know it).
+      3. `beamtimehero db record-completed-scan --justification
+         "logged scan N"` — auto-fills sample_id, scan_number, and
+         datafile from the active context. **This is what makes the
+         scan visible to the Planner's convergence analysis and the
+         orchestrator's plan summary (recent_plots).** Skip it and
+         the scan effectively doesn't exist for those views.
+      4. `beamtimehero tool plot-scan --file-name <datafile>
+         --scan-number N` — generates the plot, saved with
+         scan_number embedded so plan-summary can find it.
    8. **Assess damage.** Invoke the `assess-sample-damage` skill
       against the two scans. Look at white-line height, pre-edge
       features, edge position, DT-corrected vs raw — the skill

@@ -369,8 +369,27 @@ def _run_tool_leaf(args: argparse.Namespace) -> int:
             out_dir = ROOT / "data" / "tool_plots"
             out_dir.mkdir(parents=True, exist_ok=True)
             paths: list[str] = []
+            # plot_scan gets the scan-aware filename so plan_summary can join
+            # plots to CollectionScan rows by datafile stem + scan number.
+            datafile_stem: str | None = None
+            scan_number_str: str | None = None
+            if name == "plot_scan":
+                fn_arg = payload.get("file_name")
+                sn_arg = payload.get("scan_number")
+                if fn_arg and sn_arg is not None:
+                    try:
+                        datafile_stem = Path(str(fn_arg)).stem or None
+                        scan_number_str = str(int(sn_arg))
+                    except (TypeError, ValueError):
+                        datafile_stem = None
+                        scan_number_str = None
             for i, b64 in enumerate(images):
-                fn = out_dir / f"{name}_{datetime.now():%Y%m%d_%H%M%S_%f}_{i}.png"
+                ts = f"{datetime.now():%Y%m%d_%H%M%S_%f}"
+                if datafile_stem and scan_number_str is not None:
+                    fname = f"plot_scan_{datafile_stem}_scan{scan_number_str}_{ts}_{i}.png"
+                else:
+                    fname = f"{name}_{ts}_{i}.png"
+                fn = out_dir / fname
                 fn.write_bytes(base64.b64decode(b64))
                 paths.append(str(fn))
             payload_out = {

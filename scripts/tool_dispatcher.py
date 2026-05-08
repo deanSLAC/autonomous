@@ -104,8 +104,30 @@ def main() -> None:
             import base64
             from datetime import datetime
             paths: list[str] = []
+            # For plot_scan with file_name + scan_number, embed both into the
+            # filename so plan_summary's per-sample lookup can join scans to
+            # plots via the new `plot_scan_<datafile_stem>_scan{N}_*.png`
+            # convention. Falls back to today's `<name>_<timestamp>_<i>.png`
+            # pattern for any other tool or when args are missing.
+            datafile_stem: str | None = None
+            scan_number_str: str | None = None
+            if name == "plot_scan":
+                fn_arg = args.get("file_name")
+                sn_arg = args.get("scan_number")
+                if fn_arg and sn_arg is not None:
+                    try:
+                        datafile_stem = Path(str(fn_arg)).stem or None
+                        scan_number_str = str(int(sn_arg))
+                    except (TypeError, ValueError):
+                        datafile_stem = None
+                        scan_number_str = None
             for i, b64 in enumerate(images):
-                fn = out_dir / f"{name}_{datetime.now():%Y%m%d_%H%M%S_%f}_{i}.png"
+                ts = f"{datetime.now():%Y%m%d_%H%M%S_%f}"
+                if datafile_stem and scan_number_str is not None:
+                    fname = f"plot_scan_{datafile_stem}_scan{scan_number_str}_{ts}_{i}.png"
+                else:
+                    fname = f"{name}_{ts}_{i}.png"
+                fn = out_dir / fname
                 fn.write_bytes(base64.b64decode(b64))
                 paths.append(str(fn))
             payload = {"text": text, "plot_path": paths[0] if paths else None, "image_paths": paths}

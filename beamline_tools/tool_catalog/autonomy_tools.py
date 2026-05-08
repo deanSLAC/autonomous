@@ -1232,6 +1232,126 @@ def t_get_comprehensive_collection_plan(args: dict) -> tuple[str, list[str]]:
     return _as_json(payload), []
 
 
+def t_record_completed_scan(args: dict) -> tuple[str, list[str]]:
+    """Insert a CollectionScan row after a successful run_xas (or sibling).
+
+    Resolves any unspecified args from the active context:
+      * sample_id  → `_resolve_active_sample_id` (plan_json.active_sample_id
+        or the lowest-queue-order non-done/skipped sample).
+      * scan_number → SPEC `p SCAN_N` via `spec_cmd.call("scan_n", ...)`.
+      * spec_datafile → SPEC `p DATAFILE` via
+        `spec_cmd.call("p_datafile", ...)`.
+
+    The row is what makes the scan visible to plan_summary's recent_plots
+    lookup and the Planner's convergence analysis. justification is
+    required (mirrors every other write tool's audit gate).
+    """
+    from orchestration.plan_store.session import (
+        create_collection_scan,
+        get_session,
+    )
+    from orchestration.plan_store.models import SamplePosition
+
+    j = (args.get("justification") or "").strip()
+    if not j:
+        return json.dumps({"ok": False, "error": "justification required"}), []
+
+    experiment_id = spec_cmd.get_experiment_id()
+    if not experiment_id:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+
+    sample_id = (args.get("sample_id") or "").strip() or None
+    if not sample_id:
+        sample_id = _resolve_active_sample_id(experiment_id)
+    if not sample_id:
+        return json.dumps({
+            "ok": False,
+            "error": "no active sample (sample_queue empty or all done)",
+        }), []
+
+    scan_number = args.get("scan_number")
+    if scan_number is None:
+        res = spec_cmd.call("scan_n", [], justification="")
+        if isinstance(res, dict) and res.get("ok") and isinstance(res.get("result"), dict):
+            sn_val = res["result"].get("value")
+            if sn_val is not None:
+                try:
+                    scan_number = int(sn_val)
+                except (TypeError, ValueError):
+                    scan_number = None
+    if scan_number is None:
+        return json.dumps({
+            "ok": False,
+            "error": "could not resolve scan_number (provide explicitly or ensure SPEC is reachable)",
+        }), []
+    try:
+        scan_number = int(scan_number)
+    except (TypeError, ValueError):
+        return json.dumps({"ok": False, "error": "scan_number must be an integer"}), []
+
+    spec_datafile = (args.get("spec_datafile") or "").strip() or None
+    if not spec_datafile:
+        res = spec_cmd.call("p_datafile", [], justification="")
+        if isinstance(res, dict) and res.get("ok") and isinstance(res.get("result"), dict):
+            df = res["result"].get("datafile") or res["result"].get("raw")
+            if df:
+                spec_datafile = str(df).strip()
+    if not spec_datafile:
+        spec_datafile = ""
+
+    technique = str(args.get("technique") or "xas").lower()
+    if technique not in ("xas", "herfd", "rixs", "vtc"):
+        return json.dumps({
+            "ok": False,
+            "error": f"technique must be one of xas/herfd/rixs/vtc (got {technique!r})",
+        }), []
+
+    filter_setting = args.get("filter_setting")
+    if filter_setting is None:
+        filter_setting = 0
+    try:
+        filter_setting = int(filter_setting)
+    except (TypeError, ValueError):
+        return json.dumps({"ok": False, "error": "filter_setting must be an integer"}), []
+
+    count_time = args.get("count_time")
+    if count_time is None:
+        count_time = 1.0
+    try:
+        count_time = float(count_time)
+    except (TypeError, ValueError):
+        return json.dumps({"ok": False, "error": "count_time must be a number"}), []
+
+    # Look up the sample name for the response payload.
+    sample_name: Optional[str] = None
+    with get_session() as session:
+        sp = session.get(SamplePosition, sample_id)
+        if sp is None:
+            return json.dumps({
+                "ok": False,
+                "error": f"sample_id {sample_id!r} not found",
+            }), []
+        sample_name = sp.sample_name
+
+    scan = create_collection_scan(
+        experiment_id=experiment_id,
+        sample_id=sample_id,
+        technique=technique,
+        scan_number=scan_number,
+        spec_datafile=spec_datafile,
+        filter_setting=filter_setting,
+        count_time=count_time,
+    )
+    return json.dumps({
+        "ok": True,
+        "scan_id": scan.id,
+        "sample_id": sample_id,
+        "sample_name": sample_name,
+        "scan_number": scan_number,
+        "technique": technique,
+    }), []
+
+
 def t_regenerate_plan(args: dict) -> tuple[str, list[str]]:
     xid = _require_xid()
     if not xid:
@@ -1332,4 +1452,5 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "get_scans_for_active_sample": t_get_scans_for_active_sample,
     "upload_sample_survey_results": t_upload_sample_survey_results,
     "get_comprehensive_collection_plan": t_get_comprehensive_collection_plan,
+    "record_completed_scan": t_record_completed_scan,
 }

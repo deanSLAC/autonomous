@@ -1174,6 +1174,69 @@ AUTONOMY_TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "record_completed_scan",
+            "description": (
+                "Insert a CollectionScan row keyed by sample_id + "
+                "scan_number after a successful run_xas (or sibling "
+                "technique). Auto-fills `sample_id` from the active "
+                "sample in plan_json, `scan_number` from "
+                "get_scan_number, and `spec_datafile` from "
+                "get_current_datafile when omitted. The scan row is "
+                "what makes the run visible to the Planner's "
+                "convergence analysis and to the orchestrator's plan "
+                "summary (recent_plots lookup). Justification is "
+                "required so the action is auditable."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    **_J,
+                    "sample_id": {
+                        "type": "string",
+                        "description": (
+                            "Sample to credit the scan to. Defaults to "
+                            "the active sample in plan_json (explicit "
+                            "active_sample_id, else the lowest-queue-"
+                            "order sample whose status is not "
+                            "done/skipped)."
+                        ),
+                    },
+                    "scan_number": {
+                        "type": "integer",
+                        "description": (
+                            "SPEC scan number. Defaults to the latest "
+                            "scan number from get_scan_number."
+                        ),
+                    },
+                    "technique": {
+                        "type": "string",
+                        "enum": ["xas", "herfd", "rixs", "vtc"],
+                        "default": "xas",
+                        "description": "Acquisition technique. Default 'xas'.",
+                    },
+                    "filter_setting": {
+                        "type": "integer",
+                        "description": "Filter bitmask used for the scan.",
+                    },
+                    "count_time": {
+                        "type": "number",
+                        "description": "Per-point count time in seconds.",
+                    },
+                    "spec_datafile": {
+                        "type": "string",
+                        "description": (
+                            "SPEC datafile path or basename. Defaults "
+                            "to get_current_datafile."
+                        ),
+                    },
+                },
+                "required": ["justification"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "regenerate_plan",
             "description": (
                 "Rebuild the sample plan from the database while preserving per-sample "
@@ -1232,5 +1295,6 @@ AUTONOMY_TOOL_CATEGORIES = [
         "recent_actions",
         "set_sample_time_budget", "set_holder_time_budget",
         "set_beamtime_budget", "extend_beamtime_budget", "regenerate_plan",
+        "record_completed_scan",
     ]),
 ]
