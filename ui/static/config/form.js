@@ -1046,11 +1046,20 @@ function loadFormDefaults() {
         });
 }
 
+// Promise tracking the in-flight active-experiment load. Used so deep-links
+// like ?tab=samples can wait for experiment_id to be populated before
+// rendering the sample-holder banner (otherwise the banner reads an empty
+// experiment_id and shows "No experiment configured yet" even when one is).
+let _activeExperimentLoad = null;
+
 function loadActiveExperiment() {
     // Wait for defaults before building any element cards so the element dropdown
     // is populated from the server list rather than the empty fallback.
-    loadFormDefaults().then(() => {
-        fetch('/api/load_active')
+    // Returns a promise (also cached on _activeExperimentLoad) that resolves
+    // once the active experiment (if any) has been fetched and populated.
+    if (_activeExperimentLoad) return _activeExperimentLoad;
+    _activeExperimentLoad = loadFormDefaults().then(() => {
+        return fetch('/api/load_active')
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
@@ -1065,6 +1074,7 @@ function loadActiveExperiment() {
                 addElement();
             });
     });
+    return _activeExperimentLoad;
 }
 
 function loadExperiment(experimentId) {
@@ -1216,11 +1226,16 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     // Honor ?tab=samples (used by the dashboard's Sample Holder
     // Configuration tile) so the page lands directly on the samples tab.
+    // We must wait for loadActiveExperiment() to populate experiment_id
+    // before switching, otherwise loadExperimentSummary() reads an empty
+    // experiment_id and renders "No experiment configured yet" even when
+    // an active experiment exists. loadActiveExperiment() is idempotent
+    // and returns the same promise the inline init handler kicked off.
     try {
         const params = new URLSearchParams(window.location.search);
         const tab = params.get('tab');
         if (tab === 'samples' || tab === 'experiment') {
-            switchTab(tab);
+            loadActiveExperiment().then(() => switchTab(tab));
         }
     } catch { /* ignore */ }
 });

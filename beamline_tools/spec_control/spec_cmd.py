@@ -804,10 +804,13 @@ def call(
     if spec is None:
         return {"ok": False, "kind": "unknown", "error": f"unknown command: {command}"}
 
-    # Safety switch — checked on every call by re-reading the file
-    safety_err = _safety_check(spec.kind)
-    if safety_err:
-        return {"ok": False, "kind": spec.kind, "error": safety_err}
+    # Safety switch — checked on every call by re-reading the file.
+    # `abort` always bypasses: stopping a runaway scan must work even
+    # when spec_write_enabled is off (in fact, especially then).
+    if command != "abort":
+        safety_err = _safety_check(spec.kind)
+        if safety_err:
+            return {"ok": False, "kind": spec.kind, "error": safety_err}
 
     # Phase gate
     allowed, reason = phase_allowlist.command_allowed(phase, command)
