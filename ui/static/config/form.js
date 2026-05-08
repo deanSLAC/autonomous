@@ -276,6 +276,10 @@ function onOtherSymbolBlur(idx) {
     if (sym) {
         loadElementInfo(idx, sym);
     }
+    // Refresh sample dropdowns + foil-element placeholder so the
+    // user sees the default they'll get if they leave that input
+    // blank.
+    updateSampleElementDropdowns();
 }
 
 function getElementSymbol(idx) {
@@ -699,6 +703,34 @@ function updateSampleElementDropdowns() {
         const opts = buildElementOptions(current);
         sel.innerHTML = opts;
     });
+    // Whenever the science elements change, refresh the foil-element
+    // placeholder so users see the default that the server will apply
+    // if they leave the field blank.
+    _updateFoilElementPlaceholder();
+}
+
+/**
+ * Reflect the first configured science-target element as the
+ * placeholder on the calibration foil element input. Mirrors the
+ * server-side default in submit_experiment so users can see what the
+ * system will pick if they leave the foil element blank.
+ */
+function _updateFoilElementPlaceholder() {
+    const foilInput = document.getElementById('calibration_foil_element');
+    if (!foilInput) return;
+    let firstSym = '';
+    const cards = document.querySelectorAll('.element-card');
+    for (const card of cards) {
+        const idx = parseInt(card.dataset.idx);
+        const sym = getElementSymbol(idx);
+        if (sym) { firstSym = sym; break; }
+    }
+    if (!firstSym && _cachedElements && _cachedElements.length > 0) {
+        firstSym = _cachedElements[0].symbol || '';
+    }
+    foilInput.placeholder = firstSym
+        ? `Defaults to ${firstSym} (first element)`
+        : 'Defaults to the science-target element';
 }
 
 // ---------------------------------------------------------------------------
@@ -725,6 +757,8 @@ function gatherExperimentData() {
         beam_size_v: document.getElementById('beam_size_v').value,
         mirrors_out: document.getElementById('mirrors_out').checked,
         sample_env: val('sample_env'),
+        calibration_foil_element: val('calibration_foil_element'),
+        calibration_foil_detector: val('calibration_foil_detector') || 'I2',
         data_directory: val('data_directory'),
         llm_enabled: document.getElementById('llm_enabled').checked,
         llm_decide_enabled: document.getElementById('llm_decide_enabled').checked,
@@ -1105,6 +1139,10 @@ function populateForm(data) {
     // Update beam size controls state
     _updateMirrorsOutState(!!exp.mirrors_out);
     document.getElementById('sample_env').value = exp.sample_env || 'ambient';
+    document.getElementById('calibration_foil_element').value =
+        exp.calibration_foil_element || '';
+    document.getElementById('calibration_foil_detector').value =
+        exp.calibration_foil_detector || 'I2';
     document.getElementById('data_directory').value = exp.data_directory || '';
 
     // Advanced

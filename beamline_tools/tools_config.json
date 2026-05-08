@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at": "2026-05-07T19:50:05.418523+00:00",
-    "total_tools": 93,
+    "generated_at": "2026-05-08T13:32:04.717816+00:00",
+    "total_tools": 97,
     "generator": "scripts/generate_tools_config.py"
   },
   "tools": [
@@ -235,7 +235,7 @@
       "when_to_use": "Post a high-level progress message to Slack + UI.",
       "enabled": true,
       "sample_input": {
-        "text": "hey"
+        "text": "example"
       },
       "sample_output": "{\"posted\": true}",
       "simulated": false,
@@ -344,6 +344,18 @@
       "comments": ""
     },
     {
+      "name": "get_experiment_config",
+      "cli_path": "db",
+      "description": "Return the operator-entered experiment configuration from the DB: experiment-level settings (mono crystal, beam, mirrors, sample env, data path), the configured elements, and every sample holder with its samples. This is the canonical record of what the user entered in the /config form \u2014 distinct from get_plan, which returns the live planner state.",
+      "when_to_use": "Return the operator-entered experiment configuration straight from the DB: experiment-level settings (mono crystal, beam size, mirrors, sample env, data path), the configured elements (edges, energies, crystal/HKL, vortex channel), and every sample holder with its samples (positions, gains, XAS/RIXS plan). Use this when you need ground truth from the /config form, independent of the live plan JSON.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"experiment\": {\"id\": \"9bdc03aa27cd\", \"name\": \"2026-05_Claude\", \"mono_crystal\": \"A\", \"beam_size_h\": \"big\", \"beam_size_v\": \"big\", \"mirrors_out\": false, \"sample_env\": \"ambient\", \"data_path\": \"/data/fifteen/2026-05_Claude\"}, \"elements\": [{\"symbol\": \"Au\", \"edge\": \"L1\", \"incident_energy_eV\": 14353.0, \"emission_energy_eV\": 11610.0, \"crystal_hkl\": \"5 5 5\"}], \"sample_holders\": [{\"name\": \"one\", \"holder_type\": \"flat\", \"samples\": [{\"name\": \"one\", \"element\": \"Au\", \"sx_lo\": 1.0, \"sx_hi\": 2.0}]}]}",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
       "name": "get_plan",
       "cli_path": "db",
       "description": "Return the live experiment plan \u2014 config, sample queue, holder budgets, and the beamtime budget.",
@@ -353,18 +365,6 @@
       "sample_output": "{\"sample_queue\": [{\"sample_id\": \"Fe2O3_01\", \"element\": \"Fe\", \"status\": \"queued\", \"reps\": 5}], \"holder_budgets\": {\"holder_A\": {\"count_time_s\": 1.0, \"reps\": 5}}, \"budget\": {\"total_hours\": 12.0}}",
       "simulated": false,
       "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "get_experiment_config",
-      "cli_path": "db",
-      "description": "Return the operator-entered experiment configuration from the DB: experiment-level settings (mono crystal, beam, mirrors, sample env, data path), elements (edges, energies, crystal/HKL, vortex channel), and every sample holder with its samples (positions, gains, XAS/RIXS plan).",
-      "when_to_use": "Use when you need ground truth from the /config form, independent of the live plan JSON.",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "{\"experiment\": {\"id\": \"9bdc03aa27cd\", \"name\": \"2026-05_Claude\", \"mono_crystal\": \"A\", \"beam_size_h\": \"big\", \"beam_size_v\": \"big\", \"mirrors_out\": false, \"sample_env\": \"ambient\", \"data_path\": \"/data/fifteen/2026-05_Claude\"}, \"elements\": [{\"symbol\": \"Au\", \"edge\": \"L1\", \"incident_energy_eV\": 14353.0, \"emission_energy_eV\": 11610.0, \"crystal_hkl\": \"5 5 5\"}], \"sample_holders\": [{\"name\": \"one\", \"holder_type\": \"flat\", \"samples\": [{\"name\": \"one\", \"element\": \"Au\", \"sx_lo\": 1.0, \"sx_hi\": 2.0}]}]}",
-      "simulated": false,
-      "working_live": true,
       "comments": ""
     },
     {
@@ -706,19 +706,19 @@
       "comments": ""
     },
     {
-      "name": "calibrate_mono_from_foil_scan",
+      "name": "calibrate_mono",
       "cli_path": "spec-write",
       "description": "Standard mono calibration: dscan energy \u00b115 eV over a reference foil, find the inflection, then call calibrate_mono + reset_gap. The tabulated edge energy must be within 5 eV of the current energy.",
       "when_to_use": "Standard calibration: dscan energy \u00b115 eV around a reference foil, find the inflection, and call calibrate_mono + reset_gap. `tabulated_edge_ev` must be within 5 eV of current energy.",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "tabulated_edge_ev": 0.0
+        "tabulated_edge_ev": 7112.0
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"tabulated_ev\": 7112.0, \"raw\": \"calibrate_mono complete. offset=-0.11\", \"elapsed_s\": 5.2}, \"elapsed_s\": 5.2}",
-      "simulated": false,
+      "simulated": true,
       "working_live": false,
-      "comments": ""
+      "comments": "Wraps SPEC calibrate_mono (theta.mac:78); takes a single tabulated edge energy in eV (e.g. 11918.7 for Au K). Macro asserts 4500 < edge < 25000 and writes set mono $1 + set_theta A[crystal]. Operator must umv energy <measured_inflection> first."
     },
     {
       "name": "fit_emission_peak",
@@ -1144,6 +1144,21 @@
       "comments": ""
     },
     {
+      "name": "set_m2_stripe",
+      "cli_path": "spec-write",
+      "description": "Move M2 (m2vert) to the appropriate stripe for the supplied incident energy. Branches: <4500 eV -> Rh (with a warning), 4500-6200 eV -> Si (m2vert=9.69), >=6200 eV -> Rh (m2vert=-3.5). Use whenever the incident energy crosses a stripe boundary.",
+      "when_to_use": "Move M2 (m2vert) to the correct stripe for a given incident energy. Below 4500 eV the macro defaults to the Rh stripe with a warning; between 4500 and 6200 eV it selects the Si stripe (m2vert=9.69); at or above 6200 eV it selects the Rh stripe (m2vert=-3.5). Use after moving incident energy across a stripe boundary.",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "energy_ev": 0.0
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "set_vortex_roi",
       "cli_path": "spec-write",
       "description": "Set the Vortex ROI. mode='auto': bounds \u00b1200 eV around the emission line for channel (1=vortDT, 3=vortDT2 for a second emission peak). mode='explicit': set channel + lo_ev/hi_ev in eV directly.",
@@ -1231,6 +1246,18 @@
       "comments": ""
     },
     {
+      "name": "agent-instructions",
+      "cli_path": "ref",
+      "description": "Mandatory base-layer instructions every autonomous agent must follow (steering queue, completion contract, escalation).",
+      "when_to_use": "When operator asks about mandatory base-layer instructions every autonomous agent must follow (steering queue, completion contract, escalation).",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "beamline-alignment",
       "cli_path": "ref",
       "description": "Beamline alignment session notes with lessons learned",
@@ -1264,6 +1291,18 @@
       "sample_output": "[Reference document text returned]",
       "simulated": true,
       "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "energy-calibration",
+      "cli_path": "ref",
+      "description": "Mono energy calibration via reference foil: edge scan, calibrate_mono, iterate, reset_gap",
+      "when_to_use": "When operator asks about mono energy calibration via reference foil: edge scan, calibrate_mono, iterate, reset_gap",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
       "comments": ""
     },
     {

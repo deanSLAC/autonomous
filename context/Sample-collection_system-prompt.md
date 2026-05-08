@@ -132,3 +132,40 @@ If you exhaust the budget mid-queue, use **blocked** with
 `suggested next agent: planner` so the planner can re-budget the
 remaining samples, plus a clear list of what was done and what
 wasn't.
+
+---
+
+## Counter and detector watchpoints
+
+- **Vortex hard ceiling: 200 kcps.** Never expose `vortDT*` to more
+  than that — add filters via `set-filter` to stay below the
+  threshold. This is the most likely safety failure mode during
+  collection: a thinner spot, a re-aligned sample, or a removed
+  filter can push deadtime past safe limits in a single rep.
+- **Voltage ceilings:** I0 < 0.5 V, I1/I2 < 5 V. If the previous
+  sample required attenuation and the next one doesn't, gains may
+  saturate when you move to the new spot.
+- **SPEAR-normalize comparisons:** I1/mA, not raw I1, when comparing
+  reps or samples. Ring current drifts ~5 mA over a session and will
+  masquerade as real intensity changes.
+- **`absev` is canonical:** the encoder-readback `absev` is what
+  ends up in the scan file. If `absev` and the energy pseudo-motor
+  disagree after `select-element`, calibration is not done — that's
+  a beamline-alignment problem; defer.
+
+---
+
+## I0 vs I1 cross-check during collection
+
+When a scan looks wrong (counts low, edge shape off, deadtime
+spiking), check both I0 and I1 before assuming the problem is the
+sample:
+
+- **I0 healthy, I1 dead/suppressed:** downstream obstruction likely
+  — sample at a thick spot, diagnostic accidentally back in beam,
+  filter pad in unexpected state, or knife edge. Try a small
+  Sx/Sy delta to a fresh spot before escalating.
+- **Both I0 and I1 dropped together:** upstream of I0 — gap, mono,
+  M1/M2, or beam dump. Pause collection, check `get-beam-status`,
+  and if it's an alignment regression, defer to the
+  beamline-alignment agent.

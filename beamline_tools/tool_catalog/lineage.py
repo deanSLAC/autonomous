@@ -416,7 +416,7 @@ TOOL_LINEAGE: dict[str, dict] = {
         "source_detail": "Short macro; typically runs in seconds.",
         "depends_on": [],
     },
-    "calibrate_mono_from_foil_scan": {
+    "calibrate_mono": {
         "long_description": (
             "Standard mono calibration: dscan energy ±15 eV over a "
             "reference foil, find the inflection, then call "
@@ -874,6 +874,21 @@ TOOL_LINEAGE: dict[str, dict] = {
         "output": "JSON: {ok, kind, action_id, result: {raw, elapsed_s}, elapsed_s}",
         "source": "spec_session",
         "source_detail": "Defined in beam_diagnostics.mac:95; ggg + peak + set gap <old>.",
+        "depends_on": [],
+    },
+    "set_m2_stripe": {
+        "long_description": (
+            "Move M2 (m2vert) to the appropriate stripe for the supplied "
+            "incident energy. Branches: <4500 eV -> Rh (with a warning), "
+            "4500-6200 eV -> Si (m2vert=9.69), >=6200 eV -> Rh "
+            "(m2vert=-3.5). Use whenever the incident energy crosses a "
+            "stripe boundary."
+        ),
+        "python_func": "spec_cmd.call('m2_stripe', [energy_ev], justification)",
+        "spec_command": "m2_stripe",
+        "output": "JSON: {ok, kind, action_id, result: {energy_ev, raw, elapsed_s}, elapsed_s}",
+        "source": "spec_session",
+        "source_detail": "Defined in beam_diagnostics.mac:103; dispatches to m2_Rh or m2_Si (umv m2vert).",
         "depends_on": [],
     },
     "get_anchor": {

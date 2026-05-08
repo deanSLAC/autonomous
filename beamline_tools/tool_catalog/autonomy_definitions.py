@@ -113,7 +113,7 @@ AUTONOMY_TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
-            "name": "calibrate_mono_from_foil_scan",
+            "name": "calibrate_mono",
             "description": (
                 "Standard calibration: dscan energy ±15 eV around a reference foil, "
                 "find the inflection, and call calibrate_mono + reset_gap. "
@@ -655,6 +655,30 @@ AUTONOMY_TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "set_m2_stripe",
+            "description": (
+                "Move M2 (m2vert) to the correct stripe for a given incident energy. "
+                "Below 4500 eV the macro defaults to the Rh stripe with a warning; "
+                "between 4500 and 6200 eV it selects the Si stripe (m2vert=9.69); at "
+                "or above 6200 eV it selects the Rh stripe (m2vert=-3.5). Use after "
+                "moving incident energy across a stripe boundary."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    **_J,
+                    "energy_ev": {
+                        "type": "number",
+                        "description": "Incident energy in eV used to pick the stripe.",
+                    },
+                },
+                "required": ["justification", "energy_ev"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_anchor",
             "description": (
                 "Read the current tracking anchor from the SPEC session: "
@@ -1077,7 +1101,7 @@ AUTONOMY_TOOL_CATEGORIES = [
     ("CAT-0 Procedures", [
         "align_beamline", "align_xes_spectrometer", "run_sample_alignment",
         "run_collection", "select_element", "peak_mono_pitch",
-        "calibrate_mono_from_foil_scan",
+        "calibrate_mono",
     ]),
     ("CAT-1 Motors", [
         "move_motor", "move_motor_relative", "read_motor_position",
@@ -1095,7 +1119,7 @@ AUTONOMY_TOOL_CATEGORIES = [
     ("CAT-5 Beam Diagnostic", [
         "mv_pinhole", "mv_plastic", "mv_knife_clear", "mv_knife_out",
         "measure_beam_size", "zero_pinhole",
-        "small_beam", "big_beam", "xtal_align", "reset_gap",
+        "small_beam", "big_beam", "xtal_align", "reset_gap", "set_m2_stripe",
         "get_anchor", "set_anchor", "tracking",
     ]),
     ("CAT-6 Beam", ["get_beam_size", "get_beam_status", "get_counts", "get_counter", "request_gap_ownership"]),

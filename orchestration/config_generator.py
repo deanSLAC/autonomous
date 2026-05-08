@@ -174,6 +174,22 @@ def validate_experiment_data(data: dict) -> list[str]:
     if mirrors_out not in (True, False, 0, 1, "true", "false", "on", "off", ""):
         errors.append("mirrors_out must be a boolean")
 
+    # Calibration foil. Element symbol is optional at submit time (e.g.
+    # an experiment may not include a calibration step). Detector is
+    # always present and must be one of {"I1", "I2"}; default is I2.
+    foil_elem = data.get("calibration_foil_element")
+    if foil_elem not in (None, ""):
+        foil_elem_str = str(foil_elem).strip()
+        if foil_elem_str and not re.match(r'^[A-Z][a-z]?$', foil_elem_str):
+            errors.append(
+                "calibration_foil_element must be a chemical symbol "
+                "(e.g. 'Au', 'Cu', 'Fe')"
+            )
+
+    foil_det = data.get("calibration_foil_detector")
+    if foil_det not in (None, "", "I1", "I2"):
+        errors.append("calibration_foil_detector must be 'I1' or 'I2'")
+
     # Elements
     elements = data.get("elements", [])
     if not elements:
@@ -383,6 +399,7 @@ def _generate_mac_content(
     lines.append("global N_ELEMENTS N_SAMPLES HOOKS_ENABLED HOOK_URL USER_DIR")
     lines.append("global I0_GAIN I0_OFFSET I1_GAIN")
     lines.append("global LLM_ENABLED LLM_DECIDE_ENABLED")
+    lines.append("global CALIBRATION_FOIL_ELEMENT CALIBRATION_FOIL_DETECTOR")
     lines.append("")
 
     lines.append(f'EXPERIMENT_ID = "{sanitize_spec_string(experiment.id)}"')
@@ -423,6 +440,13 @@ def _generate_mac_content(
     lines.append(f'I0_GAIN = "{i0_gain}"')
     lines.append(f'I0_OFFSET = "{i0_offset}"')
     lines.append(f'I1_GAIN = "{i1_gain}"')
+
+    # Energy-calibration foil. Element may be None (no calibration step
+    # configured); detector defaults to I2.
+    foil_elem = getattr(experiment, "calibration_foil_element", None) or ""
+    foil_det = getattr(experiment, "calibration_foil_detector", None) or "I2"
+    lines.append(f'CALIBRATION_FOIL_ELEMENT = "{sanitize_spec_string(foil_elem)}"')
+    lines.append(f'CALIBRATION_FOIL_DETECTOR = "{sanitize_spec_string(foil_det)}"')
     lines.append("")
 
     # --- Elements ---

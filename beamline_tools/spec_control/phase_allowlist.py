@@ -113,6 +113,8 @@ PROCEDURAL_PHASE = {
     "bigbeam": {PHASE_BL_ALIGN},
     "xtalalign": {PHASE_BL_ALIGN},
     "reset_gap": {PHASE_BL_ALIGN},
+    # M2 stripe selection (energy-dependent: Si below ~6.2 keV, Rh above)
+    "m2_stripe": {PHASE_BL_ALIGN},
     # Energy tracking
     "set_anchor": {PHASE_BL_ALIGN},
     "tracking": {PHASE_BL_ALIGN, PHASE_XES_ALIGN, PHASE_SAMPLE_ALIGN, PHASE_COLLECTION},

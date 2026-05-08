@@ -1,58 +1,77 @@
 
 ---
 
-## Energy calibration with reference foil
+## Monochromator energy calibration with reference foil
 
-Au foil (or whichever element) at I2 is the standard. Manual step-through:
+Calibrate the mono against a reference foil (Au, Cu, Fe, ...) by scanning
+the absorption edge, finding the inflection point, and updating the mono
+calibration so the measured edge matches the tabulated NIST value.
 
-```spec
-plotselect I0                              # plot upstream flux during scan
-umv energy <tabulated_edge>                # park at expected edge
-dscan energy -15 15 60 0.2                 # coarse pre-cal scan
-p SCAN_N                                   # record scan number
-```
-use the CLI tools to plot I0/I2, find the peak of the derivative.
+### Tabulated edge values
 
-`use_I1=0` (3rd arg) selects I2 as transmission detector. Use `1` if the
-foil is in front of I1 instead.
+Always use **unrounded** NIST values, never rounded ones:
 
-Report measured edge, tabulated value. If the calibration is measured to be off by 50 eV this is an emergency and you need to stop.
-
-```spec
-mv energy <measured_inflection>
-calibrate_mono <tabulated_edge>            # updates motor position and encoder-derived value
-dscan energy -15 15 80 0.2                 # post-cal fine reference scan
-```
-
-**absev vs the energy motor:** both must converge to the tabulated
-value. `absev` (encoder readback used for data analysis) is the canonical
-value for downstream science. After `calibrate_mono` and before declaring
-done, `ct 1` should show `absev` essentially equal to the calibrated
-energy. If absev is ~10 eV off but the energy motor reads correctly,
-the calibration is incomplete.
-
-**Tabulated edge values:** use NIST values, not rounded ones. E.g.
 - Au K = **11918.7** eV  (NOT 11919)
 - Cu K = **8979.0** eV
+- Fe K = **7112.0** eV
+
 Verify against a primary source for unfamiliar elements.
 
-Final `reset_gap` after calibration converges:
-```spec
-reset_gap                  # re-syncs gap encoder with the new mono cal
-```
+### Detector selection
 
+The experiment config tells you which detector has the foil in front of
+it. If in doubt, check both I1 and I2. The `use_I1` selector (3rd arg to
+the relevant macros) is `0` when I2 is the transmission detector and `1`
+when the foil is in front of I1.
 
-## Monochromator Energy calibration w/ Foil
+### Procedure
 
-- Foil scan over reference edge, find inflection point against the tabulated NIST edge (use unrounded values, e.g. Au K = 11918.7 eV, Cu K = 8979.0 eV, Fe K = 7112.0 eV, etc)
-- mv energy to the tabulated edge value
-- Edge scan: `run-motor-scan-relative --motor energy --start -15 --finish 15 --intervals 60 --count-time 0.2`.
-- The experiment config should tell you what detector has the foil in front of it, if in doubt check I1 and I2.
-- run calibrate_mono to set the measured position to the tabulated value
-- Verify `absev` matches calibrated energy via `get-counts`
-- Iterate the foil scan + calibration WITHOUT `reset_gap` until self-check < 0.3 eV from tabulated
-- Self-check: finer edge scan, re-find inflection. Accept if within ~0.2 eV.
-- Then single `reset_gap` at the end
+1. **Park at the tabulated edge:**
+   ```spec
+   plotselect I0                         # plot upstream flux during scan
+   umv energy <tabulated_edge>
+   ```
 
+2. **Coarse edge scan** (use the CLI rather than raw SPEC for the scan
+   itself):
+   ```bash
+   run-motor-scan-relative --motor energy --start -15 --finish 15 \
+                           --intervals 60 --count-time 0.2
+   ```
+   Equivalent SPEC: `dscan energy -15 15 60 0.2`. Record the scan number
+   (`p SCAN_N`).
 
+3. **Find the inflection.** Use the CLI tools (`get-counts`, plotting) to
+   pull I0 and the foil-detector trace and locate the peak of the
+   derivative. Report the measured edge and the tabulated value.
+   If you dont see the edge, expand the scan bounds.
 
+   **Emergency stop:** if the calibration is off by more than **50 eV**,
+   stop and escalate — something larger than a calibration drift is wrong.
+
+4. **Apply the calibration:**
+   ```spec
+   mv energy <measured_inflection>
+   calibrate_mono <tabulated_edge>       # updates motor pos + encoder cal
+   ```
+
+5. **Iterate.** Re-run the foil scan + `calibrate_mono` (without
+   `reset_gap` between iterations — `reset_gap` fights the
+   `calibrate_mono` loop) until a self-check edge scan reads within
+   **0.3 eV** of the tabulated value. A finer post-cal reference scan
+   (`dscan energy -15 15 80 0.2`) is the typical self-check; accept once
+   the inflection is within **~0.2 eV** of tabulated.
+
+6. **`absev` vs energy-motor convergence check.** After `calibrate_mono`,
+   `ct 1` (or `get-counts`) should show `absev` essentially equal to the
+   calibrated energy — both must converge to the tabulated value within
+   ~10 eV. `absev` is the encoder readback used for downstream data
+   analysis and is the canonical value for science. If `absev` is ~10 eV
+   off but the energy motor reads correctly, the calibration is
+   incomplete; iterate again.
+
+7. **Final `reset_gap`** — exactly once, at the end, after calibration
+   has converged:
+   ```spec
+   reset_gap                  # re-syncs gap encoder with the new mono cal
+   ```

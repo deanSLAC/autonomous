@@ -75,6 +75,8 @@ def status(experiment_id: str = Query(...)):
             "data_path": exp.data_path,
             "beam_h_fwhm_um": getattr(exp, "beam_h_fwhm_um", None),
             "beam_v_fwhm_um": getattr(exp, "beam_v_fwhm_um", None),
+            "calibration_foil_element": getattr(exp, "calibration_foil_element", None),
+            "calibration_foil_detector": getattr(exp, "calibration_foil_detector", None) or "I2",
         },
         "current_phase": current_phase,
         "plan": plan,

@@ -190,3 +190,34 @@ final assistant message should include:
 If you halt mid-flight (e.g. the plan is in a state you can't
 reconcile), use the **blocked** shape and name a `suggested next
 agent` — usually `human` for replanning conversations.
+
+---
+
+## Interpreting collection telemetry
+
+You don't take scans, but you do reason about them. A few things to
+keep in mind when reading the data-collection agent's output:
+
+- **SPEAR-normalize before comparing.** Ring current drifts ~5 mA
+  per session. Raw count drops between samples often look like flux
+  loss but are just SPEAR drift; I1/mA is the apples-to-apples
+  comparison. The analysis tools (`analyze-efficiency`,
+  `analyze-convergence`) already normalize, but if you eyeball a
+  `read-scan` directly, do the math yourself.
+- **`tool analyze-efficiency`** returns a verdict
+  (`needs_more` / `reasonable` / `marginal` / `wasteful`). That's
+  your primary signal for deciding whether to add or trim reps on
+  the remaining samples.
+- **`tool analyze-convergence`** tells you whether further reps are
+  buying SNR or just costing time.
+- **Beam-damage signals** (counter dropping rep-over-rep, edge
+  shifting, DT-corrected intensity diverging from raw) are
+  interpreted by the data-collection agent in real time. If the
+  notes from `record-sample-progress` mention any of these, treat
+  the sample's actual cost-per-rep as having an error bar — it may
+  have moved to a fresh spot and re-paid setup overhead.
+- **Vortex saturation cap is 200 kcps.** If a sample is being held
+  back by deadtime (efficiency `wasteful` because counts are
+  ceilinged, not because the integration is long enough), more reps
+  won't help — that's a filter / attenuation question, not a budget
+  question.

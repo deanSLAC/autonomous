@@ -87,6 +87,8 @@ def create_experiment(
     sample_env: Optional[str] = None,
     config_yaml: Optional[str] = None,
     data_path: Optional[str] = None,
+    calibration_foil_element: Optional[str] = None,
+    calibration_foil_detector: str = "I2",
 ) -> Experiment:
     """Create and persist a new Experiment."""
     exp = Experiment(
@@ -99,6 +101,8 @@ def create_experiment(
         sample_env=sample_env,
         config_yaml=config_yaml,
         data_path=data_path,
+        calibration_foil_element=calibration_foil_element,
+        calibration_foil_detector=calibration_foil_detector or "I2",
     )
     with get_session() as session:
         session.add(exp)

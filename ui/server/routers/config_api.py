@@ -109,6 +109,23 @@ async def submit_experiment(data: dict):
         if not data_dir:
             data_dir = f"/data/fifteen/{sanitize_spec_string(exp_name)}"
 
+        foil_elem_raw = (data.get("calibration_foil_element") or "").strip()
+        # If the user left the foil element blank, default to the first
+        # science-target element they configured. The user's rule: "by
+        # default the foil will be the element we measure for the
+        # experiment". Multiple elements: pick the first (priority 0 in
+        # storage; the user's primary target). Validation in
+        # validate_experiment_data has already required >=1 element.
+        if not foil_elem_raw:
+            elements_for_default = data.get("elements") or []
+            if elements_for_default:
+                first_sym = (elements_for_default[0].get("symbol") or "").strip()
+                if first_sym:
+                    foil_elem_raw = first_sym
+        calibration_foil_element = foil_elem_raw or None
+        foil_det_raw = (data.get("calibration_foil_detector") or "").strip()
+        calibration_foil_detector = foil_det_raw if foil_det_raw in ("I1", "I2") else "I2"
+
         llm_enabled = data.get("llm_enabled", True)
         llm_decide_enabled = data.get("llm_decide_enabled", True)
 
@@ -127,6 +144,8 @@ async def submit_experiment(data: dict):
                     exp.mirrors_out = mirrors_out
                     exp.sample_env = sample_env
                     exp.data_path = data_dir
+                    exp.calibration_foil_element = calibration_foil_element
+                    exp.calibration_foil_detector = calibration_foil_detector
                     session.add(exp)
                     session.commit()
                     session.refresh(exp)
@@ -143,6 +162,8 @@ async def submit_experiment(data: dict):
                 mirrors_out=mirrors_out,
                 sample_env=sample_env,
                 data_path=data_dir,
+                calibration_foil_element=calibration_foil_element,
+                calibration_foil_detector=calibration_foil_detector,
             )
         experiment_id = exp.id
 
@@ -323,6 +344,8 @@ def experiment_summary(experiment_id: str):
             "mono_crystal": exp.mono_crystal, "beam_size_h": exp.beam_size_h,
             "beam_size_v": exp.beam_size_v, "mirrors_out": exp.mirrors_out,
             "sample_env": exp.sample_env or "ambient",
+            "calibration_foil_element": getattr(exp, "calibration_foil_element", None) or "",
+            "calibration_foil_detector": getattr(exp, "calibration_foil_detector", None) or "I2",
         },
         "elements": [
             {
@@ -390,6 +413,8 @@ def load_experiment(experiment_id: str):
         "sample_env": exp.sample_env or "ambient",
         "data_path": exp.data_path, "status": exp.status,
         "sample_holder_name": primary_holder["name"] if primary_holder else "",
+        "calibration_foil_element": getattr(exp, "calibration_foil_element", None) or "",
+        "calibration_foil_detector": getattr(exp, "calibration_foil_detector", None) or "I2",
         **{k: v for k, v in config_extra.items()
            if k in ("llm_enabled", "llm_decide_enabled")},
     }

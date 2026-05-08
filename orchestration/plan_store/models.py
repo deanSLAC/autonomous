@@ -44,6 +44,14 @@ class Experiment(SQLModel, table=True):
     # these values once they're populated.
     beam_h_fwhm_um: Optional[float] = None
     beam_v_fwhm_um: Optional[float] = None
+    # Energy-calibration foil. `calibration_foil_element` is the element
+    # symbol of the reference foil (e.g. "Au", "Cu", "Fe") used during
+    # the calibration step. `calibration_foil_detector` is which diode
+    # the foil sits in front of — defaults to "I2" (the B-stage transmission
+    # diode). I1 is also accepted; per the user, I1 is more reliable but
+    # is easily blocked, so I2 is the safer default.
+    calibration_foil_element: Optional[str] = None
+    calibration_foil_detector: str = Field(default="I2")
 
 
 # ---------------------------------------------------------------------------

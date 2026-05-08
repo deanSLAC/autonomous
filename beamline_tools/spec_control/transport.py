@@ -326,6 +326,24 @@ class _MockScreen:
         if low.startswith("reset_gap"):
             time.sleep(0.05)
             return "reset_gap complete. gap encoder restored to original position."
+        if low.startswith("m2_stripe"):
+            # Parse the eV argument and mirror the macro's branch logic.
+            ev = None
+            try:
+                inside = cmd.split("(", 1)[1].rsplit(")", 1)[0]
+                ev = float(inside.strip())
+            except Exception:
+                ev = None
+            if ev is None or ev >= 6200:
+                cls._positions["m2vert"] = -3.5
+                stripe = "Rh"
+            elif ev < 4500:
+                cls._positions["m2vert"] = -3.5
+                stripe = "Rh"  # macro defaults to Rh on invalid low input
+            else:
+                cls._positions["m2vert"] = 9.69
+                stripe = "Si"
+            return f"m2_stripe complete. stripe={stripe} m2vert={cls._positions['m2vert']}"
         if low.startswith("get_anchor"):
             return (
                 "\nAnchor positions: \n"

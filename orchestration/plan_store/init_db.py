@@ -27,6 +27,8 @@ _PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("spectrometer_aligned", "INTEGER NOT NULL DEFAULT 0"),
         ("beam_h_fwhm_um", "REAL"),
         ("beam_v_fwhm_um", "REAL"),
+        ("calibration_foil_element", "TEXT"),
+        ("calibration_foil_detector", 'TEXT NOT NULL DEFAULT "I2"'),
     ],
     "experimentelement": [
         ("measurement_mode", 'TEXT NOT NULL DEFAULT "XES"'),

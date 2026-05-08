@@ -449,6 +449,14 @@ def t_reset_gap(args: dict) -> tuple[str, list[str]]:
     return _as_json(res), []
 
 
+def t_set_m2_stripe(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    if "energy_ev" not in args:
+        return json.dumps({"ok": False, "error": "'energy_ev' (number) is required"}), []
+    res = spec_cmd.call("m2_stripe", [str(args["energy_ev"])], justification=j)
+    return _as_json(res), []
+
+
 def t_get_anchor(args: dict) -> tuple[str, list[str]]:
     res = spec_cmd.call("get_anchor", [], justification="")
     return _as_json(res), []
@@ -790,6 +798,8 @@ def t_get_experiment_config(args: dict) -> tuple[str, list[str]]:
                 "sample_env": exp.sample_env,
                 "status": exp.status,
                 "data_path": exp.data_path,
+                "calibration_foil_element": getattr(exp, "calibration_foil_element", None),
+                "calibration_foil_detector": getattr(exp, "calibration_foil_detector", None) or "I2",
                 "created_at": exp.created_at.isoformat() if exp.created_at else None,
             },
             "elements": [
@@ -971,7 +981,7 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "run_collection": t_run_collection,
     "select_element": t_select_element,
     "peak_mono_pitch": t_peak_mono_pitch,
-    "calibrate_mono_from_foil_scan": t_calibrate_mono,
+    "calibrate_mono": t_calibrate_mono,
     # CAT-1
     "move_motor": t_move_motor,
     "move_motor_relative": t_move_motor_relative,
@@ -1007,6 +1017,7 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "big_beam": t_big_beam,
     "xtal_align": t_xtal_align,
     "reset_gap": t_reset_gap,
+    "set_m2_stripe": t_set_m2_stripe,
     "get_anchor": t_get_anchor,
     "set_anchor": t_set_anchor,
     "tracking": t_tracking,

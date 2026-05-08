@@ -526,6 +526,12 @@ _ACTION: dict[str, CommandSpec] = {
         lambda o, a: {"target_ev": float(a[0]), "raw": o},
         timeout_s=120,
     ),
+    "m2_stripe": CommandSpec(
+        "m2_stripe", "action",
+        lambda a: f"m2_stripe({a[0]})",
+        lambda o, a: {"energy_ev": float(a[0]), "raw": o},
+        timeout_s=60,
+    ),
     "gaprequest": CommandSpec(
         "gaprequest", "action",
         lambda a: "gaprequest",

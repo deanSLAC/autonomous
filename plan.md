@@ -93,7 +93,7 @@ Motor allowlist gate per phase (full table in spec). Enforced in `spec/phase_all
 
 Implement all tools from `needed-tools-for-autonomy.md` as Python functions registered in `server/tools/autonomy_tools.py` and exposed through the same dispatch layer as existing read-only tools. Tools are grouped:
 
-- **CAT-0 procedural (primary)**: `align_beamline`, `align_xes_spectrometer`, `run_sample_alignment`, `run_collection`, `select_element`, `peak_mono_pitch`, `calibrate_mono_from_foil_scan`.
+- **CAT-0 procedural (primary)**: `align_beamline`, `align_xes_spectrometer`, `run_sample_alignment`, `run_collection`, `select_element`, `peak_mono_pitch`, `calibrate_mono`.
 - **`spec_cmd` read-only**: `wa`, `p_motor`, `get_S`, `ct`, `fon`, `pwd`, `scan_n`, `beam_status`, `p_global`.
 - **`spec_cmd` action**: `umv`, `umvr`, `mv`, `ascan`, `dscan`, `cen`, `peak`, `shutter`, `mv_energy`, `xas`, `emiss_scan`, `safely_remove_filters`, `set_i0_gain`, `set_i1_gain`, `set_i2_gain`, `set_vortex_roi`, `newfile`, `abort`, `gaprequest`, `run_shortcut`.
 - **Scan execution wrappers**: `run_motor_scan`, `run_motor_scan_relative`, `run_xas`, `run_emiss_scan`.

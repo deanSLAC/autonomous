@@ -125,3 +125,42 @@ via `record-sample-progress --status failed --note "..."`, then
 finish with `STATUS: blocked` and a `suggested next agent` of
 `human` (likely a sample-mount intervention) or `planner` (skip
 this sample and move on).
+
+---
+
+## I0 vs I1 cross-check for sample alignment
+
+When both I0 and I1 carry signal, consult both before drawing
+conclusions. Sample alignment leans heavily on I1 (the downstream
+photodiode behind the sample) since it is the most reliable
+indicator of what the sample is actually receiving — but I1's small
+acceptance means the sample body, the beam-diagnostic body, knife
+edges, or a filter pad can all obstruct it.
+
+- **I0** is upstream and obstruction-robust. Use it to confirm the
+  upstream beam exists at all (rules out gap, mono, M1/M2 issues).
+  Noisier than I1, but rarely blocked.
+- **I1** is the trusted target for finding sample edges and
+  optimizing position. When it sees beam, the reading is the most
+  representative of the sample's exposure.
+
+If I0 is healthy but I1 is dead or suppressed, suspect a downstream
+obstruction (sample body, diagnostic still in beam, B-stage filter,
+knife edge) before assuming an upstream optic regressed. If both
+drop together, the cause is upstream of I0 — that's a
+beamline-alignment issue and should be deferred.
+
+---
+
+## Sample-alignment gotchas
+
+**Gain saturation when removing attenuation:** If the sample holder
+was attenuating the beam, removing it (or moving to a thin spot)
+will saturate detectors at the old gain settings. Order: clear the
+beam path → `set-gain` for I0 and I1 → re-zero offsets →
+`get-counts` → then run scans. Voltage ceilings: I0 < 0.5 V,
+I1/I2 < 5 V. Vortex must stay below **200 kcps** — add filters if
+needed.
+
+**SPEAR-normalize comparisons:** Use I1/mA, not raw I1, when
+comparing across scans. Ring current drifts ~5 mA over a session.

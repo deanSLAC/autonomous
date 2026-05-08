@@ -106,6 +106,8 @@ def build_initial_plan(experiment_id: str,
             "beam_size_h": exp.beam_size_h,
             "beam_size_v": exp.beam_size_v,
             "sample_env": exp.sample_env,
+            "calibration_foil_element": getattr(exp, "calibration_foil_element", None),
+            "calibration_foil_detector": getattr(exp, "calibration_foil_detector", None) or "I2",
         },
         "elements": [
             {
@@ -185,12 +187,18 @@ class PlannerSnapshot:
                 "sample_alignment); an empty queue here is expected.\n"
             )
 
+        foil_elem = exp.get("calibration_foil_element")
+        foil_det = exp.get("calibration_foil_detector") or "I2"
+        foil_str = (
+            f"{foil_elem}@{foil_det}" if foil_elem else f"none (det={foil_det})"
+        )
         return (
             "[PLANNER STATE]\n"
             f"  phase: {self.phase}\n"
             f"  experiment: id={self.experiment_id} "
             f"name={exp.get('name') or '?'} experimenter={exp.get('experimenter') or '?'}\n"
             f"  config: mono={mono_label} sample_env={exp.get('sample_env') or 'ambient'} "
+            f"calibration_foil={foil_str} "
             f"elements=[{el_line}]\n"
             f"  beamtime: {self.beamtime_elapsed_hours:.2f}h elapsed / "
             f"{self.beamtime_total_hours:.2f}h total "
@@ -232,6 +240,8 @@ def snapshot(experiment_id: str) -> PlannerSnapshot:
                     "beam_size_h": row.beam_size_h,
                     "beam_size_v": row.beam_size_v,
                     "mirrors_out": row.mirrors_out,
+                    "calibration_foil_element": getattr(row, "calibration_foil_element", None),
+                    "calibration_foil_detector": getattr(row, "calibration_foil_detector", None) or "I2",
                     "status": row.status,
                     "elements": [
                         {

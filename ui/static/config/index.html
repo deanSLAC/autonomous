@@ -102,6 +102,22 @@
                 </div>
 
                 <div class="form-row">
+                    <div class="form-group medium">
+                        <label>Calibration Foil Element</label>
+                        <input type="text" id="calibration_foil_element" placeholder="Defaults to the science-target element">
+                        <small class="form-hint">Reference foil used for energy calibration. Leave blank to default to the first element configured below.</small>
+                    </div>
+                    <div class="form-group medium">
+                        <label>Calibration Foil Detector</label>
+                        <select id="calibration_foil_detector">
+                            <option value="I2" selected>I2 (B-stage transmission diode)</option>
+                            <option value="I1">I1 (sample-side diode)</option>
+                        </select>
+                        <small class="form-hint">Which detector the foil sits in front of. I2 is the default; I1 is more reliable but easily blocked.</small>
+                    </div>
+                </div>
+
+                <div class="form-row">
                     <div class="form-group wide">
                         <label>Data Directory</label>
                         <input type="text" id="data_directory" placeholder="Auto-filled: /data/fifteen/{name}">

@@ -32,6 +32,10 @@ REFERENCE_DOCS = {
         "file": "changing-energy.md",
         "description": "Minimal procedure for switching between absorption edges",
     },
+    "energy-calibration": {
+        "file": "energy-calibration.md",
+        "description": "Mono energy calibration via reference foil: edge scan, calibrate_mono, iterate, reset_gap",
+    },
     "beamline-alignment": {
         "file": "Beamline-alignment.md",
         "description": "Beamline alignment session notes with lessons learned",
