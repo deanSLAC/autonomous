@@ -309,17 +309,27 @@ function renderAutonomy(orc, dash) {
     runEl.textContent = running ? (paused ? "paused" : "yes") : "no";
     runEl.className = running && !paused ? "dot-good" : "dot-bad";
 
-    document.getElementById("orc-turn").textContent = orc && orc.turn_count != null ? orc.turn_count : "–";
-
     const snap = (orc && orc.plan_snapshot) || {};
     document.getElementById("orc-total").textContent =
         snap.beamtime_total_hours != null ? snap.beamtime_total_hours.toFixed(1) : "–";
     document.getElementById("orc-elapsed").textContent =
         snap.beamtime_elapsed_hours != null ? snap.beamtime_elapsed_hours.toFixed(2) : "–";
-    document.getElementById("orc-samples-done").textContent =
-        snap.samples_completed != null ? snap.samples_completed : "–";
-    document.getElementById("orc-samples-total").textContent =
-        snap.samples_total != null ? snap.samples_total : "–";
+    // Samples done/total — on the dashboard this lives in exp-info now,
+    // on /sample_planning it's still an autonomy-bar pill. Set whichever
+    // IDs are present.
+    const sDoneVal = snap.samples_completed != null ? snap.samples_completed : "–";
+    const sTotVal = snap.samples_total != null ? snap.samples_total : "–";
+    ["exp-samples-done", "orc-samples-done"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = sDoneVal;
+    });
+    ["exp-samples-total", "orc-samples-total"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = sTotVal;
+    });
+    // /sample_planning still shows a Turn pill; populate it if present.
+    const turnEl = document.getElementById("orc-turn");
+    if (turnEl) turnEl.textContent = orc && orc.turn_count != null ? orc.turn_count : "–";
 
     // Current phase
     const curPhaseEl = document.getElementById("cur-phase");
@@ -537,9 +547,21 @@ function renderAutonomy(orc, dash) {
                 ? formatCrystal(dash.experiment.mono_crystal)
                 : (dash.experiment.mono_crystal || "--")),
         );
+        // Beam-size display: prefer measured FWHM (from beamline_alignment)
+        // when available, fall back to operator-configured big/focused mode.
+        // TODO: the measured beam size is NOT yet persisted to the DB. To
+        // wire this end-to-end, add `beam_h_fwhm_um`/`beam_v_fwhm_um` to
+        // orchestration/plan_store/models.py:Experiment (or PhaseRun for
+        // bl_align), populate them from the `wbeamsize` parser
+        // (beamline_tools/spec_control/spec_cmd.py:_parse_wbeamsize) when
+        // align_beamline completes, and surface the values via
+        // ui/server/routers/dashboard_api.py /status. Once that exists,
+        // the keys read here just light up automatically.
         setText(
             "exp-beam",
-            `H:${dash.experiment.beam_size_h || "?"} V:${dash.experiment.beam_size_v || "?"}`,
+            (typeof formatBeamSize === "function"
+                ? formatBeamSize(dash.experiment)
+                : `H:${dash.experiment.beam_size_h || "?"} V:${dash.experiment.beam_size_v || "?"}`),
         );
         setText("exp-env", dash.experiment.sample_env || "--");
         setText("exp-status", dash.experiment.status || "--");

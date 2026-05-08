@@ -39,6 +39,7 @@
     <div><span class="label">Crystal</span><span class="value" id="exp-crystal">--</span></div>
     <div><span class="label">Beam</span><span class="value" id="exp-beam">--</span></div>
     <div><span class="label">Environment</span><span class="value" id="exp-env">--</span></div>
+    <div><span class="label">Samples</span><span class="value"><span id="exp-samples-done">–</span> / <span id="exp-samples-total">–</span></span></div>
     <div><span class="label">Phase</span><span class="value" id="cur-phase">setup</span></div>
     <div><span class="label">Status</span><span class="value" id="exp-status">--</span></div>
 </div>
@@ -55,11 +56,8 @@
         <button class="btn-autonomy" id="btn-post-status" onclick="postStatusUpdate()" title="Post a status update to the Slack Chat channel.">✉ Post status</button>
     </div>
     <div class="autonomy-bar-center">
-        <span class="metric-pill"><span class="label">Turn</span> <span id="orc-turn">–</span></span>
         <span class="metric-pill"><span class="label">Beamtime</span>
             <span id="orc-elapsed">–</span>h / <span id="orc-total">–</span>h</span>
-        <span class="metric-pill"><span class="label">Samples</span>
-            <span id="orc-samples-done">–</span> / <span id="orc-samples-total">–</span></span>
     </div>
     <div class="autonomy-bar-right">
         <span class="metric-pill" id="orc-agent-pill" title="Agent backend (opencode) status">
@@ -278,7 +276,7 @@
     </div>
 </div>
 
-<script src="/static/dashboard/static/dashboard.js?v=3"></script>
+<script src="/static/dashboard/static/dashboard.js?v=4"></script>
 <script src="/static/dashboard/autonomy.js?v=4"></script>
 </body>
 </html>
