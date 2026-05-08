@@ -392,23 +392,26 @@
     min-height: 240px;
 }
 
+/* Plot is shown at its natural aspect: width fills the panel, height
+   follows. Cap with vh so a tall plot can't dominate the viewport, but
+   never clip — no overflow:hidden + no fixed max-height on the box. */
 .agent-plot {
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: 240px;
-    max-height: 560px;
     background: var(--bg-card, #181b23);
     border: 1px solid var(--border, #2a2e3a);
     border-radius: 6px;
     padding: 8px;
-    overflow: hidden;
 }
 .agent-plot img {
     max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
+    max-height: 75vh;
+    width: auto;
+    height: auto;
     display: block;
+    margin: 0 auto;
 }
 
 .action-tape {
@@ -554,6 +557,25 @@
     color: #ff8a7a;
     background: rgba(255, 138, 122, 0.10);
     border-color: rgba(255, 138, 122, 0.30);
+}
+
+.panel-info {
+    float: right;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: #2a6fc9;
+    background: rgba(42, 111, 201, 0.08);
+    border: 1px solid rgba(42, 111, 201, 0.25);
+    border-radius: 999px;
+    padding: 1px 8px;
+    font-size: 0.78em;
+    cursor: help;
+}
+[data-theme="dark"] .panel-info {
+    color: #8cb6e8;
+    background: rgba(140, 182, 232, 0.10);
+    border-color: rgba(140, 182, 232, 0.30);
 }
 
 .plan-table {

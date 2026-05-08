@@ -191,13 +191,28 @@ function formatCrystal(code) {
 }
 window.formatCrystal = formatCrystal;
 
+// The form persists `experimenter` as a separate field but operators
+// rarely fill it in; the experiment name (format YYYY-MM_<name>) is
+// the reliable source. Fall back to parsing the name when the explicit
+// field is empty.
+function experimenterFromExperiment(exp) {
+    if (!exp) return "";
+    if (exp.experimenter && String(exp.experimenter).trim()) {
+        return String(exp.experimenter).trim();
+    }
+    const name = (exp.name || "").trim();
+    const m = name.match(/^\d{4}-\d{2}[_\-\s]+(.+)$/);
+    return m ? m[1].replace(/_/g, " ").trim() : "";
+}
+window.experimenterFromExperiment = experimenterFromExperiment;
+
 function renderExperimentInfo(exp) {
     if (!exp) return;
     const set = (id, val) => {
         const el = document.getElementById(id);
         if (el) el.textContent = val || "--";
     };
-    set("exp-experimenter", exp.experimenter);
+    set("exp-experimenter", experimenterFromExperiment(exp));
     set("exp-crystal", formatCrystal(exp.mono_crystal));
     set("exp-beam", formatBeamSize(exp));
     set("exp-env", exp.sample_env || "ambient");

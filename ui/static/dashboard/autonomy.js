@@ -640,7 +640,10 @@ function renderAutonomy(orc, dash) {
     renderSampleHolderTile(dash);
 
     if (dash.experiment) {
-        setText("exp-experimenter", dash.experiment.experimenter || "--");
+        const expmer = (typeof experimenterFromExperiment === "function")
+            ? experimenterFromExperiment(dash.experiment)
+            : (dash.experiment.experimenter || "");
+        setText("exp-experimenter", expmer || "--");
         setText(
             "exp-crystal",
             (typeof formatCrystal === "function"
