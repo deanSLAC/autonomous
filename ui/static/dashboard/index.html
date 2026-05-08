@@ -51,6 +51,7 @@
         <button class="btn-autonomy" id="btn-resume" onclick="autonomyAction('resume')">▶ Resume</button>
         <button class="btn-autonomy" id="btn-stop" onclick="autonomyAction('stop')" title="Halt the agent loop. The agent stops issuing turns; config/plan are kept. Clicking Start resumes from the saved phase — action history and phase flags are NOT cleared.">⏹ Stop</button>
         <button class="btn-autonomy" id="btn-reset" onclick="resetRun()" title="Stop the run AND clear action history + pending interventions + phase back to setup. Use this to redo the run (e.g. after toggling phase enables). Config and sample plan are kept.">↺ Reset</button>
+        <button class="btn-autonomy" id="btn-stop-spec" onclick="stopSpec()" title="Issue a ctrl-C in SPEC">✋ Stop SPEC</button>
         <button class="btn-autonomy" id="btn-post-status" onclick="postStatusUpdate()" title="Post a status update to the Slack Chat channel.">✉ Post status</button>
     </div>
     <div class="autonomy-bar-center">

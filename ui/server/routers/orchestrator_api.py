@@ -130,6 +130,17 @@ def reset(payload: dict | None = None):
     return {"ok": True, "experiment_id": experiment_id, **summary}
 
 
+@router.post("/abort_spec")
+def abort_spec():
+    """Issue a ctrl-C to SPEC — equivalent to the agent's
+    `abort_current_scan` tool. Does not touch orchestrator state."""
+    try:
+        res = spec_cmd.call("abort", [], justification="ui:stop-spec-button")
+    except Exception as e:
+        raise HTTPException(500, f"abort failed: {e}")
+    return {"ok": True, "result": res}
+
+
 @router.get("/status")
 def status():
     reachable = _agent_reachable()

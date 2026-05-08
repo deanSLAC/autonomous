@@ -684,6 +684,18 @@ async function postStatusUpdate() {
     }
 }
 
+async function stopSpec() {
+    try {
+        const r = await fetch(API + "/api/orchestrator/abort_spec", { method: "POST" });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+            alert("Stop SPEC failed: " + (j.detail || j.error || r.status));
+        }
+    } catch (e) {
+        alert("Stop SPEC failed: " + (e && e.message ? e.message : e));
+    }
+}
+
 async function resetRun() {
     if (!confirm(
         "Reset this run?\n\n" +
