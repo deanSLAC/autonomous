@@ -73,6 +73,8 @@ def status(experiment_id: str = Query(...)):
             "mono_crystal": exp.mono_crystal, "beam_size_h": exp.beam_size_h,
             "beam_size_v": exp.beam_size_v, "mirrors_out": exp.mirrors_out,
             "data_path": exp.data_path,
+            "beam_h_fwhm_um": getattr(exp, "beam_h_fwhm_um", None),
+            "beam_v_fwhm_um": getattr(exp, "beam_v_fwhm_um", None),
         },
         "current_phase": current_phase,
         "plan": plan,

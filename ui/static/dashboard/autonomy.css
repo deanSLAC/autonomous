@@ -304,6 +304,43 @@
     font-style: italic;
 }
 
+.tile-hint {
+    font-size: 0.85em;
+    color: var(--text-muted, #888);
+    font-style: italic;
+    margin: 0 0 0.5em 0.25em;
+}
+
+.safety-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 8px;
+    font-size: 0.85em;
+    color: var(--text-dim, #aaa);
+    user-select: none;
+    cursor: pointer;
+}
+.safety-switch input { cursor: pointer; }
+.safety-switch-label { white-space: nowrap; }
+
+.log-tail {
+    max-height: 320px;
+    min-height: 120px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 8px 10px;
+    background: var(--bg-card, #181b23);
+    border: 1px solid var(--border, #2a2e3a);
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--text, #e2e4ea);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 .action-tape {
     max-height: 320px;
     overflow-y: auto;

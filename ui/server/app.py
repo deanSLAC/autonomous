@@ -38,8 +38,10 @@ from ui.server.routers import (
     orchestrator_api,
     phase_runner_api,
     plan_api,
+    safety_switches_api,
     sample_holders_api,
     slack_status_api,
+    spec_log_api,
     viewer_api,
 )
 
@@ -165,6 +167,8 @@ def create_app() -> FastAPI:
     app.include_router(orchestrator_api.router)
     app.include_router(phase_runner_api.router)
     app.include_router(plan_api.router)
+    app.include_router(safety_switches_api.router)
+    app.include_router(spec_log_api.router)
     app.include_router(insight_api.router)
     app.include_router(sample_holders_api.router)
     app.include_router(slack_status_api.router)

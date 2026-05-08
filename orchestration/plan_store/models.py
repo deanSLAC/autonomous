@@ -38,6 +38,12 @@ class Experiment(SQLModel, table=True):
     # crystals. Gates Sample Alignment / Data Collection tiles in the
     # dashboard. Cleared by the Reset button on the Spectrometer tile.
     spectrometer_aligned: bool = Field(default=False)
+    # Measured beam-size FWHM in micrometres. Populated by the wbeamsize
+    # parser whenever a fresh measurement comes back; the dashboard's
+    # Beam field switches from the configured big/focused mode pair to
+    # these values once they're populated.
+    beam_h_fwhm_um: Optional[float] = None
+    beam_v_fwhm_um: Optional[float] = None
 
 
 # ---------------------------------------------------------------------------

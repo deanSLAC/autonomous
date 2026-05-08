@@ -137,6 +137,33 @@ def update_experiment_status(experiment_id: str, status: str) -> Optional[Experi
     return exp
 
 
+def record_measured_beam_size(
+    experiment_id: str,
+    h_fwhm_um: Optional[float],
+    v_fwhm_um: Optional[float],
+) -> Optional[Experiment]:
+    """Store the latest measured beam-size FWHM (in µm) on the experiment row.
+
+    Called from spec_cmd whenever `wbeamsize` returns parseable values.
+    Either dimension can be None — caller decides whether the missing one
+    should overwrite a previous value (it doesn't here).
+    """
+    if h_fwhm_um is None and v_fwhm_um is None:
+        return None
+    with get_session() as session:
+        exp = session.get(Experiment, experiment_id)
+        if exp is None:
+            return None
+        if h_fwhm_um is not None:
+            exp.beam_h_fwhm_um = float(h_fwhm_um)
+        if v_fwhm_um is not None:
+            exp.beam_v_fwhm_um = float(v_fwhm_um)
+        session.add(exp)
+        session.commit()
+        session.refresh(exp)
+    return exp
+
+
 def set_spectrometer_aligned(experiment_id: str, aligned: bool) -> Optional[Experiment]:
     """Mark the spectrometer as aligned (or clear the flag) for an experiment.
 

@@ -25,6 +25,8 @@ from orchestration.plan_store.session import get_engine as get_orch_engine
 _PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
     "experiment": [
         ("spectrometer_aligned", "INTEGER NOT NULL DEFAULT 0"),
+        ("beam_h_fwhm_um", "REAL"),
+        ("beam_v_fwhm_um", "REAL"),
     ],
     "experimentelement": [
         ("measurement_mode", 'TEXT NOT NULL DEFAULT "XES"'),

@@ -160,6 +160,23 @@ def kill(slug: str) -> dict:
     return {"slug": slug, "killed": True, "pid": slot.proc.pid}
 
 
+def kill_all() -> list[dict]:
+    """SIGTERM every running phase agent. Returns one status dict per kill."""
+    results: list[dict] = []
+    with _lock:
+        running = [
+            slug for slug, slot in _slots.items()
+            if slot.proc.poll() is None
+        ]
+    for slug in running:
+        try:
+            results.append(kill(slug))
+        except ValueError:
+            # Race: process exited between the snapshot and the kill call.
+            pass
+    return results
+
+
 def status_all() -> dict:
     """Return {slug: {state, ...}} for every known phase."""
     out: dict[str, dict] = {}
@@ -198,3 +215,28 @@ def get_log_path(slug: str) -> Optional[str]:
             return slot.log_path
         last = _last_results.get(slug)
         return last.get("log_path") if last else None
+
+
+def latest_active_slug() -> Optional[str]:
+    """Pick the most recently started slug — running first, finished otherwise.
+
+    Used by the dashboard's Agent Output panel to auto-tail whichever
+    phase is currently active without the operator picking one.
+    """
+    with _lock:
+        running = [
+            (slot.started_at, slug)
+            for slug, slot in _slots.items()
+            if slot.proc.poll() is None
+        ]
+        if running:
+            running.sort(reverse=True)
+            return running[0][1]
+        finished = [
+            (info.get("finished_at") or info.get("started_at") or 0, slug)
+            for slug, info in _last_results.items()
+        ]
+    if not finished:
+        return None
+    finished.sort(reverse=True)
+    return finished[0][1]

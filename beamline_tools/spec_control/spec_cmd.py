@@ -350,9 +350,29 @@ def _parse_show_elements(out: str, _a) -> dict:
 def _parse_wbeamsize(out: str, _a) -> dict:
     size_m = re.search(r"Beam size \(X, Z\):\s*([\d.]+)\s*,\s*([\d.]+)", out)
     mode_m = re.search(r"Beam mode \(X, Z\):\s*(\S+)\s*,\s*(\S+)", out)
+    h_mm = float(size_m.group(1)) if size_m else None
+    v_mm = float(size_m.group(2)) if size_m else None
+
+    # Persist the measured FWHM (mm → µm) on the active experiment row so
+    # the dashboard's Beam field can switch from the configured big/focused
+    # mode strings to the actual numbers once beamline_alignment has run.
+    # Best-effort: a missing experiment / DB error must not break the read.
+    if h_mm is not None or v_mm is not None:
+        try:
+            xid = get_experiment_id()
+            if xid:
+                from orchestration.plan_store.session import record_measured_beam_size
+                record_measured_beam_size(
+                    xid,
+                    h_mm * 1000.0 if h_mm is not None else None,
+                    v_mm * 1000.0 if v_mm is not None else None,
+                )
+        except Exception:
+            pass
+
     return {
-        "horizontal_fwhm_mm": float(size_m.group(1)) if size_m else None,
-        "vertical_fwhm_mm": float(size_m.group(2)) if size_m else None,
+        "horizontal_fwhm_mm": h_mm,
+        "vertical_fwhm_mm": v_mm,
         "horizontal_mode": mode_m.group(1) if mode_m else None,
         "vertical_mode": mode_m.group(2) if mode_m else None,
         "raw": out,

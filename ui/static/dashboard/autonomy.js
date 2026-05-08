@@ -458,10 +458,6 @@ function renderAutonomy(orc, dash) {
         setText("cur-phase", orc.phase);
     }
 
-    const summary = document.getElementById("latest-summary");
-    if (summary && orc && orc.last_summary) {
-        summary.textContent = orc.last_summary;
-    }
 
     if (!dash) {
         renderConfigTile(null);
@@ -651,16 +647,6 @@ function renderAutonomy(orc, dash) {
                 ? formatCrystal(dash.experiment.mono_crystal)
                 : (dash.experiment.mono_crystal || "--")),
         );
-        // Beam-size display: prefer measured FWHM (from beamline_alignment)
-        // when available, fall back to operator-configured big/focused mode.
-        // TODO: the measured beam size is NOT yet persisted to the DB. To
-        // wire this end-to-end, add `beam_h_fwhm_um`/`beam_v_fwhm_um` to
-        // orchestration/plan_store/models.py:Experiment (or PhaseRun for
-        // bl_align), populate them from the `wbeamsize` parser
-        // (beamline_tools/spec_control/spec_cmd.py:_parse_wbeamsize) when
-        // align_beamline completes, and surface the values via
-        // ui/server/routers/dashboard_api.py /status. Once that exists,
-        // the keys read here just light up automatically.
         setText(
             "exp-beam",
             (typeof formatBeamSize === "function"
@@ -885,6 +871,147 @@ async function stopSpec() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Log-tail panels (Agent Output + SPEC Output)
+// ---------------------------------------------------------------------------
+
+const _tailState = {
+    agent: { path: null, offset: 0, started: false },
+    spec:  { path: null, offset: 0, started: false },
+};
+
+const _LOG_TAIL_MAX_CHARS = 64 * 1024;
+
+function _appendToLogPanel(panelId, content) {
+    const el = document.getElementById(panelId);
+    if (!el) return;
+    if (!_tailState[panelId === "agent-output" ? "agent" : "spec"].started) {
+        el.textContent = "";  // clear placeholder on first content
+        _tailState[panelId === "agent-output" ? "agent" : "spec"].started = true;
+    }
+    el.textContent += content;
+    // Trim to keep DOM responsive
+    if (el.textContent.length > _LOG_TAIL_MAX_CHARS) {
+        el.textContent = el.textContent.slice(-_LOG_TAIL_MAX_CHARS);
+    }
+    el.scrollTop = el.scrollHeight;
+}
+
+async function refreshAgentOutput() {
+    const st = _tailState.agent;
+    try {
+        const u = `${API}/api/phase/log_tail?offset=${st.offset}`;
+        const r = await fetch(u);
+        if (!r.ok) return;
+        const j = await r.json();
+        const sub = document.getElementById("agent-output-sub");
+        if (sub) sub.textContent = j.slug ? `${j.slug}` : "idle";
+        // Reset on path change (new run started, log file rotated).
+        if (j.path !== st.path) {
+            st.path = j.path;
+            st.offset = 0;
+            st.started = false;
+            const el = document.getElementById("agent-output");
+            if (el) el.innerHTML = '<span class="muted">Waiting for the agent…</span>';
+            if (j.path) {
+                // Re-fetch from start of the new file.
+                const r2 = await fetch(`${API}/api/phase/log_tail?slug=${encodeURIComponent(j.slug)}&offset=0`);
+                if (r2.ok) {
+                    const j2 = await r2.json();
+                    if (j2.content) _appendToLogPanel("agent-output", j2.content);
+                    st.offset = j2.offset;
+                }
+            }
+            return;
+        }
+        if (j.content) _appendToLogPanel("agent-output", j.content);
+        st.offset = j.offset;
+    } catch (_) {}
+}
+
+async function refreshSpecOutput() {
+    const st = _tailState.spec;
+    try {
+        const u = `${API}/api/spec_log/tail?offset=${st.offset}`;
+        const r = await fetch(u);
+        if (!r.ok) return;
+        const j = await r.json();
+        const sub = document.getElementById("spec-output-sub");
+        if (sub && j.path) {
+            // Show just the basename.
+            const parts = j.path.split("/");
+            sub.textContent = parts[parts.length - 1];
+        } else if (sub) {
+            sub.textContent = "no log";
+        }
+        if (j.path !== st.path) {
+            st.path = j.path;
+            st.offset = 0;
+            st.started = false;
+            const el = document.getElementById("spec-output");
+            if (el) el.innerHTML = '<span class="muted">Waiting for SPEC log…</span>';
+            if (j.path) {
+                const r2 = await fetch(`${API}/api/spec_log/tail?offset=0`);
+                if (r2.ok) {
+                    const j2 = await r2.json();
+                    if (j2.content) _appendToLogPanel("spec-output", j2.content);
+                    st.offset = j2.offset;
+                }
+            }
+            return;
+        }
+        if (j.content) _appendToLogPanel("spec-output", j.content);
+        st.offset = j.offset;
+    } catch (_) {}
+}
+
+async function refreshSafetySwitches() {
+    try {
+        const r = await fetch(API + "/api/safety_switches");
+        if (!r.ok) return;
+        const j = await r.json();
+        const rd = document.getElementById("sw-spec-read");
+        const wr = document.getElementById("sw-spec-write");
+        if (rd) rd.checked = !!j.spec_read_enabled;
+        if (wr) wr.checked = !!j.spec_write_enabled;
+    } catch (_) {}
+}
+
+async function setSafetySwitch(key, enabled) {
+    try {
+        const r = await fetch(API + "/api/safety_switches", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ [key]: !!enabled }),
+        });
+        if (!r.ok) {
+            const j = await r.json().catch(() => ({}));
+            alert("Toggle failed: " + (j.detail || j.error || r.status));
+            refreshSafetySwitches();  // re-sync UI to actual state
+            return;
+        }
+    } catch (e) {
+        alert("Toggle failed: " + (e && e.message ? e.message : e));
+        refreshSafetySwitches();
+    }
+}
+
+async function stopAgents() {
+    if (!confirm("SIGTERM every running phase agent?")) return;
+    try {
+        const r = await fetch(API + "/api/phase/kill_all", { method: "POST" });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+            alert("Stop agents failed: " + (j.detail || j.error || r.status));
+            return;
+        }
+        if (j.count === 0) alert("No phase agents were running.");
+    } catch (e) {
+        alert("Stop agents failed: " + (e && e.message ? e.message : e));
+    }
+    refreshAutonomy();
+}
+
 
 function escapeHtml(s) {
     if (s == null) return "";
@@ -980,6 +1107,12 @@ function wirePlanAuthor() {
 document.addEventListener("DOMContentLoaded", () => {
     wirePlanAuthor();
     refreshAutonomy();
+    refreshSafetySwitches();
+    setInterval(refreshSafetySwitches, 5000);
+    refreshAgentOutput();
+    refreshSpecOutput();
+    setInterval(refreshAgentOutput, 1500);
+    setInterval(refreshSpecOutput, 1500);
     autonomyPollTimer = setInterval(refreshAutonomy, POLL_MS);
     // Server health signal
     const srvDot = document.getElementById("server-dot");

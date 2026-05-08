@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BL15-2 Autonomous Beamline</title>
     <link rel="stylesheet" href="/static/dashboard/static/dashboard.css?v=4">
-    <link rel="stylesheet" href="/static/dashboard/autonomy.css?v=4">
+    <link rel="stylesheet" href="/static/dashboard/autonomy.css?v=5">
 </head>
 <body>
 
@@ -48,8 +48,8 @@
      tile owns its own Run/Kill buttons; this strip is now read-only. -->
 <div class="autonomy-bar">
     <div class="autonomy-bar-left">
-        <span class="autonomy-bar-hint">Click a phase tile below to expand its actions.</span>
-        <button class="btn-autonomy" id="btn-stop-spec" onclick="stopSpec()" title="Issue a ctrl-C in SPEC">✋ Stop SPEC</button>
+        <button class="btn-autonomy" id="btn-stop-spec" onclick="stopSpec()" title="Issue a ctrl-C in SPEC">⏹ Stop SPEC</button>
+        <button class="btn-autonomy" id="btn-stop-agents" onclick="stopAgents()" title="SIGTERM every running phase agent">⏹ Stop agents</button>
         <button class="btn-autonomy" id="btn-post-status" onclick="postStatusUpdate()" title="Post a status update to the Slack Chat channel.">✉ Post status</button>
     </div>
     <div class="autonomy-bar-center">
@@ -57,6 +57,14 @@
             <span id="orc-elapsed">–</span>h / <span id="orc-total">–</span>h</span>
     </div>
     <div class="autonomy-bar-right">
+        <label class="safety-switch" title="Allow agents to issue read-only spec_cmd calls">
+            <input type="checkbox" id="sw-spec-read" onchange="setSafetySwitch('spec_read_enabled', this.checked)">
+            <span class="safety-switch-label">SPEC read</span>
+        </label>
+        <label class="safety-switch" title="Allow agents to issue mutating spec_cmd calls (mv, scans, macros)">
+            <input type="checkbox" id="sw-spec-write" onchange="setSafetySwitch('spec_write_enabled', this.checked)">
+            <span class="safety-switch-label">SPEC write</span>
+        </label>
         <span class="metric-pill" id="orc-agent-pill" title="Agent backend status">
             <span class="label">Agent</span>
             <span id="orc-agent" class="dot-bad">checking…</span>
@@ -70,6 +78,7 @@
 <div class="main-grid">
     <!-- LEFT COLUMN -->
     <div class="col-left">
+        <div class="tile-hint">Click a phase tile below to expand its actions.</div>
         <div class="phase-grid" id="phase-grid">
 
             <!-- ==== Experiment Configuration (mandatory first step) ==== -->
@@ -226,8 +235,19 @@
         <!-- Agent I/O row: summary, guidance, chat -->
         <div class="agent-row">
             <div class="panel">
-                <div class="panel-header">Latest agent output</div>
-                <div id="latest-summary" class="agent-summary"><div class="muted">Waiting for the agent…</div></div>
+                <div class="panel-header">
+                    Agent Output
+                    <span class="panel-sub" id="agent-output-sub">idle</span>
+                </div>
+                <pre id="agent-output" class="log-tail"><span class="muted">Waiting for the agent…</span></pre>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    SPEC Output
+                    <span class="panel-sub" id="spec-output-sub">--</span>
+                </div>
+                <pre id="spec-output" class="log-tail"><span class="muted">Waiting for SPEC log…</span></pre>
             </div>
 
             <div class="panel">
@@ -269,6 +289,6 @@
 </div>
 
 <script src="/static/dashboard/static/dashboard.js?v=4"></script>
-<script src="/static/dashboard/autonomy.js?v=4"></script>
+<script src="/static/dashboard/autonomy.js?v=5"></script>
 </body>
 </html>
