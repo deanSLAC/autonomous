@@ -84,11 +84,28 @@ def resume():
 
 @router.post("/stop")
 def stop():
+    """Stop the orchestrator AND kill the active control agent (if any).
+
+    Two-stage stop: the orchestrator state machine pauses its loop, and
+    the agents-registry kill terminates the live Claude subprocess. We
+    do both because the orchestrator's own `stop()` only manages the
+    planner/loop side — the spawned control agent runs independently
+    and would otherwise keep going.
+    """
+    from orchestration.agents import find_active_control, kill as kill_agent
+
     orch = get_orchestrator()
     if orch is None:
         raise HTTPException(503, "orchestrator not initialized")
     orch.stop()
-    return {"ok": True}
+
+    killed_run_id = None
+    active = find_active_control()
+    if active is not None:
+        if kill_agent(active["id"], reason="ui:stop-button"):
+            killed_run_id = active["id"]
+
+    return {"ok": True, "killed_agent_run_id": killed_run_id}
 
 
 @router.post("/reset")
@@ -109,8 +126,6 @@ def reset(payload: dict | None = None):
     if orch is not None:
         # Clear transient in-memory state so the next Start is clean.
         orch.state.turn_count = 0
-        orch.state.last_summary = ""
-        orch.state.last_images = []
         orch.checker = type(orch.checker)()  # fresh PreconditionChecker
     return {"ok": True, "experiment_id": experiment_id, **summary}
 

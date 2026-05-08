@@ -91,8 +91,8 @@ class Settings(BaseSettings):
 
     SLACK_BOT_TOKEN: str = ""
     SLACK_APP_TOKEN: str = ""
-    SLACK_LLM_CHANNEL_ID: str = ""
-    SLACK_USERS_CHANNEL_ID: str = ""
+    SLACK_STEERING_CHANNEL_ID: str = ""
+    SLACK_CHAT_CHANNEL_ID: str = ""
 
     SPEC_MOCK: str = ""
     BL_SCAN_DIR: str = ""
@@ -168,8 +168,7 @@ OPENCODE_MESSAGE_TIMEOUT_S = None
 # Orchestrator cadences (internal)
 # ---------------------------------------------------------------------------
 ORCHESTRATOR_ENABLED = True
-ORCHESTRATOR_TICK_S = 5.0
-STATUS_POST_INTERVAL_S = 900.0
+ORCHESTRATOR_TICK_S = 2.0
 DEFAULT_BEAMTIME_HOURS = 48.0
 
 # ---------------------------------------------------------------------------

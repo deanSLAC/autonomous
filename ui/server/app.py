@@ -14,23 +14,38 @@ import logging.handlers
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import uuid
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from orchestration import api as orch_api
+from orchestration.chat import (
+    ChatRouter,
+    archive_session,
+    get_active_session_by_key,
+    set_chat_router_singleton,
+)
 from orchestration.config import OPENCODE_URL, llm_enabled
 from ui.adapters.slack_bridge import SlackBridge
 from ui.config import BASE_PATH, PORT, PROJECT_ROOT, STATIC_DIR
 from ui.server.routers import (
+    agents_api,
     config_api,
     dashboard_api,
     insight_api,
     orchestrator_api,
     plan_api,
     sample_holders_api,
+    slack_status_api,
     viewer_api,
 )
+
+
+# Set at startup so the manual /api/slack/status endpoint can post
+# directly when the orchestrator isn't running.
+_slack_bridge_for_status = None
 
 
 _LOG_DIR = PROJECT_ROOT / "logs"
@@ -68,6 +83,11 @@ TOOL_CATEGORIES = [
 def create_app() -> FastAPI:
     """Build the FastAPI app. Orchestration wires itself in via lifespan."""
     slack_bridge = SlackBridge()
+    # Expose the bridge via a module-level reference so the manual
+    # /api/slack/status endpoint can fall back to it when the orchestrator
+    # is not running.
+    global _slack_bridge_for_status
+    _slack_bridge_for_status = slack_bridge
     connected_ws: set[WebSocket] = set()
     event_loop_holder: dict = {"loop": None}
 
@@ -95,40 +115,35 @@ def create_app() -> FastAPI:
         # Tell orchestration how to emit events + post status updates.
         orch_api.set_event_emitter(broadcast)
         orch_api.set_slack_status_post(lambda text: slack_bridge.post_status_update(text))
+        orch_api.set_slack_post_steering_reply(slack_bridge.post_steering_reply)
         orch_api.set_insight_record_turn(insight_api.record_turn)
 
         # Wire Slack bridge → orchestration routing callbacks.
-        slack_bridge.set_staff_callback(orch_api.on_staff_message)
-
-        def _on_llm_thread_reply(text: str, staff_name: str):
-            result = orch_api.on_llm_thread_reply(text, staff_name)
-            if result:
-                slack_bridge.post_llm_response(result["text"])
-
-        slack_bridge.set_llm_thread_callback(_on_llm_thread_reply)
-
-        def _on_dm(text: str, staff_name: str, dm_thread_key: str):
-            reply = orch_api.on_dm_message(text, staff_name, dm_thread_key)
-            if reply:
-                channel, thread_ts = dm_thread_key.split(":", 1)
-                slack_bridge.post_dm_reply(channel, thread_ts, reply)
-
-        slack_bridge.set_dm_callback(_on_dm)
-
         def _on_setdir(dir_name: str) -> str:
-            msg = orch_api.on_setdir(dir_name)
-            slack_bridge.reset_thread()
-            return msg
-
-        slack_bridge.set_setdir_callback(_on_setdir)
+            return orch_api.on_setdir(dir_name)
 
         def _on_resolve(intervention_id: str, status: str, staff_name: str):
             orch_api.on_intervention_resolve(
                 intervention_id, status, staff_name, event_loop_holder["loop"],
             )
 
+        slack_bridge.set_steering_callback(orch_api.on_steering_message)
+        slack_bridge.set_chat_callback(orch_api.on_chat_message)
+        slack_bridge.set_setdir_callback(_on_setdir)
         slack_bridge.set_intervention_resolve_callback(_on_resolve)
         slack_bridge.start()
+
+        # Wire the chat router. Slack chat / DM / UI chat box all funnel
+        # through ChatRouter.handle_inbound, which spawns chat-claude.sh
+        # subprocesses per ChatSession and posts the agent's reply back
+        # to Slack and over the WebSocket to the UI.
+        chat_router = ChatRouter(
+            slack_post_chat_reply=slack_bridge.post_chat_reply,
+            slack_post_chat_root=slack_bridge.post_chat_root,
+            ws_emit=broadcast,
+        )
+        set_chat_router_singleton(chat_router)
+        orch_api.set_chat_handler(chat_router.handle_inbound)
 
         # Run orchestration's own lifespan (DB init, Orchestrator wiring).
         async with orch_api.lifespan(app):
@@ -143,12 +158,14 @@ def create_app() -> FastAPI:
         StaticFiles(directory=str(STATIC_DIR)),
         name="static",
     )
+    app.include_router(agents_api.router)
     app.include_router(config_api.router)
     app.include_router(dashboard_api.router)
     app.include_router(orchestrator_api.router)
     app.include_router(plan_api.router)
     app.include_router(insight_api.router)
     app.include_router(sample_holders_api.router)
+    app.include_router(slack_status_api.router)
     app.include_router(viewer_api.router)
 
     # -- health ---------------------------------------------------------
@@ -241,6 +258,12 @@ def create_app() -> FastAPI:
         )
 
     # -- chat endpoint --------------------------------------------------
+    #
+    # The new flow: POST /api/chat enqueues the inbound through the
+    # ChatRouter, which spawns a chat-claude.sh agent for the session.
+    # The actual reply arrives asynchronously over the WebSocket as a
+    # `chat_reply` event. The endpoint just returns a queued/started
+    # status immediately.
 
     @app.post(f"{BASE_PATH}/api/chat")
     async def chat(payload: dict):
@@ -248,23 +271,50 @@ def create_app() -> FastAPI:
         if not user_text:
             return JSONResponse({"error": "Empty message"}, status_code=400)
 
-        page = payload.get("page")
-        page_context = payload.get("page_context")
-        if not isinstance(page_context, dict):
-            page_context = None
+        ui_session_id = payload.get("ui_session_id")
+        if not ui_session_id:
+            # Mint one for the client and tell it to remember (the
+            # frontend can persist this in localStorage and re-send).
+            ui_session_id = uuid.uuid4().hex[:12]
 
-        slack_bridge.post_user_message(user_text)
-        try:
-            result = orch_api.handle_chat(
-                user_text,
-                experiment_id=payload.get("experiment_id"),
-                page=page,
-                page_context=page_context,
+        from orchestration.chat import chat_router_singleton
+        router = chat_router_singleton()
+        if router is None:
+            return JSONResponse(
+                {"error": "Chat router not initialized"}, status_code=503,
             )
-        except RuntimeError as e:
-            return JSONResponse({"error": str(e)}, status_code=503)
-        slack_bridge.post_llm_response(result["response"])
-        return result
+
+        # Run on a worker thread — handle_inbound does sync DB + spawn().
+        result = await asyncio.to_thread(
+            router.handle_inbound,
+            text=user_text,
+            author=payload.get("author") or "ui-user",
+            channel=None,
+            thread_ts=None,
+            source="ui",
+            ui_session_id=ui_session_id,
+        )
+        return {
+            "queued": True,
+            "ui_session_id": ui_session_id,
+            "session_id": result.get("session_id"),
+            "thread_key": result.get("thread_key"),
+        }
+
+    @app.post(f"{BASE_PATH}/api/chat/clear")
+    async def chat_clear(payload: dict):
+        """Archive the current UI chat session and return a fresh ui_session_id.
+
+        The client is expected to replace its stored ui_session_id with
+        the returned value — subsequent messages start a brand-new session.
+        """
+        ui_session_id = (payload.get("ui_session_id") or "").strip()
+        if ui_session_id:
+            thread_key = f"ui:{ui_session_id}"
+            existing = await asyncio.to_thread(get_active_session_by_key, thread_key)
+            if existing is not None:
+                await asyncio.to_thread(archive_session, existing["id"])
+        return {"ok": True, "new_ui_session_id": uuid.uuid4().hex[:12]}
 
     # -- tool catalog endpoint ------------------------------------------
 
@@ -305,7 +355,7 @@ def create_app() -> FastAPI:
     @app.post(f"{BASE_PATH}/api/reset")
     async def reset():
         orch_api.reset_conversation()
-        slack_bridge.reset_thread()
+        # Slack thread state no longer lives in the bridge; nothing to reset here.
         return {"status": "reset"}
 
     # -- WebSocket ------------------------------------------------------

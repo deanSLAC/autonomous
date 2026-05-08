@@ -51,6 +51,7 @@
         <button class="btn-autonomy" id="btn-resume" onclick="autonomyAction('resume')">▶ Resume</button>
         <button class="btn-autonomy" id="btn-stop" onclick="autonomyAction('stop')" title="Halt the agent loop. The agent stops issuing turns; config/plan are kept. Clicking Start resumes from the saved phase — action history and phase flags are NOT cleared.">⏹ Stop</button>
         <button class="btn-autonomy" id="btn-reset" onclick="resetRun()" title="Stop the run AND clear action history + pending interventions + phase back to setup. Use this to redo the run (e.g. after toggling phase enables). Config and sample plan are kept.">↺ Reset</button>
+        <button class="btn-autonomy" id="btn-post-status" onclick="postStatusUpdate()" title="Post a status update to the Slack Chat channel.">✉ Post status</button>
     </div>
     <div class="autonomy-bar-center">
         <span class="metric-pill"><span class="label">Turn</span> <span id="orc-turn">–</span></span>
@@ -257,7 +258,8 @@
                     <textarea id="chat-input" rows="3"
                               placeholder="Ask the agent anything…  (Enter sends, Shift+Enter newline)"
                               onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChat();}"></textarea>
-                    <button onclick="sendChat()">Send</button>
+                    <button class="chat-send-btn" onclick="sendChat()">Send</button>
+                    <button class="chat-clear-btn" onclick="clearChat()" title="Archive this session and start a fresh one.">Clear</button>
                 </div>
             </div>
 

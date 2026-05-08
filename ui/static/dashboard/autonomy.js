@@ -121,36 +121,98 @@ async function submitGuidance() {
     refreshAutonomy();
 }
 
+// -- chat session id (per-tab, persisted in localStorage) -----------
+function _chatUiSessionId() {
+    let sid = null;
+    try { sid = localStorage.getItem("chat_ui_session_id"); } catch (_) {}
+    if (!sid) {
+        // RFC4122-ish 12-hex; matches what the server mints.
+        sid = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "").slice(0, 12)
+               : Math.random().toString(16).slice(2, 14));
+        try { localStorage.setItem("chat_ui_session_id", sid); } catch (_) {}
+    }
+    return sid;
+}
+
+function _setChatUiSessionId(sid) {
+    try { localStorage.setItem("chat_ui_session_id", sid); } catch (_) {}
+}
+
+// -- WebSocket: receives the agent's chat_reply ----------------------
+let _chatWS = null;
+function _ensureChatWS() {
+    if (_chatWS && _chatWS.readyState <= 1) return _chatWS;
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    try {
+        _chatWS = new WebSocket(`${proto}://${location.host}/ws`);
+    } catch (e) { console.error("chat ws connect failed", e); return null; }
+    _chatWS.onmessage = (ev) => {
+        let m;
+        try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === "chat_reply" && m.text) {
+            showTyping(false);
+            appendChat("assistant", m.text);
+        }
+    };
+    _chatWS.onclose = () => { setTimeout(_ensureChatWS, 4000); };
+    return _chatWS;
+}
+
 async function sendChat() {
     const input = document.getElementById("chat-input");
-    const btn = document.querySelector(".chat-compose button");
+    const btn = document.querySelector(".chat-compose button.chat-send-btn")
+              || document.querySelector(".chat-compose button");
     const text = input.value.trim();
     if (!text) return;
     input.value = "";
     appendChat("user", text);
     if (btn) { btn.disabled = true; btn.textContent = "…"; }
     showTyping(true);
+    _ensureChatWS();
     try {
-        const expSel = document.getElementById("experiment-select");
-        const expId = expSel ? expSel.value : null;
         const r = await fetch(API + "/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: text, experiment_id: expId || undefined }),
+            body: JSON.stringify({
+                message: text,
+                ui_session_id: _chatUiSessionId(),
+            }),
         });
         const j = await r.json().catch(() => ({}));
-        showTyping(false);
         if (!r.ok) {
+            showTyping(false);
             appendChat("assistant", "Error: " + (j.error || `HTTP ${r.status}`));
-        } else {
-            appendChat("assistant", j.response || j.error || "(no response)");
         }
+        // Reply will arrive over the WebSocket as type=chat_reply.
+        // Keep the typing indicator visible until then.
     } catch (e) {
         showTyping(false);
         appendChat("assistant", "Error: " + e);
     } finally {
         if (btn) { btn.disabled = false; btn.textContent = "Send"; }
     }
+}
+
+async function clearChat() {
+    const sid = _chatUiSessionId();
+    try {
+        const r = await fetch(API + "/api/chat/clear", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ui_session_id: sid }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (j.new_ui_session_id) {
+            _setChatUiSessionId(j.new_ui_session_id);
+        }
+    } catch (e) {
+        console.error("chat clear failed", e);
+    }
+    const log = document.getElementById("chat-log");
+    if (log) {
+        log.innerHTML = '<div class="muted">No messages yet.</div>';
+    }
+    showTyping(false);
 }
 
 function appendChat(role, text) {
@@ -600,6 +662,26 @@ async function resolveIntervention(id, status) {
         body: JSON.stringify({ status, resolver: "web-user" }),
     });
     refreshAutonomy();
+}
+
+async function postStatusUpdate() {
+    const text = prompt("Status text to post to Chat channel:");
+    if (!text) return;
+    try {
+        const r = await fetch(API + "/api/slack/status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+            alert("Error: " + (j.detail || j.error || r.status));
+            return;
+        }
+        alert("Posted!");
+    } catch (e) {
+        alert("Post failed: " + (e && e.message ? e.message : e));
+    }
 }
 
 async function resetRun() {

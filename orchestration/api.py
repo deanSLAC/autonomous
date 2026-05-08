@@ -4,10 +4,10 @@ Everything the UI or Slack adapter needs goes through this module:
 
   * startup wiring (`configure(app)`) installs the FastAPI lifespan,
     opencode health check, Slack callbacks, and orchestrator.
-  * chat: `handle_chat(text, experiment_id, page, page_context)` builds
-    the planner-state prefix and hands the turn to the conversation
-    service. The UI routers do not construct `OpenCodeClient` or touch
-    `planner.snapshot` directly.
+  * chat: `set_chat_handler(fn)` lets `orchestration.chat.ChatRouter`
+    register itself; `on_chat_message(...)` routes Slack chat / DM
+    inbound messages to the router. The router spawns chat-claude.sh
+    subprocesses per session and posts replies back via Slack + WS.
   * passthroughs for the plan store and staff guidance.
 
 This module also owns the spec_cmd experiment-id setter so the tools
@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 _conversation: Optional[ConversationService] = None
 _event_emitter: Callable[[dict], Any] = lambda evt: None
 _slack_status_post: Callable[[str], Any] = lambda text: None
+_slack_post_steering_reply: Callable[[str, str, str], Any] = lambda c, t, s: None
 _insight_record_turn: Optional[Callable[[dict], dict]] = None
 
 
@@ -74,6 +75,11 @@ def set_event_emitter(fn: Callable[[dict], Any]) -> None:
 def set_slack_status_post(fn: Callable[[str], Any]) -> None:
     global _slack_status_post
     _slack_status_post = fn
+
+
+def set_slack_post_steering_reply(fn: Callable[[str, str, str], Any]) -> None:
+    global _slack_post_steering_reply
+    _slack_post_steering_reply = fn
 
 
 def set_insight_record_turn(fn: Callable[[dict], dict]) -> None:
@@ -191,41 +197,13 @@ def _build_chat_context_prefix(
     return "\n\n".join(lines)
 
 
-def handle_chat(
-    user_text: str,
-    *,
-    experiment_id: str | None = None,
-    page: str | None = None,
-    page_context: dict | None = None,
-) -> dict:
-    """Process a single chat turn and return {response, images, experiment_id}.
-
-    Raises:
-        RuntimeError: if the LLM is disabled or opencode is unreachable.
-    """
-    conv = _ensure_conversation()
-    if conv is None:
-        if not llm_enabled():
-            raise RuntimeError("LLM disabled: SLAC_API_KEY required")
-        raise RuntimeError(f"opencode server at {OPENCODE_URL} is not reachable")
-    exp_id = _resolve_chat_experiment_id(experiment_id)
-    prefix = _build_chat_context_prefix(exp_id, page=page, page_context=page_context)
-    augmented = f"{prefix}\n\n[User/operator]: {user_text}"
-    result = conv.handle_message(augmented, source="web", experiment_id=exp_id)
-    return {"response": result.text, "images": result.images, "experiment_id": exp_id}
-
-
-def handle_staff_llm(text: str, staff_name: str) -> dict:
-    """Route a !LLM-tagged Slack message through the agent."""
-    conv = _ensure_conversation()
-    if conv is None:
-        raise RuntimeError("LLM not available")
-    result = conv.handle_staff_llm(
-        text, staff_name,
-        source="slack_llm_thread",
-        experiment_id=spec_cmd.get_experiment_id(),
-    )
-    return {"text": result.text, "images": result.images}
+# `handle_chat()` was the legacy synchronous chat path that ran a
+# ConversationService turn inline. It's been replaced by the chat router
+# in `orchestration.chat.handler`, which spawns chat-claude.sh agents
+# per ChatSession and pushes replies back via Slack + WebSocket.
+# `_build_chat_context_prefix` / `_resolve_chat_experiment_id` are kept
+# above — they may still be useful for any callers that want to build a
+# planner-state prefix (and removing them would be a separate cleanup).
 
 
 # ---------------------------------------------------------------------------
@@ -287,61 +265,69 @@ async def resolve_intervention_async(intervention_id: str, status: str, resolver
 # the adapter is just transport.
 # ---------------------------------------------------------------------------
 
-def on_staff_message(text: str, staff_name: str) -> None:
-    """A message in the user-facing Slack channel — logged as guidance."""
-    _event_emitter({"type": "staff_message", "name": staff_name, "text": text})
-    coordinator.record_guidance(
-        experiment_id=spec_cmd.get_experiment_id(),
-        source="slack", author=staff_name, text=text,
-    )
+def on_steering_message(
+    text: str, author: str, channel: str, thread_ts: str, is_stop: bool,
+) -> None:
+    """Slack steering channel inbound — record on the steering queue.
 
-
-def on_llm_thread_reply(text: str, staff_name: str) -> dict | None:
-    """A !LLM-tagged staff message — feed it into the conversation + guidance queue.
-
-    Returns the LLM's reply dict {text, images} so the Slack adapter can
-    post it back to the thread. Returns None if the LLM is disabled.
+    The orchestrator state machine picks the row up, routes it to a control
+    agent, and posts the agent's response back to `(channel, thread_ts)`.
     """
-    _event_emitter({"type": "staff_in_llm", "name": staff_name, "text": text})
-    coordinator.record_guidance(
-        experiment_id=spec_cmd.get_experiment_id(),
-        source="slack-steering", author=staff_name, text=text,
-    )
-    conv = _ensure_conversation()
-    if conv is None:
-        return None
-    result = conv.handle_staff_llm(
-        text, staff_name,
-        source="slack_llm_thread",
-        experiment_id=spec_cmd.get_experiment_id(),
-    )
+    from orchestration.plan_store.client import add_steering
+
     _event_emitter({
-        "type": "assistant", "text": result.text, "images": result.images,
+        "type": "steering_message",
+        "name": author,
+        "text": text,
+        "is_stop": is_stop,
     })
-    return {"text": result.text, "images": result.images}
+    add_steering(
+        experiment_id=spec_cmd.get_experiment_id(),
+        source="slack-steering",
+        author=author,
+        text=text,
+        slack_channel=channel,
+        slack_thread_ts=thread_ts,
+        is_stop=is_stop,
+    )
 
 
-_dm_conversations: dict[str, ConversationService] = {}
+_chat_handler: Optional[Callable[..., None]] = None
 
 
-def on_dm_message(text: str, staff_name: str, dm_thread_key: str) -> str | None:
-    """A DM to the bot — each thread gets its own ConversationService."""
-    if dm_thread_key not in _dm_conversations:
-        if not llm_enabled():
-            logger.warning("Cannot handle DM: SLAC_API_KEY required")
-            return None
-        _dm_conversations[dm_thread_key] = ConversationService(_make_agent_client())
-    dm_conv = _dm_conversations[dm_thread_key]
-    try:
-        result = dm_conv.handle_staff_llm(
-            text, staff_name,
-            source="slack_dm",
-            experiment_id=spec_cmd.get_experiment_id(),
+def set_chat_handler(fn: Callable[..., None]) -> None:
+    """The chat-handler subagent will register the actual chat router here."""
+    global _chat_handler
+    _chat_handler = fn
+
+
+def on_chat_message(
+    text: str, author: str, channel: str, thread_ts: str, source: str,
+) -> None:
+    """Slack chat channel or DM inbound — hand off to the chat handler.
+
+    The chat handler is wired via `set_chat_handler(fn)`; until it is set,
+    we just log the message so nothing is silently dropped. The chat
+    handler subagent will replace this stub with full routing (per-thread
+    ChatSession + outbound Slack reply).
+    """
+    _event_emitter({
+        "type": "chat_message",
+        "name": author,
+        "text": text,
+        "source": source,
+    })
+    handler = _chat_handler
+    if handler is None:
+        logger.info(
+            "chat msg [%s/%s/%s/%s]: %s",
+            source, channel, thread_ts, author, text[:120],
         )
-    except Exception as e:
-        logger.error("DM conversation error: %s", e, exc_info=True)
-        return f"Error: {e}"
-    return result.text
+        return
+    handler(
+        text=text, author=author, channel=channel,
+        thread_ts=thread_ts, source=source,
+    )
 
 
 def on_setdir(dir_name: str) -> str:
@@ -408,6 +394,18 @@ async def lifespan(app):
     except Exception as e:
         logger.error("init_db failed: %s", e, exc_info=True)
 
+    # 1b. Purge orphan AgentRun rows from a previous server crash —
+    #     killpg any still-running claude subprocesses we own and mark
+    #     the rows completed before the orchestrator state machine
+    #     reads from `agentrun`.
+    try:
+        from orchestration.agents import purge_orphans_at_startup
+        n_purged = await asyncio.to_thread(purge_orphans_at_startup)
+        if n_purged:
+            logger.info("startup: purged %d orphan agent run(s)", n_purged)
+    except Exception as e:
+        logger.error("purge_orphans_at_startup failed: %s", e, exc_info=True)
+
     # 2. Conversation (LLM client) — gated on the configured backend.
     if llm_enabled():
         try:
@@ -433,15 +431,16 @@ async def lifespan(app):
         except Exception as e:
             logger.error("Failed to initialize agent client: %s", e)
 
-    # 3. Orchestrator
-    if _conversation is not None:
-        orch = Orchestrator(
-            _conversation,
-            emit=lambda evt: _event_emitter(evt),
-            slack_status_post=lambda text: _slack_status_post(text),
-        )
-        set_orchestrator(orch)
-        logger.info("Orchestrator initialized")
+    # 3. Orchestrator — no longer depends on the LLM. Control agents get
+    #    their own claude session via scripts/control-claude.sh; the loop
+    #    itself just polls SQL and spawns/kills/Slack-posts.
+    orch = Orchestrator(
+        emit=lambda evt: _event_emitter(evt),
+        slack_status_post=lambda text: _slack_status_post(text),
+        slack_post_steering_reply=lambda c, t, s: _slack_post_steering_reply(c, t, s),
+    )
+    set_orchestrator(orch)
+    logger.info("Orchestrator initialized")
 
     # 4. Autonomy callback wiring — intervention notifier + phase approval
     #    channel. These read back into orchestration via `coordinator`.
@@ -470,4 +469,14 @@ async def lifespan(app):
             "type": "turn_complete", "turn": _insight_record_turn(payload),
         }))
 
-    yield
+    try:
+        yield
+    finally:
+        # Teardown: kill any agent subprocesses still flagged active so
+        # they don't outlive the server (and become orphans for the next
+        # startup sweep).
+        try:
+            from orchestration.agents import kill_all_at_shutdown
+            await kill_all_at_shutdown()
+        except Exception as e:
+            logger.error("kill_all_at_shutdown failed: %s", e, exc_info=True)
