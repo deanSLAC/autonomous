@@ -31,14 +31,6 @@ from orchestration.config import AGENT_BACKEND, OPENCODE_URL, llm_enabled
 from orchestration.planner import planner as _planner
 from orchestration.planner.loop import Orchestrator, get_orchestrator, set_orchestrator
 from orchestration.planner.staff_guidance import coordinator
-from orchestration.plan_store.client import (
-    get_experiment_plan,
-    list_guidance,
-    list_open_interventions,
-    log_plan_edit,
-    record_phase_transition,
-    reset_run_state,
-)
 from orchestration.plan_store.session import get_session
 
 logger = logging.getLogger(__name__)
@@ -207,33 +199,10 @@ def _build_chat_context_prefix(
 
 
 # ---------------------------------------------------------------------------
-# Orchestrator lifecycle
+# Orchestrator state snapshot — the master start/pause/resume/stop loop
+# was retired in favour of per-phase tile launchers, so the only thing
+# the UI still asks for is the read-only snapshot.
 # ---------------------------------------------------------------------------
-
-def start_orchestrator(experiment_id: str) -> None:
-    orch = get_orchestrator()
-    if orch is None:
-        raise RuntimeError("Orchestrator not initialized (is opencode reachable?)")
-    orch.start(experiment_id)
-
-
-def pause_orchestrator() -> None:
-    orch = get_orchestrator()
-    if orch is not None:
-        orch.pause()
-
-
-def resume_orchestrator() -> None:
-    orch = get_orchestrator()
-    if orch is not None:
-        orch.resume()
-
-
-def stop_orchestrator() -> None:
-    orch = get_orchestrator()
-    if orch is not None:
-        orch.stop()
-
 
 def orchestrator_snapshot() -> dict:
     orch = get_orchestrator()

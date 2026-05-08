@@ -193,60 +193,11 @@
         </form>
     </div>
 
-    <!-- ========== HAND OFF TO AGENT (autonomous-only) ========== -->
-    <div class="section" id="autonomy-handoff" style="display: none;">
-        <div class="section-header"><h2>Start Autonomous Run</h2></div>
-        <div class="form-row">
-            <div class="form-group narrow">
-                <label>Beamtime (hours)</label>
-                <input type="number" id="beamtime_hours" step="0.5" min="0" value="48">
-            </div>
-            <div class="form-group" style="flex: 1; display: flex; align-items: end;">
-                <button type="button" class="btn btn-submit" id="start-autonomy-btn" onclick="startAutonomy()">
-                    Start Autonomous Run
-                </button>
-            </div>
-        </div>
-        <div class="checkbox-row" style="font-size: 0.85em; color: var(--text-muted); margin-top: 0.5em;">
-            Hands the experiment to the agent. Track progress on the
-            <a href="/dashboard">dashboard</a>.
-        </div>
-    </div>
 
 </div>
 
-<script src="/static/config/form.js?v=3"></script>
+<script src="/static/config/form.js?v=4"></script>
 <script>
-    async function startAutonomy() {
-        const expId = document.getElementById("experiment_id").value;
-        if (!expId) { alert("Save the experiment first."); return; }
-        const hours = parseFloat(document.getElementById("beamtime_hours").value || "48");
-        const btn = document.getElementById("start-autonomy-btn");
-        btn.disabled = true; btn.textContent = "Starting…";
-        try {
-            const r = await fetch("/api/orchestrator/start", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ experiment_id: expId, beamtime_hours: hours }),
-            });
-            const j = await r.json();
-            if (j.success) {
-                window.location.href = "/dashboard";
-            } else {
-                alert("Failed: " + (j.error || "unknown"));
-                btn.disabled = false;
-                btn.textContent = "Start Autonomous Run";
-            }
-        } catch (e) {
-            alert("Failed: " + e);
-            btn.disabled = false;
-            btn.textContent = "Start Autonomous Run";
-        }
-    }
-    document.addEventListener("autonomy-ready", () => {
-        document.getElementById("autonomy-handoff").style.display = "block";
-    });
-
     // SIM badge from /health
     fetch("/health").then(r => r.json()).then(j => {
         if (j.simulation) document.getElementById("sim-pill").style.display = "inline-block";

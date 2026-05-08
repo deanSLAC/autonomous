@@ -34,6 +34,10 @@ class Experiment(SQLModel, table=True):
     status: str = Field(default="created", index=True)  # created/aligning/collecting/done
     config_yaml: Optional[str] = None  # Full YAML text of experiment config
     data_path: Optional[str] = None  # e.g. /data/fifteen/{name}
+    # Operator-confirmed flag: spectrometer was aligned for this experiment's
+    # crystals. Gates Sample Alignment / Data Collection tiles in the
+    # dashboard. Cleared by the Reset button on the Spectrometer tile.
+    spectrometer_aligned: bool = Field(default=False)
 
 
 # ---------------------------------------------------------------------------

@@ -7,9 +7,9 @@ Exposes the AgentRun registry to the dashboard:
     GET  /api/agents/active          — fetch the active control agent row
     GET  /api/agents                 — list recent runs (limit 50)
 
-The dashboard Stop button still posts to /api/orchestrator/stop — that
-handler is wired to call into `agents.kill` itself so older UI builds
-keep working.
+In the per-phase model, kills are issued via /api/phase/kill/{slug}
+(see phase_runner_api). This router serves the AgentRun registry
+directly for chat / control agents that aren't tied to a phase tile.
 """
 
 from __future__ import annotations

@@ -909,14 +909,12 @@ function submitSampleHolder() {
             showSuccess(
                 `Sample holder saved.`,
                 `${result.summary.holder}: ${result.summary.n_samples} samples. Configuration complete.`,
-                'The experiment is ready. Open the dashboard to monitor progress, or start the autonomous run from the panel below.',
+                'The experiment is ready. Open the dashboard and click Run on each phase tile to drive the run.',
                 {
                     text: 'Open Dashboard →',
                     href: '/',
                 }
             );
-            // Reveal the autonomy-handoff panel below the form
-            document.dispatchEvent(new Event("autonomy-ready"));
         } else {
             showErrors(result.errors || ['Unknown error']);
         }
@@ -1216,4 +1214,13 @@ document.addEventListener('DOMContentLoaded', function () {
             _updateMirrorsOutState(this.checked);
         });
     }
+    // Honor ?tab=samples (used by the dashboard's Sample Holder
+    // Configuration tile) so the page lands directly on the samples tab.
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        if (tab === 'samples' || tab === 'experiment') {
+            switchTab(tab);
+        }
+    } catch { /* ignore */ }
 });

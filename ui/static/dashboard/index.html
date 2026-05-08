@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BL15-2 Autonomous Beamline</title>
-    <link rel="stylesheet" href="/static/dashboard/static/dashboard.css?v=3">
-    <link rel="stylesheet" href="/static/dashboard/autonomy.css?v=3">
+    <link rel="stylesheet" href="/static/dashboard/static/dashboard.css?v=4">
+    <link rel="stylesheet" href="/static/dashboard/autonomy.css?v=4">
 </head>
 <body>
 
@@ -44,14 +44,11 @@
     <div><span class="label">Status</span><span class="value" id="exp-status">--</span></div>
 </div>
 
-<!-- Autonomy control strip -->
+<!-- Autonomy strip — start/pause/resume/stop/reset retired. Each phase
+     tile owns its own Run/Kill buttons; this strip is now read-only. -->
 <div class="autonomy-bar">
     <div class="autonomy-bar-left">
-        <button class="btn-autonomy" id="btn-start" onclick="autonomyAction('start')">▶ Start</button>
-        <button class="btn-autonomy" id="btn-pause" onclick="autonomyAction('pause')">⏸ Pause</button>
-        <button class="btn-autonomy" id="btn-resume" onclick="autonomyAction('resume')">▶ Resume</button>
-        <button class="btn-autonomy" id="btn-stop" onclick="autonomyAction('stop')" title="Halt the agent loop. The agent stops issuing turns; config/plan are kept. Clicking Start resumes from the saved phase — action history and phase flags are NOT cleared.">⏹ Stop</button>
-        <button class="btn-autonomy" id="btn-reset" onclick="resetRun()" title="Stop the run AND clear action history + pending interventions + phase back to setup. Use this to redo the run (e.g. after toggling phase enables). Config and sample plan are kept.">↺ Reset</button>
+        <span class="autonomy-bar-hint">Click a phase tile below to expand its actions.</span>
         <button class="btn-autonomy" id="btn-stop-spec" onclick="stopSpec()" title="Issue a ctrl-C in SPEC">✋ Stop SPEC</button>
         <button class="btn-autonomy" id="btn-post-status" onclick="postStatusUpdate()" title="Post a status update to the Slack Chat channel.">✉ Post status</button>
     </div>
@@ -60,12 +57,10 @@
             <span id="orc-elapsed">–</span>h / <span id="orc-total">–</span>h</span>
     </div>
     <div class="autonomy-bar-right">
-        <span class="metric-pill" id="orc-agent-pill" title="Agent backend (opencode) status">
+        <span class="metric-pill" id="orc-agent-pill" title="Agent backend status">
             <span class="label">Agent</span>
             <span id="orc-agent" class="dot-bad">checking…</span>
         </span>
-        <span class="metric-pill"><span class="label">Running</span>
-            <span id="orc-running" class="dot-bad">no</span></span>
     </div>
 </div>
 
@@ -79,10 +74,6 @@
 
             <!-- ==== Experiment Configuration (mandatory first step) ==== -->
             <div class="phase-column" data-status="pending" data-required="true">
-                <div class="phase-io phase-input">
-                    <div class="io-label">Inputs</div>
-                    <div class="io-body">User fills the <code>/config</code> form (experiment + sample holder)</div>
-                </div>
                 <div class="phase-tile tile-config" data-status="pending" data-phase="config" onclick="openConfig()">
                     <div class="tile-header">
                         <div class="tile-phase-name">Experiment Configuration</div>
@@ -99,19 +90,11 @@
                         <span class="tile-link">Open config &rarr;</span>
                     </div>
                 </div>
-                <div class="phase-io phase-output">
-                    <div class="io-label">Outputs</div>
-                    <div class="io-body">DB experiment record &amp; sample plan (<code>config_generated.mac</code> is written when the sample holder is saved)</div>
-                </div>
             </div>
 
             <!-- ==== Beamline Alignment ==== -->
             <div class="phase-column" data-status="pending">
-                <div class="phase-io phase-input">
-                    <div class="io-label">Inputs</div>
-                    <div class="io-body">Requires Experiment Config</div>
-                </div>
-                <div class="phase-tile" data-status="pending" data-phase="beamline_alignment" onclick="openPhase(this)">
+                <div class="phase-tile" data-status="pending" data-phase="beamline_alignment" onclick="onPhaseTileClick(this, event)">
                     <div class="tile-header">
                         <div class="tile-phase-name">Beamline Alignment</div>
                         <div class="tile-status-badge badge-pending">pending</div>
@@ -125,6 +108,7 @@
                     </div>
                     <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
                 </div>
+                <div class="tile-actions" hidden></div>
                 <div class="phase-io phase-output">
                     <div class="io-label">Outputs</div>
                     <div class="io-body">Aligned beam &amp; beam-size measurement; anchor position saved</div>
@@ -133,11 +117,7 @@
 
             <!-- ==== Spectrometer Alignment ==== -->
             <div class="phase-column" data-status="pending">
-                <div class="phase-io phase-input">
-                    <div class="io-label">Inputs</div>
-                    <div class="io-body">Agent tool <code>align_xes_spectrometer()</code> — per-crystal peak &amp; mono elastic</div>
-                </div>
-                <div class="phase-tile" data-status="pending" data-phase="xes_alignment" onclick="openPhase(this)">
+                <div class="phase-tile" data-status="pending" data-phase="xes_alignment" onclick="onPhaseTileClick(this, event)">
                     <div class="tile-header">
                         <div class="tile-phase-name">Spectrometer Alignment</div>
                         <div class="tile-status-badge badge-pending">pending</div>
@@ -151,19 +131,33 @@
                     </div>
                     <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
                 </div>
+                <div class="tile-actions" hidden></div>
                 <div class="phase-io phase-output">
                     <div class="io-label">Outputs</div>
                     <div class="io-body">Crystal pitch/roll set, <code>XES_EN_OFFSET</code> calibrated</div>
                 </div>
             </div>
 
+            <!-- ==== Sample Holder Configuration (mandatory before alignment) ==== -->
+            <div class="phase-column" data-status="pending">
+                <div class="phase-tile tile-sample-holder" data-status="pending" data-phase="sample_holder_config" onclick="openSampleHolderConfig()">
+                    <div class="tile-header">
+                        <div class="tile-phase-name">Sample Holder Configuration</div>
+                        <div class="tile-status-badge badge-pending">pending</div>
+                    </div>
+                    <div class="tile-body">
+                        <div class="tile-detail"><span class="detail-label">Define samples + element + measurement modes for the active holder.</span></div>
+                    </div>
+                    <div class="tile-footer">
+                        <span class="tile-time" data-field="sample_holder_count">--</span>
+                        <span class="tile-link">Open sample holder &rarr;</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- ==== Sample Alignment ==== -->
             <div class="phase-column" data-status="pending">
-                <div class="phase-io phase-input">
-                    <div class="io-label">Inputs</div>
-                    <div class="io-body">Agent tool <code>run_sample_alignment()</code> — Sz survey + per-sample centering</div>
-                </div>
-                <div class="phase-tile" data-status="pending" data-phase="sample_alignment" onclick="openPhase(this)">
+                <div class="phase-tile" data-status="pending" data-phase="sample_alignment" onclick="onPhaseTileClick(this, event)">
                     <div class="tile-header">
                         <div class="tile-phase-name">Sample Alignment</div>
                         <div class="tile-status-badge badge-pending">pending</div>
@@ -177,6 +171,7 @@
                     </div>
                     <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
                 </div>
+                <div class="tile-actions" hidden></div>
                 <div class="phase-io phase-output">
                     <div class="io-label">Outputs</div>
                     <div class="io-body">Per-sample <code>Sx / Sy / Sz</code> positions &amp; bounds populated</div>
@@ -185,11 +180,7 @@
 
             <!-- ==== Data Collection ==== -->
             <div class="phase-column" data-status="pending">
-                <div class="phase-io phase-input">
-                    <div class="io-label">Inputs</div>
-                    <div class="io-body">Agent tool <code>run_collection()</code> — multi-sample XAS/RIXS loop</div>
-                </div>
-                <div class="phase-tile" data-status="pending" data-phase="collection" onclick="openPhase(this)">
+                <div class="phase-tile" data-status="pending" data-phase="collection" onclick="onPhaseTileClick(this, event)">
                     <div class="tile-header">
                         <div class="tile-phase-name">Data Collection</div>
                         <div class="tile-status-badge badge-pending">pending</div>
@@ -203,6 +194,7 @@
                     </div>
                     <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
                 </div>
+                <div class="tile-actions" hidden></div>
                 <div class="phase-io phase-output">
                     <div class="io-label">Outputs</div>
                     <div class="io-body">SPEC data files, reps-completed per sample, real-time analysis verdicts</div>
