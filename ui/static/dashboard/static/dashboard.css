@@ -33,15 +33,15 @@
 
 /* ---- Dark mode ---- */
 [data-theme="dark"] {
-    --bg: #0f1117;
-    --bg-card: #181b23;
-    --bg-card-hover: #1e2230;
-    --bg-surface: #232733;
-    --border: #2a2e3a;
-    --border-subtle: #1e2230;
-    --text: #e2e4ea;
-    --text-dim: #8b8fa3;
-    --text-muted: #5c6070;
+    --bg: #181b24;
+    --bg-card: #21252f;
+    --bg-card-hover: #272c38;
+    --bg-surface: #2c313e;
+    --border: #3a3f4d;
+    --border-subtle: #272c38;
+    --text: #e6e8ee;
+    --text-dim: #b4b9c9;
+    --text-muted: #9aa0b3;
     --accent: #d4707e;
     --accent-dim: #3d1a22;
     --accent-hover: #e8939e;
