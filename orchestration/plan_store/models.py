@@ -192,6 +192,17 @@ class SamplePosition(SQLModel, table=True):
     i0_gain: Optional[str] = None
     i0_offset: Optional[str] = None
     i1_gain: Optional[str] = None
+    # Sample-survey results — populated by the Sample Surveyor agent at the
+    # end of its run via `upload_sample_survey_results`. The survey picks an
+    # appropriate filter setting (xas_filter is overwritten with that value
+    # for downstream Data Collection use) and records the resulting count
+    # rate at the survey energy. `survey_energy_ev` and `survey_notes` are
+    # informational. `survey_completed_at` flags the row as having been
+    # surveyed.
+    survey_counts_per_sec: Optional[float] = None
+    survey_energy_ev: Optional[float] = None
+    survey_completed_at: Optional[datetime] = None
+    survey_notes: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

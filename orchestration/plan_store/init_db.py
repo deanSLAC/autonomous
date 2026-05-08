@@ -38,6 +38,10 @@ _PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("i0_gain", "TEXT"),
         ("i0_offset", "TEXT"),
         ("i1_gain", "TEXT"),
+        ("survey_counts_per_sec", "REAL"),
+        ("survey_energy_ev", "REAL"),
+        ("survey_completed_at", "TIMESTAMP"),
+        ("survey_notes", "TEXT"),
     ],
     "sampleholder": [
         ("queue_order", "INTEGER NOT NULL DEFAULT 0"),

@@ -615,6 +615,46 @@ def get_samples_for_experiment(experiment_id: str) -> list[SamplePosition]:
         return list(session.exec(stmt).all())
 
 
+def submit_survey_results(
+    results: list[dict],
+) -> list[str]:
+    """Persist Sample-Surveyor outputs to SamplePosition rows.
+
+    Each entry in `results` must include `sample_id`, `filter_count`
+    (written to `xas_filter`), and `counts_per_sec` (written to
+    `survey_counts_per_sec`). Optional keys `survey_energy_ev` and
+    `notes` are stored as-is. `survey_completed_at` is set to the time
+    of this call. Returns the list of sample_ids actually updated
+    (skipping unknown sample_ids).
+    """
+    updated: list[str] = []
+    if not results:
+        return updated
+    with get_session() as session:
+        for entry in results:
+            sid = entry.get("sample_id")
+            if not sid:
+                continue
+            sp = session.get(SamplePosition, sid)
+            if sp is None:
+                continue
+            filter_count = entry.get("filter_count")
+            cps = entry.get("counts_per_sec")
+            if filter_count is not None:
+                sp.xas_filter = int(filter_count)
+            if cps is not None:
+                sp.survey_counts_per_sec = float(cps)
+            if entry.get("survey_energy_ev") is not None:
+                sp.survey_energy_ev = float(entry["survey_energy_ev"])
+            if entry.get("notes") is not None:
+                sp.survey_notes = str(entry["notes"])
+            sp.survey_completed_at = datetime.now()
+            session.add(sp)
+            updated.append(sid)
+        session.commit()
+    return updated
+
+
 # ---------------------------------------------------------------------------
 # CollectionScan
 # ---------------------------------------------------------------------------
@@ -651,6 +691,37 @@ def get_collection_scans_for_sample(sample_id: str) -> list[CollectionScan]:
         stmt = (
             select(CollectionScan)
             .where(CollectionScan.sample_id == sample_id)
+            .order_by(CollectionScan.scan_number)  # type: ignore[union-attr]
+        )
+        return list(session.exec(stmt).all())
+
+
+def get_collection_scans_since(
+    experiment_id: str,
+    since: datetime,
+) -> list[CollectionScan]:
+    """Return CollectionScan rows for an experiment with `timestamp > since`.
+
+    Used by `get_scans_since_last_plan_update` to feed the Planner the
+    list of scans the Data Collection agent has accumulated since the
+    plan was last revised.
+    """
+    with get_session() as session:
+        stmt = (
+            select(CollectionScan)
+            .where(CollectionScan.experiment_id == experiment_id)
+            .where(CollectionScan.timestamp > since)  # type: ignore[arg-type]
+            .order_by(CollectionScan.scan_number)  # type: ignore[union-attr]
+        )
+        return list(session.exec(stmt).all())
+
+
+def get_collection_scans_for_experiment(experiment_id: str) -> list[CollectionScan]:
+    """Return every collection scan for an experiment, ordered by scan number."""
+    with get_session() as session:
+        stmt = (
+            select(CollectionScan)
+            .where(CollectionScan.experiment_id == experiment_id)
             .order_by(CollectionScan.scan_number)  # type: ignore[union-attr]
         )
         return list(session.exec(stmt).all())

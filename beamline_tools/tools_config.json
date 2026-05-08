@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at": "2026-05-08T13:32:04.717816+00:00",
-    "total_tools": 97,
+    "generated_at": "2026-05-08T21:01:06.743845+00:00",
+    "total_tools": 101,
     "generator": "scripts/generate_tools_config.py"
   },
   "tools": [
@@ -344,6 +344,18 @@
       "comments": ""
     },
     {
+      "name": "get_comprehensive_collection_plan",
+      "cli_path": "db",
+      "description": "Return the per-sample/spot/filter/n_scans plan that Data Collection executes against. Synthesizes from ExperimentPlan.plan_json + SamplePosition rows + survey results (xas_filter, survey_counts_per_sec). planned_scans_total comes from plan_json's per-sample entry when set, falling back to xas_reps.",
+      "when_to_use": "Return the per-sample/spot/filter/n_scans plan that Data Collection executes against. Synthesizes from ExperimentPlan.plan_json plus SamplePosition rows (filter_count = xas_filter, counts_per_sec = survey_counts_per_sec). planned_scans_total comes from plan_json when set, falling back to xas_reps.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "get_experiment_config",
       "cli_path": "db",
       "description": "Return the operator-entered experiment configuration from the DB: experiment-level settings (mono crystal, beam, mirrors, sample env, data path), the configured elements, and every sample holder with its samples. This is the canonical record of what the user entered in the /config form \u2014 distinct from get_plan, which returns the live planner state.",
@@ -375,6 +387,30 @@
       "enabled": false,
       "sample_input": {},
       "sample_output": "{\"total_hours\": 12.0, \"elapsed_hours\": 4.5, \"remaining_hours\": 7.5}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "get_scans_for_active_sample",
+      "cli_path": "db",
+      "description": "Return every CollectionScan for the currently-active sample. Active = plan_json.active_sample_id (if set) else the lowest-queue-order sample whose status is not 'done' or 'skipped'. `sample_id` overrides the auto-detect.",
+      "when_to_use": "Return every CollectionScan for the currently-active sample. The active sample is the lowest-queue-order entry in plan_json's sample_queue whose status is not 'done' (or the explicit `active_sample_id` plan flag, if set). Pass `sample_id` to override the auto-detect.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "get_scans_since_last_plan_update",
+      "cli_path": "db",
+      "description": "Return the list of CollectionScan rows whose timestamp is newer than the live ExperimentPlan.updated_at. Lets the Planner see exactly what data has been collected since the plan was last revised.",
+      "when_to_use": "Return every CollectionScan row whose timestamp is newer than the live ExperimentPlan.updated_at. Used by the Planner to see what data has been collected since it last revised the plan. Sample names are joined in from SamplePosition. Read-only.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
       "simulated": false,
       "working_live": false,
       "comments": ""
@@ -521,6 +557,21 @@
         "plan": {}
       },
       "sample_output": "{\"ok\": true}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "upload_sample_survey_results",
+      "cli_path": "db",
+      "description": "Persist Sample-Surveyor outputs to SamplePosition rows. filter_count overwrites xas_filter (so Data Collection picks it up); counts_per_sec is recorded as the survey reference rate. survey_energy_ev / notes are stored as-is. survey_completed_at is set to now().",
+      "when_to_use": "Persist Sample-Surveyor results to SamplePosition. For each entry, overwrites xas_filter with the filter_count and stores counts_per_sec, survey energy, and notes. Justification is required (this is a write).",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "results": []
+      },
+      "sample_output": "",
       "simulated": false,
       "working_live": false,
       "comments": ""
@@ -713,7 +764,7 @@
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
-        "tabulated_edge_ev": 7112.0
+        "tabulated_edge_ev": 0.0
       },
       "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"tabulated_ev\": 7112.0, \"raw\": \"calibrate_mono complete. offset=-0.11\", \"elapsed_s\": 5.2}, \"elapsed_s\": 5.2}",
       "simulated": true,

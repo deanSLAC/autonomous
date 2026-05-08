@@ -1281,6 +1281,81 @@ TOOL_LINEAGE: dict[str, dict] = {
         "source_detail": "Rewrites the plan JSON in place.",
         "depends_on": ["get_plan"],
     },
+    "get_scans_since_last_plan_update": {
+        "long_description": (
+            "Return the list of CollectionScan rows whose timestamp is "
+            "newer than the live ExperimentPlan.updated_at. Lets the "
+            "Planner see exactly what data has been collected since the "
+            "plan was last revised."
+        ),
+        "python_func": (
+            "plan_store.session.get_collection_scans_since(experiment_id, "
+            "ExperimentPlan.updated_at)"
+        ),
+        "spec_command": None,
+        "output": "JSON: {ok, plan_updated_at, count, scans:[{scan_number, sample_id, sample_name, technique, filter_setting, count_time, timestamp, spec_datafile}]}",
+        "source": "autonomy_db",
+        "source_detail": "Joins CollectionScan with SamplePosition for sample_name.",
+        "depends_on": ["get_plan", "update_experiment_plan"],
+    },
+    "get_scans_for_active_sample": {
+        "long_description": (
+            "Return every CollectionScan for the currently-active "
+            "sample. Active = plan_json.active_sample_id (if set) else "
+            "the lowest-queue-order sample whose status is not 'done' "
+            "or 'skipped'. `sample_id` overrides the auto-detect."
+        ),
+        "python_func": (
+            "plan_store.session.get_collection_scans_for_sample(active_sample_id)"
+        ),
+        "spec_command": None,
+        "output": "JSON: {ok, sample_id, sample_name, count, scans:[...]}",
+        "source": "autonomy_db",
+        "source_detail": "Reads plan_json to detect the active sample, then joins SamplePosition.",
+        "depends_on": ["get_plan"],
+    },
+    "upload_sample_survey_results": {
+        "long_description": (
+            "Persist Sample-Surveyor outputs to SamplePosition rows. "
+            "filter_count overwrites xas_filter (so Data Collection picks "
+            "it up); counts_per_sec is recorded as the survey reference "
+            "rate. survey_energy_ev / notes are stored as-is. "
+            "survey_completed_at is set to now()."
+        ),
+        "python_func": "plan_store.session.submit_survey_results(results)",
+        "spec_command": None,
+        "output": "JSON: {ok, updated:[sample_ids], count}",
+        "source": "autonomy_db",
+        "source_detail": (
+            "Mutates SamplePosition.xas_filter, .survey_counts_per_sec, "
+            ".survey_energy_ev, .survey_notes, .survey_completed_at."
+        ),
+        "depends_on": [],
+    },
+    "get_comprehensive_collection_plan": {
+        "long_description": (
+            "Return the per-sample/spot/filter/n_scans plan that Data "
+            "Collection executes against. Synthesizes from "
+            "ExperimentPlan.plan_json + SamplePosition rows + survey "
+            "results (xas_filter, survey_counts_per_sec). "
+            "planned_scans_total comes from plan_json's per-sample "
+            "entry when set, falling back to xas_reps."
+        ),
+        "python_func": (
+            "session.get(SampleHolder, ...) + SamplePosition rows + "
+            "plan_store.client.get_experiment_plan(experiment_id)"
+        ),
+        "spec_command": None,
+        "output": (
+            "JSON: {ok, sample_holder_id, sample_holder_name, samples:["
+            "{sample_id, sample_name, element_symbol, total_spots, "
+            "filter_count, count_time, n_reps, counts_per_sec, "
+            "planned_time_s, planned_scans_total}]}"
+        ),
+        "source": "autonomy_db",
+        "source_detail": "Read-only synthesis across SampleHolder, SamplePosition, ExperimentPlan.",
+        "depends_on": ["get_plan", "get_experiment_config"],
+    },
 
     # ---------- Sandbox evaluation -----------------------------------------
 

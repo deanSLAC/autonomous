@@ -1076,6 +1076,104 @@ AUTONOMY_TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "get_scans_since_last_plan_update",
+            "description": (
+                "Return every CollectionScan row whose timestamp is "
+                "newer than the live ExperimentPlan.updated_at. Used by "
+                "the Planner to see what data has been collected since "
+                "it last revised the plan. Sample names are joined in "
+                "from SamplePosition. Read-only."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "experiment_id": {"type": "string",
+                                      "description": "Optional override; defaults to active experiment."},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_scans_for_active_sample",
+            "description": (
+                "Return every CollectionScan for the currently-active "
+                "sample. The active sample is the lowest-queue-order "
+                "entry in plan_json's sample_queue whose status is not "
+                "'done' (or the explicit `active_sample_id` plan flag, "
+                "if set). Pass `sample_id` to override the auto-detect."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sample_id": {"type": "string",
+                                  "description": "Override auto-detected active sample."},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "upload_sample_survey_results",
+            "description": (
+                "Persist Sample-Surveyor results to SamplePosition. "
+                "For each entry, overwrites xas_filter with the "
+                "filter_count and stores counts_per_sec, survey energy, "
+                "and notes. Justification is required (this is a write)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    **_J,
+                    "results": {
+                        "type": "array",
+                        "description": "One entry per surveyed sample.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "sample_id": {"type": "string"},
+                                "filter_count": {"type": "integer", "minimum": 0},
+                                "counts_per_sec": {"type": "number", "minimum": 0},
+                                "survey_energy_ev": {"type": "number"},
+                                "notes": {"type": "string"},
+                            },
+                            "required": ["sample_id", "filter_count", "counts_per_sec"],
+                        },
+                    },
+                },
+                "required": ["justification", "results"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_comprehensive_collection_plan",
+            "description": (
+                "Return the per-sample/spot/filter/n_scans plan that "
+                "Data Collection executes against. Synthesizes from "
+                "ExperimentPlan.plan_json plus SamplePosition rows "
+                "(filter_count = xas_filter, counts_per_sec = "
+                "survey_counts_per_sec). planned_scans_total comes "
+                "from plan_json when set, falling back to xas_reps."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sample_holder_id": {"type": "string",
+                                         "description": "Optional; defaults to the active holder."},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "regenerate_plan",
             "description": (
                 "Rebuild the sample plan from the database while preserving per-sample "
@@ -1128,6 +1226,8 @@ AUTONOMY_TOOL_CATEGORIES = [
         "transition_phase", "request_human_intervention", "post_status_update",
         "update_experiment_plan", "record_sample_progress", "get_plan",
         "get_experiment_config",
+        "get_scans_since_last_plan_update", "get_scans_for_active_sample",
+        "upload_sample_survey_results", "get_comprehensive_collection_plan",
         "get_remaining_beamtime", "get_staff_guidance", "list_open_interventions",
         "recent_actions",
         "set_sample_time_budget", "set_holder_time_budget",

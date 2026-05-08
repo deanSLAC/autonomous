@@ -43,6 +43,8 @@ exec claude -p \
     "Bash(beamtimehero tool *)" \
     "Bash(beamtimehero ref *)" \
     "Bash(beamtimehero steering *)" \
+    "Skill(assess-sample-damage)" \
+    "Skill(analyze-statistical-convergence)" \
   --disallowedTools "Edit,Write,Agent,Bash(beamtimehero spec-read *),Bash(beamtimehero spec-write *)" \
   --tools "Bash,Read" \
   --model "opus" \

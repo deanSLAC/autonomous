@@ -681,6 +681,14 @@ def t_update_experiment_plan(args: dict) -> tuple[str, list[str]]:
     if not isinstance(new_plan, dict):
         return json.dumps({"ok": False, "error": "plan must be a JSON object"}), []
     planner.replace_plan(experiment_id, new_plan)
+    # Best-effort plan summary: writes data/plan_summaries/<id>.json
+    # and posts to Slack. Any failure here must not block the agent's
+    # update — the call already succeeded above.
+    try:
+        from orchestration.planner import plan_summary as _plan_summary
+        _plan_summary.generate_and_post(experiment_id)
+    except Exception as e:
+        logger.warning("plan_summary.generate_and_post failed: %s", e)
     return json.dumps({"ok": True}), []
 
 
@@ -953,6 +961,277 @@ def t_extend_beamtime_budget(args: dict) -> tuple[str, list[str]]:
     return json.dumps({"ok": True, "new_total_hours": new_total}), []
 
 
+def _resolve_active_sample_id(experiment_id: str) -> Optional[str]:
+    """Detect the currently-active sample from plan_json.
+
+    Order of resolution:
+      1. plan_json.active_sample_id (explicit flag set by Planner).
+      2. The lowest-queue-order entry in plan_json.sample_queue whose
+         status is not 'done' / 'skipped'.
+
+    Returns None if neither path resolves a sample id.
+    """
+    plan = get_experiment_plan(experiment_id) or {}
+    body = plan.get("plan", {}) or {}
+    explicit = body.get("active_sample_id")
+    if explicit:
+        return str(explicit)
+    queue = body.get("sample_queue", []) or []
+    for entry in queue:
+        status = (entry.get("status") or "queued").lower()
+        if status in ("done", "skipped"):
+            continue
+        sid = entry.get("sample_id")
+        if sid:
+            return str(sid)
+    return None
+
+
+def t_get_scans_since_last_plan_update(args: dict) -> tuple[str, list[str]]:
+    from datetime import datetime as _dt
+
+    from orchestration.plan_store import session as _ps
+    from orchestration.plan_store.client import get_experiment_plan as _gep
+    from orchestration.plan_store.models import SamplePosition
+
+    experiment_id = (args.get("experiment_id") or spec_cmd.get_experiment_id() or "").strip()
+    if not experiment_id:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+
+    wrapper = _gep(experiment_id) or {}
+    updated_at_iso = wrapper.get("updated_at")
+    updated_at: _dt
+    if updated_at_iso:
+        try:
+            updated_at = _dt.fromisoformat(str(updated_at_iso))
+        except ValueError:
+            updated_at = _dt.fromtimestamp(0)
+    else:
+        updated_at = _dt.fromtimestamp(0)
+
+    rows = _ps.get_collection_scans_since(experiment_id, updated_at)
+    # Resolve sample names in one pass.
+    sample_ids = sorted({r.sample_id for r in rows})
+    name_by_id: dict[str, str] = {}
+    if sample_ids:
+        from sqlmodel import select as _select
+        with _ps.get_session() as session:
+            for sid in sample_ids:
+                sp = session.get(SamplePosition, sid)
+                if sp is not None:
+                    name_by_id[sid] = sp.sample_name
+
+    payload = {
+        "ok": True,
+        "experiment_id": experiment_id,
+        "plan_updated_at": updated_at.isoformat(),
+        "count": len(rows),
+        "scans": [
+            {
+                "scan_number": r.scan_number,
+                "sample_id": r.sample_id,
+                "sample_name": name_by_id.get(r.sample_id),
+                "technique": r.technique,
+                "filter_setting": r.filter_setting,
+                "count_time": r.count_time,
+                "timestamp": r.timestamp.isoformat() if r.timestamp else None,
+                "spec_datafile": r.spec_datafile,
+            }
+            for r in rows
+        ],
+    }
+    return _as_json(payload), []
+
+
+def t_get_scans_for_active_sample(args: dict) -> tuple[str, list[str]]:
+    from orchestration.plan_store import session as _ps
+    from orchestration.plan_store.models import SamplePosition
+
+    experiment_id = spec_cmd.get_experiment_id()
+    if not experiment_id:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+
+    sample_id = (args.get("sample_id") or "").strip() or _resolve_active_sample_id(experiment_id)
+    if not sample_id:
+        return json.dumps({
+            "ok": False,
+            "error": "no active sample (sample_queue empty or all done)",
+        }), []
+
+    sample_name: Optional[str] = None
+    with _ps.get_session() as session:
+        sp = session.get(SamplePosition, sample_id)
+        if sp is not None:
+            sample_name = sp.sample_name
+
+    rows = _ps.get_collection_scans_for_sample(sample_id)
+    payload = {
+        "ok": True,
+        "sample_id": sample_id,
+        "sample_name": sample_name,
+        "count": len(rows),
+        "scans": [
+            {
+                "scan_number": r.scan_number,
+                "technique": r.technique,
+                "filter_setting": r.filter_setting,
+                "count_time": r.count_time,
+                "timestamp": r.timestamp.isoformat() if r.timestamp else None,
+                "spec_datafile": r.spec_datafile,
+            }
+            for r in rows
+        ],
+    }
+    return _as_json(payload), []
+
+
+def t_upload_sample_survey_results(args: dict) -> tuple[str, list[str]]:
+    from orchestration.plan_store import session as _ps
+
+    j = (args.get("justification") or "").strip()
+    if not j:
+        return json.dumps({"ok": False, "error": "justification required"}), []
+    raw = args.get("results")
+    if isinstance(raw, str):
+        # opencode wraps array args as JSON-encoded strings; accept either.
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError as e:
+            return json.dumps({"ok": False, "error": f"results is not valid JSON: {e}"}), []
+    if not isinstance(raw, list) or not raw:
+        return json.dumps({"ok": False, "error": "results must be a non-empty list"}), []
+
+    cleaned: list[dict] = []
+    for i, entry in enumerate(raw):
+        if not isinstance(entry, dict):
+            return json.dumps({"ok": False, "error": f"results[{i}] must be an object"}), []
+        sid = entry.get("sample_id")
+        if not isinstance(sid, str) or not sid:
+            return json.dumps({"ok": False, "error": f"results[{i}].sample_id required"}), []
+        try:
+            fc = int(entry["filter_count"])
+            cps = float(entry["counts_per_sec"])
+        except (KeyError, TypeError, ValueError):
+            return json.dumps({
+                "ok": False,
+                "error": f"results[{i}] needs integer filter_count and numeric counts_per_sec",
+            }), []
+        if fc < 0 or cps < 0:
+            return json.dumps({"ok": False, "error": f"results[{i}] values must be >= 0"}), []
+        cleaned.append({
+            "sample_id": sid,
+            "filter_count": fc,
+            "counts_per_sec": cps,
+            "survey_energy_ev": entry.get("survey_energy_ev"),
+            "notes": entry.get("notes"),
+        })
+
+    updated = _ps.submit_survey_results(cleaned)
+    return json.dumps({"ok": True, "updated": updated, "count": len(updated)}), []
+
+
+def t_get_comprehensive_collection_plan(args: dict) -> tuple[str, list[str]]:
+    from sqlmodel import select as _select
+
+    from orchestration.plan_store import session as _ps
+    from orchestration.plan_store.client import get_experiment_plan as _gep
+    from orchestration.plan_store.models import SampleHolder, SamplePosition
+
+    experiment_id = spec_cmd.get_experiment_id()
+    if not experiment_id:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+
+    holder_id = (args.get("sample_holder_id") or "").strip() or None
+
+    # Resolve target holder.
+    with _ps.get_session() as session:
+        if holder_id:
+            holder = session.get(SampleHolder, holder_id)
+            if holder is None or holder.experiment_id != experiment_id:
+                return json.dumps({
+                    "ok": False,
+                    "error": f"sample_holder {holder_id!r} not found for this experiment",
+                }), []
+        else:
+            holders_stmt = (
+                _select(SampleHolder)
+                .where(SampleHolder.experiment_id == experiment_id)
+                .order_by(SampleHolder.queue_order, SampleHolder.created_at)  # type: ignore[arg-type]
+            )
+            holders = list(session.exec(holders_stmt).all())
+            holder = next((h for h in holders if (h.status or "").lower() != "done"), None)
+            if holder is None and holders:
+                holder = holders[0]
+            if holder is None:
+                return json.dumps({
+                    "ok": False,
+                    "error": "no sample holder configured for this experiment",
+                }), []
+
+        samples_stmt = (
+            _select(SamplePosition)
+            .where(SamplePosition.sample_holder_id == holder.id)
+            .order_by(SamplePosition.sample_number)  # type: ignore[union-attr]
+        )
+        samples = list(session.exec(samples_stmt).all())
+
+    # Fold in plan_json overrides keyed by sample_id.
+    wrapper = _gep(experiment_id) or {}
+    body = wrapper.get("plan") or {}
+    queue = body.get("sample_queue") or []
+    plan_by_sid: dict[str, dict] = {q.get("sample_id"): q for q in queue if q.get("sample_id")}
+
+    rows: list[dict] = []
+    for s in samples:
+        if not s.enabled:
+            continue
+        plan_entry = plan_by_sid.get(s.id, {}) or {}
+        # planned_scans_total: prefer plan_json overrides, fall back to xas_reps.
+        n_reps = plan_entry.get("planned_scans_total")
+        if n_reps is None:
+            # Look inside modes[] for xas reps.
+            for m in plan_entry.get("modes") or []:
+                if (m.get("mode") or "").lower() == "xas" and m.get("reps") is not None:
+                    n_reps = m.get("reps")
+                    break
+        if n_reps is None:
+            n_reps = s.xas_reps
+        try:
+            n_reps = int(n_reps)
+        except (TypeError, ValueError):
+            n_reps = int(s.xas_reps)
+
+        count_time = s.xas_time
+        for m in plan_entry.get("modes") or []:
+            if (m.get("mode") or "").lower() == "xas" and m.get("count_time_s") is not None:
+                count_time = float(m["count_time_s"])
+                break
+
+        cps = s.survey_counts_per_sec
+        planned_time_s = float(n_reps) * float(count_time)
+
+        rows.append({
+            "sample_id": s.id,
+            "sample_name": s.sample_name,
+            "element_symbol": s.element_symbol,
+            "total_spots": s.total_spots,
+            "filter_count": int(s.xas_filter),
+            "count_time": float(count_time),
+            "n_reps": int(n_reps),
+            "counts_per_sec": cps,
+            "planned_time_s": planned_time_s,
+            "planned_scans_total": int(n_reps),
+        })
+
+    payload = {
+        "ok": True,
+        "sample_holder_id": holder.id,
+        "sample_holder_name": holder.name,
+        "samples": rows,
+    }
+    return _as_json(payload), []
+
+
 def t_regenerate_plan(args: dict) -> tuple[str, list[str]]:
     xid = _require_xid()
     if not xid:
@@ -1049,4 +1328,8 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "set_beamtime_budget": t_set_beamtime_budget,
     "extend_beamtime_budget": t_extend_beamtime_budget,
     "regenerate_plan": t_regenerate_plan,
+    "get_scans_since_last_plan_update": t_get_scans_since_last_plan_update,
+    "get_scans_for_active_sample": t_get_scans_for_active_sample,
+    "upload_sample_survey_results": t_upload_sample_survey_results,
+    "get_comprehensive_collection_plan": t_get_comprehensive_collection_plan,
 }

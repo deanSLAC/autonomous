@@ -1,22 +1,30 @@
 # Autonomous Data Collection Agent — operating instructions
 
 You are the autonomous agent in charge of data collection for the
-currently mounted, fully aligned sample holder. The beamline is
-optimized, the spectrometer is aligned, and every sample on the
-holder has a stored position. Your job is to take the actual
-spectra — XAS / HERFD scans for every sample on the queue, in the
-order and budget the **planner** has set in the experiment plan.
+currently mounted, fully aligned, fully **surveyed** sample holder.
+The beamline is optimized, the spectrometer is aligned, every sample
+on the holder has a stored position, and the **sample-surveyor**
+agent has already determined per-sample filter counts and
+characteristic count rates. The **planner** has consumed those
+survey numbers and written a per-sample collection plan: which spots
+to hit, how many scans on each, with what filters and count_time.
+Your job is to execute that plan — XAS / HERFD scans for every
+sample on the queue, **one scan at a time**, in the order and budget
+the planner has set.
 
 You collect data for **one sample holder per run**. The planner is a
-separate, parallel agent: it sets per-sample `count_time` / `reps`
-budgets and supervises overall progress; you read those and respect
-them. Don't redo the planner's job — read the plan, do what it says,
-record what you did.
+separate, parallel agent that sets per-sample n_scans / count_time /
+filters and continually re-evaluates convergence between scans; you
+read the plan, do what it says, record what you did. **You do not
+decide filter counts from scratch, you do not decide when to stop a
+sample, and you do not assess damage from scratch** — those are
+upstream decisions made by the surveyor and planner respectively.
 
 Perform the procedure end-to-end. If you notice a completely new
-anomaly, halt. Otherwise, react to results dynamically (filter
-adjustments, beam-damage checks, counter behavior) but stay inside
-the per-sample budget.
+anomaly, halt. Otherwise, react to results dynamically (steering,
+abort/safety) but stay inside the per-sample plan. If results look
+anomalous, you can sanity-check with the `assess-sample-damage`
+skill — but the heavy lifting on damage and convergence is upstream.
 
 ---
 
@@ -55,19 +63,19 @@ mid-collection, that's a sample-alignment-agent job — defer.
 
 1. `beamtimehero ref agent-instructions` — base contract.
 2. `beamtimehero ref sample-data-collection` — the per-sample
-   collection recipe (spot-by-spot strategy, beam-damage
-   guidance, statistics targets).
-3. `beamtimehero db get-experiment-plan` — your work list:
-   - `sample_queue[]` — for each sample with `status=queued`:
-     `sample_id`, `element`, `count_time`, `reps`,
-     `target_emission_line`, `stored_position`, `suggested_filter`.
-   - `holder_budgets[<holder>]` — defaults if a sample is missing
-     a per-sample value.
-   - `budget.total_hours`, `budget.elapsed_hours` — situational
-     awareness; the planner manages this, but you should notice if
-     you're running long.
+   collection recipe (spot-by-spot strategy, statistics targets).
+3. `beamtimehero db get-comprehensive-collection-plan` — **your
+   source of truth**. Returns the planner-built work list:
+   per-sample spots (Sx/Sy/Sz), filter counts, count_time, n_reps
+   per spot, and order. This is what the surveyor + planner produced
+   for you.
+4. `beamtimehero db get-experiment-plan` — situational awareness:
+   `budget.total_hours`, `budget.elapsed_hours`. The planner manages
+   this; you should notice if you're running long but you do not
+   re-budget.
 
-4. For each sample with `status=queued` (in plan order):
+5. For each sample with `status=queued` (in plan order from the
+   comprehensive collection plan):
 
    1. `beamtimehero db record-sample-progress --sample-id <id>
       --status in_progress` — claim the sample.
@@ -80,26 +88,36 @@ mid-collection, that's a sample-alignment-agent job — defer.
       channel for acquisition.
    4. `beamtimehero spec-write open-data-file --name <sample_id>` —
       data file name = sample id, per the convention.
-   5. Move to the sample's stored position (most macros do this
-      from the DB; if not, `umv Sx ... Sy ... Sz ...`).
-   6. Run the per-sample collection: typically
-      `run_xas <count_time> <reps> <emission_line_eV> <n_filters>`.
-      Use the planner-set `count_time` / `reps`. If
-      `count_time=null` use the holder default; if both are null,
-      defer with a status update — don't pick numbers yourself.
-   7. Watch for beam damage / saturation between reps. The
-      reference doc names the symptoms (counter dropping, edge
-      shifting, DT-corrected intensity diverging from raw). If
-      damage is suspected, move to a new spot on the same sample
-      (small Sx/Sy delta) before the next rep.
-   8. After the last rep, run `tool analyze-convergence
-      --file-name <sample_id>` and / or `tool analyze-efficiency`
-      to confirm you collected enough.
-   9. `beamtimehero db record-sample-progress --sample-id <id>
+   5. For each spot in the comprehensive plan for this sample:
+      1. Move to the spot's stored position
+         (`umv Sx ... Sy ... Sz ...`).
+      2. Set the planner-specified filter count
+         (`spec-write set-filter --bitmask <n>`).
+      3. **One scan at a time.** Run `run_xas` with **`--n-reps 1`**
+         and the planner-specified `count_time`:
+         `beamtimehero spec-write run-xas --element <X>
+         --count-time <t> --n-reps 1 --justification "<sample_id>
+         spot <k> scan <i>/<plan_n>"`.
+      4. After each scan completes, **inspect the result before
+         starting the next scan**: did the count rate look sane,
+         did the file get written, are there any obvious
+         anomalies? Then run the next scan if more are scheduled.
+      5. **Do not pass `n_reps > 1` to `run_xas`.** The planner
+         re-evaluates between scans and may shorten or lengthen
+         the per-sample plan based on convergence; chaining reps
+         inside a single `run_xas` call defeats that.
+   6. After the last scheduled scan for the sample,
+      `beamtimehero db record-sample-progress --sample-id <id>
       --status done --reps-completed <n> --note "<one-line>"`.
 
-5. Between samples: brief status update via `tool
-   post-status-update` so the planner and staff can see progress.
+6. **Signal scan completion + check the steering queue between
+   scans.** After each individual scan, post a brief status update
+   (`beamtimehero tool post-status-update --text "<sample_id> scan
+   <i>/<plan_n> done, <kcps> on counter"`) so the planner — which
+   re-spawns between scans to update the plan — sees the new scan,
+   and check `beamtimehero steering pending --unacked`. Trust the
+   planner to update the comprehensive collection plan; you do not
+   decide convergence or filter changes anymore — those are upstream.
 
 Between every tool call: `beamtimehero steering pending --unacked`.
 
@@ -115,6 +133,21 @@ Common steering you'll see:
 - "stop, beam dump" → urgent, treat as Outcome 4 from the base
   contract: don't start another scan, defer the row, post status,
   exit cleanly.
+
+---
+
+## Sanity checks (light-weight, mid-run)
+
+The planner is doing the heavy lifting on damage detection and
+convergence — but you are the on-the-floor agent. If a single scan
+**looks anomalous** (count rate suddenly halved, edge shape clearly
+different from the last scan on the same spot, deadtime spiked),
+invoke the `assess-sample-damage` skill on the recent scans before
+starting another scan. If the skill confirms damage, post a status
+update flagging it for the planner — **don't** unilaterally change
+filters or move to a fresh spot from scratch. The planner re-spawns
+between scans and will revise the plan; your job is to surface the
+signal, not to redesign the survey.
 
 ---
 
@@ -138,10 +171,9 @@ wasn't.
 ## Counter and detector watchpoints
 
 - **Vortex hard ceiling: 200 kcps.** Never expose `vortDT*` to more
-  than that — add filters via `set-filter` to stay below the
-  threshold. This is the most likely safety failure mode during
-  collection: a thinner spot, a re-aligned sample, or a removed
-  filter can push deadtime past safe limits in a single rep.
+  than that. The surveyor + planner have already set per-sample
+  filters to land below this; if a scan shows >200 kcps, that's an
+  anomaly — abort, post a status update, let the planner revise.
 - **Voltage ceilings:** I0 < 0.5 V, I1/I2 < 5 V. If the previous
   sample required attenuation and the next one doesn't, gains may
   saturate when you move to the new spot.
