@@ -282,15 +282,125 @@ class ExperimentPlan(SQLModel, table=True):
 
 
 class StaffGuidance(SQLModel, table=True):
-    """A single piece of guidance from staff / user, consumed by the agent loop."""
+    """One steering message — staff guidance dispatched to control agents.
+
+    The orchestrator state machine fills these fields as a steering message
+    moves through its lifecycle:
+
+      1. Slack/UI ingest writes (source, author, text, slack_channel, slack_thread_ts, is_stop)
+      2. Orchestrator sees a new row, sets orchestrator_ack_at + ack_comment.
+         Either it spawns a control agent (active_agent_run_id) or defers to the
+         active agent already in flight.
+      3. The active agent acks via `beamtimehero steering ack <id>` (active_agent_ack_at)
+         and either responds (result + completed_at) or defers (ack_comment + completed_at NULL).
+      4. Orchestrator notices completed_at, posts result back to slack_thread_ts.
+
+    `consumed` / `consumed_at` are legacy: kept on the row for migration safety but
+    no longer driven by the loop.
+    """
     id: str = Field(default_factory=generate_id, primary_key=True)
     experiment_id: Optional[str] = Field(default=None, foreign_key="experiment.id", index=True)
     timestamp: datetime = Field(default_factory=datetime.now, index=True)
-    source: str  # "slack" | "web" | "operator-cli"
+    source: str  # "slack-steering" | "slack-chat" | "slack-dm" | "web" | "operator-cli"
     author: str
     text: str
-    consumed: bool = Field(default=False, index=True)
-    consumed_at: Optional[datetime] = None
+    consumed: bool = Field(default=False, index=True)  # legacy
+    consumed_at: Optional[datetime] = None  # legacy
+    # New steering state-machine columns.
+    orchestrator_ack_at: Optional[datetime] = Field(default=None, index=True)
+    ack_comment: Optional[str] = None
+    active_agent_run_id: Optional[str] = Field(default=None, foreign_key="agentrun.id", index=True)
+    active_agent_ack_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = Field(default=None, index=True)
+    result: Optional[str] = None
+    # Slack provenance (so the orchestrator can post a thread reply on completion).
+    slack_channel: Optional[str] = None
+    slack_thread_ts: Optional[str] = None
+    # STOP fast-path: kill agents and trigger abort_current_scan immediately.
+    is_stop: bool = Field(default=False, index=True)
+    # Set when the orchestrator has posted a completion reply back to Slack.
+    # Used to dedupe Slack posts across ticks and across server restarts.
+    slack_replied_at: Optional[datetime] = Field(default=None, index=True)
+
+
+# ---------------------------------------------------------------------------
+# Agent runs (control / chat / dm subprocess registry)
+# ---------------------------------------------------------------------------
+
+class AgentRun(SQLModel, table=True):
+    """One spawned Claude agent subprocess.
+
+    Used for both orchestrator-driven control agents (drive the beamline)
+    and chat / DM agents (answer questions in a Slack thread or UI session).
+    The `agent_type='control'` rows + `completed_at IS NULL` predicate is
+    the active-agent gate the orchestrator state machine reads.
+
+    PID/PGID are stored so the FastAPI lifespan can sweep orphans on
+    startup (`ps -p <pid>`) and clean-kill on shutdown via `killpg(pgid)`.
+    """
+    id: str = Field(default_factory=generate_id, primary_key=True)
+    experiment_id: Optional[str] = Field(default=None, foreign_key="experiment.id", index=True)
+    agent_type: str = Field(index=True)  # 'control' | 'chat' | 'dm'
+    task_text: str  # human-readable: why this agent was spawned
+    spawned_by: str  # 'orchestrator' | 'ui:<button>' | 'slack-thread:<key>' | 'steering:<id>'
+    pid: Optional[int] = None
+    pgid: Optional[int] = None
+    started_at: datetime = Field(default_factory=datetime.now, index=True)
+    completed_at: Optional[datetime] = Field(default=None, index=True)
+    killed: bool = Field(default=False)
+    kill_reason: Optional[str] = None
+    result: Optional[str] = None
+    claude_session_id: Optional[str] = None
+    working_dir: Optional[str] = None
+    script_path: Optional[str] = None  # which .sh launched this agent
+
+
+# ---------------------------------------------------------------------------
+# Chat sessions (per Slack thread / DM thread / UI session)
+# ---------------------------------------------------------------------------
+
+class ChatSession(SQLModel, table=True):
+    """Per-thread persistent chat with a chat-class agent.
+
+    `thread_key` namespaces every distinct conversation:
+      * 'slack:<channel>:<root_ts>'  — Slack chat-channel thread
+      * 'dm:<channel>:<root_ts>'     — Slack DM thread
+      * 'ui:<ui_session_id>'         — UI chat-box session
+
+    `claude_session_id` lets us `claude --resume <id>` so that a thread
+    reactivated a week later picks up the same conversation. There is no
+    timeout — sessions persist until archived (UI clear button).
+    """
+    id: str = Field(default_factory=generate_id, primary_key=True)
+    thread_key: str = Field(index=True, unique=True)
+    source: str = Field(index=True)  # 'slack_chat' | 'slack_dm' | 'ui'
+    claude_session_id: Optional[str] = None
+    working_dir: str  # data/chat_sessions/<safe_thread_key>/
+    active_agent_run_id: Optional[str] = Field(default=None, foreign_key="agentrun.id")
+    created_at: datetime = Field(default_factory=datetime.now)
+    last_activity_at: datetime = Field(default_factory=datetime.now, index=True)
+    archived_at: Optional[datetime] = Field(default=None, index=True)
+    # Slack/UI provenance for replying back.
+    slack_channel: Optional[str] = None
+    slack_thread_ts: Optional[str] = None
+    ui_session_id: Optional[str] = None
+
+
+class ChatMessage(SQLModel, table=True):
+    """One message in a chat session — inbound from user or outbound from agent.
+
+    Logged regardless of which surface (UI / Slack / DM) the message came
+    from so the chat history is complete in one place.
+    """
+    id: str = Field(default_factory=generate_id, primary_key=True)
+    session_id: str = Field(foreign_key="chatsession.id", index=True)
+    direction: str  # 'inbound' | 'outbound'
+    source: str  # 'ui' | 'slack' | 'dm' | 'agent'
+    author: str
+    text: str
+    slack_channel: Optional[str] = None
+    slack_thread_ts: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.now, index=True)
 
 
 class PlanEdit(SQLModel, table=True):

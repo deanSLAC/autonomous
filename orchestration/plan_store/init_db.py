@@ -36,6 +36,20 @@ _PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("queue_order", "INTEGER NOT NULL DEFAULT 0"),
         ("notes", "TEXT"),
     ],
+    # Steering-queue state-machine columns. New in the orchestrator
+    # decoupling refactor — see plan_store/models.py:StaffGuidance.
+    "staffguidance": [
+        ("orchestrator_ack_at", "TIMESTAMP"),
+        ("ack_comment", "TEXT"),
+        ("active_agent_run_id", "TEXT"),
+        ("active_agent_ack_at", "TIMESTAMP"),
+        ("completed_at", "TIMESTAMP"),
+        ("result", "TEXT"),
+        ("slack_channel", "TEXT"),
+        ("slack_thread_ts", "TEXT"),
+        ("is_stop", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("slack_replied_at", "TIMESTAMP"),
+    ],
 }
 
 _ACTION_LOG_PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
