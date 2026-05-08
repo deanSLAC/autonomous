@@ -210,6 +210,65 @@ def _build_parser() -> argparse.ArgumentParser:
         help="SPEC-bound mutations. Every leaf requires --justification.",
     )
 
+    # ---- steering: bespoke staff-guidance lifecycle -------------------
+    # Leaves are hand-written (not auto-generated from TOOL_DEFINITIONS) since
+    # they manipulate StaffGuidance lifecycle columns rather than calling tools.
+    steering_tree = trees.add_parser(
+        "steering",
+        help="Staff-guidance lifecycle: list/ack/comment/complete/defer pending rows.",
+    )
+    steering_subs = steering_tree.add_subparsers(dest="leaf", metavar="<command>")
+
+    s_pending = steering_subs.add_parser(
+        "pending",
+        help="List pending steering rows (completed_at IS NULL) as a JSON array.",
+    )
+    s_pending.add_argument(
+        "--experiment-id", dest="experiment_id", default=None,
+        help="Filter to a specific experiment.",
+    )
+    s_pending.add_argument(
+        "--unacked", action="store_true",
+        help="Only rows the active agent has not yet acked.",
+    )
+
+    s_ack = steering_subs.add_parser(
+        "ack",
+        help="Set active_agent_ack_at on a steering row; optionally link agent_run_id.",
+    )
+    s_ack.add_argument("id", help="Steering ID.")
+    s_ack.add_argument(
+        "--agent-run-id", dest="agent_run_id", default=None,
+        help="Link this ack to an AgentRun (defaults to $BEAMTIMEHERO_AGENT_RUN_ID).",
+    )
+
+    s_comment = steering_subs.add_parser(
+        "set-comment",
+        help="Write ack_comment on a steering row.",
+    )
+    s_comment.add_argument("id", help="Steering ID.")
+    s_comment.add_argument("text", help="Comment text.")
+
+    s_complete = steering_subs.add_parser(
+        "complete",
+        help="Mark a steering row complete: write result + completed_at.",
+    )
+    s_complete.add_argument("id", help="Steering ID.")
+    s_complete.add_argument(
+        "--result", required=True,
+        help="Result text returned to the orchestrator.",
+    )
+
+    s_defer = steering_subs.add_parser(
+        "defer",
+        help="Defer a steering row (write 'deferred — <reason>' ack_comment, no completed_at).",
+    )
+    s_defer.add_argument("id", help="Steering ID.")
+    s_defer.add_argument(
+        "--reason", required=True,
+        help="Why this row is being deferred.",
+    )
+
     tool_subs = tool_tree.add_subparsers(dest="leaf", metavar="<command>")
     db_subs = db_tree.add_subparsers(dest="leaf", metavar="<command>")
     spec_read_subs = spec_read_tree.add_subparsers(dest="leaf", metavar="<command>")
@@ -329,7 +388,38 @@ def _run_tool_leaf(args: argparse.Namespace) -> int:
     return 0
 
 
-_KNOWN_TREES = frozenset({"ref", "tool", "db", "spec-read", "spec-write"})
+_KNOWN_TREES = frozenset({"ref", "tool", "db", "spec-read", "spec-write", "steering"})
+
+
+# ---------------------------------------------------------------------------
+# Steering dispatch
+# ---------------------------------------------------------------------------
+
+def _run_steering(args: argparse.Namespace) -> int:
+    """Dispatch the `beamtimehero steering <leaf>` subtree."""
+    from beamline_tools.steering import cli as steering_cli
+
+    leaf = getattr(args, "leaf", None)
+    handlers = {
+        "pending": steering_cli.cmd_pending,
+        "ack": steering_cli.cmd_ack,
+        "set-comment": steering_cli.cmd_set_comment,
+        "complete": steering_cli.cmd_complete,
+        "defer": steering_cli.cmd_defer,
+    }
+    handler = handlers.get(leaf)
+    if handler is None:
+        print(json.dumps({
+            "ok": False,
+            "error": f"unknown steering subcommand: {leaf!r}",
+        }))
+        return 2
+    try:
+        return handler(args)
+    except Exception as e:  # noqa: BLE001
+        traceback.print_exc(file=sys.stderr)
+        print(json.dumps({"ok": False, "error": str(e)}, default=str))
+        return 1
 
 
 # ---------------------------------------------------------------------------
@@ -384,6 +474,12 @@ def _dispatch(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
 
     if args.tree == "ref":
         return _run_ref(args)
+
+    if args.tree == "steering":
+        if not getattr(args, "leaf", None):
+            parser.parse_args([args.tree, "--help"])
+            return 0  # argparse exits on --help
+        return _run_steering(args)
 
     if not getattr(args, "leaf", None):
         # Bare `beamtimehero tool` / `spec-read` / `spec-write` with no leaf.

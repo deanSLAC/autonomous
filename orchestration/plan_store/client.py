@@ -14,6 +14,7 @@ from typing import Any, Iterable, Optional
 from sqlmodel import select
 
 from orchestration.plan_store.models import (
+    AgentRun,
     ExperimentPlan,
     InterventionRequest,
     PhaseTransitionLog,
@@ -384,3 +385,297 @@ def _intervention_to_dict(r: InterventionRequest) -> dict:
         "slack_channel": r.slack_channel,
         "slack_ts": r.slack_ts,
     }
+
+
+# ---------------------------------------------------------------------------
+# Steering (StaffGuidance state-machine columns)
+# ---------------------------------------------------------------------------
+#
+# These helpers operate on the lifecycle columns added to StaffGuidance:
+# orchestrator_ack_at, ack_comment, active_agent_run_id, active_agent_ack_at,
+# completed_at, result, slack_channel, slack_thread_ts, is_stop.
+#
+# See the `StaffGuidance` docstring in models.py for the full lifecycle.
+# The CLI surface lives at `beamtimehero steering ...`.
+
+def _steering_to_dict(r: StaffGuidance) -> dict:
+    return {
+        "id": r.id,
+        "experiment_id": r.experiment_id,
+        "timestamp": r.timestamp.isoformat() if r.timestamp else None,
+        "source": r.source,
+        "author": r.author,
+        "text": r.text,
+        "consumed": r.consumed,
+        "consumed_at": r.consumed_at.isoformat() if r.consumed_at else None,
+        "orchestrator_ack_at": (
+            r.orchestrator_ack_at.isoformat() if r.orchestrator_ack_at else None
+        ),
+        "ack_comment": r.ack_comment,
+        "active_agent_run_id": r.active_agent_run_id,
+        "active_agent_ack_at": (
+            r.active_agent_ack_at.isoformat() if r.active_agent_ack_at else None
+        ),
+        "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+        "result": r.result,
+        "slack_channel": r.slack_channel,
+        "slack_thread_ts": r.slack_thread_ts,
+        "is_stop": r.is_stop,
+        "slack_replied_at": (
+            r.slack_replied_at.isoformat() if r.slack_replied_at else None
+        ),
+    }
+
+
+def add_steering(
+    experiment_id: str | None,
+    source: str,
+    author: str,
+    text: str,
+    *,
+    slack_channel: str | None = None,
+    slack_thread_ts: str | None = None,
+    is_stop: bool = False,
+) -> dict:
+    """Insert a steering row with full Slack provenance + STOP flag.
+
+    Superset of `add_guidance`. Returns the inserted row as a dict so the
+    caller can use the ID after the session closes.
+    """
+    row = StaffGuidance(
+        experiment_id=experiment_id,
+        source=source,
+        author=author,
+        text=text,
+        slack_channel=slack_channel,
+        slack_thread_ts=slack_thread_ts,
+        is_stop=is_stop,
+    )
+    with get_session() as session:
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+        return _steering_to_dict(row)
+
+
+def list_pending_steering(
+    experiment_id: str | None = None,
+    *,
+    limit: int = 50,
+) -> list[dict]:
+    """Return steering rows where `completed_at IS NULL`, most-recent first."""
+    with get_session() as session:
+        stmt = select(StaffGuidance).where(StaffGuidance.completed_at.is_(None))  # type: ignore[union-attr]
+        if experiment_id:
+            stmt = stmt.where(StaffGuidance.experiment_id == experiment_id)
+        stmt = stmt.order_by(StaffGuidance.timestamp.desc()).limit(limit)  # type: ignore[union-attr]
+        return [_steering_to_dict(r) for r in session.exec(stmt)]
+
+
+def list_unacked_steering(
+    experiment_id: str | None = None,
+    *,
+    limit: int = 50,
+) -> list[dict]:
+    """Return pending rows the active agent has NOT yet acked, most-recent first."""
+    with get_session() as session:
+        stmt = (
+            select(StaffGuidance)
+            .where(StaffGuidance.completed_at.is_(None))  # type: ignore[union-attr]
+            .where(StaffGuidance.active_agent_ack_at.is_(None))  # type: ignore[union-attr]
+        )
+        if experiment_id:
+            stmt = stmt.where(StaffGuidance.experiment_id == experiment_id)
+        stmt = stmt.order_by(StaffGuidance.timestamp.desc()).limit(limit)  # type: ignore[union-attr]
+        return [_steering_to_dict(r) for r in session.exec(stmt)]
+
+
+def ack_steering(
+    steering_id: str,
+    *,
+    agent_run_id: str | None = None,
+) -> Optional[dict]:
+    """Set `active_agent_ack_at=now`; if `agent_run_id` set, link it too."""
+    with get_session() as session:
+        row = session.get(StaffGuidance, steering_id)
+        if row is None:
+            return None
+        row.active_agent_ack_at = datetime.now()
+        if agent_run_id is not None:
+            row.active_agent_run_id = agent_run_id
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+        return _steering_to_dict(row)
+
+
+def set_steering_comment(
+    steering_id: str,
+    comment: str,
+) -> Optional[dict]:
+    """Set `ack_comment` on a steering row."""
+    with get_session() as session:
+        row = session.get(StaffGuidance, steering_id)
+        if row is None:
+            return None
+        row.ack_comment = comment
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+        return _steering_to_dict(row)
+
+
+def complete_steering(
+    steering_id: str,
+    *,
+    result: str,
+) -> Optional[dict]:
+    """Mark a steering row complete: set `result` and `completed_at=now`."""
+    with get_session() as session:
+        row = session.get(StaffGuidance, steering_id)
+        if row is None:
+            return None
+        row.result = result
+        row.completed_at = datetime.now()
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+        return _steering_to_dict(row)
+
+
+def defer_steering(
+    steering_id: str,
+    *,
+    reason: str,
+) -> Optional[dict]:
+    """Defer a steering row: write `ack_comment="deferred — <reason>"`.
+
+    Does NOT set `completed_at`. The orchestrator will spawn a fresh agent
+    for the still-pending row when the active agent finishes.
+    """
+    with get_session() as session:
+        row = session.get(StaffGuidance, steering_id)
+        if row is None:
+            return None
+        row.ack_comment = f"deferred — {reason}"
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+        return _steering_to_dict(row)
+
+
+def record_orchestrator_ack(
+    steering_id: str,
+    *,
+    comment: str,
+    active_agent_run_id: str | None = None,
+) -> Optional[dict]:
+    """Record the orchestrator's ack on a steering row.
+
+    Used by the orchestrator state machine. Sets `orchestrator_ack_at=now`,
+    `ack_comment`, and optionally links the agent that will handle it.
+    """
+    with get_session() as session:
+        row = session.get(StaffGuidance, steering_id)
+        if row is None:
+            return None
+        row.orchestrator_ack_at = datetime.now()
+        row.ack_comment = comment
+        if active_agent_run_id is not None:
+            row.active_agent_run_id = active_agent_run_id
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+        return _steering_to_dict(row)
+
+
+# ---------------------------------------------------------------------------
+# Steering-state-machine helpers used by the orchestrator loop
+# ---------------------------------------------------------------------------
+
+def list_new_steering_for_orchestrator(
+    experiment_id: str | None = None,
+) -> list[dict]:
+    """Rows the orchestrator has not yet ack'd, oldest first (FIFO).
+
+    Excludes rows already completed (e.g. STOP rows that the fast-path
+    completed without setting `orchestrator_ack_at`) so they don't get
+    re-dispatched as normal steering.
+    """
+    with get_session() as session:
+        stmt = (
+            select(StaffGuidance)
+            .where(StaffGuidance.orchestrator_ack_at.is_(None))  # type: ignore[union-attr]
+            .where(StaffGuidance.completed_at.is_(None))  # type: ignore[union-attr]
+        )
+        if experiment_id:
+            stmt = stmt.where(StaffGuidance.experiment_id == experiment_id)
+        stmt = stmt.order_by(StaffGuidance.timestamp)  # type: ignore[union-attr]
+        return [_steering_to_dict(r) for r in session.exec(stmt)]
+
+
+def list_completed_unposted_steering() -> list[dict]:
+    """Completed rows whose Slack reply hasn't been posted yet.
+
+    Filters: `completed_at IS NOT NULL AND slack_replied_at IS NULL
+    AND slack_thread_ts IS NOT NULL`. Ordered by `completed_at` ascending so
+    older completions reply first.
+    """
+    with get_session() as session:
+        stmt = (
+            select(StaffGuidance)
+            .where(StaffGuidance.completed_at.is_not(None))  # type: ignore[union-attr]
+            .where(StaffGuidance.slack_replied_at.is_(None))  # type: ignore[union-attr]
+            .where(StaffGuidance.slack_thread_ts.is_not(None))  # type: ignore[union-attr]
+            .order_by(StaffGuidance.completed_at)  # type: ignore[union-attr]
+        )
+        return [_steering_to_dict(r) for r in session.exec(stmt)]
+
+
+def list_orphaned_deferred_steering() -> list[dict]:
+    """Steering rows that were deferred to an agent which has since finished.
+
+    Predicate: `orchestrator_ack_at IS NOT NULL AND completed_at IS NULL
+    AND active_agent_run_id IS NOT NULL` AND the linked AgentRun has
+    `completed_at IS NOT NULL`. The orchestrator picks these up to spawn a
+    fresh agent for the still-pending row.
+    """
+    with get_session() as session:
+        stmt = (
+            select(StaffGuidance, AgentRun)
+            .join(
+                AgentRun,
+                AgentRun.id == StaffGuidance.active_agent_run_id,
+            )
+            .where(StaffGuidance.orchestrator_ack_at.is_not(None))  # type: ignore[union-attr]
+            .where(StaffGuidance.completed_at.is_(None))  # type: ignore[union-attr]
+            .where(StaffGuidance.active_agent_run_id.is_not(None))  # type: ignore[union-attr]
+            .where(AgentRun.completed_at.is_not(None))  # type: ignore[union-attr]
+            .order_by(StaffGuidance.timestamp)  # type: ignore[union-attr]
+        )
+        return [_steering_to_dict(r) for (r, _agent) in session.exec(stmt)]
+
+
+def list_pending_stops() -> list[dict]:
+    """STOP rows that haven't been completed yet — orchestrator runs ASAP."""
+    with get_session() as session:
+        stmt = (
+            select(StaffGuidance)
+            .where(StaffGuidance.is_stop == True)  # noqa: E712
+            .where(StaffGuidance.completed_at.is_(None))  # type: ignore[union-attr]
+            .order_by(StaffGuidance.timestamp)  # type: ignore[union-attr]
+        )
+        return [_steering_to_dict(r) for r in session.exec(stmt)]
+
+
+def mark_steering_replied(steering_id: str) -> Optional[dict]:
+    """Stamp `slack_replied_at=now` so we don't double-post on later ticks."""
+    with get_session() as session:
+        row = session.get(StaffGuidance, steering_id)
+        if row is None:
+            return None
+        row.slack_replied_at = datetime.now()
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+        return _steering_to_dict(row)
