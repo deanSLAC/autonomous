@@ -491,6 +491,25 @@ def _dispatch(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Each beamtimehero call is a fresh subprocess (claude code spawns one
+    # per tool call), so _PHASE_STATE starts empty. Pull the active
+    # experiment + phase from the DB so phase-gated tools and tools that
+    # call spec_cmd.get_experiment_id() (e.g. get_experiment_config) work.
+    # Mirrors scripts/tool_dispatcher.py.
+    try:
+        from beamline_tools.spec_control import spec_cmd as _spec_cmd_bootstrap
+        from orchestration.plan_store.session import get_active_experiment
+        from orchestration.plan_store.client import get_experiment_plan
+
+        _exp = get_active_experiment()
+        if _exp is not None:
+            _plan = get_experiment_plan(_exp.id) or {}
+            _phase = _plan.get("phase") or "setup"
+            _spec_cmd_bootstrap.set_phase(_phase, experiment_id=_exp.id)
+    except Exception:
+        # Best-effort — do not block --help or non-experiment paths.
+        pass
+
     phase_override = os.environ.get("SPEC_PHASE_OVERRIDE")
     if phase_override:
         from beamline_tools.spec_control import spec_cmd
