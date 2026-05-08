@@ -27,8 +27,10 @@ CONTEXT_DIR = PROJECT_ROOT / "context"
 # ---------------------------------------------------------------------------
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN", "")
 SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN", "")
-SLACK_LLM_CHANNEL_ID = os.getenv("SLACK_LLM_CHANNEL_ID", "")
-SLACK_USERS_CHANNEL_ID = os.getenv("SLACK_USERS_CHANNEL_ID", "")
+# Steering channel: staff guidance + agent thread replies (was SLACK_LLM_CHANNEL_ID).
+SLACK_STEERING_CHANNEL_ID = os.getenv("SLACK_STEERING_CHANNEL_ID", "")
+# Chat channel: chat with the agent + manual status posts (was SLACK_USERS_CHANNEL_ID).
+SLACK_CHAT_CHANNEL_ID = os.getenv("SLACK_CHAT_CHANNEL_ID", "")
 
 # ---------------------------------------------------------------------------
 # FastAPI app

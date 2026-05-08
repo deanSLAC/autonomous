@@ -649,7 +649,7 @@ def t_post_status_update(args: dict) -> tuple[str, list[str]]:
     try:
         import os
         from ui.adapters.slack_notify import SlackNotifier
-        channel = os.getenv("SLACK_LLM_CHANNEL_ID")
+        channel = os.getenv("SLACK_CHAT_CHANNEL_ID")
         notifier = SlackNotifier(enabled=True, channel=channel)
         if notifier.enabled:
             notifier.post_message(text)
