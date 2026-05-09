@@ -103,6 +103,24 @@ async def test_tool(tool_name: str, req: TestRequest):
     cmd = [sys.executable, str(BEAMTIMEHERO)]
     if cli_path == "ref":
         cmd += ["ref", tool_name]
+    elif cli_path == "steering":
+        leaf = tool_name.split("_", 1)[1].replace("_", "-")
+        cmd += ["steering", leaf]
+        positional = tool.get("positional_args", [])
+        for parg in positional:
+            if parg in req.args:
+                cmd.append(str(req.args[parg]))
+        for key, value in req.args.items():
+            if key in positional:
+                continue
+            flag = f"--{key.replace('_', '-')}"
+            if isinstance(value, bool):
+                if value:
+                    cmd.append(flag)
+            elif isinstance(value, (list, dict)):
+                cmd += [flag, json.dumps(value)]
+            else:
+                cmd += [flag, str(value)]
     else:
         cmd += [cli_path, cli_name]
         for key, value in req.args.items():

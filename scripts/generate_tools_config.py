@@ -54,6 +54,56 @@ CONFIG_PATH = ROOT / "beamline_tools" / "tools_config.json"
 # User-edited fields that survive re-generation
 _PRESERVE_KEYS = {"enabled", "simulated", "working_live", "comments", "sample_output"}
 
+# Hand-written steering commands (not in TOOL_DEFINITIONS; they manipulate
+# StaffGuidance lifecycle columns directly).
+_STEERING_COMMANDS = [
+    {
+        "name": "steering_pending",
+        "description": (
+            "List pending steering rows (completed_at IS NULL) as a JSON array. "
+            "Optionally filter by experiment or show only unacknowledged rows."
+        ),
+        "when_to_use": "List pending staff-guidance rows to see what needs to be acknowledged or completed.",
+        "sample_input": {},
+        "positional_args": [],
+    },
+    {
+        "name": "steering_ack",
+        "description": (
+            "Set active_agent_ack_at on a steering row; optionally link agent_run_id. "
+            "Defaults to $BEAMTIMEHERO_AGENT_RUN_ID if not provided."
+        ),
+        "when_to_use": "Acknowledge a pending steering row so the orchestrator knows the agent has seen it.",
+        "sample_input": {"id": "example"},
+        "positional_args": ["id"],
+    },
+    {
+        "name": "steering_set_comment",
+        "description": "Write or update the ack_comment field on a steering row.",
+        "when_to_use": "Add a comment to a steering row to record agent notes or status updates.",
+        "sample_input": {"id": "example", "text": "example"},
+        "positional_args": ["id", "text"],
+    },
+    {
+        "name": "steering_complete",
+        "description": "Mark a steering row complete: write result text and set completed_at timestamp.",
+        "when_to_use": "Mark a steering row as done after fulfilling the staff guidance.",
+        "sample_input": {"id": "example", "result": "example"},
+        "positional_args": ["id"],
+    },
+    {
+        "name": "steering_defer",
+        "description": (
+            "Defer a steering row by writing 'deferred — <reason>' as ack_comment "
+            "without setting completed_at. Optionally specify a target agent type "
+            "for orchestrator re-dispatch."
+        ),
+        "when_to_use": "Defer a steering row when it cannot be handled now and should be re-dispatched later.",
+        "sample_input": {"id": "example", "reason": "example"},
+        "positional_args": ["id"],
+    },
+]
+
 
 def _categorize(tool_def: dict) -> str:
     """Derive CLI tree from tool schema (mirrors scripts/beamtimehero logic)."""
@@ -144,6 +194,23 @@ def _build_ref_entry(ref_name: str, ref_info: dict) -> dict:
     }
 
 
+def _build_steering_entry(cmd: dict) -> dict:
+    """Build a config entry for a hand-written steering subcommand."""
+    return {
+        "name": cmd["name"],
+        "cli_path": "steering",
+        "description": cmd["description"],
+        "when_to_use": cmd["when_to_use"],
+        "enabled": True,
+        "sample_input": dict(cmd["sample_input"]),
+        "positional_args": list(cmd["positional_args"]),
+        "sample_output": "",
+        "simulated": False,
+        "working_live": False,
+        "comments": "",
+    }
+
+
 def generate() -> dict:
     """Generate the full config, merging with existing if present."""
     # Build fresh entries
@@ -153,6 +220,9 @@ def generate() -> dict:
         fresh[entry["name"]] = entry
     for ref_name, ref_info in REFERENCE_DOCS.items():
         entry = _build_ref_entry(ref_name, ref_info)
+        fresh[entry["name"]] = entry
+    for scmd in _STEERING_COMMANDS:
+        entry = _build_steering_entry(scmd)
         fresh[entry["name"]] = entry
 
     # Load existing config for merge
@@ -176,7 +246,7 @@ def generate() -> dict:
         tools.append(entry)
 
     # Sort by cli_path then name for readability
-    category_order = {"tool": 0, "db": 1, "spec-read": 2, "spec-write": 3, "ref": 4}
+    category_order = {"tool": 0, "db": 1, "spec-read": 2, "spec-write": 3, "steering": 4, "ref": 5}
     tools.sort(key=lambda t: (category_order.get(t["cli_path"], 99), t["name"]))
 
     config = {
