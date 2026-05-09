@@ -5,7 +5,7 @@ description: Compare two consecutive XAS/HERFD scans on the same sample spot to 
 
 # Assess Sample Damage (consecutive-scan comparison)
 
-You compare two back-to-back XAS scans on **the same spot** and decide whether the beam is altering the sample faster than acceptable. If yes, you reduce flux (more filters) or move to a fresh spot. If no, you can hold filters steady or — during Sample Survey — try removing filters to gain count rate.
+You compare two back-to-back XAS scans on **the same spot** and taken with the same number of filters, and decide whether the beam is altering the sample faster than acceptable. If yes, you reduce flux (more filters). If no, you can hold filters steady or — during Sample Survey — try removing filters to gain count rate (while keeping count rate below the given max threshold).
 
 This skill encodes the procedure that lives in `context/sample-data-collection.md` (§ "Beam damage") and `context/Sample-collection_system-prompt.md` (steps 7–8). When something contradicts this skill, that source wins.
 
@@ -16,10 +16,8 @@ This skill encodes the procedure that lives in `context/sample-data-collection.m
 Invoke this skill when **any** of the following is true:
 
 - **Sample Survey, first encounter with a sample.** After moving to the spot and running the first pair of `run_xas` reps, before deciding the sample's filter count.
-- **Sample Survey, after a filter change.** Whenever you remove or add filters during the survey iteration loop, you must take a fresh pair and re-assess.
+- **Sample Survey, after a filter change.** Whenever you remove or add filters during the survey iteration loop, you must move to a fresh spot, take a fresh pair of scans, and re-assess.
 - **Data Collection, between reps within a sample.** After every 2 reps (or at minimum: after the first 2, mid-way, and at the end), check that the early reps and the most recent reps are consistent. Damage that develops slowly only shows up across the run.
-- **Data Collection, after a `change_spot` / fresh-spot move.** The new spot may behave differently from the original; the previous "no damage" verdict does not transfer.
-- **Anything anomalous.** Counter dropping rep-over-rep, deadtime trending up at fixed I0, edge position shifting between reps, white-line height changing — invoke immediately.
 
 Do **not** invoke before two consecutive scans on the same spot exist. The whole signal here is the difference between scan N and scan N+1 on identical conditions; with one scan you have nothing to compare.
 
@@ -31,10 +29,9 @@ All via `beamtimehero tool ...`. Always work from saved scan data, never from in
 
 1. `beamtimehero tool list-scans --limit 5` — find the two most recent scans on the active sample. Confirm the file name matches the active sample id (`open-data-file --name <sample_id>` is the convention).
 2. `beamtimehero tool read-scan --file-name <sample_id> --scan-number <N>` and `--scan-number <N+1>` — pull both scans' raw arrays.
-3. `beamtimehero tool get-active-counter --file-name <sample_id> --scan-number <N>` — confirm both scans use the same fluorescence counter (vortDT, vortDT2, etc.). If they differ, stop — that's a configuration drift, not a damage signal.
+3. use `beamtimhero db get-experiment-config`, get the correct counter to use in comparing the scans (eg vortDT, vortDT2...).
 4. `beamtimehero tool normalize-scan --file-name <sample_id> --scan-number <N> --normalize-by I0` — get edge-step normalized intensity for each scan. **You compare normalized data, not raw.** Raw counter / I0 ratios drift with SPEAR ring current and beam motion.
-5. `beamtimehero tool get-scan-deadtime --file-name <sample_id> --scan-number <N>` — for both scans. A creeping deadtime at the same I0 is a damage symptom (sample becoming more concentrated as a phase decomposes, or counter ROI drifting because of edge shift).
-6. (Optional, sanity) `beamtimehero tool plot-scan --file-name <sample_id> --scan-number <N> --normalize-by I0` for each, so the operator can see the comparison.
+5. `beamtimehero tool plot-scan --file-name <sample_id> --scan-number <N> --normalize-by I0` for each, so the operator can see the comparison.
 
 ---
 
@@ -61,7 +58,6 @@ A scan pair is **damaging** if any of the following holds (cross-check at least 
 - **White-line height change** > ~3% relative, in the same direction across the pair (i.e. monotonic, not just noise). Reduction of a Cr⁶⁺/V⁵⁺/Mn⁴⁺-type species drops the white line; oxidation often raises it.
 - **Pre-edge height change** > ~5% relative on a feature that was clearly resolved in scan N. Pre-edge intensity is geometry- and oxidation-state-sensitive.
 - **Counter / I0 at white-line** drops by > 5% scan-to-scan with no SPEAR drop (>2%), no filter change, and no I0-gain change. Catches damage that flattens the spectrum without obviously shifting it.
-- **Deadtime drift** at the same I0 of > 2 percentage points between the two scans, in the absence of any other change. Often the early symptom of a concentration phase change at the spot.
 
 A scan pair is **not damaging** if all of:
 
@@ -81,22 +77,17 @@ Produce one of four verdicts and act:
 - **`damaging`** → Move to a fresh spot (`umvr Sx <2 beam widths>` or per the holder's spot map). At the fresh spot, double the filter count (or add filters until the count rate is halved) before running the next pair. Re-invoke this skill on the new pair. Note in `record-sample-progress`: `note "damage at spot 1; moved to spot 2 with +N filters"`.
 - **`safe, count rate room available`** (Sample Survey only) → If filters are non-zero and count rate is well below 50 kcps, remove filters until count rate doubles or hits 50 kcps. Take a new pair and re-assess. Goal: max usable flux without damage.
 - **`safe, count rate appropriate`** → Keep filters. Sample Survey: record the converged filter count for this sample on the holder; survey is done for this sample. Data Collection: continue with the planner's prescribed reps.
-- **`inconclusive`** → Take one more scan on the same spot, re-run this skill on the latest pair. Do **not** declare damage and do **not** widen flux on the strength of one borderline comparison.
+- **`inconclusive`** → Take one more scan on the same spot, re-run this skill on the latest pair. Do **not** declare damage and do **not** widen flux on the strength of one borderline comparison. if its still inconclusive, call it safe.
 
-When the verdict is `damaging` or `inconclusive` and you've already moved to two fresh spots without a clean pair, stop and surface via `tool post-status-update` — you may have a sample that damages at any flux, and that's a planner / staff conversation.
+When the verdict is `damaging` or `inconclusive` and you've already moved to two fresh spots without a clean pair, stop and surface via `tool post-status-update` — you may have a sample that damages at any flux, and that's a planner / staff conversation. 
 
 ---
 
 ## Gotchas
 
 - **SPEAR ring current drift looks like damage.** Always SPEAR-normalize (I1/mA, vortDT/I0 with I0 itself bearing the ring-current dependence) before declaring a counter drop. ~5 mA drift over a session is normal. The `normalize-scan` and `analyze-*` tools handle this; if you eyeball, do it yourself.
-- **I0 vs I1 cross-check.** I0 is upstream and obstruction-robust; I1 is more reliable per-photon but easily blocked. If I1 dropped between scans but I0 is steady, the problem is likely downstream of I0 (sample at a thick spot, diagnostic accidentally back in beam, filter pad in unexpected state) — that's not damage, it's an obstruction. See the I0/I1 cross-check guidance in the Sample Collection prompt.
 - **Energy-axis drift can fake an edge shift.** If `absev` and the energy pseudo-motor disagreed before either scan, the apparent E0 shift may be encoder-vs-commanded mismatch, not chemistry. Confirm `absev` is used as the x-axis (it is, in saved scan data) and that no `calibrate_mono` or `reset_gap` happened between the pair.
 - **Low-statistics false positives.** A pair of short, noisy scans will show 5–10% white-line wobble from photon counting alone. If the per-point CV in the white-line region is comparable to the inter-scan delta you're flagging, the call is `inconclusive`. Don't react to noise.
-- **Counter ROI drift.** If the vortex ROI shifted (someone re-ran `set_vortex_roi`, or the elastic line moved with energy), the counter weights will change between scans. `recent-actions` will show this. It's not damage.
-- **Post-edge trending up across reps** while the white line is steady is usually photoreduction of a beam-sensitive matrix (organic film, frozen aqueous), not the absorbing-species itself yet. Treat as `damaging` and add filters anyway — that progression is a leading indicator.
-- **Don't conflate damage with deadtime saturation.** If `vortDT` is already pinned at 200 kcps, the spectrum shape is wrong because of detector pile-up, not because the sample is decomposing. Add filters (a damage response that also fixes saturation) but tag the verdict so the data-collection / planner side knows the previous reps' shapes are suspect from saturation, not chemistry.
-- **`analyze-efficiency` does NOT detect damage.** Its scope is statistical convergence (variance trend across reps); it can't distinguish "spectrum is settling because we added photons" from "spectrum is settling because the sample stopped changing as it got fully damaged." Use this skill, not that tool, for damage decisions.
 
 ---
 
