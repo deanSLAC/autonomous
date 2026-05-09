@@ -964,57 +964,250 @@ async function stopSpec() {
 // ---------------------------------------------------------------------------
 
 const _tailState = {
-    agent: { path: null, offset: 0, started: false },
+    agent: { path: null, offset: 0, cards: new Map() },
     spec:  { path: null, offset: -1, started: false },
 };
 
 const _LOG_TAIL_MAX_CHARS = 64 * 1024;
+const _AGENT_MAX_CARDS = 200;
 
 function _appendToLogPanel(panelId, content) {
     const el = document.getElementById(panelId);
     if (!el) return;
-    if (!_tailState[panelId === "agent-output" ? "agent" : "spec"].started) {
+    if (!_tailState.spec.started) {
         el.textContent = "";  // clear placeholder on first content
-        _tailState[panelId === "agent-output" ? "agent" : "spec"].started = true;
+        _tailState.spec.started = true;
     }
     el.textContent += content;
-    // Trim to keep DOM responsive
     if (el.textContent.length > _LOG_TAIL_MAX_CHARS) {
         el.textContent = el.textContent.slice(-_LOG_TAIL_MAX_CHARS);
     }
     el.scrollTop = el.scrollHeight;
 }
 
+// --- Agent Output (structured cards) -----------------------------------
+
+const _TOOL_CHIP = {
+    Bash:  "bash",
+    Read:  "read",
+    Edit:  "edit",
+    Write: "write",
+    Grep:  "grep",
+    Glob:  "glob",
+    Task:  "task",
+    WebFetch: "web",
+    WebSearch: "web",
+    NotebookEdit: "edit",
+};
+
+function _toolChipClass(tool) {
+    return _TOOL_CHIP[tool] || "tool";
+}
+
+function _agentResetPanel() {
+    const el = document.getElementById("agent-output");
+    if (!el) return;
+    el.innerHTML = '<div class="muted">Waiting for the agent…</div>';
+    _tailState.agent.cards.clear();
+}
+
+function _formatDetail(detail) {
+    // Try to pretty-print JSON; otherwise leave as-is.
+    if (!detail) return "";
+    const s = detail.trim();
+    if ((s.startsWith("{") && s.endsWith("}")) || (s.startsWith("[") && s.endsWith("]"))) {
+        try {
+            return JSON.stringify(JSON.parse(s), null, 2);
+        } catch (_) {}
+    }
+    return detail;
+}
+
+function _isNearBottom(el, slack = 60) {
+    return (el.scrollHeight - el.scrollTop - el.clientHeight) < slack;
+}
+
+function _renderAgentEvent(host, ev) {
+    const cards = _tailState.agent.cards;
+
+    if (ev.kind === "tool_use") {
+        const card = document.createElement("div");
+        card.className = "agent-card pending";
+        card.dataset.toolUseId = ev.tool_use_id;
+
+        const head = document.createElement("div");
+        head.className = "agent-card-head";
+
+        const chip = document.createElement("span");
+        chip.className = `agent-chip chip-${_toolChipClass(ev.tool)}`;
+        chip.textContent = ev.tool || "tool";
+        head.appendChild(chip);
+
+        const summary = document.createElement("span");
+        summary.className = "agent-card-summary";
+        summary.textContent = ev.summary || "";
+        head.appendChild(summary);
+
+        const status = document.createElement("span");
+        status.className = "agent-card-status";
+        status.textContent = "…";
+        head.appendChild(status);
+
+        card.appendChild(head);
+
+        const body = document.createElement("div");
+        body.className = "agent-card-body";
+        body.style.display = "none";
+        const inputPre = document.createElement("pre");
+        inputPre.className = "agent-card-detail";
+        inputPre.textContent = ev.input ? JSON.stringify(ev.input, null, 2) : "";
+        body.appendChild(_labeledBlock("input", inputPre));
+        card.appendChild(body);
+
+        head.addEventListener("click", () => {
+            const open = body.style.display !== "none";
+            body.style.display = open ? "none" : "block";
+            card.classList.toggle("open", !open);
+        });
+
+        host.appendChild(card);
+        cards.set(ev.tool_use_id, card);
+        return;
+    }
+
+    if (ev.kind === "tool_result") {
+        const card = cards.get(ev.tool_use_id);
+        if (!card) {
+            // Result with no matching call (e.g. result arrived before its
+            // tool_use was projected, or chunk-boundary lost the use). Drop
+            // a standalone result so nothing is silently swallowed.
+            const orphan = document.createElement("div");
+            orphan.className = "agent-card " + (ev.is_error ? "err" : "ok");
+            const head = document.createElement("div");
+            head.className = "agent-card-head";
+            const chip = document.createElement("span");
+            chip.className = "agent-chip chip-tool";
+            chip.textContent = "result";
+            head.appendChild(chip);
+            const sm = document.createElement("span");
+            sm.className = "agent-card-summary";
+            sm.textContent = ev.summary || "";
+            head.appendChild(sm);
+            orphan.appendChild(head);
+            host.appendChild(orphan);
+            return;
+        }
+        card.classList.remove("pending");
+        card.classList.add(ev.is_error ? "err" : "ok");
+        const status = card.querySelector(".agent-card-status");
+        if (status) status.textContent = ev.is_error ? "✕" : "✓";
+        const summary = card.querySelector(".agent-card-summary");
+        if (summary) summary.textContent = ev.summary || summary.textContent;
+        const body = card.querySelector(".agent-card-body");
+        if (body && ev.detail) {
+            const resultPre = document.createElement("pre");
+            resultPre.className = "agent-card-detail";
+            resultPre.textContent = _formatDetail(ev.detail);
+            body.appendChild(_labeledBlock("output", resultPre));
+        }
+        return;
+    }
+
+    if (ev.kind === "assistant_text") {
+        const note = document.createElement("div");
+        note.className = "agent-note";
+        note.textContent = ev.text;
+        host.appendChild(note);
+        return;
+    }
+
+    if (ev.kind === "system") {
+        const sys = document.createElement("div");
+        sys.className = "agent-system";
+        sys.textContent = `[${ev.subtype}] ${ev.text || ""}`.trim();
+        host.appendChild(sys);
+        return;
+    }
+
+    if (ev.kind === "result") {
+        const done = document.createElement("div");
+        done.className = "agent-system done";
+        const cost = (typeof ev.cost === "number") ? `  cost=$${ev.cost.toFixed(4)}` : "";
+        const turns = (ev.turns != null) ? `  turns=${ev.turns}` : "";
+        done.textContent = `[done] ${ev.subtype || ""}${turns}${cost}`.trim();
+        host.appendChild(done);
+        return;
+    }
+}
+
+function _labeledBlock(label, child) {
+    const wrap = document.createElement("div");
+    wrap.className = "agent-card-section";
+    const lbl = document.createElement("div");
+    lbl.className = "agent-card-label";
+    lbl.textContent = label;
+    wrap.appendChild(lbl);
+    wrap.appendChild(child);
+    return wrap;
+}
+
+function _trimAgentCards(host) {
+    while (host.children.length > _AGENT_MAX_CARDS) {
+        const first = host.firstElementChild;
+        if (!first) break;
+        if (first.dataset && first.dataset.toolUseId) {
+            _tailState.agent.cards.delete(first.dataset.toolUseId);
+        }
+        host.removeChild(first);
+    }
+}
+
+async function _fetchAgentEvents(slug, offset) {
+    const url = slug
+        ? `${API}/api/phase/log_tail?format=structured&slug=${encodeURIComponent(slug)}&offset=${offset}`
+        : `${API}/api/phase/log_tail?format=structured&offset=${offset}`;
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return r.json();
+}
+
 async function refreshAgentOutput() {
     const st = _tailState.agent;
     try {
-        const u = `${API}/api/phase/log_tail?offset=${st.offset}`;
-        const r = await fetch(u);
-        if (!r.ok) return;
-        const j = await r.json();
+        const j = await _fetchAgentEvents(null, st.offset);
+        if (!j) return;
         const sub = document.getElementById("agent-output-sub");
         if (sub) sub.textContent = j.slug ? `${j.slug}` : "idle";
-        // Reset on path change (new run started, log file rotated).
+        // Reset on path change (new run started, log rotated).
         if (j.path !== st.path) {
             st.path = j.path;
             st.offset = 0;
-            st.started = false;
-            const el = document.getElementById("agent-output");
-            if (el) el.innerHTML = '<span class="muted">Waiting for the agent…</span>';
+            _agentResetPanel();
             if (j.path) {
-                // Re-fetch from start of the new file.
-                const r2 = await fetch(`${API}/api/phase/log_tail?slug=${encodeURIComponent(j.slug)}&offset=0`);
-                if (r2.ok) {
-                    const j2 = await r2.json();
-                    if (j2.content) _appendToLogPanel("agent-output", j2.content);
+                const j2 = await _fetchAgentEvents(j.slug, 0);
+                if (j2) {
+                    _renderAgentEvents(j2.events || []);
                     st.offset = j2.offset;
                 }
             }
             return;
         }
-        if (j.content) _appendToLogPanel("agent-output", j.content);
+        _renderAgentEvents(j.events || []);
         st.offset = j.offset;
     } catch (_) {}
+}
+
+function _renderAgentEvents(events) {
+    if (!events || !events.length) return;
+    const host = document.getElementById("agent-output");
+    if (!host) return;
+    // First content arrives → drop placeholder.
+    const placeholder = host.querySelector(".muted");
+    if (placeholder && host.children.length === 1) host.innerHTML = "";
+    const stickToBottom = _isNearBottom(host);
+    for (const ev of events) _renderAgentEvent(host, ev);
+    _trimAgentCards(host);
+    if (stickToBottom) host.scrollTop = host.scrollHeight;
 }
 
 async function refreshSpecOutput() {
