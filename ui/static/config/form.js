@@ -437,7 +437,6 @@ function addSample(data) {
     sampleCount++;
     const idx = sampleCount;
     const container = document.getElementById('samples-container');
-    const isLiquidJet = (getSampleEnv() === 'liquid_jet');
 
     const card = document.createElement('div');
     card.className = 'sample-card';
@@ -446,109 +445,13 @@ function addSample(data) {
 
     const sName = data ? data.name : '';
     const sElem = data ? data.element : '';
-    const sEnabled = data ? data.enabled : true;
-    const doXas = data ? data.do_xas : true;
-    const xasReps = data ? data.xas_reps : 10;
-    const xasTime = data ? data.xas_time : 0.5;
-    const xasFilter = data ? data.xas_filter : 0;
-    const xasEmissOvr = data ? (data.xas_emiss_override || '') : '';
-    const doRixs = data ? data.do_rixs : false;
-    const rixsTime = data ? data.rixs_time : 1.0;
-    const rixsStart = data ? (data.rixs_start || '') : '';
-    const rixsEnd = data ? (data.rixs_end || '') : '';
-    const rixsStep = data ? data.rixs_step : -0.2;
-    const rixsFilter = data ? data.rixs_filter : 0;
+    // Filter is an optional starting suggestion. Sample alignment + survey
+    // refine it; everything else (positions, reps, count time, gains,
+    // emiss override) is determined by the alignment / survey phases, not
+    // configured here.
+    const xasFilter = (data && data.xas_filter != null) ? data.xas_filter : '';
 
-    // Gain settings (per-sample)
-    const i0Gain = data ? (data.i0_gain || '') : '';
-    const i0Offset = data ? (data.i0_offset || '') : '';
-    const i1Gain = data ? (data.i1_gain || '') : '';
-
-    // Position fields (may be blank pre-alignment)
-    const sxLo = data ? (data.sx_lo || '') : '';
-    const sxHi = data ? (data.sx_hi || '') : '';
-    const syLo = data ? (data.sy_lo || '') : '';
-    const syHi = data ? (data.sy_hi || '') : '';
-    const szLo = data ? (data.sz_lo || '') : '';
-    const szHi = data ? (data.sz_hi || '') : '';
-    const sxDel = data ? (data.sx_del || '') : '';
-    const syDel = data ? (data.sy_del || '') : '';
-    const szDel = data ? (data.sz_del || '') : '';
-
-    // Build element dropdown from current elements
     const elemOptions = buildElementOptions(sElem);
-
-    // Position fields HTML depends on sample environment
-    let positionHtml;
-    if (isLiquidJet) {
-        // Liquid jet: single Sx, Sy, Sz (fixed point, sample replenishes)
-        const sx = sxLo || '';
-        const sy = syLo || '';
-        const sz = szLo || '';
-        positionHtml = `
-            <div class="form-row">
-                <div class="form-group narrow">
-                    <label>Sx</label>
-                    <input type="number" id="samp_${idx}_sx" step="0.1" value="${sx}" placeholder="">
-                </div>
-                <div class="form-group narrow">
-                    <label>Sy</label>
-                    <input type="number" id="samp_${idx}_sy" step="0.1" value="${sy}" placeholder="">
-                </div>
-                <div class="form-group narrow">
-                    <label>Sz</label>
-                    <input type="number" id="samp_${idx}_sz" step="0.1" value="${sz}" placeholder="">
-                </div>
-            </div>`;
-    } else {
-        positionHtml = `
-            <div class="form-row">
-                <div class="form-group narrow">
-                    <label>Sx Lo</label>
-                    <input type="number" id="samp_${idx}_sx_lo" step="0.1" value="${sxLo}" placeholder="">
-                </div>
-                <div class="form-group narrow">
-                    <label>Sx Hi</label>
-                    <input type="number" id="samp_${idx}_sx_hi" step="0.1" value="${sxHi}" placeholder="">
-                </div>
-                <div class="form-group narrow">
-                    <label>Sy Lo</label>
-                    <input type="number" id="samp_${idx}_sy_lo" step="0.1" value="${syLo}" placeholder="">
-                </div>
-                <div class="form-group narrow">
-                    <label>Sy Hi</label>
-                    <input type="number" id="samp_${idx}_sy_hi" step="0.1" value="${syHi}" placeholder="">
-                </div>
-                <div class="form-group narrow">
-                    <label>Sz Lo</label>
-                    <input type="number" id="samp_${idx}_sz_lo" step="0.1" value="${szLo}" placeholder="">
-                </div>
-                <div class="form-group narrow">
-                    <label>Sz Hi</label>
-                    <input type="number" id="samp_${idx}_sz_hi" step="0.1" value="${szHi}" placeholder="">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group narrow">
-                    <label>Sx Step</label>
-                    <input type="number" id="samp_${idx}_sx_del" step="0.01" value="${sxDel}" placeholder="">
-                </div>
-                <div class="form-group narrow">
-                    <label>Sy Step</label>
-                    <input type="number" id="samp_${idx}_sy_del" step="0.01" value="${syDel}" placeholder="">
-                </div>
-                <div class="form-group narrow">
-                    <label>Sz Step</label>
-                    <input type="number" id="samp_${idx}_sz_del" step="0.01" value="${szDel}" placeholder="">
-                </div>
-            </div>`;
-    }
-
-    // Build gain dropdown HTML with selected values
-    function selectOpt(html, val) {
-        if (!val) return html;
-        return html.replace(`value="${val}"`, `value="${val}" selected`);
-    }
 
     card.innerHTML = `
         <div class="card-header">
@@ -568,86 +471,9 @@ function addSample(data) {
                 </select>
             </div>
             <div class="form-group narrow">
-                <label>Enabled</label>
-                <input type="checkbox" id="samp_${idx}_enabled" ${sEnabled ? 'checked' : ''}>
-            </div>
-        </div>
-
-        <!-- Positions -->
-        ${positionHtml}
-
-        <hr class="section-sep">
-
-        <!-- XAS Parameters + Gains -->
-        <div class="form-row">
-            <div class="form-group narrow">
-                <label>Do XAS</label>
-                <input type="checkbox" id="samp_${idx}_do_xas" ${doXas ? 'checked' : ''}>
-            </div>
-            <div class="form-group narrow">
-                <label>XAS Reps</label>
-                <input type="number" id="samp_${idx}_xas_reps" value="${xasReps}" min="1">
-            </div>
-            <div class="form-group narrow">
-                <label>Count (s)</label>
-                <input type="number" id="samp_${idx}_xas_time" step="0.1" value="${xasTime}" min="0.1">
-            </div>
-            <div class="form-group narrow">
                 <label>Filter</label>
-                <input type="number" id="samp_${idx}_xas_filter" value="${xasFilter}" min="0" max="255">
+                <input type="number" id="samp_${idx}_xas_filter" value="${xasFilter}" min="0" max="255" placeholder="optional">
             </div>
-            <div class="form-group">
-                <label>Emiss Override (eV)</label>
-                <input type="number" id="samp_${idx}_xas_emiss" step="0.1" value="${xasEmissOvr}" placeholder="Use element default">
-            </div>
-        </div>
-
-        <!-- Gain Settings (per-sample) -->
-        <div class="form-row">
-            <div class="form-group medium">
-                <label>I0 Gain</label>
-                <select id="samp_${idx}_i0_gain">${selectOpt(I0_GAIN_OPTIONS, i0Gain)}</select>
-            </div>
-            <div class="form-group medium">
-                <label>I0 Offset</label>
-                <select id="samp_${idx}_i0_offset">${selectOpt(I0_OFFSET_OPTIONS, i0Offset)}</select>
-            </div>
-            <div class="form-group medium">
-                <label>I1 Gain</label>
-                <select id="samp_${idx}_i1_gain">${selectOpt(I1_GAIN_OPTIONS, i1Gain)}</select>
-            </div>
-        </div>
-
-        <!-- RIXS Section (collapsible) -->
-        <div class="rixs-section ${doRixs ? '' : 'hidden'}" id="samp_${idx}_rixs_section">
-            <div class="form-row">
-                <div class="form-group narrow">
-                    <label>RIXS Time (s)</label>
-                    <input type="number" id="samp_${idx}_rixs_time" step="0.1" value="${rixsTime}" min="0.1">
-                </div>
-                <div class="form-group">
-                    <label>Emiss Start (eV)</label>
-                    <input type="number" id="samp_${idx}_rixs_start" step="0.1" value="${rixsStart}" placeholder="Higher energy">
-                </div>
-                <div class="form-group">
-                    <label>Emiss End (eV)</label>
-                    <input type="number" id="samp_${idx}_rixs_end" step="0.1" value="${rixsEnd}" placeholder="Lower energy">
-                </div>
-                <div class="form-group narrow">
-                    <label>Emiss Step</label>
-                    <input type="number" id="samp_${idx}_rixs_step" step="0.01" value="${rixsStep}">
-                </div>
-                <div class="form-group narrow">
-                    <label>RIXS Filter</label>
-                    <input type="number" id="samp_${idx}_rixs_filter" value="${rixsFilter}" min="0" max="255">
-                </div>
-            </div>
-        </div>
-
-        <div class="checkbox-row" style="margin-top: 6px;">
-            <input type="checkbox" id="samp_${idx}_do_rixs" ${doRixs ? 'checked' : ''}
-                   onchange="toggleRixs(${idx})">
-            <label for="samp_${idx}_do_rixs">Enable RIXS for this sample</label>
         </div>
     `;
 
@@ -657,16 +483,6 @@ function addSample(data) {
 function removeSample(idx) {
     const card = document.getElementById(`sample-card-${idx}`);
     if (card) card.remove();
-}
-
-function toggleRixs(idx) {
-    const checked = document.getElementById(`samp_${idx}_do_rixs`).checked;
-    const section = document.getElementById(`samp_${idx}_rixs_section`);
-    if (checked) {
-        section.classList.remove('hidden');
-    } else {
-        section.classList.add('hidden');
-    }
 }
 
 function buildElementOptions(selected) {
@@ -805,60 +621,35 @@ function gatherSampleHolderData() {
         samples: [],
     };
 
-    const isLiquidJet = (getSampleEnv() === 'liquid_jet');
-
     document.querySelectorAll('.sample-card').forEach(card => {
         const idx = parseInt(card.dataset.idx);
+        const filterRaw = val(`samp_${idx}_xas_filter`);
 
-        let sxLo, sxHi, syLo, syHi, szLo, szHi, sxDel, syDel, szDel;
-        if (isLiquidJet) {
-            // Single point: lo = hi = value, no steps
-            const sx = numVal(`samp_${idx}_sx`);
-            const sy = numVal(`samp_${idx}_sy`);
-            const sz = numVal(`samp_${idx}_sz`);
-            sxLo = sx; sxHi = sx;
-            syLo = sy; syHi = sy;
-            szLo = sz; szHi = sz;
-            sxDel = 0; syDel = 0; szDel = 0;
-        } else {
-            sxLo = numVal(`samp_${idx}_sx_lo`);
-            sxHi = numVal(`samp_${idx}_sx_hi`);
-            syLo = numVal(`samp_${idx}_sy_lo`);
-            syHi = numVal(`samp_${idx}_sy_hi`);
-            szLo = numVal(`samp_${idx}_sz_lo`);
-            szHi = numVal(`samp_${idx}_sz_hi`);
-            sxDel = numVal(`samp_${idx}_sx_del`);
-            syDel = numVal(`samp_${idx}_sy_del`);
-            szDel = numVal(`samp_${idx}_sz_del`);
-        }
-
+        // Form only collects name/element/filter. Everything else
+        // (positions, reps, count time, emiss override, gains) is
+        // determined by alignment + survey phases; we send harmless
+        // defaults here so the server validator passes.
         data.samples.push({
             name: val(`samp_${idx}_name`),
             element: val(`samp_${idx}_element`),
-            enabled: document.getElementById(`samp_${idx}_enabled`).checked,
-            sx_lo: sxLo,
-            sx_hi: sxHi,
-            sy_lo: syLo,
-            sy_hi: syHi,
-            sz_lo: szLo,
-            sz_hi: szHi,
-            sx_del: sxDel,
-            sy_del: syDel,
-            sz_del: szDel,
-            do_xas: document.getElementById(`samp_${idx}_do_xas`).checked,
-            xas_reps: parseInt(val(`samp_${idx}_xas_reps`) || '10'),
-            xas_time: parseFloat(val(`samp_${idx}_xas_time`) || '0.5'),
-            xas_filter: parseInt(val(`samp_${idx}_xas_filter`) || '0'),
-            xas_emiss_override: numVal(`samp_${idx}_xas_emiss`),
-            i0_gain: val(`samp_${idx}_i0_gain`),
-            i0_offset: val(`samp_${idx}_i0_offset`),
-            i1_gain: val(`samp_${idx}_i1_gain`),
-            do_rixs: document.getElementById(`samp_${idx}_do_rixs`).checked,
-            rixs_time: parseFloat(val(`samp_${idx}_rixs_time`) || '1.0'),
-            rixs_start: numVal(`samp_${idx}_rixs_start`),
-            rixs_end: numVal(`samp_${idx}_rixs_end`),
-            rixs_step: parseFloat(val(`samp_${idx}_rixs_step`) || '-0.2'),
-            rixs_filter: parseInt(val(`samp_${idx}_rixs_filter`) || '0'),
+            enabled: true,
+            sx_lo: 0, sx_hi: 0, sx_del: 0,
+            sy_lo: 0, sy_hi: 0, sy_del: 0,
+            sz_lo: 0, sz_hi: 0, sz_del: 0,
+            do_xas: true,
+            xas_reps: 10,
+            xas_time: 0.5,
+            xas_filter: filterRaw === '' ? 0 : parseInt(filterRaw, 10) || 0,
+            xas_emiss_override: null,
+            i0_gain: '',
+            i0_offset: '',
+            i1_gain: '',
+            do_rixs: false,
+            rixs_time: 1.0,
+            rixs_start: null,
+            rixs_end: null,
+            rixs_step: -0.2,
+            rixs_filter: 0,
         });
     });
 

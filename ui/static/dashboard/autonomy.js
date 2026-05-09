@@ -776,6 +776,21 @@ function applyPhaseRunStatusToTiles() {
             if (badge) { badge.className = "tile-status-badge badge-failed"; badge.textContent = "failed"; }
         }
     });
+
+    // Spectrometer alignment is a manual phase — no agent process, so it
+    // never appears in __phaseRunStatus. Drive its badge from the
+    // operator-confirmed `spectrometer_aligned` flag instead.
+    const xesTile = document.querySelector('.phase-tile[data-phase="xes_alignment"]');
+    if (xesTile) {
+        const xesBadge = xesTile.querySelector(".tile-status-badge");
+        if (__spectrometerAligned) {
+            setTileStatus(xesTile, "completed");
+            if (xesBadge) { xesBadge.className = "tile-status-badge badge-completed"; xesBadge.textContent = "complete"; }
+        } else {
+            setTileStatus(xesTile, "pending");
+            if (xesBadge) { xesBadge.className = "tile-status-badge badge-pending"; xesBadge.textContent = "pending"; }
+        }
+    }
 }
 
 function applyGatingToTiles() {

@@ -119,21 +119,14 @@
                 </div>
             </div>
 
-            <!-- ==== Spectrometer Alignment ==== -->
+            <!-- ==== Spectrometer Alignment (manual phase: operator confirms when done) ==== -->
             <div class="phase-column" data-status="pending">
-                <div class="phase-tile" data-status="pending" data-phase="xes_alignment" onclick="onPhaseTileClick(this, event)">
+                <div class="phase-tile tile-manual" data-status="pending" data-phase="xes_alignment" onclick="onPhaseTileClick(this, event)">
                     <div class="tile-header">
                         <div class="tile-phase-name">Spectrometer Alignment</div>
                         <div class="tile-status-badge badge-pending">pending</div>
                     </div>
-                    <div class="tile-body">
-                        <div class="tile-metric"><span class="metric-value" data-field="scan_count">--</span><span class="metric-label">scans</span></div>
-                        <div class="tile-details">
-                            <div class="tile-detail"><span class="detail-label">crystals</span><span data-field="crystal_count">--</span></div>
-                            <div class="tile-detail"><span class="detail-label">anom</span><span data-field="anomaly_count">0</span></div>
-                        </div>
-                    </div>
-                    <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
+                    <div class="tile-footer"><span class="tile-link">View &rarr;</span></div>
                 </div>
                 <div class="tile-actions" hidden></div>
                 <div class="phase-io phase-output">
