@@ -310,8 +310,8 @@ async def submit_sample_holder(data: dict):
         # no plan is present yet.
         try:
             from orchestration.planner import planner
-            from orchestration.plan_store.client import get_experiment_plan as _get_plan
-            if _get_plan(experiment_id):
+            from orchestration.plan_store.client import get_plan
+            if get_plan(experiment_id):
                 planner.rebuild_plan_preserving_progress(experiment_id)
         except Exception as e:
             logger.warning("plan rebuild on holder save skipped: %s", e)

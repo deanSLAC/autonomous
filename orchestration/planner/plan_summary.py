@@ -37,7 +37,7 @@ from typing import Any, Optional
 from sqlmodel import select
 
 from orchestration.config import DATA_DIR
-from orchestration.plan_store.client import get_experiment_plan
+from orchestration.plan_store.client import get_plan
 from orchestration.plan_store.models import (
     CollectionScan,
     Experiment,
@@ -92,7 +92,7 @@ def generate_and_post(experiment_id: str) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 
 def _build_summary(experiment_id: str) -> Optional[dict]:
-    wrapper = get_experiment_plan(experiment_id) or {}
+    wrapper = get_plan(experiment_id) or {}
     body = wrapper.get("plan") or {}
     queue = body.get("sample_queue") or []
     plan_by_sid: dict[str, dict] = {q.get("sample_id"): q for q in queue if q.get("sample_id")}

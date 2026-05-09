@@ -13,7 +13,7 @@ from sqlmodel import select
 
 from beamline_tools.action_log.db import recent_actions, recent_queries
 from orchestration.plan_store.client import (
-    get_experiment_plan,
+    get_plan,
     list_open_interventions,
     list_guidance,
     list_phase_transitions,
@@ -125,7 +125,7 @@ def status(experiment_id: str = Query(...)):
                     count += 1
             scan_aggs[r.id]["scan_count"] = count
 
-    plan = get_experiment_plan(experiment_id) or {}
+    plan = get_plan(experiment_id) or {}
     current_phase = spec_cmd.get_phase()
     return {
         "experiment": {

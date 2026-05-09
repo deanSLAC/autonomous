@@ -370,7 +370,7 @@
       "cli_path": "db",
       "description": "Hours from now until Experiment.end_time. Returns {remaining_hours, end_time}; both null if end_time has not been set yet.",
       "when_to_use": "Hours from now until Experiment.end_time. Returns {remaining_hours, end_time} \u2014 or both null with a note if the operator has not yet called set_experiment_end_time.",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {},
       "sample_output": "{\"total_hours\": 12.0, \"elapsed_hours\": 4.5, \"remaining_hours\": 7.5}",
       "simulated": false,
@@ -406,7 +406,7 @@
       "cli_path": "db",
       "description": "Recent staff/user guidance messages \u2014 either typed into the dashboard guidance panel or posted to Slack.",
       "when_to_use": "Recent staff / user guidance messages (Slack or web).",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {},
       "sample_output": "[{\"timestamp\": \"2026-05-04T10:30:00Z\", \"author\": \"staff_jane\", \"text\": \"Use 1s count time for Fe samples, they are radiation sensitive.\"}]",
       "simulated": false,
@@ -456,7 +456,7 @@
       "cli_path": "db",
       "description": "Update per-sample status (queued/in_progress/done/skipped/failed), SNR estimate, efficiency verdict, and reps completed. Preserves the rest of the plan.",
       "when_to_use": "Update per-sample status (snr_estimate, efficiency_verdict, reps_completed, note).",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {
         "sample_id": "example"
       },
@@ -470,7 +470,7 @@
       "cli_path": "db",
       "description": "Rebuild the sample plan from the DB while preserving per-sample progress (status, reps_completed, notes) and user overrides (thresholds, holder_budgets, total budget). Call this after a sample holder is added or edited.",
       "when_to_use": "Rebuild the sample plan from the database while preserving per-sample progress (status, reps_completed, notes) and user overrides (thresholds, holder_budgets, budget). Call this after a new sample holder is configured or an existing one is edited.",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"sample_count\": 8}",
       "simulated": false,
@@ -509,7 +509,7 @@
       "cli_path": "db",
       "description": "Set a default per-sample time budget for a whole sample holder. New samples inherit the default; when apply_to_existing is true (default), existing samples on that holder also pick up the change.",
       "when_to_use": "Set a default per-sample time budget for an entire sample holder. Stored under the plan's holder_budgets so new samples inherit it; when apply_to_existing=true (default), existing samples on that holder also get the new count_time/reps.",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"samples_updated\": 4}",
       "simulated": false,
@@ -521,7 +521,7 @@
       "cli_path": "db",
       "description": "Adjust the time budget for a single sample \u2014 change the per-rep count_time and/or the number of reps. Mode restricts the change to one of xas or emiss.",
       "when_to_use": "Adjust the time budget for a single sample. Tweak any of: per-rep count_time_s, total reps, reps_per_spot (int = even split, list[int] = explicit per-spot), n_spots. Optionally restrict to one mode ('xas' or 'emiss').",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {
         "sample_id": "example"
       },
@@ -550,7 +550,7 @@
       "cli_path": "db",
       "description": "Replace the live experiment plan JSON wholesale. The structure is up to the agent, but downstream views expect a sample_queue + holder_budgets + budget shape.",
       "when_to_use": "Replace the live experiment plan JSON (structure decided by the agent).",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {
         "plan": {}
       },

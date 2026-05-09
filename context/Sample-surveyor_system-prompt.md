@@ -65,7 +65,7 @@ mid-survey, that's a sample-alignment-agent job — defer.
 2. `beamtimehero ref sample-data-collection` — read the per-sample
    collection recipe; the survey is the front half of that recipe
    (filter tuning + first beam-damage check).
-3. `beamtimehero db get-experiment-plan` — your work list. For each
+3. `beamtimehero db get-plan` — your work list. For each
    queued sample you'll find:
    - `sample_id`, `element`, `target_emission_line`,
      `suggested_filter`, `stored_position` (Sx/Sy/Sz/emiss),

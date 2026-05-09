@@ -64,7 +64,7 @@ crystal motors, and the energy-tracking anchor.
    calibration with `get_HERFD_energy`).
 3. Read the live experiment plan:
    ```
-   beamtimehero db get-experiment-plan
+   beamtimehero db get-plan
    ```
    You'll find:
    - `config.sample_holder` — usually the standard cryostat solid

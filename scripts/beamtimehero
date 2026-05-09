@@ -534,11 +534,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         from beamline_tools.spec_control import spec_cmd as _spec_cmd_bootstrap
         from orchestration.plan_store.session import get_active_experiment
-        from orchestration.plan_store.client import get_experiment_plan
+        from orchestration.plan_store.client import get_plan
 
         _exp = get_active_experiment()
         if _exp is not None:
-            _plan = get_experiment_plan(_exp.id) or {}
+            _plan = get_plan(_exp.id) or {}
             _phase = _plan.get("phase") or "setup"
             _spec_cmd_bootstrap.set_phase(_phase, experiment_id=_exp.id)
     except Exception:

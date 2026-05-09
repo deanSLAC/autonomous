@@ -114,7 +114,7 @@ def upsert_experiment_plan(
     return row
 
 
-def get_experiment_plan(experiment_id: str) -> Optional[dict]:
+def get_plan(experiment_id: str) -> Optional[dict]:
     with get_session() as session:
         row = session.exec(
             select(ExperimentPlan).where(ExperimentPlan.experiment_id == experiment_id)

@@ -58,11 +58,11 @@ def main() -> None:
     try:
         from beamline_tools.spec_control import spec_cmd  # noqa: E402
         from orchestration.plan_store.session import get_active_experiment  # noqa: E402
-        from orchestration.plan_store.client import get_experiment_plan  # noqa: E402
+        from orchestration.plan_store.client import get_plan  # noqa: E402
 
         exp = get_active_experiment()
         if exp is not None:
-            plan = get_experiment_plan(exp.id) or {}
+            plan = get_plan(exp.id) or {}
             phase = plan.get("phase") or "setup"
             spec_cmd.set_phase(phase, experiment_id=exp.id)
             print(f"[dispatch] phase={phase} exp={exp.id}", file=sys.stderr)

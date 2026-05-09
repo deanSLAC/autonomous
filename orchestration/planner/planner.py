@@ -24,7 +24,7 @@ from typing import Any, Optional
 from sqlmodel import select
 
 from orchestration.config import DEFAULT_BEAMTIME_HOURS
-from orchestration.plan_store.client import get_experiment_plan, upsert_experiment_plan
+from orchestration.plan_store.client import get_plan, upsert_experiment_plan
 from orchestration.plan_store.session import get_session
 from orchestration.plan_store.models import (
     CollectionScan,
@@ -228,7 +228,7 @@ class PlannerSnapshot:
 
 
 def snapshot(experiment_id: str) -> PlannerSnapshot:
-    plan = get_experiment_plan(experiment_id) or {}
+    plan = get_plan(experiment_id) or {}
     plan_body = plan.get("plan", {}) or {}
     sample_queue = plan_body.get("sample_queue", []) or []
 
@@ -316,7 +316,7 @@ def record_sample_progress(
     reps_completed: int | None = None,
     note: str | None = None,
 ) -> dict:
-    plan = get_experiment_plan(experiment_id) or {}
+    plan = get_plan(experiment_id) or {}
     body = plan.get("plan", {})
     for s in body.get("sample_queue", []):
         if s.get("sample_id") == sample_id:
@@ -378,7 +378,7 @@ def _make_sample_entry(
 
 
 def _load_plan(experiment_id: str) -> tuple[dict, list[dict]]:
-    wrapper = get_experiment_plan(experiment_id) or {}
+    wrapper = get_plan(experiment_id) or {}
     body = wrapper.get("plan") or {}
     queue = body.setdefault("sample_queue", [])
     return body, queue
@@ -635,7 +635,7 @@ def rebuild_plan_preserving_progress(
     `status`, `snr_estimate`, `reps_completed`, etc. that the agent has
     already recorded for samples still present in the DB.
     """
-    previous = get_experiment_plan(experiment_id) or {}
+    previous = get_plan(experiment_id) or {}
     prev_body = previous.get("plan") or {}
     prev_queue = prev_body.get("sample_queue") or []
     progress: dict[str, dict] = {

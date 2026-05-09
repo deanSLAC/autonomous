@@ -1139,7 +1139,7 @@ TOOL_LINEAGE: dict[str, dict] = {
             "Return the live experiment plan — config, sample queue, "
             "holder budgets, and the beamtime budget."
         ),
-        "python_func": "db.autonomy_client.get_experiment_plan(experiment_id)",
+        "python_func": "db.autonomy_client.get_plan(experiment_id)",
         "spec_command": None,
         "output": "JSON: the full plan object",
         "source": "autonomy_db",
@@ -1332,7 +1332,7 @@ TOOL_LINEAGE: dict[str, dict] = {
         ),
         "python_func": (
             "session.get(SampleHolder, ...) + SamplePosition rows + "
-            "plan_store.client.get_experiment_plan(experiment_id)"
+            "plan_store.client.get_plan(experiment_id)"
         ),
         "spec_command": None,
         "output": (

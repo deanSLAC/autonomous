@@ -47,7 +47,7 @@ from orchestration.plan_store.session import (  # noqa: E402
     create_sample_position,
 )
 from orchestration.plan_store.client import (  # noqa: E402
-    get_experiment_plan,
+    get_plan,
 )
 from orchestration.planner import planner  # noqa: E402
 from orchestration.planner.phase import PreconditionChecker, transition_phase  # noqa: E402
@@ -193,7 +193,7 @@ async def run() -> None:
     assert_true(r_back2.allowed, "backward with approver succeeds")
 
     banner("plan update + sample progress")
-    plan_dict = get_experiment_plan(exp.id) or {}
+    plan_dict = get_plan(exp.id) or {}
     first_sample_id = plan_dict["plan"]["sample_queue"][0]["sample_id"]
     planner.record_sample_progress(
         exp.id, first_sample_id, status="done", snr_estimate=12.3,

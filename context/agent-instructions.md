@@ -320,7 +320,7 @@ And the related signaling tools:
 ```
 beamtimehero tool post-status-update --text "<one-liner to Slack + UI>"
 beamtimehero db request-human-intervention --kind <kind> --detail "<text>"
-beamtimehero db get-experiment-plan         # config + sample queue + budgets
+beamtimehero db get-plan         # config + sample queue + budgets
 beamtimehero db recent-actions [--limit N]  # what's been logged recently
 ```
 

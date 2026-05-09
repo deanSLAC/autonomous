@@ -25,7 +25,7 @@ from beamline_tools.spec_control import phase_allowlist, spec_cmd
 # `beamline_tools` is vendored into a future project without it).
 try:
     from orchestration.plan_store.client import (
-        get_experiment_plan,
+        get_plan,
         list_guidance,
         list_open_interventions,
     )
@@ -33,7 +33,7 @@ try:
     from orchestration.planner.staff_guidance import coordinator
     _ORCHESTRATION_AVAILABLE = True
 except Exception:  # pragma: no cover — ImportError when vendored without orchestration, ValidationError when .env missing
-    get_experiment_plan = list_guidance = list_open_interventions = None  # type: ignore
+    get_plan = list_guidance = list_open_interventions = None  # type: ignore
     planner = coordinator = None  # type: ignore
     _ORCHESTRATION_AVAILABLE = False
 
@@ -712,7 +712,7 @@ def t_get_plan(args: dict) -> tuple[str, list[str]]:
     experiment_id = spec_cmd.get_experiment_id()
     if not experiment_id:
         return json.dumps({"error": "no active experiment"}), []
-    plan = get_experiment_plan(experiment_id)
+    plan = get_plan(experiment_id)
     return _as_json(plan or {}), []
 
 
@@ -1012,7 +1012,7 @@ def _resolve_active_sample_id(experiment_id: str) -> Optional[str]:
 
     Returns None if neither path resolves a sample id.
     """
-    plan = get_experiment_plan(experiment_id) or {}
+    plan = get_plan(experiment_id) or {}
     body = plan.get("plan", {}) or {}
     explicit = body.get("active_sample_id")
     if explicit:
@@ -1032,7 +1032,7 @@ def t_get_scans_since_last_plan_update(args: dict) -> tuple[str, list[str]]:
     from datetime import datetime as _dt
 
     from orchestration.plan_store import session as _ps
-    from orchestration.plan_store.client import get_experiment_plan as _gep
+    from orchestration.plan_store.client import get_plan as _gep
     from orchestration.plan_store.models import SamplePosition
 
     experiment_id = (args.get("experiment_id") or spec_cmd.get_experiment_id() or "").strip()
@@ -1175,7 +1175,7 @@ def t_get_comprehensive_collection_plan(args: dict) -> tuple[str, list[str]]:
     from sqlmodel import select as _select
 
     from orchestration.plan_store import session as _ps
-    from orchestration.plan_store.client import get_experiment_plan as _gep
+    from orchestration.plan_store.client import get_plan as _gep
     from orchestration.plan_store.models import SampleHolder, SamplePosition
 
     experiment_id = spec_cmd.get_experiment_id()

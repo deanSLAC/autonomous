@@ -17,7 +17,7 @@ from fastapi import APIRouter, HTTPException
 
 from orchestration.plan_store.client import (
     list_plan_edits,
-    get_experiment_plan,
+    get_plan,
     log_plan_edit,
 )
 from orchestration.plan_store.session import get_experiment
@@ -47,8 +47,8 @@ def _require_experiment(experiment_id: str | None) -> str:
 # ---------------------------------------------------------------------------
 
 @router.get("/{experiment_id}")
-def get_plan(experiment_id: str):
-    plan = get_experiment_plan(experiment_id)
+def read_plan(experiment_id: str):
+    plan = get_plan(experiment_id)
     if plan is None:
         raise HTTPException(404, "plan not found — start the autonomous run first")
     return {

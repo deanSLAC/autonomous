@@ -84,7 +84,7 @@ mid-collection, that's a sample-alignment-agent job — defer.
    per-sample spots (Sx/Sy/Sz), filter counts, count_time, n_reps
    per spot, and order. This is what the surveyor + planner produced
    for you.
-4. `beamtimehero db get-experiment-plan` — situational awareness:
+4. `beamtimehero db get-plan` — situational awareness:
    `budget.total_hours`, `budget.elapsed_hours`. The planner manages
    this; you should notice if you're running long but you do not
    re-budget.
