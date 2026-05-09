@@ -136,8 +136,13 @@ def validate_experiment(experiment_id: str) -> list[str]:
         if el.n_crystals < 1 or el.n_crystals > 7:
             errors.append(f"{pfx}: number of crystals must be 1-7")
 
-        if el.vortex_channel not in (1, 3):
-            errors.append(f"{pfx}: vortex channel must be 1 or 3")
+        from orchestration.plan_store.models import VORTEX_COUNTERS
+        counter = el.vortex_counter or ""
+        if counter not in VORTEX_COUNTERS:
+            errors.append(
+                f"{pfx}: vortex counter must be one of {list(VORTEX_COUNTERS)} "
+                f"(got {counter!r})"
+            )
 
     return errors
 
@@ -475,9 +480,10 @@ def _generate_mac_content(
         xes_setup = f"{el.crystal_type} {el.crystal_hkl} {el.row_radius}"
         lines.append(f'ELEMENT_{i}_XES_SETUP = "{xes_setup}"')
 
-        lines.append(f"ELEMENT_{i}_VORTEX_CH = {el.vortex_channel}")
-        plotselect = "vortDT2" if el.vortex_channel == 3 else "vortDT"
-        lines.append(f'ELEMENT_{i}_PLOTSELECT = "{plotselect}"')
+        from orchestration.plan_store.models import vortex_channel_for_counter
+        counter = el.vortex_counter or "vortDT"
+        lines.append(f"ELEMENT_{i}_VORTEX_CH = {vortex_channel_for_counter(counter)}")
+        lines.append(f'ELEMENT_{i}_PLOTSELECT = "{counter}"')
         lines.append(f"ELEMENT_{i}_CRYSTAL_TYPE = {el.crystal_type}")
         lines.append(f"ELEMENT_{i}_N_CRYSTALS = {el.n_crystals}")
         lines.append(f"ELEMENT_{i}_ROW_RADIUS = {el.row_radius}")

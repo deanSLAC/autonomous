@@ -111,7 +111,7 @@ function addElement(data) {
     const hkl = data ? data.crystal_hkl : '';
     const rowR = data ? data.row_radius : 1000;
     const nC = data ? data.n_crystals : 3;
-    const vCh = data ? data.vortex_channel : 1;
+    const vCounter = data ? (data.vortex_counter || 'vortDT') : 'vortDT';
     const isTFY = mode === 'TFY';
 
     // Build element options
@@ -192,10 +192,12 @@ function addElement(data) {
                     <input type="number" id="elem_${idx}_n_crystals" value="${nC}" min="1" max="7">
                 </div>
                 <div class="form-group narrow">
-                    <label>Vortex Ch</label>
+                    <label>Vortex Counter</label>
                     <select id="elem_${idx}_vortex">
-                        <option value="1"${vCh === 1 ? ' selected' : ''}>1 (vortDT)</option>
-                        <option value="3"${vCh === 3 ? ' selected' : ''}>3 (vortDT2)</option>
+                        <option value="vortDT"${vCounter === 'vortDT' ? ' selected' : ''}>vortDT</option>
+                        <option value="vortDT2"${vCounter === 'vortDT2' ? ' selected' : ''}>vortDT2</option>
+                        <option value="vortDT3"${vCounter === 'vortDT3' ? ' selected' : ''}>vortDT3</option>
+                        <option value="vortDT4"${vCounter === 'vortDT4' ? ' selected' : ''}>vortDT4</option>
                     </select>
                 </div>
             </div>
@@ -589,7 +591,7 @@ function gatherExperimentData() {
             edge: val(`elem_${idx}_edge`),
             measurement_mode: mode,
             incident_energy: val(`elem_${idx}_incident`),
-            vortex_channel: parseInt(val(`elem_${idx}_vortex`) || '1'),
+            vortex_counter: val(`elem_${idx}_vortex`) || 'vortDT',
         };
 
         if (mode === 'XES') {

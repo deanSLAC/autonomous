@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at": "2026-05-09T00:17:04.021827+00:00",
-    "total_tools": 101,
+    "generated_at": "2026-05-09T22:28:23.808323+00:00",
+    "total_tools": 102,
     "generator": "scripts/generate_tools_config.py"
   },
   "tools": [
@@ -345,7 +345,7 @@
       "name": "get_experiment_config",
       "cli_path": "db",
       "description": "Return the operator-entered experiment configuration from the DB: experiment-level settings (mono crystal, beam, mirrors, sample env, data path), the configured elements, and every sample holder with its samples. This is the canonical record of what the user entered in the /config form \u2014 distinct from get_plan, which returns the live planner state.",
-      "when_to_use": "Return the operator-entered experiment configuration straight from the DB: experiment-level settings (mono crystal, beam size, mirrors, sample env, data path), the configured elements (edges, energies, crystal/HKL, vortex channel), and every sample holder with its samples (positions, gains, XAS/RIXS plan). Use this when you need ground truth from the /config form, independent of the live plan JSON.",
+      "when_to_use": "Return the operator-entered experiment configuration straight from the DB: experiment-level settings (mono crystal, beam size, mirrors, sample env, data path), the configured elements (edges, energies, crystal/HKL, vortex counter mnemonic \u2014 vortDT/vortDT2/vortDT3/vortDT4), and every sample holder with its samples (positions, gains, XAS/RIXS plan). Use this when you need ground truth from the /config form, independent of the live plan JSON.",
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"experiment\": {\"id\": \"9bdc03aa27cd\", \"name\": \"2026-05_Claude\", \"mono_crystal\": \"A\", \"beam_size_h\": \"big\", \"beam_size_v\": \"big\", \"mirrors_out\": false, \"sample_env\": \"ambient\", \"data_path\": \"/data/fifteen/2026-05_Claude\"}, \"elements\": [{\"symbol\": \"Au\", \"edge\": \"L1\", \"incident_energy_eV\": 14353.0, \"emission_energy_eV\": 11610.0, \"crystal_hkl\": \"5 5 5\"}], \"sample_holders\": [{\"name\": \"one\", \"holder_type\": \"flat\", \"samples\": [{\"name\": \"one\", \"element\": \"Au\", \"sx_lo\": 1.0, \"sx_hi\": 2.0}]}]}",
@@ -661,6 +661,18 @@
       "comments": ""
     },
     {
+      "name": "get_plotselected_counter",
+      "cli_path": "spec-read",
+      "description": "Return the currently plot-selected counter mnemonic \u2014 the counter peak/cen will operate on after a scan, set by the most recent plotselect call. Resolves SPEC's DET global via cnt_mne(DET). Use after select_element or plotselect to confirm SPEC matches the counter the experiment config expects for this element.",
+      "when_to_use": "Return the currently plot-selected counter mnemonic \u2014 the counter peak/cen will operate on after a scan, set by the most recent plotselect. Resolves SPEC's DET global via cnt_mne(DET). Use after select_element or plotselect to confirm SPEC matches the expected counter.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "get_scan_number",
       "cli_path": "spec-read",
       "description": "Return SPEC's current SCAN_N counter. Use get_current_datafile separately if you also need the active file name.",
@@ -947,7 +959,7 @@
     {
       "name": "post_scan_move",
       "cli_path": "spec-write",
-      "description": "After a scan, move the motor to the detected feature: 'cen' (center) or 'peak'. Run this immediately after a dscan/ascan to land on the best point.",
+      "description": "After a scan, move the motor to the detected feature: 'cen' (center) or 'peak'. Run after a dscan/ascan, once the scan has been plotted and inspected (per agent-instructions \u00a75), to land on the best point.",
       "when_to_use": "Post-scan move: 'cen' (feature center) or 'peak' (feature peak).",
       "enabled": true,
       "sample_input": {
@@ -1019,8 +1031,8 @@
     {
       "name": "run_diagonal_scan",
       "cli_path": "spec-write",
-      "description": "Two-motor diagonal scan (SPEC's d2scan) \u2014 both motors move in lockstep over the same delta range and number of points. Used during sample alignment to map a sample's footprint in the Sx/Sy plane (the d2scan in auto_sample_align's per-sample boundary detection). Default range is \u00b18 if delta_lo / delta_hi aren't provided. The dispatcher checks motor1 against the phase allow-list; the wrapper additionally validates motor2 before dispatch.",
-      "when_to_use": "d2scan \u2014 relative scan of two motors moving in lockstep, each spanning the same delta range over the same number of points. Common use: map a sample's footprint in the Sx/Sy plane to find its edges (the staple of auto_sample_align's per-sample boundary detection). Default range is \u00b18.",
+      "description": "Two-motor diagonal scan (SPEC's d2scan) \u2014 both motors move in lockstep over the same delta range and number of points. Used during sample alignment to map a sample's footprint in the Sx/Sy plane (the d2scan in auto_sample_align's per-sample boundary detection). Default range is \u00b18 if delta_lo / delta_hi aren't provided. The dispatcher checks motor1 against the phase allow-list; the wrapper additionally validates motor2 before dispatch. NOTE: the `cen` scan-followup command does not work properly on a d2scan (2D scan) \u2014 do not rely on post_scan_move with mode='cen' after this scan; compute the center yourself and move explicitly instead.",
+      "when_to_use": "d2scan \u2014 relative scan of two motors moving in lockstep, each spanning the same delta range over the same number of points. Common use: map a sample's footprint in the Sx/Sy plane to find its edges (the staple of auto_sample_align's per-sample boundary detection). Default range is \u00b18. NOTE: the `cen` scan-followup command does not work properly on a d2scan (2D scan) \u2014 do not rely on `post_scan_move` with mode='cen' after this scan; compute the center yourself and move explicitly instead.",
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",

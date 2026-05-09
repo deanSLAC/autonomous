@@ -119,7 +119,12 @@ For each queued sample, in plan order:
         of 2 for sample <id>"`.
       - Second scan: same args, justification `"survey scan 2 of 2
         for sample <id>"`.
-      - Inspect each scan after it completes; do not chain blindly.
+      - **Per base contract §5, you must call `tool plot-scan` and
+        write a one-sentence description (white-line, edge step,
+        pre-edge, anomalies) before any decision-making action.**
+        Do not chain a second `run_xas` or invoke
+        `assess-sample-damage` blindly — plot first, describe,
+        then act.
 
       After each `run_xas`, run the inspect-and-record sequence:
 
@@ -134,8 +139,11 @@ For each queued sample, in plan order:
          orchestrator's plan summary (recent_plots).** Skip it and
          the scan effectively doesn't exist for those views.
       4. `beamtimehero tool plot-scan --file-name <datafile>
-         --scan-number N` — generates the plot, saved with
-         scan_number embedded so plan-summary can find it.
+         --scan-number N` — required before the next decision per
+         §5. Saved with scan_number embedded so plan-summary can
+         find it. Read the PNG and write your one-sentence
+         description in your next assistant message before
+         continuing.
    9. **Assess damage.** Invoke the `assess-sample-damage` skill
       against the two scans. Look at white-line height, pre-edge
       features, edge position, DT-corrected vs raw — the skill

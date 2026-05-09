@@ -54,6 +54,7 @@ Never type raw SPEC. Every beamline action maps to a `beamtimehero` command.
 | `umv energy EV` | `spec-write mv-energy --energy-ev EV --justification "..."` |
 | `p SCAN_N` | `spec-read get-scan-number` |
 | `p DATAFILE` | `spec-read get-current-datafile` |
+| `p cnt_mne(DET)` | `spec-read get-plotselected-counter` |
 | beam status check | `spec-read get-beam-status` |
 | `fsopen / fsclose / fson / fsoff` | `spec-write shutter --command fsopen --justification "..."` |
 | `mv filter N` | `spec-write set-filter --bitmask N --justification "..."` |

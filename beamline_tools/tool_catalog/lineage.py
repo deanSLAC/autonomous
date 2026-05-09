@@ -723,8 +723,9 @@ TOOL_LINEAGE: dict[str, dict] = {
     "post_scan_move": {
         "long_description": (
             "After a scan, move the motor to the detected feature: "
-            "'cen' (center) or 'peak'. Run this immediately after a "
-            "dscan/ascan to land on the best point."
+            "'cen' (center) or 'peak'. Run after a dscan/ascan, once "
+            "the scan has been plotted and inspected (per agent-"
+            "instructions §5), to land on the best point."
         ),
         "python_func": "spec_cmd.call('cen' | 'peak', [], justification)",
         "spec_command": "cen | peak",
@@ -1052,6 +1053,22 @@ TOOL_LINEAGE: dict[str, dict] = {
         "python_func": "spec_cmd.call('p_datafile', [], justification='')",
         "spec_command": "p DATAFILE",
         "output": "JSON: {ok, kind, result: {raw}}",
+        "source": "spec_session",
+        "source_detail": "Read-only.",
+        "depends_on": [],
+    },
+    "get_plotselected_counter": {
+        "long_description": (
+            "Return the currently plot-selected counter mnemonic — the "
+            "counter peak/cen will operate on after a scan, set by the "
+            "most recent plotselect call. Resolves SPEC's DET global "
+            "via cnt_mne(DET). Use after select_element or plotselect "
+            "to confirm SPEC matches the counter the experiment config "
+            "expects for this element."
+        ),
+        "python_func": "spec_cmd.call('plotselected', [], justification='')",
+        "spec_command": "p cnt_mne(DET)",
+        "output": "JSON: {ok, kind, result: {counter, raw}}",
         "source": "spec_session",
         "source_detail": "Read-only.",
         "depends_on": [],

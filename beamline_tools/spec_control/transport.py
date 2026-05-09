@@ -175,6 +175,8 @@ class _MockScreen:
             return "Beam size (X, Z): 0.35, 0.12 mm\nBeam mode (X, Z): small, small"
         if low.startswith("p beam_status"):
             return "{'spear_current': 485.2, 'bl_state': 'OPEN', 'gap_owned': 1}"
+        if low.startswith("p cnt_mne("):
+            return "I1"
         if low.startswith("wm "):
             motor = cmd.split()[1]
             val = cls._positions.get(motor, 0.0)

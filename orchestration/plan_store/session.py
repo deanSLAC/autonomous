@@ -201,12 +201,13 @@ def create_experiment_element(
     crystal_hkl: str,
     row_radius: int,
     n_crystals: int,
-    vortex_channel: int = 1,
+    vortex_counter: str = "vortDT",
     priority: int = 0,
     measurement_mode: str = "XES",
     emission_line: Optional[str] = None,
 ) -> ExperimentElement:
     """Create and persist a new ExperimentElement."""
+    from orchestration.plan_store.models import vortex_channel_for_counter
     elem = ExperimentElement(
         experiment_id=experiment_id,
         element_symbol=element_symbol,
@@ -219,7 +220,8 @@ def create_experiment_element(
         crystal_hkl=crystal_hkl,
         row_radius=row_radius,
         n_crystals=n_crystals,
-        vortex_channel=vortex_channel,
+        vortex_counter=vortex_counter,
+        vortex_channel=vortex_channel_for_counter(vortex_counter),
         priority=priority,
     )
     with get_session() as session:

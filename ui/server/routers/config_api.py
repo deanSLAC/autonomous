@@ -196,7 +196,7 @@ async def submit_experiment(data: dict):
                 crystal_hkl=crystal_hkl,
                 row_radius=int(el.get("row_radius", 1000) or 1000),
                 n_crystals=int(el.get("n_crystals", 3) or 3),
-                vortex_channel=int(el.get("vortex_channel", 1) or 1),
+                vortex_counter=str(el.get("vortex_counter") or "vortDT"),
                 priority=i,
             )
 
@@ -430,7 +430,7 @@ def load_experiment(experiment_id: str):
                 "emission_energy": el.emission_energy_eV,
                 "crystal_type": el.crystal_type, "crystal_hkl": el.crystal_hkl,
                 "row_radius": el.row_radius, "n_crystals": el.n_crystals,
-                "vortex_channel": el.vortex_channel,
+                "vortex_counter": el.vortex_counter or "vortDT",
             }
             for el in elements
         ],

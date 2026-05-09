@@ -113,10 +113,14 @@ mid-collection, that's a sample-alignment-agent job — defer.
    2. `beamtimehero spec-write select-element --element <X>` —
       sets energy, emiss, Vortex ROI, plot-selects the right
       counter.
-   3. `beamtimehero spec-read get-counter` — **this is the
-      authoritative counter for this sample**. Even if `vortDT2`
-      shows higher counts on a quick `ct`, use the plot-selected
-      channel for acquisition.
+   3. Confirm SPEC's plot-selected counter matches what the
+      experiment expects for this element. The authoritative
+      per-element counter mapping lives in `beamtimehero db
+      get-experiment-config`; `select-element` should have set
+      SPEC accordingly. Verify with `beamtimehero spec-read
+      get-plotselected-counter`. If the two disagree, stop and
+      investigate before scanning — do not just `ct` and pick
+      whichever channel reads highest.
    4. `beamtimehero spec-write open-data-file --filename
       <sample_name> --justification "open per-sample datafile"` —
       one datafile per sample, named for the sample. Use the
@@ -133,10 +137,14 @@ mid-collection, that's a sample-alignment-agent job — defer.
          `beamtimehero spec-write run-xas --element <X>
          --count-time <t> --n-reps 1 --justification "<sample_id>
          spot <k> scan <i>/<plan_n>"`.
-      4. After each scan completes, **inspect the result before
-         starting the next scan**: did the count rate look sane,
-         did the file get written, are there any obvious
-         anomalies? Then run the next scan if more are scheduled.
+      4. After each scan completes, run the inspect-and-record
+         sequence below. **Per base contract §5, you must call
+         `tool plot-scan` and write a one-sentence description of
+         what the plot shows (count rate sanity, edge step,
+         white-line, pre-edge, anomalies) before starting the next
+         scan or any other decision-making action.** Skipping the
+         plot or the description breaks the rule — stop, plot,
+         describe, then proceed.
 
          The post-scan inspect-and-record sequence is:
 
@@ -152,8 +160,11 @@ mid-collection, that's a sample-alignment-agent job — defer.
             accurate per-spot remaining counts; without it, the
             scan only contributes to the sample-level total.
          4. `beamtimehero tool plot-scan --file-name <datafile>
-            --scan-number N` — generates the plot, saved with
-            scan_number embedded so plan-summary can find it.
+            --scan-number N` — required before the next decision
+            per §5. Saved with scan_number embedded so
+            plan-summary can find it. Read the PNG and write your
+            one-sentence description in your next assistant
+            message before continuing.
 
       5. **Do not pass `n_reps > 1` to `run_xas`.** The planner
          re-evaluates between scans and may shorten or lengthen

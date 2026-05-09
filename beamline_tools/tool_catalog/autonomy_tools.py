@@ -536,6 +536,11 @@ def t_get_current_datafile(args: dict) -> tuple[str, list[str]]:
     return _as_json(res), []
 
 
+def t_get_plotselected_counter(args: dict) -> tuple[str, list[str]]:
+    res = spec_cmd.call("plotselected", [], justification="")
+    return _as_json(res), []
+
+
 def t_abort_current_scan(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
     res = spec_cmd.call("abort", [], justification=j)
@@ -822,7 +827,7 @@ def t_get_experiment_config(args: dict) -> tuple[str, list[str]]:
                     "crystal_hkl": e.crystal_hkl,
                     "row_radius": e.row_radius,
                     "n_crystals": e.n_crystals,
-                    "vortex_channel": e.vortex_channel,
+                    "vortex_counter": e.vortex_counter or "vortDT",
                     "priority": e.priority,
                 }
                 for e in elements
@@ -1548,6 +1553,7 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "get_element": t_get_element,
     "get_scan_number": t_get_scan_number,
     "get_current_datafile": t_get_current_datafile,
+    "get_plotselected_counter": t_get_plotselected_counter,
     "abort_current_scan": t_abort_current_scan,
     # CAT-8
     "transition_phase": t_transition_phase,

@@ -828,6 +828,20 @@ AUTONOMY_TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "get_plotselected_counter",
+            "description": (
+                "Return the currently plot-selected counter mnemonic — "
+                "the counter peak/cen will operate on after a scan, set "
+                "by the most recent plotselect. Resolves SPEC's DET "
+                "global via cnt_mne(DET). Use after select_element or "
+                "plotselect to confirm SPEC matches the expected counter."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "abort_current_scan",
             "description": "Send Ctrl-C to SPEC. Only after confirming a problem.",
             "parameters": {"type": "object", "properties": _J, "required": ["justification"]},
@@ -948,7 +962,8 @@ AUTONOMY_TOOL_DEFINITIONS = [
                 "straight from the DB: experiment-level settings (mono "
                 "crystal, beam size, mirrors, sample env, data path), "
                 "the configured elements (edges, energies, crystal/HKL, "
-                "vortex channel), and every sample holder with its "
+                "vortex counter mnemonic — vortDT/vortDT2/vortDT3/vortDT4), "
+                "and every sample holder with its "
                 "samples (positions, gains, XAS/RIXS plan). Use this "
                 "when you need ground truth from the /config form, "
                 "independent of the live plan JSON."
@@ -1310,7 +1325,7 @@ AUTONOMY_TOOL_CATEGORIES = [
         "get_anchor", "set_anchor", "tracking",
     ]),
     ("CAT-6 Beam", ["get_beam_size", "get_beam_status", "get_counts", "get_counter", "request_gap_ownership"]),
-    ("CAT-7 State", ["get_element", "get_scan_number", "get_current_datafile", "abort_current_scan"]),
+    ("CAT-7 State", ["get_element", "get_scan_number", "get_current_datafile", "get_plotselected_counter", "abort_current_scan"]),
     ("CAT-8 Orchestration", [
         "transition_phase", "request_human_intervention", "post_status_update",
         "update_experiment_plan", "record_sample_progress", "get_plan",

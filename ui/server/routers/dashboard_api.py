@@ -143,7 +143,7 @@ def status(experiment_id: str = Query(...)):
         "plan": plan,
         "elements": [
             {"symbol": e.element_symbol, "edge": e.edge, "crystals": e.n_crystals,
-             "vortex_channel": e.vortex_channel}
+             "vortex_counter": e.vortex_counter or "vortDT"}
             for e in elements
         ],
         "holders": [{"id": h.id, "name": h.name, "type": h.holder_type, "n_samples": h.n_samples}

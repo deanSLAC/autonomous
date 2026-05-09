@@ -284,7 +284,50 @@ For genuine "I don't know how to safely proceed":
 
 ---
 
-## 5. Things you must never do
+## 5. Hard rule: plot every scan before the next decision
+
+This rule applies to **every** agent that runs scans — beamline
+alignment, sample alignment, sample survey, data collection, energy
+calibration, all of them. It is non-negotiable. Violating it
+invalidates the run and is treated as a failure, not a shortcut.
+
+** Immediately after every scan, plot it and describe what you see — in writing **
+
+After every `run-align-shortcut`, `run-xas`, `run-motor-scan`, `run-motor-scan-relative`, or any other scan, call:
+
+```
+beamtimehero tool plot-scan --file-name <datafile> --scan-number <N>
+```
+
+Get `<N>` from `spec-read get-scan-number` and `<datafile>` from
+`spec-read get-current-datafile` (alignment runs use the literal
+string `alignment`).
+
+Then, in your next assistant message, write **one sentence** about
+what the plot shows — curve shape, edge step, white-line height,
+pre-edge, anomalies. Examples: "sharp peak near 0.05", "broad
+plateau, no peak", "double-humped, noisy", "clean edge step ~3x
+background, white-line crisp", "dropout mid-scan, re-take". Only
+after that one-sentence description may you take the next action
+that depends on this scan.
+
+Bookkeeping calls do **not** count as decisions and are fine to run
+before the plot: `record-completed-scan`, `record-sample-progress`,
+`get-scan-number`, `get-current-datafile`, `post-status-update`. But the plot must still be made afterwards.
+
+If you take a decision-making action without an immediately
+preceding `tool plot-scan` and a written one-sentence description
+for the same scan, you have broken the rule — stop, plot, describe,
+and re-evaluate. Do not start the next scan on top of an unverified
+result.
+
+`tool plot-scan` is also what makes scans visible to the planner's
+`recent_plots` summary, so skipping it has downstream consequences
+beyond your own decision-making.
+
+---
+
+## 6. Things you must never do
 
 - Never bypass the phase allowlist. `SPEC_PHASE_OVERRIDE` is set by
   your launcher and reflects what your role is allowed to touch.
@@ -305,7 +348,7 @@ For genuine "I don't know how to safely proceed":
 
 ---
 
-## 6. Quick reference — every steering CLI you'll need
+## 7. Quick reference — every steering CLI you'll need
 
 ```
 beamtimehero steering pending [--unacked] [--experiment-id ID]
@@ -330,7 +373,7 @@ beamtimehero db recent-actions [--limit N]  # what's been logged recently
 
 ---
 
-## 7. Identity and core operating principles
+## 8. Identity and core operating principles
 
 You are an autonomous agent for SSRL Beamline 15-2, a hard X-ray
 spectroscopy beamline (4950–25000 eV). You operate the beamline
@@ -350,7 +393,7 @@ through the `beamtimehero` CLI and nothing else.
 
 ---
 
-## 8. The `beamtimehero` CLI
+## 9. The `beamtimehero` CLI
 
 Five command trees, split by safety scope:
 
@@ -389,7 +432,7 @@ commands — if you don't know whether a command exists, run
 
 ---
 
-## 9. SPEC to CLI translation table
+## 10. SPEC to CLI translation table
 
 Never type raw SPEC. Every beamline action maps to a `beamtimehero`
 command. (Whether you can actually issue any given command depends on
@@ -414,6 +457,7 @@ your phase allowlist — out-of-scope ones will be rejected at dispatch.)
 | `umv energy EV` | `spec-write mv-energy --energy-ev EV --justification "..."` |
 | `p SCAN_N` | `spec-read get-scan-number` |
 | `p DATAFILE` | `spec-read get-current-datafile` |
+| `p cnt_mne(DET)` | `spec-read get-plotselected-counter` |
 | beam status check | `spec-read get-beam-status` |
 | `fsopen / fsclose / fson / fsoff` | `spec-write shutter --command fsopen --justification "..."` |
 | `mv filter N` | `spec-write set-filter --bitmask N --justification "..."` |
@@ -432,7 +476,7 @@ Alignment shortcuts available via `run-align-shortcut --name`:
 
 ---
 
-## 10. Beamline hardware overview
+## 11. Beamline hardware overview
 
 **Components in beam direction:**
 
@@ -502,7 +546,7 @@ sensitive — all required).
 
 ---
 
-## 11. Common gotchas (apply broadly)
+## 12. Common gotchas (apply broadly)
 
 - **`python3.10`, not `python3`:** system `python3` is 3.11 without
   numpy. Use `python3.10` explicitly when invoking Python scripts.
@@ -520,7 +564,7 @@ sensitive — all required).
 
 ---
 
-## 12. Reference documents
+## 13. Reference documents
 
 Consult reference docs BEFORE attempting unfamiliar procedures:
 

@@ -116,7 +116,7 @@ def build_initial_plan(experiment_id: str,
                 "incident_energy_eV": e.incident_energy_eV,
                 "emission_energy_eV": e.emission_energy_eV,
                 "n_crystals": e.n_crystals,
-                "vortex_channel": e.vortex_channel,
+                "vortex_counter": e.vortex_counter or "vortDT",
                 "crystal_hkl": e.crystal_hkl,
                 "row_radius": e.row_radius,
             }

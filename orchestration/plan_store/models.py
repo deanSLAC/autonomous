@@ -76,8 +76,27 @@ class ExperimentElement(SQLModel, table=True):
     crystal_hkl: str  # e.g. "6 4 2"
     row_radius: int
     n_crystals: int  # 1-7
-    vortex_channel: int  # 1 or 3
+    # Canonical counter mnemonic ("vortDT", "vortDT2", "vortDT3", "vortDT4").
+    # The legacy `vortex_channel` int below is retained on the row for old
+    # data only; new code derives it via vortex_channel_for_counter() when
+    # the SPEC macro layer needs an int.
+    vortex_counter: Optional[str] = None
+    vortex_channel: int  # legacy (1, 3, 5, 7) — derived from vortex_counter
     priority: int = 0
+
+
+# Mnemonic → SPEC vortex_roi channel int. Reserved-even-ROI convention:
+# vortDT=ROI1, vortDT2=ROI3 (existing two-counter macro). vortDT3=ROI5,
+# vortDT4=ROI7 follow the same pattern; select_element.mac will need a
+# matching SPEC-side update before vortDT3/vortDT4 actually configure ROIs.
+VORTEX_COUNTER_TO_CHANNEL: dict[str, int] = {
+    "vortDT": 1, "vortDT2": 3, "vortDT3": 5, "vortDT4": 7,
+}
+VORTEX_COUNTERS: tuple[str, ...] = tuple(VORTEX_COUNTER_TO_CHANNEL.keys())
+
+
+def vortex_channel_for_counter(counter: str) -> int:
+    return VORTEX_COUNTER_TO_CHANNEL.get(counter, 1)
 
 
 # ---------------------------------------------------------------------------

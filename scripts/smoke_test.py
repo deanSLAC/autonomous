@@ -83,7 +83,7 @@ async def run() -> None:
         experiment_id=exp.id, element_symbol="Fe", edge="K",
         incident_energy_eV=7300, emission_energy_eV=6400,
         crystal_type=0, crystal_hkl="6 4 2", row_radius=1000,
-        n_crystals=3, vortex_channel=1, priority=0,
+        n_crystals=3, vortex_counter="vortDT", priority=0,
     )
     holder = create_sample_holder(
         experiment_id=exp.id, name="smoke-holder", n_samples=2, holder_type="flat",

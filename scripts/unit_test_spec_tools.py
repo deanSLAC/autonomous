@@ -177,7 +177,7 @@ KNOWN_MACROS: dict[str, str] = {
 }
 
 # Tokens that are SPEC built-ins, not macros. Treated as existing.
-KNOWN_BUILTINS: set[str] = {"p", "cen", "peak", "plotselect"}
+KNOWN_BUILTINS: set[str] = {"p", "cen", "peak", "plotselect", "cnt_mne"}
 
 # Tokens that are not real SPEC commands but internal sentinels we send
 # through the dispatcher for side effects (e.g. abort → Ctrl-C on screen,
@@ -384,6 +384,8 @@ CASES_BL_ALIGN: list[Case] = [
          note="current + configured elements"),
     Case("get_scan_number", {}, ["p SCAN_N"], note="current scan number"),
     Case("get_current_datafile", {}, ["p DATAFILE"], note="active datafile"),
+    Case("get_plotselected_counter", {}, ["p cnt_mne(DET)"],
+         note="plot-selected counter (peak/cen target)"),
     Case("abort_current_scan", {"justification": "test"}, ["__ABORT__"],
          note="Ctrl-C"),
 ]

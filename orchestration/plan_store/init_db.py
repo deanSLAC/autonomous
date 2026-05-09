@@ -37,6 +37,7 @@ _PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
     "experimentelement": [
         ("measurement_mode", 'TEXT NOT NULL DEFAULT "XES"'),
         ("emission_line", "TEXT"),
+        ("vortex_counter", "TEXT"),
     ],
     "sampleposition": [
         ("i0_gain", "TEXT"),
@@ -90,12 +91,39 @@ def _apply_column_migrations(engine, pending: dict[str, list[tuple[str, str]]]) 
                 print(f"  migrated: {table}.{col_name} added")
 
 
+def _backfill_vortex_counter(engine) -> None:
+    """One-time backfill of experimentelement.vortex_counter from the
+    legacy vortex_channel int (1 → 'vortDT', 3 → 'vortDT2'). Rows whose
+    vortex_counter has already been set are left alone.
+    """
+    insp = inspect(engine)
+    if "experimentelement" not in set(insp.get_table_names()):
+        return
+    cols = {c["name"] for c in insp.get_columns("experimentelement")}
+    if "vortex_counter" not in cols or "vortex_channel" not in cols:
+        return
+    with engine.begin() as conn:
+        result = conn.execute(text(
+            "UPDATE experimentelement SET vortex_counter = "
+            "CASE vortex_channel "
+            "WHEN 1 THEN 'vortDT' "
+            "WHEN 3 THEN 'vortDT2' "
+            "WHEN 5 THEN 'vortDT3' "
+            "WHEN 7 THEN 'vortDT4' "
+            "ELSE 'vortDT' END "
+            "WHERE vortex_counter IS NULL OR vortex_counter = ''"
+        ))
+        if result.rowcount:
+            print(f"  backfilled: experimentelement.vortex_counter on {result.rowcount} rows")
+
+
 def init_db() -> None:
     """Create tables for both beamline_tools and orchestration DBs."""
     from beamline_tools.action_log.session import get_engine as get_tools_engine
 
     orch_engine = get_orch_engine()
     _apply_column_migrations(orch_engine, _PENDING_COLUMNS)
+    _backfill_vortex_counter(orch_engine)
     print(f"orchestration DB initialized: {os.environ.get('ORCHESTRATION_DB_PATH')}")
 
     tools_engine = get_tools_engine()

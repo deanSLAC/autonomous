@@ -448,6 +448,11 @@ _READ: dict[str, CommandSpec] = {
         lambda a: "p ELEMENT",
         lambda o, a: {"element": o.strip(), "raw": o},
     ),
+    "plotselected": CommandSpec(
+        "plotselected", "read",
+        lambda a: "p cnt_mne(DET)",
+        lambda o, a: {"counter": o.strip(), "raw": o},
+    ),
     "wbeamsize": CommandSpec(
         "wbeamsize", "read",
         lambda a: "wbeamsize",
