@@ -361,7 +361,7 @@ When adding multiple related tools at once, the order is:
 3. Run `scripts/unit_test_spec_tools.py` to confirm dispatch parity.
 4. Smoke-test the new tools through `scripts/beamtimehero` (auto-generated CLI).
 5. Open `tool-tester` in the browser, confirm the new tools render.
-6. Update `context/beamtimehero_context.md` if the tool is something the autonomous agent should know about.
+6. Consider updating `context/` files if the tool is something an autonomous agent should know about.
 
 ---
 
