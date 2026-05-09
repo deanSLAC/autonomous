@@ -606,20 +606,30 @@ function renderAutonomy(orc, dash) {
         }
     }
 
-    // Guidance feed
+    // Guidance feed — API returns newest-first; render oldest→newest so the
+    // most recent message lands at the bottom (matches the chat panel).
     const feed = document.getElementById("guidance-feed");
     const guidance = dash.guidance || [];
     if (feed) {
         if (guidance.length) {
-            feed.innerHTML = guidance.slice(0, 30).map(g => `
-                <div class="row">
-                    <span class="who">${escapeHtml(g.author || "?")}</span>
-                    <span class="when">${escapeHtml((g.timestamp || "").replace("T", " ").slice(0, 19))}</span>
-                    <div>${escapeHtml(g.text)}</div>
-                </div>
-            `).join("");
+            const ordered = guidance.slice(0, 30).slice().reverse();
+            const sig = ordered.map(g => g.id || `${g.timestamp}|${g.text}`).join("␞");
+            if (feed.dataset.sig !== sig) {
+                feed.dataset.sig = sig;
+                feed.innerHTML = ordered.map(g => `
+                    <div class="row">
+                        <span class="who">${escapeHtml(g.author || "?")}</span>
+                        <span class="when">${escapeHtml((g.timestamp || "").replace("T", " ").slice(0, 19))}</span>
+                        <div>${escapeHtml(g.text)}</div>
+                    </div>
+                `).join("");
+                feed.scrollTop = feed.scrollHeight;
+            }
         } else {
-            feed.innerHTML = '<div class="muted">No guidance yet.</div>';
+            if (feed.dataset.sig !== "") {
+                feed.dataset.sig = "";
+                feed.innerHTML = '<div class="muted">No guidance yet.</div>';
+            }
         }
     }
 
