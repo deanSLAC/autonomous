@@ -564,7 +564,7 @@ AUTONOMY_TOOL_DEFINITIONS = [
                 "Knife-edge scan to measure horizontal and vertical beam FWHM. Multi-minute. "
                 "Removes filters and ensures DATAFILE=alignment. Each axis can be measured "
                 "in 'big' (false, ~mm-scale beam) or 'small' (true, ~50um focused) mode; "
-                "wrong mode produces artifacts. Standard LiSA configuration is small_x=false, "
+                "wrong mode produces artifacts. Standard configuration is small_x=false, "
                 "small_z=false."
             ),
             "parameters": {
@@ -617,7 +617,7 @@ AUTONOMY_TOOL_DEFINITIONS = [
         "function": {
             "name": "big_beam",
             "description": (
-                "Set the KB-mirror benders to the big-beam preset (mm-scale, standard LiSA "
+                "Set the KB-mirror benders to the big-beam preset (mm-scale, standard "
                 "configuration). Moves m1ubend/m1dbend/m2ubend/m2dbend to the configured "
                 "big-beam positions and tags both beamsize_mode axes as 'big'."
             ),

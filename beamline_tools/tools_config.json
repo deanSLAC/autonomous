@@ -743,8 +743,8 @@
     {
       "name": "big_beam",
       "cli_path": "spec-write",
-      "description": "Set the KB-mirror benders to the big-beam (mm-scale, standard LiSA) preset. Moves m1ubend/m1dbend/m2ubend/m2dbend to the configured big-beam values and tags both beamsize_mode axes as 'big'.",
-      "when_to_use": "Set the KB-mirror benders to the big-beam preset (mm-scale, standard LiSA configuration). Moves m1ubend/m1dbend/m2ubend/m2dbend to the configured big-beam positions and tags both beamsize_mode axes as 'big'.",
+      "description": "Set the KB-mirror benders to the big-beam (mm-scale, standard) preset. Moves m1ubend/m1dbend/m2ubend/m2dbend to the configured big-beam values and tags both beamsize_mode axes as 'big'.",
+      "when_to_use": "Set the KB-mirror benders to the big-beam preset (mm-scale, standard configuration). Moves m1ubend/m1dbend/m2ubend/m2dbend to the configured big-beam positions and tags both beamsize_mode axes as 'big'.",
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester"
@@ -787,7 +787,7 @@
       "name": "measure_beam_size",
       "cli_path": "spec-write",
       "description": "Knife-edge scan to measure horizontal and vertical beam FWHM. Multi-minute. Removes filters, ensures DATAFILE=alignment, runs centered knife-edge scans on Sx and Sz, stores results in the global beamsize[] array. Each axis supports 'big' (large mm-scale beam) or 'small' (~50um focused) modes \u2014 wrong mode produces artifacts.",
-      "when_to_use": "Knife-edge scan to measure horizontal and vertical beam FWHM. Multi-minute. Removes filters and ensures DATAFILE=alignment. Each axis can be measured in 'big' (false, ~mm-scale beam) or 'small' (true, ~50um focused) mode; wrong mode produces artifacts. Standard LiSA configuration is small_x=false, small_z=false.",
+      "when_to_use": "Knife-edge scan to measure horizontal and vertical beam FWHM. Multi-minute. Removes filters and ensures DATAFILE=alignment. Each axis can be measured in 'big' (false, ~mm-scale beam) or 'small' (true, ~50um focused) mode; wrong mode produces artifacts. Standard configuration is small_x=false, small_z=false.",
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester"

@@ -833,7 +833,7 @@ TOOL_LINEAGE: dict[str, dict] = {
     "big_beam": {
         "long_description": (
             "Set the KB-mirror benders to the big-beam (mm-scale, "
-            "standard LiSA) preset. Moves m1ubend/m1dbend/m2ubend/"
+            "standard) preset. Moves m1ubend/m1dbend/m2ubend/"
             "m2dbend to the configured big-beam values and tags both "
             "beamsize_mode axes as 'big'."
         ),
