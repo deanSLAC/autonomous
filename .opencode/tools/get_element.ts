@@ -2,13 +2,9 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Run the full 'align_the_beamline' macro. Multi-minute, optimizes M1/M2, peaks mono pitch, aligns mono slits, optimizes B stage, zeros pinhole, measures beam size. Only in phase beamline_alignment.",
+  description: "Return the currently active element and all configured elements with their incident and emission energies.",
   args: {
-    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
-"energy": tool.schema.number().optional().describe("Target eV (0 = use current)"),
-"xtal_chg": tool.schema.string().optional().describe("1 if a crystal change just happened (resets anchor)"),
-"fine_x": tool.schema.string().optional(),
-"fine_z": tool.schema.string().optional(),
+    // no args
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -20,7 +16,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "align_beamline"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "get_element"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -29,7 +25,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'align_beamline' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'get_element' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

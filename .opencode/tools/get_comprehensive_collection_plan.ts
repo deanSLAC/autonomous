@@ -2,13 +2,9 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Set Vortex ROI. mode='auto': bounds \u00b1200 eV around the emission line for channel (1=vortDT, 3=vortDT2). mode='explicit': set channel + lo_ev/hi_ev in eV directly.",
+  description: "Return the per-sample/spot/filter/n_scans plan that Data Collection executes against. Synthesizes from ExperimentPlan.plan_json plus SamplePosition rows (filter_count = xas_filter, counts_per_sec = survey_counts_per_sec). planned_scans_total comes from plan_json when set, falling back to xas_reps.",
   args: {
-    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
-"mode": tool.schema.string(),
-"channel": tool.schema.number().optional(),
-"lo_ev": tool.schema.number().optional(),
-"hi_ev": tool.schema.number().optional(),
+    "sample_holder_id": tool.schema.string().optional().describe("Optional; defaults to the active holder."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -20,7 +16,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "set_vortex_roi"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "get_comprehensive_collection_plan"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -29,7 +25,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'set_vortex_roi' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'get_comprehensive_collection_plan' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

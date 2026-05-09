@@ -29,6 +29,10 @@ _PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("beam_v_fwhm_um", "REAL"),
         ("calibration_foil_element", "TEXT"),
         ("calibration_foil_detector", 'TEXT NOT NULL DEFAULT "I2"'),
+        ("end_time", "TIMESTAMP"),
+    ],
+    "collectionscan": [
+        ("spot_index", "INTEGER"),
     ],
     "experimentelement": [
         ("measurement_mode", 'TEXT NOT NULL DEFAULT "XES"'),
@@ -60,6 +64,7 @@ _PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("slack_thread_ts", "TEXT"),
         ("is_stop", "BOOLEAN NOT NULL DEFAULT 0"),
         ("slack_replied_at", "TIMESTAMP"),
+        ("target_agent_type", "TEXT"),
     ],
 }
 

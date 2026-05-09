@@ -175,21 +175,48 @@ async def update_sample(body: dict):
 # Budget + thresholds
 # ---------------------------------------------------------------------------
 
-@router.post("/extend_budget")
-async def extend_budget(body: dict):
+@router.post("/set_end_time")
+async def set_end_time(body: dict):
+    """Set the absolute end-of-beamtime timestamp (replaces the old
+    extend_budget / set_budget endpoints).
+
+    Body: {experiment_id, end_time?: ISO-8601, hours_from_now?: number, reason?}
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    from orchestration.plan_store.session import set_experiment_end_time
+
     xid = _require_experiment(body.get("experiment_id"))
-    try:
-        hours = float(body.get("hours", 0))
-    except (TypeError, ValueError):
-        raise HTTPException(400, "hours must be a number")
-    new_total = planner.extend_budget(xid, hours)
+    iso = (body.get("end_time") or "").strip() or None
+    hours_from_now = body.get("hours_from_now")
+    if (iso is None) == (hours_from_now is None):
+        raise HTTPException(400, "provide exactly one of end_time or hours_from_now")
+    if iso is not None:
+        try:
+            new_end = _dt.fromisoformat(iso)
+        except ValueError as e:
+            raise HTTPException(400, f"end_time must be ISO-8601: {e}")
+    else:
+        try:
+            hrs = float(hours_from_now)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "hours_from_now must be a number")
+        new_end = _dt.now() + _td(hours=hrs)
+
+    row = set_experiment_end_time(xid, new_end)
+    if row is None:
+        raise HTTPException(404, f"experiment {xid} not found")
+
     author = _pick_author(body)
     log_plan_edit(
-        xid, author=author, action="extend_budget",
-        payload={"hours_delta": hours, "new_total_hours": new_total},
+        xid, author=author, action="set_end_time",
+        payload={"end_time": new_end.isoformat()},
         reason=body.get("reason"),
     )
-    return {"ok": True, "new_total_hours": new_total}
+    return {
+        "ok": True,
+        "end_time": new_end.isoformat(),
+        "remaining_hours": max(0.0, (new_end - _dt.now()).total_seconds() / 3600),
+    }
 
 
 @router.post("/update_thresholds")
@@ -208,23 +235,6 @@ async def update_thresholds(body: dict):
         reason=body.get("reason"),
     )
     return {"ok": True, "thresholds": thresholds}
-
-
-@router.post("/set_budget")
-async def set_budget(body: dict):
-    xid = _require_experiment(body.get("experiment_id"))
-    try:
-        hours = float(body.get("hours_total"))
-    except (TypeError, ValueError):
-        raise HTTPException(400, "hours_total must be a number")
-    new_total = planner.set_budget(xid, hours)
-    author = _pick_author(body)
-    log_plan_edit(
-        xid, author=author, action="set_budget",
-        payload={"new_total_hours": new_total},
-        reason=body.get("reason"),
-    )
-    return {"ok": True, "new_total_hours": new_total}
 
 
 # ---------------------------------------------------------------------------

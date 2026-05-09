@@ -667,6 +667,7 @@ def create_collection_scan(
     spec_datafile: str,
     filter_setting: int = 0,
     count_time: float = 1.0,
+    spot_index: Optional[int] = None,
 ) -> CollectionScan:
     """Log a data-collection scan."""
     scan = CollectionScan(
@@ -677,12 +678,28 @@ def create_collection_scan(
         spec_datafile=spec_datafile,
         filter_setting=filter_setting,
         count_time=count_time,
+        spot_index=spot_index,
     )
     with get_session() as session:
         session.add(scan)
         session.commit()
         session.refresh(scan)
     return scan
+
+
+def set_experiment_end_time(
+    experiment_id: str, end_time: datetime,
+) -> Optional[Experiment]:
+    """Set Experiment.end_time. Source of truth for remaining-beamtime math."""
+    with get_session() as session:
+        row = session.get(Experiment, experiment_id)
+        if row is None:
+            return None
+        row.end_time = end_time
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+        return row
 
 
 def get_collection_scans_for_sample(sample_id: str) -> list[CollectionScan]:

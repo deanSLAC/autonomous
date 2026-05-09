@@ -52,6 +52,10 @@ class Experiment(SQLModel, table=True):
     # is easily blocked, so I2 is the safer default.
     calibration_foil_element: Optional[str] = None
     calibration_foil_detector: str = Field(default="I2")
+    # End of beamtime as an absolute timestamp. The planner / agents read
+    # this to compute remaining hours. NULL means "not set yet"; the
+    # operator sets it once via `db set-experiment-end-time`.
+    end_time: Optional[datetime] = None
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +223,13 @@ class CollectionScan(SQLModel, table=True):
     spec_datafile: str
     filter_setting: int = 0
     count_time: float = 1.0
+    # Spot index within the sample (0-based). The planner can prescribe
+    # per-spot rep distributions (e.g. "8 reps across 4 spots, 2 each");
+    # the data collector records which spot each scan was taken on so
+    # the comprehensive collection plan can return per-spot remaining
+    # rep counts. NULL means the scan wasn't tagged with a spot
+    # (legacy rows or single-spot samples).
+    spot_index: Optional[int] = None
     timestamp: datetime = Field(default_factory=datetime.now)
 
 
@@ -350,6 +361,12 @@ class StaffGuidance(SQLModel, table=True):
     # Set when the orchestrator has posted a completion reply back to Slack.
     # Used to dedupe Slack posts across ticks and across server restarts.
     slack_replied_at: Optional[datetime] = Field(default=None, index=True)
+    # When an active agent defers a steering row out of scope, it names
+    # the agent type that should pick it up (planner / sample-aligner /
+    # beamline-aligner / sample-surveyor / collection). The orchestrator
+    # tick re-dispatches deferred rows to this agent type with a
+    # focused-task seed prompt.
+    target_agent_type: Optional[str] = Field(default=None, index=True)
 
 
 # ---------------------------------------------------------------------------
@@ -359,17 +376,19 @@ class StaffGuidance(SQLModel, table=True):
 class AgentRun(SQLModel, table=True):
     """One spawned Claude agent subprocess.
 
-    Used for both orchestrator-driven control agents (drive the beamline)
-    and chat / DM agents (answer questions in a Slack thread or UI session).
-    The `agent_type='control'` rows + `completed_at IS NULL` predicate is
-    the active-agent gate the orchestrator state machine reads.
+    Used for every spawned Claude agent — phase-tile agents
+    (`agent_type` matches the phase slug: beamline_alignment /
+    sample_alignment / sample_survey / collection / planner) plus chat
+    agents. `list_active(agent_type=<slug>)` is the gate the
+    orchestrator tick uses to decide whether a phase agent is in
+    flight.
 
     PID/PGID are stored so the FastAPI lifespan can sweep orphans on
     startup (`ps -p <pid>`) and clean-kill on shutdown via `killpg(pgid)`.
     """
     id: str = Field(default_factory=generate_id, primary_key=True)
     experiment_id: Optional[str] = Field(default=None, foreign_key="experiment.id", index=True)
-    agent_type: str = Field(index=True)  # 'control' | 'chat' | 'dm'
+    agent_type: str = Field(index=True)  # phase slug | 'chat'
     task_text: str  # human-readable: why this agent was spawned
     spawned_by: str  # 'orchestrator' | 'ui:<button>' | 'slack-thread:<key>' | 'steering:<id>'
     pid: Optional[int] = None
@@ -443,7 +462,7 @@ class PlanEdit(SQLModel, table=True):
     experiment_id: str = Field(foreign_key="experiment.id", index=True)
     timestamp: datetime = Field(default_factory=datetime.now, index=True)
     author: str  # "web-user" | "slack:<name>" | "agent" | "operator"
-    action: str = Field(index=True)  # add_sample | remove_sample | reorder | skip | update_params | extend_budget | reprioritize
+    action: str = Field(index=True)  # add_sample | remove_sample | reorder | skip | update_params | set_end_time | reprioritize
     target_id: Optional[str] = None  # sample_id, etc.
     payload_json: str = "{}"
     reason: Optional[str] = None

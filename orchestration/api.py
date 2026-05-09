@@ -438,12 +438,24 @@ async def lifespan(app):
             "type": "turn_complete", "turn": _insight_record_turn(payload),
         }))
 
+    # 6. Orchestrator polling tick — auto-respawn the planner after each
+    #    new CollectionScan, redispatch deferred steering rows that named
+    #    a target_agent_type, and handle STOP rows.
+    from orchestration.planner.orchestrator_tick import run_forever as _tick_run
+    tick_task = asyncio.create_task(_tick_run(), name="orchestrator_tick")
+
     try:
         yield
     finally:
-        # Teardown: kill any agent subprocesses still flagged active so
-        # they don't outlive the server (and become orphans for the next
-        # startup sweep).
+        # Teardown order:
+        #   1. cancel the orchestrator tick (don't spawn anything new mid-shutdown)
+        #   2. kill any agent subprocesses still flagged active
+        tick_task.cancel()
+        try:
+            await tick_task
+        except (asyncio.CancelledError, Exception):
+            pass
+
         try:
             from orchestration.agents import kill_all_at_shutdown
             await kill_all_at_shutdown()

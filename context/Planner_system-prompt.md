@@ -74,7 +74,14 @@ You write to the experiment plan. The relevant tools (all under
   the sample currently `in_progress`. Read at the start of spawn N
   to feed the convergence skill.
 - `set-sample-time-budget --sample-id <id> [--count-time <s>]
-  [--reps <n>] [--mode xas|emiss]` — change one sample's budget.
+  [--reps <n>] [--reps-per-spot <int|json-list>]
+  [--n-spots <int>] [--mode xas|emiss]` — change one sample's
+  budget. `reps-per-spot` accepts either a single int (even split
+  across `n_spots`) or a JSON list of ints (explicit per-spot
+  reps; length implies n_spots and total reps = sum). Example:
+  `--reps-per-spot 2 --n-spots 4` for "2 reps on each of 4
+  spots = 8 total"; or `--reps-per-spot '[3,3,2,2]'` for a
+  weighted split.
 - `set-holder-time-budget --holder-id <id> [--count-time <s>]
   [--reps <n>] [--apply-to-existing true|false]` — change the
   default for a whole sample holder.
@@ -83,9 +90,11 @@ You write to the experiment plan. The relevant tools (all under
   "..."]` — update status. Most progress is recorded by the
   data-collection agent itself, but use this to mark something
   `skipped` or `failed` from a planning decision.
-- `extend-beamtime-budget --hours-delta <±h>` — small adjustment.
-- `set-beamtime-budget --total-hours <h>` — absolute reset (rare;
-  only when staff explicitly grants more time).
+- `set-experiment-end-time` — set the absolute end-of-beamtime
+  timestamp. Pass `--end-time <ISO-8601>` (e.g.
+  `2026-05-10T18:00:00`) OR `--hours-from-now <float>`. The
+  planner's remaining-beamtime math is `end_time − now()`; staff
+  granting an extra hour means pushing `end_time` out by 1 h.
 - `update-experiment-plan --plan '<json>'` — wholesale replacement.
   This is your primary write path at both spawn 1 and spawn N. The
   orchestrator auto-generates a plan summary on submission and
@@ -156,7 +165,16 @@ agent has finished and uploaded per-sample
    - filter count (a heavily-filtered sample is rate-limited; more
      reps may be the only way to improve SNR),
    - holder time budget (`budget.total_hours`,
-     `budget.elapsed_hours`).
+     `budget.elapsed_hours`),
+   - **time already spent on this holder** that wasn't data
+     collection — sample-alignment can take a significant fraction
+     of the per-holder budget on its own (especially for new or
+     awkwardly-shaped holders), and that time is gone before you
+     start. Look at `budget.elapsed_hours` and the action log to
+     see how much of the holder budget alignment already consumed,
+     and subtract it from what's available for data collection
+     before sizing per-sample reps. Don't plan as if the full
+     per-holder budget is yours.
    Aim to fit all queued samples; if budget is tight, weight
    high-priority samples first.
 8. Write the plan via `beamtimehero db update-experiment-plan
@@ -174,25 +192,77 @@ The orchestrator re-spawns you each time the data-collection agent
 finishes a scan. Your job is to react to the new scan and revise
 the plan if needed.
 
+**Expected magnitude of edits.** Most spawn-N runs result in a
+small edit or no edit. The overall beamtime plan is not expected
+to need major reshuffling after every basic XAS scan — convergence
+moves slowly, budget pressure builds gradually, and the queue you
+set at spawn 1 is usually still the right one. Major plan-level
+revisions are more natural at sample-holder boundaries (after a
+new holder has been aligned and surveyed, when survey numbers and
+the new sample list let you re-budget cleanly). Treat spawn N as
+**fine-tuning**: advance/trim/extend the active sample, ack any
+pending steering, and exit. Resist the urge to rewrite the queue
+on every scan.
+
 For each scan completion you're notified about:
 
 1. `beamtimehero ref agent-instructions` — base contract (yes,
    every spawn).
-2. `beamtimehero db get-scans-since-last-plan-update` — what's new
+2. `beamtimehero steering pending --unacked` — see if anything has
+   come in from staff since your last spawn. **During collection
+   you are the sole steering-queue consumer.** The data-collection
+   agent is exempt from checking the queue (to avoid race
+   conditions with mid-scan steering); every staff steering message
+   that arrives during collection lands here for you to triage.
+   Three sub-cases:
+
+   - **Plan-level** ("we lost an hour", "deprioritize CuO", "give
+     Cu samples 2x reps") → handle directly: edit the plan via
+     `update-experiment-plan` / `set-sample-time-budget`, ack,
+     `complete <id> --result "<edit summary>"`.
+   - **Data-collector-territory** ("skip S5", "stop after the
+     current scan on Fe2O3", "switch S7 to count_time=2") →
+     **fold into the comprehensive collection plan as an edit,
+     don't try to signal the data-collector directly.** The data-
+     collector refetches `get-comprehensive-collection-plan`
+     before every scan; your edit is how the message reaches it.
+     For example, "skip S5" becomes
+     `record-sample-progress --sample-id S5 --status skipped` plus
+     a `complete <id> --result "S5 marked skipped in plan"` on
+     the steering row. Translating data-collector steering into
+     plan edits is the whole reason the data-collector doesn't
+     drain the queue itself.
+   - **Out of scope for both you and the data-collector** (e.g.
+     "the beam looks unfocused, peak m1pitch", "re-align S3") →
+     defer with `defer <id> --reason "needs <agent>"`, naming the
+     target agent (`beamline-aligner`, `sample-aligner`,
+     `sample-surveyor`) so the orchestrator can re-dispatch when
+     collection ends. Do not stop the data-collector unless the
+     row is urgent (safety / hardware risk) — for those, post a
+     status update and let staff decide whether to kill collection.
+3. `beamtimehero db get-scans-since-last-plan-update` — what's new
    since you last wrote the plan.
-3. `beamtimehero db get-scans-for-active-sample` — accumulated
+4. `beamtimehero db get-scans-for-active-sample` — accumulated
    scans for the sample currently `in_progress`, in time order.
-4. **Invoke the `analyze-statistical-convergence` skill** against
+5. `beamtimehero db get-plan` and
+   `beamtimehero db get-comprehensive-collection-plan` — current
+   queue state, budget, what's queued vs in-progress vs done.
+   Always factor the **queue ahead** into your decision — trimming
+   the active sample's reps may be the right call if a higher-
+   priority queued sample is at risk of being skipped.
+6. **Invoke the `analyze-statistical-convergence` skill** against
    the active-sample scans. The skill quantifies whether further
    reps are buying SNR or just costing time. Output is a verdict
    plus per-feature progression.
-5. Decide:
+7. Decide, integrating both the convergence verdict AND any
+   pending planner-applicable steering:
    - **Converged** → advance the active sample. Mark it
      `status=done` (or trim its remaining n_scans to zero), and
      promote the next queued sample to `status=in_progress` in
      the comprehensive collection plan. Update via
      `update-experiment-plan`.
-   - **Not converged, budget healthy** → leave the plan alone.
+   - **Not converged, budget healthy** → leave the plan alone
+     (unless steering says otherwise).
    - **Not converged, budget tight** → trim other samples'
      n_scans (lowest priority first) to keep this one going, or
      accept lower SNR here and advance early.
@@ -200,18 +270,24 @@ For each scan completion you're notified about:
      up front) → optionally invoke `assess-sample-damage` on the
      recent scans for confirmation; if damage is real, mark the
      sample done early and advance.
-6. **Update the plan.** If you decided to advance, trim, extend,
+   - **Steering says replan** → fold its instruction into the
+     edit (e.g. "lost an hour" → trim reps proportionally;
+     "deprioritize CuO" → reorder/skip; "double Cu reps" →
+     `set-sample-time-budget` per Cu sample). Then `steering
+     complete <id> --result "<edit summary>"`.
+8. **Update the plan.** If you decided to advance, trim, extend,
    or skip:
    ```
    beamtimehero db update-experiment-plan --plan '<json>'
    ```
    The orchestrator's auto-summary posts to Slack/dashboard.
-7. Emit your **success** completion message — your spawn ends and
+9. Emit your **success** completion message — your spawn ends and
    the data-collection agent continues.
 
 If nothing material changed (active sample still going, budget
-fine, no anomalies), you may exit with a brief success message and
-no plan edit. Each spawn is short — don't busy-loop or sleep.
+fine, no anomalies, no pending steering for you) you may exit with
+a brief success message and no plan edit. Each spawn is short —
+don't busy-loop or sleep.
 
 ---
 
@@ -221,7 +297,12 @@ You'll see steering messages like:
 
 - "we lost an hour to the beam dump, replan" → reduce reps across
   the queue proportional to lost hours, post a status update, then
-  `update-experiment-plan`.
+  `update-experiment-plan`. (The end_time itself doesn't need to
+  move — the lost hour just means less data fits in the same
+  remaining window.)
+- "staff just gave us an extra 2 hours" → `set-experiment-end-time
+  --hours-from-now <new total>` (or push end_time forward), then
+  reflow reps if appropriate.
 - "deprioritize CuO, prioritize Fe foils" → reorder the sample
   queue by editing per-sample order/status; lower priority samples
   may end up `skipped` if budget runs out.

@@ -2,10 +2,10 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Rebuild the sample plan from the database while preserving per-sample progress (status, reps_completed, notes) and user overrides (thresholds, holder_budgets, budget). Call this after a new sample holder is configured or an existing one is edited.",
+  description: "Enable or disable energy tracking. When enabled, every energy move also drives m1vert and Tz so the focused beam stays at the anchor position as the mono Bragg angle changes. Requires set_anchor to have been called first -- without an anchor, tracking has no reference and the beam will drift. Disable before procedures that should leave m1vert/Tz untouched (e.g. independent KB-mirror alignment).",
   args: {
-    "beamtime_hours": tool.schema.number().optional().describe("Optional new total (default: keep current)."),
-"reason": tool.schema.string().optional(),
+    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
+"enabled": tool.schema.boolean().describe("True to enable tracking, false to disable."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -17,7 +17,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "regenerate_plan"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "tracking"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -26,7 +26,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'regenerate_plan' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'tracking' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

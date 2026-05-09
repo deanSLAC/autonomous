@@ -1168,14 +1168,28 @@ TOOL_LINEAGE: dict[str, dict] = {
     },
     "get_remaining_beamtime": {
         "long_description": (
-            "Return total / elapsed / remaining beamtime in hours. "
-            "Elapsed is computed from the action_log timestamps."
+            "Hours from now until Experiment.end_time. Returns "
+            "{remaining_hours, end_time}; both null if end_time has "
+            "not been set yet."
         ),
         "python_func": "orchestrator.planner.snapshot(experiment_id)",
         "spec_command": None,
-        "output": "JSON: {total_hours, elapsed_hours, remaining_hours}",
+        "output": "JSON: {remaining_hours, end_time}",
         "source": "autonomy_db",
-        "source_detail": "Derives elapsed from the action_log + start time.",
+        "source_detail": "end_time lives on Experiment; this tool just subtracts now().",
+        "depends_on": ["set_experiment_end_time"],
+    },
+    "set_experiment_end_time": {
+        "long_description": (
+            "Set Experiment.end_time. The planner's remaining-beamtime "
+            "math is end_time - now(). Accepts ISO-8601 end_time or "
+            "hours_from_now."
+        ),
+        "python_func": "orchestrator.plan_store.session.set_experiment_end_time(...)",
+        "spec_command": None,
+        "output": "JSON: {ok, end_time, remaining_hours}",
+        "source": "autonomy_db",
+        "source_detail": "Audit-logged as a plan_edit.",
         "depends_on": [],
     },
     "get_staff_guidance": {
@@ -1240,31 +1254,6 @@ TOOL_LINEAGE: dict[str, dict] = {
         "output": "JSON: {ok, samples_updated}",
         "source": "autonomy_db",
         "source_detail": "Stored under plan.holder_budgets; audit-logged as a plan_edit.",
-        "depends_on": [],
-    },
-    "set_beamtime_budget": {
-        "long_description": (
-            "Set the total beamtime budget (in hours) to an absolute "
-            "value. Use this when a new allocation is granted."
-        ),
-        "python_func": "orchestrator.planner.set_budget(experiment_id, hours_total)",
-        "spec_command": None,
-        "output": "JSON: {ok, new_total_hours}",
-        "source": "autonomy_db",
-        "source_detail": "Audit-logged as a plan_edit.",
-        "depends_on": [],
-    },
-    "extend_beamtime_budget": {
-        "long_description": (
-            "Add (or subtract, with a negative delta) hours to the "
-            "beamtime budget. Use this for small adjustments; use "
-            "set_beamtime_budget for absolute resets."
-        ),
-        "python_func": "orchestrator.planner.extend_budget(experiment_id, hours_delta)",
-        "spec_command": None,
-        "output": "JSON: {ok, new_total_hours}",
-        "source": "autonomy_db",
-        "source_detail": "Audit-logged as a plan_edit.",
         "depends_on": [],
     },
     "regenerate_plan": {

@@ -956,8 +956,39 @@ AUTONOMY_TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "get_remaining_beamtime",
-            "description": "Total / elapsed / remaining beamtime in hours.",
+            "description": (
+                "Hours from now until Experiment.end_time. Returns "
+                "{remaining_hours, end_time} — or both null with a "
+                "note if the operator has not yet called "
+                "set_experiment_end_time."
+            ),
             "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "set_experiment_end_time",
+            "description": (
+                "Set the absolute end-of-beamtime timestamp on the "
+                "active experiment. Accepts ISO-8601 `end_time` OR "
+                "`hours_from_now` (one or the other, not both)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "end_time": {
+                        "type": "string",
+                        "description": "ISO-8601 timestamp (e.g. '2026-05-10T18:00:00').",
+                    },
+                    "hours_from_now": {
+                        "type": "number",
+                        "description": "Hours from current time.",
+                    },
+                    "reason": {"type": "string"},
+                },
+                "required": [],
+            },
         },
     },
     {
@@ -997,9 +1028,11 @@ AUTONOMY_TOOL_DEFINITIONS = [
         "function": {
             "name": "set_sample_time_budget",
             "description": (
-                "Adjust the time budget for a single sample — change either the "
-                "per-repetition count time or the number of reps (or both). "
-                "Optionally restrict to one mode ('xas' or 'emiss')."
+                "Adjust the time budget for a single sample. Tweak any "
+                "of: per-rep count_time_s, total reps, reps_per_spot "
+                "(int = even split, list[int] = explicit per-spot), "
+                "n_spots. Optionally restrict to one mode ('xas' or "
+                "'emiss')."
             ),
             "parameters": {
                 "type": "object",
@@ -1008,7 +1041,16 @@ AUTONOMY_TOOL_DEFINITIONS = [
                     "count_time_s": {"type": "number",
                                      "description": "Per-point count time in seconds."},
                     "reps": {"type": "integer",
-                             "description": "Number of repetitions."},
+                             "description": "Total number of repetitions across all spots."},
+                    "reps_per_spot": {
+                        "description": (
+                            "Either an integer (even split: every spot gets this many) "
+                            "or a list of integers (explicit per-spot reps; length "
+                            "implies n_spots and total reps = sum)."
+                        ),
+                    },
+                    "n_spots": {"type": "integer",
+                                "description": "Number of spots to visit on this sample."},
                     "mode": {"type": "string", "enum": ["xas", "emiss"],
                              "description": "Restrict the change to this mode (optional)."},
                     "reason": {"type": "string",
@@ -1040,36 +1082,6 @@ AUTONOMY_TOOL_DEFINITIONS = [
                     "reason": {"type": "string"},
                 },
                 "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "set_beamtime_budget",
-            "description": "Set the total beamtime budget (in hours) to an absolute value.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "hours_total": {"type": "number"},
-                    "reason": {"type": "string"},
-                },
-                "required": ["hours_total"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "extend_beamtime_budget",
-            "description": "Add (or subtract, with a negative delta) hours to the beamtime budget.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "hours_delta": {"type": "number"},
-                    "reason": {"type": "string"},
-                },
-                "required": ["hours_delta"],
             },
         },
     },
@@ -1229,6 +1241,16 @@ AUTONOMY_TOOL_DEFINITIONS = [
                             "to get_current_datafile."
                         ),
                     },
+                    "spot_index": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": (
+                            "0-based spot index within the sample. "
+                            "Required for multi-spot samples so the "
+                            "comprehensive plan can return per-spot "
+                            "remaining reps."
+                        ),
+                    },
                 },
                 "required": ["justification"],
             },
@@ -1294,7 +1316,7 @@ AUTONOMY_TOOL_CATEGORIES = [
         "get_remaining_beamtime", "get_staff_guidance", "list_open_interventions",
         "recent_actions",
         "set_sample_time_budget", "set_holder_time_budget",
-        "set_beamtime_budget", "extend_beamtime_budget", "regenerate_plan",
+        "set_experiment_end_time", "regenerate_plan",
         "record_completed_scan",
     ]),
 ]

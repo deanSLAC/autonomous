@@ -1,22 +1,28 @@
 """Per-phase agent process manager.
 
-The dashboard now spawns one Claude-CLI subprocess per phase tile (Beamline
-Alignment, Sample Alignment, Data Collection) instead of running a single
-master orchestrator loop. Each tile maps to a shell script under scripts/
-that wraps `claude -p` with the right system prompt + tool allowlist.
+The dashboard spawns one Claude-CLI subprocess per phase tile (beamline
+alignment / sample alignment / sample survey / data collection /
+planner). Each tile maps to a shell script under scripts/ that wraps
+`claude -p` with the right system prompt + tool allowlist.
 
 This module:
 
   * Tracks the running subprocess per phase slug ({slug: Popen}).
   * Tees the script's combined stdout/stderr to logs/phase_<slug>_<ts>.log.
-  * Cleans up the slot when the process exits (a small daemon thread
-    waits on each Popen).
+  * Records an `AgentRun` row (agent_type=slug) for every spawn so
+    steering re-dispatch and orphan sweeps see phase agents the same
+    way they see chat agents. The `BEAMTIMEHERO_AGENT_RUN_ID` env var
+    is set so any `beamtimehero steering ack` issued by the agent
+    auto-links back to its row.
+  * Cleans up the slot + completes the AgentRun row when the process
+    exits (a small daemon thread waits on each Popen).
 
 Public API:
 
-  start(slug)          → spawn or fail with ValueError("already running")
+  start(slug, *, seed_text=None)
+                       → spawn or fail with ValueError("already running")
   kill(slug)           → SIGTERM + clean up
-  status_all()         → {slug: {state, pid, log_path, exit_code}}
+  status_all()         → {slug: {state, pid, log_path, exit_code, run_id}}
 """
 
 from __future__ import annotations
@@ -31,12 +37,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+from orchestration.agents import runs as agent_runs
+
 logger = logging.getLogger(__name__)
 
 
 PHASE_SCRIPTS: dict[str, str] = {
     "beamline_alignment": "scripts/bl-aligner-claude.sh",
     "sample_alignment": "scripts/sample-aligner-claude.sh",
+    "sample_survey": "scripts/sample-surveyor-claude.sh",
     "collection": "scripts/data-collection-claude.sh",
     "planner": "scripts/planner-claude.sh",
 }
@@ -48,6 +57,7 @@ class _Slot:
     log_path: str
     log_file: object  # file handle
     started_at: float
+    run_id: str
     exit_code: Optional[int] = None
     finished_at: Optional[float] = None
 
@@ -78,12 +88,23 @@ def _watch_exit(slug: str, slot: _Slot) -> None:
         slot.log_file.close()
     except Exception:
         pass
+    # Mark the AgentRun row complete unless kill() already did.
+    try:
+        existing = agent_runs.get_run(slot.run_id)
+        if existing and not existing.get("completed_at"):
+            agent_runs.complete_run(
+                slot.run_id,
+                result=f"phase agent exited rc={rc} log={slot.log_path}",
+            )
+    except Exception as e:  # noqa: BLE001
+        logger.warning("phase_runner: complete_run failed for %s: %s", slot.run_id, e)
     with _lock:
         _last_results[slug] = {
             "exit_code": rc,
             "log_path": slot.log_path,
             "started_at": slot.started_at,
             "finished_at": slot.finished_at,
+            "run_id": slot.run_id,
         }
         # Only clear the slot if it still points at this proc (avoid
         # racing a fresh start that re-used the slug).
@@ -93,10 +114,17 @@ def _watch_exit(slug: str, slot: _Slot) -> None:
     logger.info("phase agent %s exited rc=%s log=%s", slug, rc, slot.log_path)
 
 
-def start(slug: str) -> dict:
+def start(slug: str, *, seed_text: Optional[str] = None,
+          spawned_by: str = "ui:phase-tile") -> dict:
     """Spawn the phase agent script for `slug`. Returns a status dict.
 
     Raises ValueError if already running, or if the slug/script is unknown.
+
+    `seed_text` is a human-readable note recorded as `task_text` on the
+    AgentRun row. The orchestrator tick uses it to inject focused-task
+    seeds for steering re-dispatch ("you were spawned to handle just
+    steering id <X>"), but the phase launcher itself ignores stdin —
+    so the text is only an audit / log marker, not delivered to claude.
     """
     if slug not in PHASE_SCRIPTS:
         raise ValueError(f"unknown phase slug: {slug!r}")
@@ -104,26 +132,51 @@ def start(slug: str) -> dict:
     if not script.exists():
         raise ValueError(f"script missing: {script}")
 
+    # Pull experiment_id from spec_cmd if available so the row is correctly
+    # scoped. Lazy import — phase_runner is loaded at orchestration startup
+    # before spec_cmd is wired in some test contexts.
+    try:
+        from beamline_tools.spec_control import spec_cmd
+        experiment_id = spec_cmd.get_experiment_id()
+    except Exception:  # noqa: BLE001
+        experiment_id = None
+
     with _lock:
         if slug in _slots and _slots[slug].proc.poll() is None:
             raise ValueError(f"phase agent for {slug!r} already running")
 
+        # Pre-create the AgentRun so we can pass run_id into env before Popen.
+        row = agent_runs.create_run(
+            agent_type=slug,
+            task_text=seed_text or f"phase tile: {slug}",
+            spawned_by=spawned_by,
+            experiment_id=experiment_id,
+            script_path=str(script),
+            working_dir=str(_project_root()),
+        )
+        run_id = row.id
+
         ts = time.strftime("%Y%m%d-%H%M%S")
         log_path = _logs_dir() / f"phase_{slug}_{ts}.log"
         log_file = open(log_path, "ab", buffering=0)
+        env = {**os.environ, "BEAMTIMEHERO_AGENT_RUN_ID": run_id}
         proc = subprocess.Popen(
             ["bash", str(script)],
             cwd=str(_project_root()),
             stdout=log_file,
             stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,
+            env=env,
             start_new_session=True,  # so SIGTERM kills the whole subtree
         )
+        # start_new_session=True → child becomes its own pg leader; pgid == pid.
+        agent_runs.set_pid(run_id, pid=proc.pid, pgid=proc.pid)
         slot = _Slot(
             proc=proc,
             log_path=str(log_path),
             log_file=log_file,
             started_at=time.time(),
+            run_id=run_id,
         )
         _slots[slug] = slot
 
@@ -134,18 +187,25 @@ def start(slug: str) -> dict:
     return {
         "slug": slug,
         "pid": proc.pid,
+        "run_id": run_id,
         "log_path": str(log_path),
         "started_at": slot.started_at,
     }
 
 
-def kill(slug: str) -> dict:
+def kill(slug: str, *, reason: str = "manual") -> dict:
     """Send SIGTERM to the running phase agent. Returns status dict."""
     with _lock:
         slot = _slots.get(slug)
     if slot is None or slot.proc.poll() is not None:
         raise ValueError(f"no phase agent running for {slug!r}")
 
+    # Mark the row killed first so the watcher's complete_run short-circuits.
+    try:
+        agent_runs.complete_run(slot.run_id, killed=True, kill_reason=reason)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("phase_runner.kill: complete_run failed for %s: %s",
+                       slot.run_id, e)
     try:
         # killpg because we set start_new_session=True
         os.killpg(slot.proc.pid, signal.SIGTERM)
@@ -157,7 +217,7 @@ def kill(slug: str) -> dict:
             slot.proc.terminate()
         except Exception:
             pass
-    return {"slug": slug, "killed": True, "pid": slot.proc.pid}
+    return {"slug": slug, "killed": True, "pid": slot.proc.pid, "run_id": slot.run_id}
 
 
 def kill_all() -> list[dict]:
@@ -187,6 +247,7 @@ def status_all() -> dict:
                 out[slug] = {
                     "state": "running",
                     "pid": slot.proc.pid,
+                    "run_id": slot.run_id,
                     "log_path": slot.log_path,
                     "started_at": slot.started_at,
                 }
@@ -200,11 +261,19 @@ def status_all() -> dict:
                     out[slug] = {
                         "state": state,
                         "exit_code": rc,
+                        "run_id": last.get("run_id"),
                         "log_path": last.get("log_path"),
                         "started_at": last.get("started_at"),
                         "finished_at": last.get("finished_at"),
                     }
     return out
+
+
+def is_running(slug: str) -> bool:
+    """True if a phase agent for `slug` is currently running."""
+    with _lock:
+        slot = _slots.get(slug)
+        return slot is not None and slot.proc.poll() is None
 
 
 def get_log_path(slug: str) -> Optional[str]:

@@ -833,14 +833,75 @@ def t_get_experiment_config(args: dict) -> tuple[str, list[str]]:
 
 
 def t_get_remaining_beamtime(args: dict) -> tuple[str, list[str]]:
+    """Hours from now until Experiment.end_time. Returns
+    `{remaining_hours, end_time}` — or `{remaining_hours: null,
+    end_time: null}` if the operator hasn't set an end time yet."""
     experiment_id = spec_cmd.get_experiment_id()
     if not experiment_id:
         return json.dumps({"error": "no active experiment"}), []
     snap = planner.snapshot(experiment_id)
+    if snap.end_time is None:
+        return _as_json({
+            "remaining_hours": None,
+            "end_time": None,
+            "note": "end_time not set — call set_experiment_end_time first",
+        }), []
     return _as_json({
-        "total_hours": snap.beamtime_total_hours,
-        "elapsed_hours": snap.beamtime_elapsed_hours,
         "remaining_hours": snap.beamtime_remaining_hours,
+        "end_time": snap.end_time.isoformat(),
+    }), []
+
+
+def t_set_experiment_end_time(args: dict) -> tuple[str, list[str]]:
+    """Set the absolute end-of-beamtime timestamp on the active experiment.
+
+    Accepts `end_time` as ISO-8601 (e.g. "2026-05-10T18:00:00") OR
+    `hours_from_now` as a float (e.g. 36.0). Exactly one is required.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    from orchestration.plan_store.session import set_experiment_end_time
+
+    xid = _require_xid()
+    if not xid:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+
+    iso = (args.get("end_time") or "").strip() or None
+    hours_from_now = args.get("hours_from_now")
+    if (iso is None) == (hours_from_now is None):
+        return json.dumps({
+            "ok": False,
+            "error": "provide exactly one of end_time (ISO-8601) or hours_from_now (number)",
+        }), []
+
+    if iso is not None:
+        try:
+            new_end = _dt.fromisoformat(iso)
+        except ValueError as e:
+            return json.dumps({
+                "ok": False,
+                "error": f"end_time must be ISO-8601: {e}",
+            }), []
+    else:
+        try:
+            hrs = float(hours_from_now)
+        except (TypeError, ValueError):
+            return json.dumps({
+                "ok": False, "error": "hours_from_now must be a number",
+            }), []
+        new_end = _dt.now() + _td(hours=hrs)
+
+    row = set_experiment_end_time(xid, new_end)
+    if row is None:
+        return json.dumps({"ok": False, "error": f"experiment {xid} not found"}), []
+    _log_plan_edit_from_agent(
+        xid, "set_end_time",
+        payload={"end_time": new_end.isoformat()},
+        reason=args.get("reason"),
+    )
+    return json.dumps({
+        "ok": True,
+        "end_time": new_end.isoformat(),
+        "remaining_hours": max(0.0, (new_end - _dt.now()).total_seconds() / 3600),
     }), []
 
 
@@ -888,18 +949,32 @@ def t_set_sample_time_budget(args: dict) -> tuple[str, list[str]]:
         return json.dumps({"ok": False, "error": "sample_id required"}), []
     count_time_s = args.get("count_time_s")
     reps = args.get("reps")
-    if count_time_s is None and reps is None:
-        return json.dumps({"ok": False, "error": "count_time_s or reps required"}), []
+    reps_per_spot = args.get("reps_per_spot")
+    n_spots = args.get("n_spots")
+    if (
+        count_time_s is None and reps is None
+        and reps_per_spot is None and n_spots is None
+    ):
+        return json.dumps({
+            "ok": False,
+            "error": "at least one of count_time_s/reps/reps_per_spot/n_spots required",
+        }), []
     ok = planner.set_sample_time_budget(
         xid, sample_id,
-        count_time_s=count_time_s, reps=reps, mode=args.get("mode"),
+        count_time_s=count_time_s, reps=reps,
+        reps_per_spot=reps_per_spot, n_spots=n_spots,
+        mode=args.get("mode"),
     )
     if not ok:
         return json.dumps({"ok": False, "error": f"sample {sample_id} not in plan"}), []
     _log_plan_edit_from_agent(
         xid, "set_sample_time_budget",
         target_id=sample_id,
-        payload={"count_time_s": count_time_s, "reps": reps, "mode": args.get("mode")},
+        payload={
+            "count_time_s": count_time_s, "reps": reps,
+            "reps_per_spot": reps_per_spot, "n_spots": n_spots,
+            "mode": args.get("mode"),
+        },
         reason=args.get("reason"),
     )
     return json.dumps({"ok": True}), []
@@ -925,40 +1000,6 @@ def t_set_holder_time_budget(args: dict) -> tuple[str, list[str]]:
         reason=args.get("reason"),
     )
     return _as_json(summary), []
-
-
-def t_set_beamtime_budget(args: dict) -> tuple[str, list[str]]:
-    xid = _require_xid()
-    if not xid:
-        return json.dumps({"ok": False, "error": "no active experiment"}), []
-    try:
-        hours_total = float(args["hours_total"])
-    except (KeyError, TypeError, ValueError):
-        return json.dumps({"ok": False, "error": "hours_total required (number)"}), []
-    new_total = planner.set_budget(xid, hours_total)
-    _log_plan_edit_from_agent(
-        xid, "set_budget",
-        payload={"new_total_hours": new_total},
-        reason=args.get("reason"),
-    )
-    return json.dumps({"ok": True, "new_total_hours": new_total}), []
-
-
-def t_extend_beamtime_budget(args: dict) -> tuple[str, list[str]]:
-    xid = _require_xid()
-    if not xid:
-        return json.dumps({"ok": False, "error": "no active experiment"}), []
-    try:
-        hours_delta = float(args["hours_delta"])
-    except (KeyError, TypeError, ValueError):
-        return json.dumps({"ok": False, "error": "hours_delta required (number)"}), []
-    new_total = planner.extend_budget(xid, hours_delta)
-    _log_plan_edit_from_agent(
-        xid, "extend_budget",
-        payload={"hours_delta": hours_delta, "new_total_hours": new_total},
-        reason=args.get("reason"),
-    )
-    return json.dumps({"ok": True, "new_total_hours": new_total}), []
 
 
 def _resolve_active_sample_id(experiment_id: str) -> Optional[str]:
@@ -1181,19 +1222,46 @@ def t_get_comprehensive_collection_plan(args: dict) -> tuple[str, list[str]]:
     queue = body.get("sample_queue") or []
     plan_by_sid: dict[str, dict] = {q.get("sample_id"): q for q in queue if q.get("sample_id")}
 
+    # Pull completed scans for this holder so we can return per-sample
+    # and per-spot remaining-rep counts. The data collector reads this
+    # plan between scans; "remaining" is what makes a mid-stream plan
+    # edit translate cleanly into "do the next K scans" without
+    # restarting completed work.
+    from orchestration.plan_store.models import CollectionScan
+    sample_ids = [s.id for s in samples if s.enabled]
+    completed_total: dict[str, int] = {sid: 0 for sid in sample_ids}
+    completed_by_spot: dict[str, dict[int, int]] = {sid: {} for sid in sample_ids}
+    if sample_ids:
+        with _ps.get_session() as session:
+            scan_rows = list(session.exec(
+                _select(CollectionScan)
+                .where(CollectionScan.experiment_id == experiment_id)
+                .where(CollectionScan.sample_id.in_(sample_ids))  # type: ignore[union-attr]
+            ).all())
+        for sc in scan_rows:
+            completed_total[sc.sample_id] = completed_total.get(sc.sample_id, 0) + 1
+            if sc.spot_index is not None:
+                d = completed_by_spot.setdefault(sc.sample_id, {})
+                d[sc.spot_index] = d.get(sc.spot_index, 0) + 1
+
     rows: list[dict] = []
     for s in samples:
         if not s.enabled:
             continue
         plan_entry = plan_by_sid.get(s.id, {}) or {}
+
+        # Pull the xas mode if present — that's where reps_per_spot,
+        # n_spots, count_time live.
+        xas_mode: dict = {}
+        for m in plan_entry.get("modes") or []:
+            if (m.get("mode") or "").lower() == "xas":
+                xas_mode = m
+                break
+
         # planned_scans_total: prefer plan_json overrides, fall back to xas_reps.
         n_reps = plan_entry.get("planned_scans_total")
-        if n_reps is None:
-            # Look inside modes[] for xas reps.
-            for m in plan_entry.get("modes") or []:
-                if (m.get("mode") or "").lower() == "xas" and m.get("reps") is not None:
-                    n_reps = m.get("reps")
-                    break
+        if n_reps is None and xas_mode.get("reps") is not None:
+            n_reps = xas_mode["reps"]
         if n_reps is None:
             n_reps = s.xas_reps
         try:
@@ -1202,10 +1270,41 @@ def t_get_comprehensive_collection_plan(args: dict) -> tuple[str, list[str]]:
             n_reps = int(s.xas_reps)
 
         count_time = s.xas_time
-        for m in plan_entry.get("modes") or []:
-            if (m.get("mode") or "").lower() == "xas" and m.get("count_time_s") is not None:
-                count_time = float(m["count_time_s"])
-                break
+        if xas_mode.get("count_time_s") is not None:
+            count_time = float(xas_mode["count_time_s"])
+
+        # Per-spot rep distribution. Three flavors, in priority order:
+        #  1. xas_mode["reps_per_spot"] is a list[int] — explicit per-spot reps.
+        #  2. xas_mode["n_spots"] + xas_mode["reps_per_spot"] (int) — even split.
+        #  3. fall back to total_spots from SamplePosition; reps spread evenly.
+        n_spots = int(xas_mode.get("n_spots") or s.total_spots or 1)
+        rps = xas_mode.get("reps_per_spot")
+        if isinstance(rps, list) and rps:
+            reps_per_spot = [int(x) for x in rps]
+            n_spots = len(reps_per_spot)
+            n_reps = sum(reps_per_spot)
+        elif isinstance(rps, (int, float)):
+            per = int(rps)
+            reps_per_spot = [per] * n_spots
+            n_reps = per * n_spots
+        else:
+            # Default: spread n_reps across n_spots as evenly as we can.
+            base, extra = divmod(n_reps, max(1, n_spots))
+            reps_per_spot = [base + (1 if i < extra else 0) for i in range(n_spots)]
+
+        # Compute completed/remaining (sample-level + per-spot).
+        sample_completed = int(completed_total.get(s.id, 0))
+        per_spot_done = completed_by_spot.get(s.id, {}) or {}
+        spots_payload = []
+        for i, planned in enumerate(reps_per_spot):
+            done_i = int(per_spot_done.get(i, 0))
+            spots_payload.append({
+                "spot_index": i,
+                "n_reps_planned": int(planned),
+                "n_reps_completed": done_i,
+                "n_reps_remaining": max(0, int(planned) - done_i),
+            })
+        n_remaining = max(0, int(n_reps) - sample_completed)
 
         cps = s.survey_counts_per_sec
         planned_time_s = float(n_reps) * float(count_time)
@@ -1214,10 +1313,14 @@ def t_get_comprehensive_collection_plan(args: dict) -> tuple[str, list[str]]:
             "sample_id": s.id,
             "sample_name": s.sample_name,
             "element_symbol": s.element_symbol,
-            "total_spots": s.total_spots,
+            "status": (plan_entry.get("status") or "queued"),
+            "total_spots": int(n_spots),
             "filter_count": int(s.xas_filter),
             "count_time": float(count_time),
             "n_reps": int(n_reps),
+            "n_reps_completed": sample_completed,
+            "n_reps_remaining": n_remaining,
+            "spots": spots_payload,
             "counts_per_sec": cps,
             "planned_time_s": planned_time_s,
             "planned_scans_total": int(n_reps),
@@ -1322,6 +1425,19 @@ def t_record_completed_scan(args: dict) -> tuple[str, list[str]]:
     except (TypeError, ValueError):
         return json.dumps({"ok": False, "error": "count_time must be a number"}), []
 
+    spot_index = args.get("spot_index")
+    if spot_index is not None:
+        try:
+            spot_index = int(spot_index)
+            if spot_index < 0:
+                return json.dumps({
+                    "ok": False, "error": "spot_index must be ≥ 0",
+                }), []
+        except (TypeError, ValueError):
+            return json.dumps({
+                "ok": False, "error": "spot_index must be an integer",
+            }), []
+
     # Look up the sample name for the response payload.
     sample_name: Optional[str] = None
     with get_session() as session:
@@ -1341,6 +1457,7 @@ def t_record_completed_scan(args: dict) -> tuple[str, list[str]]:
         spec_datafile=spec_datafile,
         filter_setting=filter_setting,
         count_time=count_time,
+        spot_index=spot_index,
     )
     return json.dumps({
         "ok": True,
@@ -1349,6 +1466,7 @@ def t_record_completed_scan(args: dict) -> tuple[str, list[str]]:
         "sample_name": sample_name,
         "scan_number": scan_number,
         "technique": technique,
+        "spot_index": spot_index,
     }), []
 
 
@@ -1445,8 +1563,7 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "recent_actions": t_recent_actions,
     "set_sample_time_budget": t_set_sample_time_budget,
     "set_holder_time_budget": t_set_holder_time_budget,
-    "set_beamtime_budget": t_set_beamtime_budget,
-    "extend_beamtime_budget": t_extend_beamtime_budget,
+    "set_experiment_end_time": t_set_experiment_end_time,
     "regenerate_plan": t_regenerate_plan,
     "get_scans_since_last_plan_update": t_get_scans_since_last_plan_update,
     "get_scans_for_active_sample": t_get_scans_for_active_sample,

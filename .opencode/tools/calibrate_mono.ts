@@ -2,10 +2,10 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Add (or subtract, with a negative delta) hours to the beamtime budget.",
+  description: "Standard calibration: dscan energy \u00b115 eV around a reference foil, find the inflection, and call calibrate_mono + reset_gap. 'tabulated_edge_ev' must be within 5 eV of current energy.",
   args: {
-    "hours_delta": tool.schema.number(),
-"reason": tool.schema.string().optional(),
+    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
+"tabulated_edge_ev": tool.schema.number(),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -17,7 +17,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "extend_beamtime_budget"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "calibrate_mono"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -26,7 +26,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'extend_beamtime_budget' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'calibrate_mono' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

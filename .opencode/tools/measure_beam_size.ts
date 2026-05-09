@@ -2,10 +2,11 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Standard calibration: dscan energy \u00b115 eV around a reference foil, find the inflection, and call calibrate_mono + reset_gap. 'tabulated_edge_ev' must be within 5 eV of current energy.",
+  description: "Knife-edge scan to measure horizontal and vertical beam FWHM. Multi-minute. Removes filters and ensures DATAFILE=alignment. Each axis can be measured in 'big' (false, ~mm-scale beam) or 'small' (true, ~50um focused) mode; wrong mode produces artifacts. Standard LiSA configuration is small_x=false, small_z=false.",
   args: {
     "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
-"tabulated_edge_ev": tool.schema.number(),
+"small_x": tool.schema.boolean().optional().describe("True for tightly-focused horizontal beam (~50um); false (default) for big-beam benders."),
+"small_z": tool.schema.boolean().optional().describe("True for tightly-focused vertical beam (~50um); false (default) for big-beam benders."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -17,7 +18,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "calibrate_mono_from_foil_scan"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "measure_beam_size"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -26,7 +27,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'calibrate_mono_from_foil_scan' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'measure_beam_size' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at": "2026-05-08T21:55:45.041549+00:00",
-    "total_tools": 102,
+    "generated_at": "2026-05-09T00:17:04.021827+00:00",
+    "total_tools": 101,
     "generator": "scripts/generate_tools_config.py"
   },
   "tools": [
@@ -330,20 +330,6 @@
       "comments": ""
     },
     {
-      "name": "extend_beamtime_budget",
-      "cli_path": "db",
-      "description": "Add (or subtract, with a negative delta) hours to the beamtime budget. Use this for small adjustments; use set_beamtime_budget for absolute resets.",
-      "when_to_use": "Add (or subtract, with a negative delta) hours to the beamtime budget.",
-      "enabled": false,
-      "sample_input": {
-        "hours_delta": 0.0
-      },
-      "sample_output": "{\"ok\": true, \"new_total_hours\": 14.0}",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
       "name": "get_comprehensive_collection_plan",
       "cli_path": "db",
       "description": "Return the per-sample/spot/filter/n_scans plan that Data Collection executes against. Synthesizes from ExperimentPlan.plan_json + SamplePosition rows + survey results (xas_filter, survey_counts_per_sec). planned_scans_total comes from plan_json's per-sample entry when set, falling back to xas_reps.",
@@ -382,8 +368,8 @@
     {
       "name": "get_remaining_beamtime",
       "cli_path": "db",
-      "description": "Return total / elapsed / remaining beamtime in hours. Elapsed is computed from the action_log timestamps.",
-      "when_to_use": "Total / elapsed / remaining beamtime in hours.",
+      "description": "Hours from now until Experiment.end_time. Returns {remaining_hours, end_time}; both null if end_time has not been set yet.",
+      "when_to_use": "Hours from now until Experiment.end_time. Returns {remaining_hours, end_time} \u2014 or both null with a note if the operator has not yet called set_experiment_end_time.",
       "enabled": false,
       "sample_input": {},
       "sample_output": "{\"total_hours\": 12.0, \"elapsed_hours\": 4.5, \"remaining_hours\": 7.5}",
@@ -507,15 +493,13 @@
       "comments": ""
     },
     {
-      "name": "set_beamtime_budget",
+      "name": "set_experiment_end_time",
       "cli_path": "db",
-      "description": "Set the total beamtime budget (in hours) to an absolute value. Use this when a new allocation is granted.",
-      "when_to_use": "Set the total beamtime budget (in hours) to an absolute value.",
-      "enabled": false,
-      "sample_input": {
-        "hours_total": 0.0
-      },
-      "sample_output": "{\"ok\": true, \"new_total_hours\": 12.0}",
+      "description": "Set Experiment.end_time. The planner's remaining-beamtime math is end_time - now(). Accepts ISO-8601 end_time or hours_from_now.",
+      "when_to_use": "Set the absolute end-of-beamtime timestamp on the active experiment. Accepts ISO-8601 `end_time` OR `hours_from_now` (one or the other, not both).",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
       "simulated": false,
       "working_live": false,
       "comments": ""
@@ -536,7 +520,7 @@
       "name": "set_sample_time_budget",
       "cli_path": "db",
       "description": "Adjust the time budget for a single sample \u2014 change the per-rep count_time and/or the number of reps. Mode restricts the change to one of xas or emiss.",
-      "when_to_use": "Adjust the time budget for a single sample \u2014 change either the per-repetition count time or the number of reps (or both). Optionally restrict to one mode ('xas' or 'emiss').",
+      "when_to_use": "Adjust the time budget for a single sample. Tweak any of: per-rep count_time_s, total reps, reps_per_spot (int = even split, list[int] = explicit per-spot), n_spots. Optionally restrict to one mode ('xas' or 'emiss').",
       "enabled": false,
       "sample_input": {
         "sample_id": "example"

@@ -182,6 +182,29 @@
                 </div>
             </div>
 
+            <!-- ==== Sample Survey ==== -->
+            <div class="phase-column" data-status="pending">
+                <div class="phase-tile" data-status="pending" data-phase="sample_survey" onclick="onPhaseTileClick(this, event)">
+                    <div class="tile-header">
+                        <div class="tile-phase-name">Sample Survey</div>
+                        <div class="tile-status-badge badge-pending">pending</div>
+                    </div>
+                    <div class="tile-body">
+                        <div class="tile-metric"><span class="metric-value" data-field="scan_count">--</span><span class="metric-label">scans</span></div>
+                        <div class="tile-details">
+                            <div class="tile-detail"><span class="detail-label">samples</span><span data-field="sample_count">--</span></div>
+                            <div class="tile-detail"><span class="detail-label">LLM</span><span data-field="llm_count">0</span></div>
+                        </div>
+                    </div>
+                    <div class="tile-footer"><span class="tile-time" data-field="time">--</span><span class="tile-link">View &rarr;</span></div>
+                </div>
+                <div class="tile-actions" hidden></div>
+                <div class="phase-io phase-output">
+                    <div class="io-label">Outputs</div>
+                    <div class="io-body">Per-sample <code>filter_count / counts_per_sec / survey_energy</code>; damage check</div>
+                </div>
+            </div>
+
             <!-- ==== Data Collection ==== -->
             <div class="phase-column" data-status="pending">
                 <div class="phase-tile" data-status="pending" data-phase="collection" onclick="onPhaseTileClick(this, event)">

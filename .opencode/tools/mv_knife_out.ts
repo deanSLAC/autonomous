@@ -2,9 +2,9 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Total / elapsed / remaining beamtime in hours.",
+  description: "Move the sample stage so the entire diagnostic tool is fully out of the beam. Slower than mv_knife_clear (large Sr rotation), but unambiguous: nothing diagnostic-related is in the beam path. Use this before optimizing upstream optics with I1.",
   args: {
-    // no args
+    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -16,7 +16,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "get_remaining_beamtime"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "mv_knife_out"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -25,7 +25,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'get_remaining_beamtime' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'mv_knife_out' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

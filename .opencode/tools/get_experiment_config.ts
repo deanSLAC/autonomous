@@ -2,10 +2,9 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Pause the agent and ask a human to complete a physical action (crystal install, sample mount, foil insert, etc.). Posts to Slack and blocks until resolved.",
+  description: "Return the operator-entered experiment configuration straight from the DB: experiment-level settings (mono crystal, beam size, mirrors, sample env, data path), the configured elements (edges, energies, crystal/HKL, vortex channel), and every sample holder with its samples (positions, gains, XAS/RIXS plan). Use this when you need ground truth from the /config form, independent of the live plan JSON.",
   args: {
-    "kind": tool.schema.string(),
-"detail": tool.schema.string().describe("What you want the human to do."),
+    // no args
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -17,7 +16,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "request_human_intervention"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "get_experiment_config"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -26,7 +25,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'request_human_intervention' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'get_experiment_config' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

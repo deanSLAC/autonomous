@@ -2,9 +2,9 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Run 'run_collection' \u2014 the multi-sample data collection loop that cycles through every enabled sample. Only in phase collection.",
+  description: "Return the last-measured horizontal and vertical beam FWHM (mm) and the current beam-size mode (big/small/unknown) for each axis.",
   args: {
-    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
+    // no args
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -16,7 +16,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "run_collection"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "get_beam_size"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -25,7 +25,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'run_collection' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'get_beam_size' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

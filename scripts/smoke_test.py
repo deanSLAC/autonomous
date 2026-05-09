@@ -101,9 +101,17 @@ async def run() -> None:
 
     banner("build plan")
     plan = planner.build_initial_plan(exp.id, beamtime_hours=6.0)
+    # End-time is now the budget source-of-truth: set 6h from now and
+    # confirm the snapshot derives ~6 remaining.
+    from datetime import datetime as _dt, timedelta as _td
+    from orchestration.plan_store.session import set_experiment_end_time
+    set_experiment_end_time(exp.id, _dt.now() + _td(hours=6))
     snap = planner.snapshot(exp.id)
     assert_true(snap.samples_total == 2, "two samples in plan")
-    assert_true(snap.beamtime_total_hours == 6.0, "beamtime budget stored")
+    assert_true(
+        5.9 <= snap.beamtime_remaining_hours <= 6.0,
+        f"end_time-driven remaining ≈ 6h (got {snap.beamtime_remaining_hours:.3f})",
+    )
 
     banner("phase: setup -> beamline_alignment")
     checker = PreconditionChecker()

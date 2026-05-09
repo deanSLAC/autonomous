@@ -2,10 +2,10 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Set the total beamtime budget (in hours) to an absolute value.",
+  description: "Fit the most recent (or specified) emission scan with the lab's Pseudo-Voigt+skew model and return the suggested emission energy in eV. Does NOT move the spectrometer \u2014 the agent decides whether/how to apply the value. Wraps the SPEC 'get_HERFD_energy' macro.",
   args: {
-    "hours_total": tool.schema.number(),
-"reason": tool.schema.string().optional(),
+    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
+"scan_number": tool.schema.number().optional().describe("Scan number to fit. If omitted, the most recent scan in the active datafile is used."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -17,7 +17,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "set_beamtime_budget"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "fit_emission_peak"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -26,7 +26,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'set_beamtime_budget' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'fit_emission_peak' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

@@ -152,6 +152,10 @@ def build_initial_plan(experiment_id: str,
 class PlannerSnapshot:
     experiment_id: str
     phase: str
+    # `end_time` is the source of truth; remaining = end_time − now.
+    # `total_hours` and `elapsed_hours` are derived for display only
+    # (total = end_time − created_at; elapsed = now − created_at).
+    end_time: Optional[datetime]
     beamtime_total_hours: float
     beamtime_elapsed_hours: float
     beamtime_remaining_hours: float
@@ -192,6 +196,18 @@ class PlannerSnapshot:
         foil_str = (
             f"{foil_elem}@{foil_det}" if foil_elem else f"none (det={foil_det})"
         )
+        if self.end_time is None:
+            beamtime_line = (
+                "  beamtime: end_time not set — "
+                "use `db set-experiment-end-time` to schedule the end of run.\n"
+            )
+        else:
+            beamtime_line = (
+                f"  beamtime: {self.beamtime_remaining_hours:.2f}h remaining "
+                f"(ends {self.end_time.isoformat(timespec='minutes')}; "
+                f"{self.beamtime_elapsed_hours:.2f}h elapsed of "
+                f"{self.beamtime_total_hours:.2f}h total)\n"
+            )
         return (
             "[PLANNER STATE]\n"
             f"  phase: {self.phase}\n"
@@ -200,10 +216,8 @@ class PlannerSnapshot:
             f"  config: mono={mono_label} sample_env={exp.get('sample_env') or 'ambient'} "
             f"calibration_foil={foil_str} "
             f"elements=[{el_line}]\n"
-            f"  beamtime: {self.beamtime_elapsed_hours:.2f}h elapsed / "
-            f"{self.beamtime_total_hours:.2f}h total "
-            f"({self.beamtime_remaining_hours:.2f}h remaining)\n"
-            f"  samples: {self.samples_completed} done / {self.samples_in_progress} in progress / "
+            + beamtime_line
+            + f"  samples: {self.samples_completed} done / {self.samples_in_progress} in progress / "
             f"{self.samples_queued} queued ({self.samples_total} total)\n"
             f"  thresholds: SNR target={self.plan.get('thresholds', {}).get('snr_target')}, "
             f"min reps/sample={self.plan.get('thresholds', {}).get('min_reps_per_sample')}\n"
@@ -223,10 +237,14 @@ def snapshot(experiment_id: str) -> PlannerSnapshot:
     # — otherwise a fresh run with an empty sample_queue leads the
     # agent to conclude config is missing.
     exp_meta: dict = {}
+    end_time: Optional[datetime] = None
+    created_at: Optional[datetime] = None
     try:
         with get_session() as session:
             row = session.get(Experiment, experiment_id)
             if row is not None:
+                end_time = row.end_time
+                created_at = row.created_at
                 elems = list(session.exec(
                     select(ExperimentElement).where(
                         ExperimentElement.experiment_id == experiment_id
@@ -243,6 +261,7 @@ def snapshot(experiment_id: str) -> PlannerSnapshot:
                     "calibration_foil_element": getattr(row, "calibration_foil_element", None),
                     "calibration_foil_detector": getattr(row, "calibration_foil_detector", None) or "I2",
                     "status": row.status,
+                    "end_time": end_time.isoformat() if end_time else None,
                     "elements": [
                         {
                             "symbol": e.element_symbol,
@@ -261,23 +280,20 @@ def snapshot(experiment_id: str) -> PlannerSnapshot:
     in_progress = sum(1 for s in sample_queue if s.get("status") == "in_progress")
     queued = total - done - in_progress
 
-    budget = plan_body.get("budget", {}) or {}
-    total_hours = float(budget.get("beamtime_total_hours") or plan.get("beamtime_total_hours") or DEFAULT_BEAMTIME_HOURS)
-    started_at = budget.get("started_at")
-
-    elapsed = float(plan.get("beamtime_elapsed_hours") or 0.0)
-    if started_at:
-        try:
-            dt = datetime.fromisoformat(started_at)
-            elapsed = max(elapsed, (datetime.now() - dt).total_seconds() / 3600)
-        except ValueError:
-            pass
-
-    remaining = max(0.0, total_hours - elapsed)
+    now = datetime.now()
+    if end_time is not None and created_at is not None:
+        total_hours = max(0.0, (end_time - created_at).total_seconds() / 3600)
+        elapsed = max(0.0, (now - created_at).total_seconds() / 3600)
+        remaining = max(0.0, (end_time - now).total_seconds() / 3600)
+    else:
+        total_hours = 0.0
+        elapsed = 0.0
+        remaining = 0.0
 
     return PlannerSnapshot(
         experiment_id=experiment_id,
         phase=plan.get("phase", "setup"),
+        end_time=end_time,
         beamtime_total_hours=total_hours,
         beamtime_elapsed_hours=elapsed,
         beamtime_remaining_hours=remaining,
@@ -329,9 +345,9 @@ def replace_plan(experiment_id: str, new_plan: dict) -> dict:
 
 
 def bump_elapsed(experiment_id: str, hours: float) -> None:
-    plan = get_experiment_plan(experiment_id) or {}
-    elapsed = float(plan.get("beamtime_elapsed_hours") or 0.0) + hours
-    upsert_experiment_plan(experiment_id, beamtime_elapsed_hours=elapsed)
+    """Legacy hook — no-op now that elapsed is derived from
+    Experiment.created_at vs now. Kept so callers don't break."""
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -476,37 +492,27 @@ def update_sample_params(
     return True
 
 
-def extend_budget(experiment_id: str, hours_delta: float) -> float:
-    """Add (or subtract, if negative) hours to the beamtime budget."""
-    wrapper = get_experiment_plan(experiment_id) or {}
-    body = wrapper.get("plan") or {}
-    total = float(wrapper.get("beamtime_total_hours") or 0.0) + hours_delta
-    body.setdefault("budget", {})["beamtime_total_hours"] = total
-    body["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(
-        experiment_id, plan=body, beamtime_total_hours=total,
-    )
-    return total
-
-
-def set_budget(experiment_id: str, hours_total: float) -> float:
-    """Set the beamtime budget to an absolute value (hours)."""
-    wrapper = get_experiment_plan(experiment_id) or {}
-    body = wrapper.get("plan") or {}
-    total = max(0.0, float(hours_total))
-    body.setdefault("budget", {})["beamtime_total_hours"] = total
-    body["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(
-        experiment_id, plan=body, beamtime_total_hours=total,
-    )
-    return total
-
-
-def _apply_mode_fields(mode_entry: dict, *, count_time_s, reps) -> None:
+def _apply_mode_fields(
+    mode_entry: dict, *, count_time_s, reps,
+    reps_per_spot=None, n_spots=None,
+) -> None:
     if count_time_s is not None:
         mode_entry["count_time_s"] = float(count_time_s)
     if reps is not None and "reps" in mode_entry:
         mode_entry["reps"] = int(reps)
+    if n_spots is not None:
+        mode_entry["n_spots"] = int(n_spots)
+    if reps_per_spot is not None:
+        # Accept either a single int (even split) or a list of ints.
+        if isinstance(reps_per_spot, list):
+            mode_entry["reps_per_spot"] = [int(x) for x in reps_per_spot]
+            # Update derived total reps so consumers stay consistent.
+            mode_entry["reps"] = sum(int(x) for x in reps_per_spot)
+            mode_entry["n_spots"] = len(reps_per_spot)
+        else:
+            mode_entry["reps_per_spot"] = int(reps_per_spot)
+            if mode_entry.get("n_spots"):
+                mode_entry["reps"] = int(reps_per_spot) * int(mode_entry["n_spots"])
 
 
 def set_sample_time_budget(
@@ -515,13 +521,17 @@ def set_sample_time_budget(
     *,
     count_time_s: float | None = None,
     reps: int | None = None,
+    reps_per_spot: int | list | None = None,
+    n_spots: int | None = None,
     mode: str | None = None,
 ) -> bool:
     """Update the time budget for a single sample.
 
     `mode` restricts the update to one of the sample's mode entries
     (e.g. 'xas' or 'emiss'). When None, every mode on the sample gets
-    updated. Returns False if the sample is not in the queue.
+    updated. `reps_per_spot` accepts either an int (even split across
+    `n_spots`) or a list[int] (explicit per-spot rep count, also sets
+    n_spots). Returns False if the sample is not in the queue.
     """
     body, queue = _load_plan(experiment_id)
     updated = False
@@ -532,13 +542,21 @@ def set_sample_time_budget(
         for m in modes:
             if mode and m.get("mode") != mode:
                 continue
-            _apply_mode_fields(m, count_time_s=count_time_s, reps=reps)
+            _apply_mode_fields(
+                m,
+                count_time_s=count_time_s, reps=reps,
+                reps_per_spot=reps_per_spot, n_spots=n_spots,
+            )
             updated = True
         if updated:
             s.setdefault("notes", []).append(
                 {
                     "ts": datetime.now().isoformat(),
-                    "text": f"time budget updated (count_time_s={count_time_s}, reps={reps}, mode={mode or 'all'})",
+                    "text": (
+                        f"time budget updated (count_time_s={count_time_s}, "
+                        f"reps={reps}, reps_per_spot={reps_per_spot}, "
+                        f"n_spots={n_spots}, mode={mode or 'all'})"
+                    ),
                 }
             )
         break

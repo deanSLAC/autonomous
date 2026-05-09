@@ -34,7 +34,22 @@ skill — but the heavy lifting on damage and convergence is upstream.
 beamtimehero ref agent-instructions
 ```
 
-Steering-queue protocol, completion contract, never-do list.
+Completion contract, never-do list, and the SPEC↔CLI translation
+table.
+
+**Steering queue exemption.** The base contract tells every agent
+to drain `beamtimehero steering pending --unacked` between every
+tool call. **You are exempt from that requirement.** During
+collection the **planner** owns the steering queue: it re-spawns
+between each of your scans, reads steering, and either acts on
+plan-level requests itself or — for things in your scope (skip a
+sample, change reps, etc.) — folds them into the comprehensive
+collection plan as edits. You pick those up by **refetching
+`get-comprehensive-collection-plan` before every new scan** (see
+the procedure below). Do not call `steering pending`, do not
+`ack`/`defer`/`complete` steering rows. The only exception is a
+direct STOP signal, which the orchestrator delivers by killing
+your subprocess group — you don't need to poll for it.
 
 ---
 
@@ -74,11 +89,27 @@ mid-collection, that's a sample-alignment-agent job — defer.
    this; you should notice if you're running long but you do not
    re-budget.
 
-5. For each sample with `status=queued` (in plan order from the
-   comprehensive collection plan):
+5. **Drive the queue off `n_reps_remaining`, not `n_reps`.** The
+   comprehensive plan returns, per sample:
+   - `n_reps_remaining` (sample total)
+   - `spots: [{spot_index, n_reps_planned, n_reps_completed,
+     n_reps_remaining}, ...]`
+
+   Always work the **next remaining** rep on each spot — never
+   re-run a spot/rep that's already at `n_reps_completed >=
+   n_reps_planned`. This keeps you safe under mid-stream plan
+   edits: if the planner trims a sample's reps, your next refetch
+   will show that spot's `n_reps_remaining=0` and you skip
+   forward; if the planner adds reps, the new gap appears and you
+   pick up where you left off.
+
+   For each sample with `status` not in (`done`, `skipped`) AND
+   `n_reps_remaining > 0` (in plan order from the comprehensive
+   collection plan):
 
    1. `beamtimehero db record-sample-progress --sample-id <id>
-      --status in_progress` — claim the sample.
+      --status in_progress` — claim the sample (skip if already
+      `in_progress`).
    2. `beamtimehero spec-write select-element --element <X>` —
       sets energy, emiss, Vortex ROI, plot-selects the right
       counter.
@@ -92,7 +123,7 @@ mid-collection, that's a sample-alignment-agent job — defer.
       `sample_name` from the comprehensive collection plan (it came
       in with the sampleholder config). Slugify if needed (replace
       spaces and `/` with `_`) so SPEC accepts the name.
-   5. For each spot in the comprehensive plan for this sample:
+   5. For each spot in `spots[]` with `n_reps_remaining > 0`:
       1. Move to the spot's stored position
          (`umv Sx ... Sy ... Sz ...`).
       2. Set the planner-specified filter count
@@ -113,13 +144,13 @@ mid-collection, that's a sample-alignment-agent job — defer.
             latest SPEC scan number `N`.
          2. `beamtimehero spec-read get-current-datafile` — get
             the active datafile (skip if you already know it).
-         3. `beamtimehero db record-completed-scan --justification
-            "logged scan N"` — auto-fills sample_id, scan_number,
-            and datafile from the active context. **This is what
-            makes the scan visible to the Planner's convergence
-            analysis and the orchestrator's plan summary
-            (recent_plots).** Skip it and the scan effectively
-            doesn't exist for those views.
+         3. `beamtimehero db record-completed-scan --spot-index
+            <k> --justification "logged scan N (sample <id> spot
+            <k>)"` — auto-fills sample_id, scan_number, and
+            datafile from the active context. **Always pass
+            `--spot-index`** so the comprehensive plan can return
+            accurate per-spot remaining counts; without it, the
+            scan only contributes to the sample-level total.
          4. `beamtimehero tool plot-scan --file-name <datafile>
             --scan-number N` — generates the plot, saved with
             scan_number embedded so plan-summary can find it.
@@ -128,37 +159,34 @@ mid-collection, that's a sample-alignment-agent job — defer.
          re-evaluates between scans and may shorten or lengthen
          the per-sample plan based on convergence; chaining reps
          inside a single `run_xas` call defeats that.
-   6. After the last scheduled scan for the sample,
+   6. After the spot's last remaining rep is done — and only when
+      every spot on the sample has `n_reps_remaining=0` — call
       `beamtimehero db record-sample-progress --sample-id <id>
       --status done --reps-completed <n> --note "<one-line>"`.
 
-6. **Signal scan completion + check the steering queue between
-   scans.** Run the inspect-and-record sequence above (get-scan-
+6. **Signal scan completion + refetch the plan before the next
+   scan.** Run the inspect-and-record sequence above (get-scan-
    number → get-current-datafile → record-completed-scan →
-   plot-scan) **before** posting the status update so the DB row
-   exists when the planner re-spawns. Then post a brief status
-   update (`beamtimehero tool post-status-update --text "<sample_id>
-   scan <i>/<plan_n> done, <kcps> on counter"`) so the planner —
-   which re-spawns between scans to update the plan — sees the new
-   scan, and check `beamtimehero steering pending --unacked`. Trust
-   the planner to update the comprehensive collection plan; you do
-   not decide convergence or filter changes anymore — those are
-   upstream.
+   plot-scan) so the DB row exists for the planner. Then post a
+   brief status update:
+   ```
+   beamtimehero tool post-status-update --text "<sample_id> scan <i>/<plan_n> done, <kcps> on counter"
+   ```
+   so the planner — which re-spawns between scans to update the
+   plan — sees the new scan.
 
-Between every tool call: `beamtimehero steering pending --unacked`.
+   **Then refetch `beamtimehero db get-comprehensive-collection-plan`
+   before starting the next scan.** This is how planner-issued
+   changes reach you: a sample's `n_reps` may have been trimmed
+   (advance to next sample), `status` may have been flipped to
+   `skipped` (skip it), `count_time` may have changed (use the
+   new value). Every steering row that staff sends — even ones
+   addressed to "the data collector" like "skip S5" — comes to
+   you as a plan edit, not as a direct steering message.
 
-Common steering you'll see:
-
-- "skip S5" → ack, `record-sample-progress --sample-id S5 --status
-  skipped --note "<staff reason>"`, complete the steering row.
-- "increase reps on Fe2O3 to 8" → planner-territory; ack with a
-  comment ("planner agent should handle reps changes") and continue,
-  unless the planner is offline and the message is urgent.
-- "S3 looks misaligned" → out of scope; defer with reason
-  "needs sample-alignment re-run".
-- "stop, beam dump" → urgent, treat as Outcome 4 from the base
-  contract: don't start another scan, defer the row, post status,
-  exit cleanly.
+Trust the planner to update the comprehensive collection plan;
+you do not decide convergence or filter changes anymore, and you
+do not read the steering queue.
 
 ---
 

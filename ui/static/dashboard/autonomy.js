@@ -54,14 +54,16 @@ function renderTileActions(tile, container) {
     const isRunning = runState === "running";
     let html = "";
 
-    if (phase === "beamline_alignment" || phase === "sample_alignment" || phase === "collection") {
+    if (phase === "beamline_alignment" || phase === "sample_alignment" || phase === "sample_survey" || phase === "collection") {
         const slug = phase;
         if (isRunning) {
             html += `<button class="btn-tile btn-tile-danger" onclick="killPhase('${slug}')">Kill</button>`;
         } else {
             html += `<button class="btn-tile btn-tile-primary" onclick="runPhase('${slug}')">Run</button>`;
         }
-        html += `<button class="btn-tile" onclick="openPhaseDetail('${phase}')">More info</button>`;
+        // Sample Survey shares the Data Collection detail page (same scope, same panel).
+        const infoSlug = phase === "sample_survey" ? "collection" : phase;
+        html += `<button class="btn-tile" onclick="openPhaseDetail('${infoSlug}')">More info</button>`;
     } else if (phase === "xes_alignment") {
         if (__spectrometerAligned) {
             html += `<span class="tile-action-status">Marked aligned</span>`;
@@ -82,6 +84,7 @@ async function runPhase(slug) {
     const labels = {
         beamline_alignment: "Beamline Alignment",
         sample_alignment: "Sample Alignment",
+        sample_survey: "Sample Survey",
         collection: "Data Collection",
     };
     const label = labels[slug] || slug;
@@ -700,7 +703,7 @@ function applyGatingToTiles() {
     // Sample Alignment + Data Collection are blocked until the operator
     // marks the spectrometer aligned. Greying out means: no click, no
     // run buttons.
-    ["sample_alignment", "collection"].forEach(slug => {
+    ["sample_alignment", "sample_survey", "collection"].forEach(slug => {
         const tile = document.querySelector(`.phase-tile[data-phase="${slug}"]`);
         if (!tile) return;
         if (__spectrometerAligned) {
@@ -727,9 +730,8 @@ function currentAuthor() {
 
 function summarizePayload(action, payload) {
     if (!payload) return "";
-    if (action === "extend_budget") {
-        const d = payload.hours_delta, n = payload.new_total_hours;
-        return `<span class="muted">${d != null ? (d >= 0 ? "+" : "") + d + "h" : ""}${n != null ? ` → total ${n}h` : ""}</span>`;
+    if (action === "set_end_time" && payload.end_time) {
+        return `<span class="muted">end → ${escapeHtml(payload.end_time)}</span>`;
     }
     if (action === "add_sample" && payload.sample) {
         return `<span class="muted">${escapeHtml(payload.sample.sample_name || "")} (${escapeHtml(payload.sample.element_symbol || "")})</span>`;
@@ -790,12 +792,12 @@ async function moveSample(sampleId, delta) {
     await planPost("reorder", { order: ids });
 }
 
-async function extendBudget(hours) {
+async function extendEndTime(hours) {
     const reason = hours < 0
-        ? prompt(`Trim ${Math.abs(hours)}h from budget. Reason? (optional)`, "")
-        : prompt(`Extend budget by ${hours}h. Reason? (optional)`, "");
+        ? prompt(`Pull end-time in by ${Math.abs(hours)}h. Reason? (optional)`, "")
+        : prompt(`Push end-time out by ${hours}h. Reason? (optional)`, "");
     if (reason === null) return;
-    await planPost("extend_budget", { hours, reason: reason || undefined });
+    await planPost("set_end_time", { hours_from_now: hours, reason: reason || undefined });
 }
 
 function openAddSample() {

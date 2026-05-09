@@ -2,9 +2,9 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Replace the live experiment plan JSON (structure decided by the agent).",
+  description: "Set the KB-mirror benders to the small-beam preset (~50um focused). Moves m1ubend/m1dbend/m2ubend/m2dbend to the configured small-beam positions and tags both beamsize_mode axes as 'small'. After running, alignment routines and measure_beam_size should be invoked in their small-beam mode.",
   args: {
-    "plan": tool.schema.string(),
+    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -16,7 +16,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "update_experiment_plan"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "small_beam"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -25,7 +25,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'update_experiment_plan' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'small_beam' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

@@ -2,13 +2,13 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Element-specific XAS (<element>_xas). Beam must be present; count_time \u2264 60 s; reps \u2264 20.",
+  description: "This command will call the _xas macro function for spectrum collection based on the element set by select_element. All args get passed onto the <El>_xas func: \"<El>_xas  cntSec  nbrScan  emission  nbrFilter\". Null value for cntSec defaults to 1s, nbrScan to 1, if emission is zero the emiss is not moved, if nbrFilter <0 then filter motor isnt moved",
   args: {
     "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
-"element": tool.schema.string(),
-"count_time": tool.schema.number(),
-"n_reps": tool.schema.number(),
-"emission_ev": tool.schema.number().optional(),
+"count_time": tool.schema.number().optional().describe("cntSec \u2014 null defaults to 1 s."),
+"n_reps": tool.schema.number().optional().describe("nbrScan \u2014 null defaults to 1."),
+"emission_ev": tool.schema.number().optional().describe("emission \u2014 0 leaves emiss motor unchanged."),
+"filter": tool.schema.number().optional().describe("nbrFilter \u2014 value <0 leaves filter motor unchanged."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})

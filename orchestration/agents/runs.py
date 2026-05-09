@@ -3,11 +3,8 @@
 Returns dicts (not ORM rows) from list/get methods so callers don't have
 to keep a Session open — every access closes the session before returning.
 
-The active-control-agent gate is `find_active_control()` — it's the SQL
-predicate `agent_type='control' AND completed_at IS NULL`, ordered by
-`started_at DESC` so we always see the newest live row if multiple exist
-(which would be a bug, but the orchestrator can recover by killing the
-older one).
+`list_active(agent_type=<slug>)` is the gate the orchestrator tick uses
+to decide whether a phase agent of a given type is currently running.
 """
 
 from __future__ import annotations
@@ -140,20 +137,6 @@ def list_active(agent_type: Optional[str] = None) -> list[dict]:
             stmt = stmt.where(AgentRun.agent_type == agent_type)
         stmt = stmt.order_by(AgentRun.started_at.desc())  # type: ignore[union-attr]
         return [_to_dict(r) for r in session.exec(stmt).all()]
-
-
-def find_active_control() -> Optional[dict]:
-    """Active-control-agent gate. Returns the newest live control row, or None."""
-    with get_session() as session:
-        stmt = (
-            select(AgentRun)
-            .where(AgentRun.agent_type == "control")
-            .where(AgentRun.completed_at.is_(None))  # type: ignore[union-attr]
-            .order_by(AgentRun.started_at.desc())  # type: ignore[union-attr]
-            .limit(1)
-        )
-        row = session.exec(stmt).first()
-        return _to_dict(row) if row else None
 
 
 def list_recent(limit: int = 50) -> list[dict]:

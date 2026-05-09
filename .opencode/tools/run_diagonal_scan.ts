@@ -2,14 +2,15 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Element-specific emission-energy (_cee) scan.",
+  description: "d2scan \u2014 relative scan of two motors moving in lockstep, each spanning the same delta range over the same number of points. Common use: map a sample's footprint in the Sx/Sy plane to find its edges (the staple of auto_sample_align's per-sample boundary detection). Default range is \u00b18.",
   args: {
     "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
-"element": tool.schema.string(),
-"count_time": tool.schema.number(),
-"n_reps": tool.schema.number(),
-"emission_ev": tool.schema.number(),
-"filter": tool.schema.number().optional().describe("0-255 bitmask"),
+"motor1": tool.schema.string().describe("First motor (e.g. 'Sx')."),
+"motor2": tool.schema.string().describe("Second motor (e.g. 'Sy')."),
+"npoints": tool.schema.number(),
+"count_time": tool.schema.number().describe("Seconds per point."),
+"delta_lo": tool.schema.number().optional().describe("Lower delta bound. Applied to both motors. Default -8."),
+"delta_hi": tool.schema.number().optional().describe("Upper delta bound. Applied to both motors. Default 8."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -21,7 +22,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "run_emiss_scan"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "run_diagonal_scan"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -30,7 +31,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'run_emiss_scan' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'run_diagonal_scan' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

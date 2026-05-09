@@ -94,7 +94,11 @@ def cmd_complete(args: argparse.Namespace) -> int:
 
 
 def cmd_defer(args: argparse.Namespace) -> int:
-    row = defer_steering(args.id, reason=args.reason)
+    row = defer_steering(
+        args.id,
+        reason=args.reason,
+        target_agent_type=getattr(args, "target", None) or None,
+    )
     if row is None:
         return _print_not_found(args.id)
     return _print_ok(row)

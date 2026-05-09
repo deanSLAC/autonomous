@@ -54,18 +54,18 @@ async function spPost(path, body) {
 
 // --- Budget panel -----------------------------------------------------------
 
-async function spSetBudget() {
-    const hrs = parseFloat(document.getElementById("budget-hours").value);
-    if (isNaN(hrs) || hrs < 0) { alert("Enter a non-negative number of hours."); return; }
-    await spPost("set_budget", { hours_total: hrs });
+async function spSetEndTime() {
+    const iso = (document.getElementById("budget-end-time")?.value || "").trim();
+    if (!iso) { alert("Enter an ISO-8601 timestamp."); return; }
+    await spPost("set_end_time", { end_time: iso });
 }
 
-async function spExtendBudget(delta) {
-    const note = delta < 0
-        ? prompt(`Trim ${Math.abs(delta)}h. Reason? (optional)`, "")
-        : prompt(`Add ${delta}h. Reason? (optional)`, "");
+async function spExtendEndTime(deltaHours) {
+    const note = deltaHours < 0
+        ? prompt(`Pull end-time in by ${Math.abs(deltaHours)}h. Reason? (optional)`, "")
+        : prompt(`Push end-time out by ${deltaHours}h. Reason? (optional)`, "");
     if (note === null) return;
-    await spPost("extend_budget", { hours: delta, reason: note || undefined });
+    await spPost("set_end_time", { hours_from_now: deltaHours, reason: note || undefined });
 }
 
 async function spUpdateThresholds() {
@@ -203,11 +203,14 @@ function spRenderPlan(orc, dash) {
         holderSel.value = current;
     }
 
-    // Budget field (only overwrite if the user isn't editing it)
-    const budgetInput = document.getElementById("budget-hours");
-    if (budgetInput && document.activeElement !== budgetInput) {
-        const total = dash && dash.plan && dash.plan.beamtime_total_hours;
-        if (total != null) budgetInput.value = total;
+    // End-time field (only overwrite if the user isn't editing it)
+    const endTimeInput = document.getElementById("budget-end-time");
+    if (endTimeInput && document.activeElement !== endTimeInput) {
+        const endIso = dash && dash.experiment && dash.experiment.end_time;
+        if (endIso) {
+            // datetime-local wants 'YYYY-MM-DDTHH:MM' (no zone, no seconds)
+            endTimeInput.value = String(endIso).slice(0, 16);
+        }
     }
 
     // Thresholds

@@ -2,14 +2,9 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Update per-sample status (snr_estimate, efficiency_verdict, reps_completed, note).",
+  description: "Center the beam on the diagnostic-tool pinhole, then zero (or apply the configured pinhole_offset to) Tz/Sz/Bz/Tx/Sx/Bx. Multi-minute. Refuses to run if the table is not in its usual position (Tz < 15.5 with no offset configured).",
   args: {
-    "sample_id": tool.schema.string(),
-"status": tool.schema.string().optional(),
-"snr_estimate": tool.schema.number().optional(),
-"efficiency_verdict": tool.schema.string().optional(),
-"reps_completed": tool.schema.number().optional(),
-"note": tool.schema.string().optional(),
+    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -21,7 +16,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "record_sample_progress"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "zero_pinhole"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -30,7 +25,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'record_sample_progress' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'zero_pinhole' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

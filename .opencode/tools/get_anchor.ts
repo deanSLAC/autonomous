@@ -2,7 +2,7 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Return the live experiment plan (config + sample queue + budget).",
+  description: "Read the current tracking anchor from the SPEC session: stored energy, m1vert/Tz (and their 1/2 constituents), crystal id, and SPEAR steering offset captured at anchor time. Also reports whether SPEAR has visibly drifted since the anchor was set, or whether the crystal set has changed (which would invalidate the anchor for the current geometry).",
   args: {
     // no args
   },
@@ -16,7 +16,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "get_experiment_plan"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "get_anchor"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -25,7 +25,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'get_experiment_plan' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'get_anchor' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

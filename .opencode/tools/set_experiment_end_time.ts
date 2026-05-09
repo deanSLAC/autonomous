@@ -2,13 +2,10 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Set a default per-sample time budget for an entire sample holder. Stored under the plan's holder_budgets so new samples inherit it; when apply_to_existing=true (default), existing samples on that holder also get the new count_time/reps.",
+  description: "Set the absolute end-of-beamtime timestamp on the active experiment. Accepts ISO-8601 'end_time' OR 'hours_from_now' (one or the other, not both).",
   args: {
-    "holder_id": tool.schema.string().optional().describe("Leave blank to apply to every holder."),
-"count_time_s": tool.schema.number().optional(),
-"reps": tool.schema.number().optional(),
-"mode": tool.schema.string().optional(),
-"apply_to_existing": tool.schema.boolean().optional(),
+    "end_time": tool.schema.string().optional().describe("ISO-8601 timestamp (e.g. '2026-05-10T18:00:00')."),
+"hours_from_now": tool.schema.number().optional().describe("Hours from current time."),
 "reason": tool.schema.string().optional(),
   },
   async execute(args, context) {
@@ -21,7 +18,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "set_holder_time_budget"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "set_experiment_end_time"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -30,7 +27,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'set_holder_time_budget' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'set_experiment_end_time' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

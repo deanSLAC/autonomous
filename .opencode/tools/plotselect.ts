@@ -2,13 +2,10 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Adjust the time budget for a single sample \u2014 change either the per-repetition count time or the number of reps (or both). Optionally restrict to one mode ('xas' or 'emiss').",
+  description: "Select which counter SPEC plots during subsequent scans. Use I1 for alignment optimization, vortDT for fluorescence.",
   args: {
-    "sample_id": tool.schema.string(),
-"count_time_s": tool.schema.number().optional().describe("Per-point count time in seconds."),
-"reps": tool.schema.number().optional().describe("Number of repetitions."),
-"mode": tool.schema.string().optional().describe("Restrict the change to this mode (optional)."),
-"reason": tool.schema.string().optional().describe("Short rationale; written to the plan edit log."),
+    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
+"counter": tool.schema.string().describe("Counter name (e.g. 'I0', 'I1', 'vortDT')"),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -20,7 +17,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "set_sample_time_budget"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "plotselect"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -29,7 +26,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'set_sample_time_budget' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'plotselect' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

@@ -424,6 +424,7 @@ def _steering_to_dict(r: StaffGuidance) -> dict:
         "slack_replied_at": (
             r.slack_replied_at.isoformat() if r.slack_replied_at else None
         ),
+        "target_agent_type": r.target_agent_type,
     }
 
 
@@ -547,17 +548,23 @@ def defer_steering(
     steering_id: str,
     *,
     reason: str,
+    target_agent_type: str | None = None,
 ) -> Optional[dict]:
-    """Defer a steering row: write `ack_comment="deferred — <reason>"`.
+    """Defer a steering row: write `ack_comment="deferred — <reason>"`
+    and (optionally) record which agent_type the orchestrator should
+    re-dispatch to.
 
-    Does NOT set `completed_at`. The orchestrator will spawn a fresh agent
-    for the still-pending row when the active agent finishes.
+    Does NOT set `completed_at`. The orchestrator's tick scans for
+    deferred rows whose `active_agent_run_id` has finished and respawns
+    `target_agent_type` (with a focused-task seed) to handle them.
     """
     with get_session() as session:
         row = session.get(StaffGuidance, steering_id)
         if row is None:
             return None
         row.ack_comment = f"deferred — {reason}"
+        if target_agent_type:
+            row.target_agent_type = target_agent_type
         session.add(row)
         session.commit()
         session.refresh(row)

@@ -2,9 +2,9 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Recent staff / user guidance messages (Slack or web).",
+  description: "Capture the current positions of mono (energy), m1vert/m1vert1/m1vert2, and Tz/Tz1/Tz2 (plus monvtra for SPEAR steering) as the tracking-anchor reference. Subsequent energy moves with tracking enabled use this anchor as the fixed beam-position pivot. Also writes the anchor to /usr/local/lib/spec.d/anchor.cfg and a timestamped backup. Call this once the beam is aligned at a known reference energy.",
   args: {
-    "limit": tool.schema.number().optional(),
+    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -16,7 +16,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "get_staff_guidance"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "set_anchor"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -25,7 +25,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'get_staff_guidance' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'set_anchor' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

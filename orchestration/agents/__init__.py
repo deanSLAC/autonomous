@@ -1,21 +1,22 @@
 """orchestration.agents — registry + lifecycle for spawned Claude Code agents.
 
-Every Claude subprocess (control / chat / dm) the orchestrator spawns is
-tracked in the `agentrun` SQLModel table. This package owns that registry
-and the subprocess plumbing — Popen, stream-json drain, killpg, and the
-FastAPI startup-sweep / shutdown-sweep helpers.
+Every Claude subprocess (phase agents + chat) the orchestrator spawns is
+tracked in the `agentrun` SQLModel table. This package owns that
+registry and the subprocess plumbing — Popen, stream-json drain (chat
+path only), killpg, and the FastAPI startup-sweep / shutdown-sweep
+helpers.
 
 Public API:
-    spawn(...)                  → start an agent, return run_id immediately
+    spawn(...)                  → start a chat-class agent, return run_id
     kill(run_id, reason=...)    → SIGTERM then SIGKILL the process group
     list_active(agent_type=...) → registry rows where completed_at IS NULL
     get_run(run_id)             → single row dict
     purge_orphans_at_startup()  → reap rows from a previous server crash
     kill_all_at_shutdown()      → clean teardown for FastAPI lifespan
 
-The `agent_type='control' AND completed_at IS NULL` predicate is the
-active-control-agent gate the orchestrator state machine reads — see
-`runs.find_active_control()`.
+Phase agents (agent_type matches phase slug) are spawned via
+`orchestration.agent.phase_runner.start(slug)`, which uses these CRUD
+helpers to register the row before Popen.
 """
 
 from orchestration.agents.runs import (
@@ -24,7 +25,6 @@ from orchestration.agents.runs import (
     complete_run,
     get_run,
     list_active,
-    find_active_control,
 )
 from orchestration.agents.spawn import (
     spawn,
@@ -43,5 +43,4 @@ __all__ = [
     "create_run",
     "set_pid",
     "complete_run",
-    "find_active_control",
 ]

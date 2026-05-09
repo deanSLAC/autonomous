@@ -2,7 +2,7 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Parsed fon \u2014 active data/log file names.",
+  description: "Returns the active SPEC data file path (DATAFILE global).",
   args: {
     // no args
   },

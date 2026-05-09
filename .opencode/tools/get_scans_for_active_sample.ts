@@ -2,9 +2,9 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Run 'auto_sample_align'. Only in phase sample_alignment.",
+  description: "Return every CollectionScan for the currently-active sample. The active sample is the lowest-queue-order entry in plan_json's sample_queue whose status is not 'done' (or the explicit 'active_sample_id' plan flag, if set). Pass 'sample_id' to override the auto-detect.",
   args: {
-    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
+    "sample_id": tool.schema.string().optional().describe("Override auto-detected active sample."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -16,7 +16,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "run_sample_alignment"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "get_scans_for_active_sample"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -25,7 +25,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'run_sample_alignment' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'get_scans_for_active_sample' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

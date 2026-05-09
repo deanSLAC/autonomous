@@ -2,13 +2,11 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Set Vortex ROI. mode='auto': bounds \u00b1200 eV around the emission line for channel (1=vortDT, 3=vortDT2). mode='explicit': set channel + lo_ev/hi_ev in eV directly.",
+  description: "Save a markdown plan to the project's logs/plans/ directory. Use this at the start of a beamline-optimization session (or any multi-step task) to persist the step-by-step plan you generated, so future sessions can review what was attempted and why.",
   args: {
-    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
-"mode": tool.schema.string(),
-"channel": tool.schema.number().optional(),
-"lo_ev": tool.schema.number().optional(),
-"hi_ev": tool.schema.number().optional(),
+    "filename": tool.schema.string().describe("Filename for the plan. Must end with .md and contain only alphanumerics, underscore, hyphen, dot. No path separators or directory traversal."),
+"content": tool.schema.string().describe("Markdown body of the plan."),
+"overwrite": tool.schema.boolean().optional().describe("If false (default), refuse to write when the file already exists. Set true to overwrite an existing plan."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -20,7 +18,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "set_vortex_roi"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "save_plan"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -29,7 +27,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'set_vortex_roi' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'save_plan' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

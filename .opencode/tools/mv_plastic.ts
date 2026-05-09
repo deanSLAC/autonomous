@@ -2,9 +2,9 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Quick I0 count \u2014 verifies beam on sample before a long scan.",
+  description: "Move the sample stage so the diagnostic-tool plastic scatterer is in the beam. Used to generate elastic scatter for XES spectrometer alignment.",
   args: {
-    "count_time": tool.schema.number().optional(),
+    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -16,7 +16,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "get_i0_value"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "mv_plastic"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -25,7 +25,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'get_i0_value' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'mv_plastic' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

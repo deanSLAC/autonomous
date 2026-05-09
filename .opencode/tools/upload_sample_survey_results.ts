@@ -2,9 +2,10 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "List pause-for-human requests still waiting.",
+  description: "Persist Sample-Surveyor results to SamplePosition. For each entry, overwrites xas_filter with the filter_count and stores counts_per_sec, survey energy, and notes. Justification is required (this is a write).",
   args: {
-    // no args
+    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
+"results": tool.schema.array(tool.schema.string()).describe("One entry per surveyed sample."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -16,7 +17,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "list_open_interventions"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "upload_sample_survey_results"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -25,7 +26,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'list_open_interventions' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'upload_sample_survey_results' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

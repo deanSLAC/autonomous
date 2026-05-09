@@ -2,9 +2,10 @@
 import { tool } from "@opencode-ai/plugin"
 
 export default tool({
-  description: "Send a command to the running SPEC session. Allowed: wa \u2014 motor positions | pwd \u2014 current directory | fon \u2014 open files | get_S \u2014 counter values. Check the log file for output.",
+  description: "Move M2 (m2vert) to the correct stripe for a given incident energy. Below 4500 eV the macro defaults to the Rh stripe with a warning; between 4500 and 6200 eV it selects the Si stripe (m2vert=9.69); at or above 6200 eV it selects the Rh stripe (m2vert=-3.5). Use after moving incident energy across a stripe boundary.",
   args: {
-    "command": tool.schema.string().describe("Command name: wa, pwd, fon, or get_S"),
+    "justification": tool.schema.string().describe("REQUIRED for any SPEC-mutating action. Explain in one sentence why you are taking this action right now (will be stored in action_log). Empty / missing justifications are rejected."),
+"energy_ev": tool.schema.number().describe("Incident energy in eV used to pick the stripe."),
   },
   async execute(args, context) {
     const payload = JSON.stringify(args ?? {})
@@ -16,7 +17,7 @@ export default tool({
     for (const py of pyCandidates) {
       try {
         const proc = Bun.spawn(
-          [py, `${context.directory}/scripts/tool_dispatcher.py`, "spec_command"],
+          [py, `${context.directory}/scripts/tool_dispatcher.py`, "set_m2_stripe"],
           { cwd: context.directory, stdin: "pipe", stdout: "pipe", stderr: "pipe" },
         )
         proc.stdin.write(payload)
@@ -25,7 +26,7 @@ export default tool({
         const err = await new Response(proc.stderr).text()
         const code = await proc.exited
         if (code !== 0) {
-          lastErr = `tool 'spec_command' failed (exit ${code}): ${err || out}`
+          lastErr = `tool 'set_m2_stripe' failed (exit ${code}): ${err || out}`
           continue
         }
         return out.trim() || "{}"

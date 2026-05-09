@@ -117,39 +117,52 @@ Then call `beamtimehero db request-human-intervention --kind foil_swap
 row pending so the orchestrator routes it correctly when the human
 unblocks it.
 
-#### Outcome 3 — does NOT apply to me, low urgency → ack-and-continue
+When the deferral is for a different agent type entirely (the
+common case — see Outcome 3 below), pass `--target <agent>` so the
+orchestrator knows who to respawn:
 
-For instance the steering might say something like "After this", "When youre done"
+```
+beamtimehero steering defer <id> --reason "<text>" --target sample_alignment
+```
 
-1. Ack the row so the orchestrator knows you saw it:
+Valid targets: `planner`, `beamline_alignment`, `sample_alignment`,
+`sample_survey`, `collection`. The orchestrator's tick scans for
+deferred rows whose active agent has finished and whose
+`target_agent_type` is set, then spawns that agent with a focused
+seed: "you're spawned only to handle this one steering item, not
+to perform your full duty."
 
-   ```
-   beamtimehero steering ack <id>
-   ```
+#### Outcome 3 — does NOT apply to me, low urgency → defer with target
 
-2. Leave a comment explaining why you're not the right agent:
+When the row is in scope for a different agent type, **defer with
+`--target`** rather than ack'ing-and-continuing. This names the
+agent the orchestrator should respawn for it:
 
-   ```
-   beamtimehero steering set-comment <id> "out of scope for beamline-alignment agent; deferring to orchestrator"
-   ```
+```
+beamtimehero steering defer <id> --reason "out of scope for <my role>; <target> should handle" --target <agent_type>
+```
 
-3. Do NOT call `complete` — you didn't fulfill the request, and the
-   orchestrator needs the row to stay pending so it can spawn the
-   right agent when you finish.
+Valid targets: `planner`, `beamline_alignment`, `sample_alignment`,
+`sample_survey`, `collection`. The orchestrator's tick scans for
+deferred rows whose `active_agent_run_id` has completed and whose
+`target_agent_type` is set, then spawns the target with a focused
+seed prompt the moment your run ends.
 
-4. Continue with your assigned task.
+If you genuinely don't know which agent type owns this — e.g. the
+message is too vague — defer with a `--reason` but no `--target`
+and let staff route it manually. Don't guess.
 
-The orchestrator periodically scans for ack'd-but-not-completed rows
-linked to a finished agent run, and re-dispatches them.
+Continue with your assigned task after the defer.
 
 #### Outcome 4 — does NOT apply to me, urgent → STOP and hand off
 
 This is the only case where you abandon your task mid-flight.
 
-1. Defer the row so the orchestrator knows it still needs handling:
+1. Defer the row so the orchestrator knows it still needs handling.
+   Name the target agent type if you can identify it:
 
    ```
-   beamtimehero steering defer <id> --reason "urgent and out of scope; handing back for re-dispatch"
+   beamtimehero steering defer <id> --reason "urgent and out of scope; <target> should take this" --target <agent_type>
    ```
 
 2. Post a status update so staff sees you noticed:
@@ -299,7 +312,7 @@ beamtimehero steering pending [--unacked] [--experiment-id ID]
 beamtimehero steering ack <id>
 beamtimehero steering set-comment <id> "<text>"
 beamtimehero steering complete <id> --result "<text>"
-beamtimehero steering defer <id> --reason "<text>"
+beamtimehero steering defer <id> --reason "<text>" [--target <agent_type>]
 ```
 
 And the related signaling tools:
