@@ -15,6 +15,15 @@ let __spectrometerAligned = false;
 // Phase-runner snapshot: {slug: {state, ...}}; refreshed each tick.
 let __phaseRunStatus = {};
 
+const _PHASE_LABELS_FOR_ALERT = {
+    beamline_alignment: "Beamline Alignment",
+    sample_alignment: "Sample Alignment",
+    sample_survey: "Sample Survey",
+    collection: "Data Collection",
+    planner: "Planner",
+    xes_alignment: "Spectrometer Alignment",
+};
+
 function openConfig() {
     window.location.href = "/config";
 }
@@ -401,7 +410,9 @@ async function refreshAutonomy() {
     try {
         const r = await fetch(API + "/api/phase/run_status");
         const j = await r.json();
-        __phaseRunStatus = (j && j.phases) || {};
+        const next = (j && j.phases) || {};
+        _detectPhaseTransitions(__phaseRunStatus, next);
+        __phaseRunStatus = next;
     } catch { __phaseRunStatus = {}; }
 
     const expSel = document.getElementById("experiment-select");
@@ -680,6 +691,74 @@ function renderAutonomy(orc, dash) {
 // ---------------------------------------------------------------------------
 // Per-phase live state (running spinner, complete/failed flag) + gating
 // ---------------------------------------------------------------------------
+
+function _detectPhaseTransitions(prev, curr) {
+    // First tick: prev is {} so every slug's previous state is undefined,
+    // and `prevState === "running"` is false — nothing fires. Subsequent
+    // ticks fire once when a slug transitions out of running.
+    Object.entries(curr || {}).forEach(([slug, info]) => {
+        const prevState = (prev[slug] || {}).state;
+        const newState = (info || {}).state;
+        if (prevState === "running" && newState && newState !== "running") {
+            const label = _PHASE_LABELS_FOR_ALERT[slug] || slug;
+            const startedAt = info.started_at || info.startedAt;
+            const finishedAt = info.finished_at || info.finishedAt;
+            _showPhaseCompleteAlert(label, newState, startedAt, finishedAt);
+        }
+    });
+}
+
+function _showPhaseCompleteAlert(name, state, startedAt, finishedAt) {
+    let modal = document.getElementById("phase-complete-modal");
+    if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "phase-complete-modal";
+        modal.className = "phase-modal-overlay";
+        modal.innerHTML = `
+            <div class="phase-modal-card" role="alertdialog" aria-modal="true">
+                <div class="phase-modal-headline" id="phase-modal-headline"></div>
+                <div class="phase-modal-state" id="phase-modal-state"></div>
+                <div class="phase-modal-duration muted" id="phase-modal-duration"></div>
+                <button class="phase-modal-ok" type="button">OK</button>
+            </div>`;
+        document.body.appendChild(modal);
+        modal.querySelector(".phase-modal-ok").addEventListener("click", _dismissPhaseComplete);
+        // Click outside the card to dismiss.
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) _dismissPhaseComplete();
+        });
+    }
+    const stateLabel =
+        state === "complete" ? "completed successfully" :
+        state === "failed"   ? "failed"                  :
+        state === "aborted"  ? "was aborted"             :
+                               `ended (${state})`;
+    document.getElementById("phase-modal-headline").textContent = name + " — finished";
+    const stateEl = document.getElementById("phase-modal-state");
+    stateEl.textContent = stateLabel;
+    stateEl.className = "phase-modal-state state-" + state;
+
+    let durationStr = "";
+    if (startedAt) {
+        const startMs = Number(startedAt) * 1000;
+        const endMs = finishedAt ? Number(finishedAt) * 1000 : Date.now();
+        const totalSecs = Math.max(0, Math.round((endMs - startMs) / 1000));
+        const m = Math.floor(totalSecs / 60);
+        const s = totalSecs % 60;
+        durationStr = m > 0 ? `${m}m ${s}s` : `${s}s`;
+    }
+    document.getElementById("phase-modal-duration").textContent =
+        durationStr ? `Took ${durationStr}.` : "";
+
+    modal.classList.add("visible");
+    try { document.title = "✓ " + name + " — BL15-2"; } catch (_) {}
+}
+
+function _dismissPhaseComplete() {
+    const modal = document.getElementById("phase-complete-modal");
+    if (modal) modal.classList.remove("visible");
+    try { document.title = "BL15-2 Dashboard"; } catch (_) {}
+}
 
 function applyPhaseRunStatusToTiles() {
     Object.entries(__phaseRunStatus).forEach(([slug, info]) => {

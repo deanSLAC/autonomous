@@ -184,6 +184,67 @@ def phase(phase_run_id: str):
             .order_by(ScanRecord.timestamp)
         ))
 
+    scan_dicts = [
+        {
+            "id": s.id, "scan_number": s.scan_number,
+            "motor_name": s.motor_name, "scan_type": s.scan_type,
+            "command": s.command,
+            "result_position": s.result_position, "peak_intensity": s.peak_intensity,
+            "fwhm": s.fwhm, "centroid": s.centroid,
+            "anomaly": s.anomaly, "anomaly_reason": s.anomaly_reason,
+            "timestamp": s.timestamp.isoformat() if s.timestamp else None,
+            "decision_action": s.decision_action,
+            "decision_command": s.decision_command,
+            "decision_confidence": s.decision_confidence,
+            "llm_consulted": s.llm_consulted,
+            "iteration": s.iteration,
+        }
+        for s in scans
+    ]
+
+    # SPEC fallback: when no agent has written ScanRecord rows, surface the
+    # raw scans from the SPEC cache that fell within this phase run's
+    # window so the detail page has something to show. Per-scan
+    # iteration / LLM / anomaly stay null since those are agent-side
+    # concepts not present in the SPEC datafile.
+    if not scan_dicts and run.started_at:
+        try:
+            from beamline_tools.spec_data import local_data
+            all_scans = local_data._all_scans_sorted()
+        except Exception:
+            all_scans = []
+        start = run.started_at
+        end = run.completed_at or datetime.now()
+        for s in all_scans:
+            dt_str = s.get("date_time")
+            if not dt_str:
+                continue
+            try:
+                dt = datetime.fromisoformat(dt_str)
+            except (TypeError, ValueError):
+                continue
+            if not (start <= dt <= end):
+                continue
+            cmd = s.get("scan_command") or ""
+            parts = cmd.split()
+            scan_type = parts[0] if parts else None
+            motor_name = parts[1] if len(parts) > 1 else None
+            scan_dicts.append({
+                "id": None, "scan_number": s.get("scan_number"),
+                "motor_name": motor_name, "scan_type": scan_type,
+                "command": cmd,
+                "result_position": None, "peak_intensity": None,
+                "fwhm": None, "centroid": None,
+                "anomaly": False, "anomaly_reason": None,
+                "timestamp": dt_str,
+                "decision_action": None, "decision_command": None,
+                "decision_confidence": None,
+                "llm_consulted": False, "iteration": None,
+                "spec_file": s.get("file_name"),
+            })
+        # SPEC results came in date-desc; flip to chronological for display.
+        scan_dicts.sort(key=lambda d: d.get("scan_number") or 0)
+
     return {
         "run": {
             "id": run.id, "experiment_id": run.experiment_id,
@@ -196,23 +257,7 @@ def phase(phase_run_id: str):
             "anomaly_flags": json.loads(run.anomaly_flags) if run.anomaly_flags else None,
             "notes": run.notes,
         },
-        "scans": [
-            {
-                "id": s.id, "scan_number": s.scan_number,
-                "motor_name": s.motor_name, "scan_type": s.scan_type,
-                "command": s.command,
-                "result_position": s.result_position, "peak_intensity": s.peak_intensity,
-                "fwhm": s.fwhm, "centroid": s.centroid,
-                "anomaly": s.anomaly, "anomaly_reason": s.anomaly_reason,
-                "timestamp": s.timestamp.isoformat() if s.timestamp else None,
-                "decision_action": s.decision_action,
-                "decision_command": s.decision_command,
-                "decision_confidence": s.decision_confidence,
-                "llm_consulted": s.llm_consulted,
-                "iteration": s.iteration,
-            }
-            for s in scans
-        ],
+        "scans": scan_dicts,
     }
 
 

@@ -42,12 +42,96 @@ def _summarize_tool_input(name: str, inp: dict) -> str:
     if name == "Bash":
         cmd = inp.get("command") or ""
         return _truncate(cmd, 160)
+    if name == "Read":
+        path = inp.get("file_path") or inp.get("path") or ""
+        return _truncate(str(path), 160)
+    if name in ("Edit", "Write"):
+        path = inp.get("file_path") or ""
+        return _truncate(str(path), 160)
     # Generic: keep just the keys + short values
     pieces = []
     for k, v in inp.items():
         sv = v if isinstance(v, str) else json.dumps(v, default=str)
         pieces.append(f"{k}={_truncate(sv, 60)}")
     return _truncate(" ".join(pieces), 160)
+
+
+def _summarize_tool_result(content: str) -> str:
+    """Fold a tool_result body into a short, operator-readable line.
+
+    Tries to parse the content as JSON and dispatches by shape:
+      - {"ok": true, "kind": "action", ...}      → ok action=<id>
+      - {"ok": true, "kind": "read", ...}        → ok read
+      - {"ok": false, "error": ...}              → ERR <message>
+      - {"text": ..., "plot_path": ...}          → plot <summary> → <png>
+      - [{"id": ..., ...}, ...] (steering rows)  → (N pending: id/text...)
+      - "usage:..." help text                    → (help text, N lines)
+
+    Falls back to a single-line truncation of the raw body otherwise.
+    """
+    if not content:
+        return "(empty)"
+    body = content.strip()
+
+    # Quick non-JSON paths first.
+    if body.startswith("usage:"):
+        n = body.count("\n") + 1
+        return f"(help text, {n} lines)"
+
+    try:
+        obj = json.loads(body)
+    except (ValueError, TypeError):
+        # Plain string content. Collapse whitespace and truncate.
+        return _truncate(body, 160)
+
+    # JSON list — almost always a steering listing.
+    if isinstance(obj, list):
+        if not obj:
+            return "(no rows)"
+        if obj and isinstance(obj[0], dict) and "id" in obj[0] and "text" in obj[0]:
+            heads = [
+                f'{(r.get("id") or "")[:8]}/"{_truncate(r.get("text") or "", 30)}"'
+                for r in obj[:3]
+            ]
+            more = "" if len(obj) <= 3 else f" +{len(obj) - 3} more"
+            return f"({len(obj)} pending: {', '.join(heads)}{more})"
+        return _truncate(json.dumps(obj, default=str), 160)
+
+    if not isinstance(obj, dict):
+        return _truncate(str(obj), 160)
+
+    # Plot tool: {"text": "Plot of ...", "plot_path": "/.../foo.png", ...}
+    if "plot_path" in obj or ("text" in obj and "image_paths" in obj):
+        text = (obj.get("text") or "").strip()
+        path = obj.get("plot_path") or (obj.get("image_paths") or [""])[0]
+        # Last path segment is enough — the leading dirs are always the same.
+        short_path = path.rsplit("/", 1)[-1] if path else ""
+        head = _truncate(text.splitlines()[0] if text else "", 100)
+        return f"plot {head} → {short_path}".strip()
+
+    # Standard spec wrapper: {"ok": bool, "kind": "...", ...}.
+    if "ok" in obj:
+        if obj.get("ok") is False:
+            err = obj.get("error") or obj.get("message") or json.dumps(obj, default=str)
+            return f"ERR {_truncate(str(err), 140)}"
+        kind = obj.get("kind")
+        if kind == "action":
+            aid = (obj.get("action_id") or "")[:8]
+            elapsed = obj.get("elapsed_s")
+            tail = f" ({elapsed:.2f}s)" if isinstance(elapsed, (int, float)) else ""
+            return f"ok action={aid}{tail}" if aid else f"ok action{tail}"
+        if kind == "read":
+            return "ok read"
+        # Steering ack/defer/complete result: {"ok": true, "id": "...", ...}
+        if "id" in obj:
+            return f"ok id={(obj.get('id') or '')[:8]}"
+        # Status post: {"posted": true, "via": "..."}
+        if obj.get("posted"):
+            return f"ok posted via {obj.get('via') or '?'}"
+        return "ok"
+
+    # Fallback: short JSON dump.
+    return _truncate(json.dumps(obj, default=str), 160)
 
 
 def _project_log_line(line: str) -> str | None:
@@ -115,8 +199,9 @@ def _project_log_line(line: str) -> str | None:
             )
         elif not isinstance(content, str):
             content = json.dumps(content, default=str)
+        summary = _summarize_tool_result(content)
         marker = "<!>    " if is_err else "<       "
-        return f"{marker}{_truncate(content)}"
+        return f"{marker}{summary}"
 
     if t == "result":
         sub = ev.get("subtype") or ""

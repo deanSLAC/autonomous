@@ -785,3 +785,51 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* Phase-completion modal: pops when a phase agent transitions out of running. */
+.phase-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+.phase-modal-overlay.visible { display: flex; }
+.phase-modal-card {
+    background: var(--bg-surface, #f5f1e8);
+    color: var(--text, #1a1a1a);
+    border-radius: 8px;
+    padding: 24px 28px;
+    max-width: 440px;
+    width: calc(100% - 48px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    border-top: 4px solid var(--accent, #9b1b30);
+}
+.phase-modal-headline {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.phase-modal-state {
+    font-size: 15px;
+    margin-bottom: 6px;
+}
+.phase-modal-state.state-complete { color: var(--green, #2f7f3f); }
+.phase-modal-state.state-failed   { color: var(--red,   #b22222); }
+.phase-modal-state.state-aborted  { color: var(--yellow,#b8860b); }
+.phase-modal-duration {
+    font-size: 13px;
+    margin-bottom: 18px;
+}
+.phase-modal-ok {
+    background: var(--accent, #9b1b30);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 22px;
+    font-size: 14px;
+    cursor: pointer;
+}
+.phase-modal-ok:hover { opacity: 0.88; }
