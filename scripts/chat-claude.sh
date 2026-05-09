@@ -15,7 +15,9 @@
 # session id with uuidgen so the spawn helper can capture it from the
 # stream-json output for future resumes.
 set -euo pipefail
+CHAT_CWD="$(pwd)"
 cd "$(dirname "$0")/.."
+PROJECT_ROOT="$(pwd)"
 
 # Load .env so SPEC_MOCK / SPEC_TRANSPORT / etc. propagate to claude and
 # to every beamtimehero subprocess it spawns.
@@ -26,7 +28,7 @@ if [ -f .env ]; then
   set +a
 fi
 
-export PATH="$(pwd)/scripts:$PATH"
+export PATH="${PROJECT_ROOT}/scripts:$PATH"
 export BEAMTIMEHERO_CHAT_AGENT=1
 
 # Resume an existing claude session if the chat router handed us one;
@@ -38,13 +40,15 @@ else
   SESSION_FLAG=(--session-id "$(uuidgen)")
 fi
 
+cd "$CHAT_CWD"
+
 exec claude -p \
   --output-format stream-json \
   --input-format stream-json \
   --include-partial-messages \
   --verbose \
   --permission-mode acceptEdits \
-  --append-system-prompt-file context/beamtimehero_context.md \
+  --append-system-prompt-file "${PROJECT_ROOT}/context/beamtimehero_context.md" \
   --allowedTools "Bash(beamtimehero db *)" "Bash(beamtimehero ref *)" "Bash(beamtimehero tool *)" "Read" \
   --disallowedTools "Edit,Write,Agent" \
   --tools "Bash,Read" \
