@@ -39,6 +39,10 @@ from typing import Optional
 
 from orchestration.agents import runs as agent_runs
 from orchestration.agents.spawn import _stream_json_user_msg
+from orchestration.plan_store.session import (
+    create_phase_run,
+    complete_phase_run,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +81,7 @@ class _Slot:
     log_file: object  # file handle
     started_at: float
     run_id: str
+    phase_run_id: Optional[str] = None
     exit_code: Optional[int] = None
     finished_at: Optional[float] = None
 
@@ -117,6 +122,20 @@ def _watch_exit(slug: str, slot: _Slot) -> None:
             )
     except Exception as e:  # noqa: BLE001
         logger.warning("phase_runner: complete_run failed for %s: %s", slot.run_id, e)
+    # Mark the matching PhaseRun (if any) complete/failed. kill() sets
+    # status="aborted" before us, so only update if still running.
+    if slot.phase_run_id:
+        try:
+            from orchestration.plan_store.session import get_phase_run
+            existing_pr = get_phase_run(slot.phase_run_id)
+            if existing_pr and existing_pr.status == "running":
+                complete_phase_run(
+                    slot.phase_run_id,
+                    status="completed" if rc == 0 else "failed",
+                )
+        except Exception as e:  # noqa: BLE001
+            logger.warning("phase_runner: complete_phase_run failed for %s: %s",
+                           slot.phase_run_id, e)
     with _lock:
         _last_results[slug] = {
             "exit_code": rc,
@@ -179,6 +198,20 @@ def start(slug: str, *, seed_text: Optional[str] = None,
         )
         run_id = row.id
 
+        # Pre-create the matching PhaseRun row so the dashboard tile has
+        # something to render for this in-flight phase. PhaseRun
+        # requires an experiment_id, so skip the row in test contexts
+        # where spec_cmd has no experiment wired up.
+        phase_run_id: Optional[str] = None
+        if experiment_id:
+            try:
+                phase_run = create_phase_run(
+                    experiment_id=experiment_id, phase=slug,
+                )
+                phase_run_id = phase_run.id
+            except Exception as e:  # noqa: BLE001
+                logger.warning("phase_runner: create_phase_run failed: %s", e)
+
         ts = time.strftime("%Y%m%d-%H%M%S")
         log_path = _logs_dir() / f"phase_{slug}_{ts}.log"
         log_file = open(log_path, "ab", buffering=0)
@@ -209,6 +242,7 @@ def start(slug: str, *, seed_text: Optional[str] = None,
             log_file=log_file,
             started_at=time.time(),
             run_id=run_id,
+            phase_run_id=phase_run_id,
         )
         _slots[slug] = slot
 
@@ -238,6 +272,13 @@ def kill(slug: str, *, reason: str = "manual") -> dict:
     except Exception as e:  # noqa: BLE001
         logger.warning("phase_runner.kill: complete_run failed for %s: %s",
                        slot.run_id, e)
+    if slot.phase_run_id:
+        try:
+            complete_phase_run(slot.phase_run_id, status="aborted",
+                               notes=f"killed: {reason}")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("phase_runner.kill: complete_phase_run failed for %s: %s",
+                           slot.phase_run_id, e)
     try:
         # killpg because we set start_new_session=True
         os.killpg(slot.proc.pid, signal.SIGTERM)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -89,6 +90,40 @@ def status(experiment_id: str = Query(...)):
                     a["llm_count"] += 1
                 if anomaly:
                     a["anomaly_count"] += 1
+
+    # Live SPEC-derived scan_count fallback. ScanRecord rows aren't
+    # currently produced by any agent path, so without this every tile
+    # would show 0 scans even mid-run. We count scans whose date_time
+    # falls within each phase_run's [started_at, completed_at] window
+    # (or [started_at, now] if still running). When ScanRecord rows
+    # later start being written, the agent-side count above (which is
+    # authoritative — it knows iterations / LLM consults / anomalies)
+    # takes precedence.
+    needs_spec_count = [
+        r for r in phase_runs
+        if scan_aggs.get(r.id, {}).get("scan_count", 0) == 0 and r.started_at
+    ]
+    if needs_spec_count:
+        try:
+            from beamline_tools.spec_data import local_data
+            all_scans = local_data._all_scans_sorted()
+        except Exception:
+            all_scans = []
+        for r in needs_spec_count:
+            start = r.started_at
+            end = r.completed_at or datetime.now()
+            count = 0
+            for s in all_scans:
+                dt_str = s.get("date_time")
+                if not dt_str:
+                    continue
+                try:
+                    dt = datetime.fromisoformat(dt_str)
+                except (TypeError, ValueError):
+                    continue
+                if start <= dt <= end:
+                    count += 1
+            scan_aggs[r.id]["scan_count"] = count
 
     plan = get_experiment_plan(experiment_id) or {}
     current_phase = spec_cmd.get_phase()
