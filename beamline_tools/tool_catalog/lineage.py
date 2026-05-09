@@ -519,7 +519,11 @@ TOOL_LINEAGE: dict[str, dict] = {
             "boundary detection). Default range is ±8 if delta_lo / "
             "delta_hi aren't provided. The dispatcher checks motor1 "
             "against the phase allow-list; the wrapper additionally "
-            "validates motor2 before dispatch."
+            "validates motor2 before dispatch. NOTE: the `cen` "
+            "scan-followup command does not work properly on a d2scan "
+            "(2D scan) — do not rely on post_scan_move with mode='cen' "
+            "after this scan; compute the center yourself and move "
+            "explicitly instead."
         ),
         "python_func": (
             "spec_cmd.call('d2scan', "

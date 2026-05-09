@@ -240,7 +240,11 @@ AUTONOMY_TOOL_DEFINITIONS = [
                 "of points. Common use: map a sample's footprint in the "
                 "Sx/Sy plane to find its edges (the staple of "
                 "auto_sample_align's per-sample boundary detection). "
-                "Default range is ±8."
+                "Default range is ±8. NOTE: the `cen` scan-followup "
+                "command does not work properly on a d2scan (2D scan) — "
+                "do not rely on `post_scan_move` with mode='cen' after "
+                "this scan; compute the center yourself and move "
+                "explicitly instead."
             ),
             "parameters": {
                 "type": "object",
