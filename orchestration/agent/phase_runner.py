@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Optional
 
 from orchestration.agents import runs as agent_runs
+from orchestration.agents.spawn import _stream_json_user_msg
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,24 @@ PHASE_SCRIPTS: dict[str, str] = {
     "collection": "scripts/data-collection-claude.sh",
     "planner": "scripts/planner-claude.sh",
 }
+
+
+_PHASE_LABELS: dict[str, str] = {
+    "beamline_alignment": "beamline alignment",
+    "sample_alignment": "sample alignment",
+    "sample_survey": "sample survey",
+    "collection": "data collection",
+    "planner": "planner",
+}
+
+
+def _default_seed(slug: str) -> str:
+    label = _PHASE_LABELS.get(slug, slug.replace("_", " "))
+    return (
+        f"Begin the {label} phase. Follow the procedure in your system "
+        "prompt end-to-end and finish with the success / blocked / halt "
+        "shape from the base contract."
+    )
 
 
 @dataclass
@@ -120,11 +139,13 @@ def start(slug: str, *, seed_text: Optional[str] = None,
 
     Raises ValueError if already running, or if the slug/script is unknown.
 
-    `seed_text` is a human-readable note recorded as `task_text` on the
-    AgentRun row. The orchestrator tick uses it to inject focused-task
-    seeds for steering re-dispatch ("you were spawned to handle just
-    steering id <X>"), but the phase launcher itself ignores stdin —
-    so the text is only an audit / log marker, not delivered to claude.
+    `seed_text` is the kickoff user message delivered to claude over
+    stdin (the launcher uses `--input-format stream-json`). The
+    orchestrator tick uses it to inject focused-task seeds for steering
+    re-dispatch ("you were spawned to handle just steering id <X>"). It
+    is also recorded as `task_text` on the AgentRun row. When no seed
+    is provided (the dashboard "Run" button), `_default_seed(slug)`
+    supplies a generic kickoff so the agent has a user turn to act on.
     """
     if slug not in PHASE_SCRIPTS:
         raise ValueError(f"unknown phase slug: {slug!r}")
@@ -141,6 +162,8 @@ def start(slug: str, *, seed_text: Optional[str] = None,
     except Exception:  # noqa: BLE001
         experiment_id = None
 
+    kickoff = seed_text or _default_seed(slug)
+
     with _lock:
         if slug in _slots and _slots[slug].proc.poll() is None:
             raise ValueError(f"phase agent for {slug!r} already running")
@@ -148,7 +171,7 @@ def start(slug: str, *, seed_text: Optional[str] = None,
         # Pre-create the AgentRun so we can pass run_id into env before Popen.
         row = agent_runs.create_run(
             agent_type=slug,
-            task_text=seed_text or f"phase tile: {slug}",
+            task_text=kickoff,
             spawned_by=spawned_by,
             experiment_id=experiment_id,
             script_path=str(script),
@@ -165,12 +188,21 @@ def start(slug: str, *, seed_text: Optional[str] = None,
             cwd=str(_project_root()),
             stdout=log_file,
             stderr=subprocess.STDOUT,
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.PIPE,
             env=env,
             start_new_session=True,  # so SIGTERM kills the whole subtree
         )
         # start_new_session=True → child becomes its own pg leader; pgid == pid.
         agent_runs.set_pid(run_id, pid=proc.pid, pgid=proc.pid)
+        # Feed the kickoff user message and close stdin. claude -p reads
+        # stream-json until EOF, then drives the agent loop on its own.
+        try:
+            if proc.stdin is not None:
+                proc.stdin.write(_stream_json_user_msg(kickoff).encode("utf-8"))
+                proc.stdin.flush()
+                proc.stdin.close()
+        except (BrokenPipeError, OSError) as e:
+            logger.warning("phase_runner: stdin write failed for %s: %s", slug, e)
         slot = _Slot(
             proc=proc,
             log_path=str(log_path),
