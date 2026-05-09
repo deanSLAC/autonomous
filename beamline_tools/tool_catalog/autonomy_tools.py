@@ -1131,6 +1131,53 @@ def t_get_scans_for_active_sample(args: dict) -> tuple[str, list[str]]:
     return _as_json(payload), []
 
 
+def t_upload_sample_alignment_results(args: dict) -> tuple[str, list[str]]:
+    """Store per-sample alignment results (boundaries, emiss, filter, cps)."""
+    from orchestration.plan_store import session as _ps
+
+    j = (args.get("justification") or "").strip()
+    if not j:
+        return json.dumps({"ok": False, "error": "justification required"}), []
+    raw = args.get("results")
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError as e:
+            return json.dumps({"ok": False, "error": f"results is not valid JSON: {e}"}), []
+    if not isinstance(raw, list) or not raw:
+        return json.dumps({"ok": False, "error": "results must be a non-empty list"}), []
+
+    _required = {"sample_id", "sx_lo", "sx_hi", "sy_lo", "sy_hi", "sz_lo", "sz_hi"}
+    cleaned: list[dict] = []
+    for i, entry in enumerate(raw):
+        if not isinstance(entry, dict):
+            return json.dumps({"ok": False, "error": f"results[{i}] must be an object"}), []
+        missing = _required - set(entry.keys())
+        if missing:
+            return json.dumps({
+                "ok": False,
+                "error": f"results[{i}] missing required keys: {sorted(missing)}",
+            }), []
+        try:
+            cleaned.append({
+                "sample_id": str(entry["sample_id"]),
+                "sx_lo": float(entry["sx_lo"]),
+                "sx_hi": float(entry["sx_hi"]),
+                "sy_lo": float(entry["sy_lo"]),
+                "sy_hi": float(entry["sy_hi"]),
+                "sz_lo": float(entry["sz_lo"]),
+                "sz_hi": float(entry["sz_hi"]),
+                "emiss_energy_eV": float(entry["emiss_energy_eV"]) if entry.get("emiss_energy_eV") is not None else None,
+                "suggested_filter": int(entry["suggested_filter"]) if entry.get("suggested_filter") is not None else None,
+                "counts_per_sec": float(entry["counts_per_sec"]) if entry.get("counts_per_sec") is not None else None,
+            })
+        except (TypeError, ValueError) as e:
+            return json.dumps({"ok": False, "error": f"results[{i}] type error: {e}"}), []
+
+    updated = _ps.submit_sample_alignment_results(cleaned)
+    return json.dumps({"ok": True, "updated": updated, "count": len(updated)}), []
+
+
 def t_upload_sample_survey_results(args: dict) -> tuple[str, list[str]]:
     from orchestration.plan_store import session as _ps
 
@@ -1314,11 +1361,31 @@ def t_get_comprehensive_collection_plan(args: dict) -> tuple[str, list[str]]:
         cps = s.survey_counts_per_sec
         planned_time_s = float(n_reps) * float(count_time)
 
+        # Compute per-spot motor positions from sample boundaries.
+        sx_ctr = (s.sx_lo + s.sx_hi) / 2.0
+        sy_ctr = (s.sy_lo + s.sy_hi) / 2.0
+        sz_ctr = (s.sz_lo + s.sz_hi) / 2.0
+        sz_span = s.sz_hi - s.sz_lo
+        for spot in spots_payload:
+            idx = spot["spot_index"]
+            if n_spots <= 1:
+                spot["sx"] = sx_ctr
+                spot["sy"] = sy_ctr
+                spot["sz"] = sz_ctr
+            else:
+                spot["sx"] = sx_ctr
+                spot["sy"] = sy_ctr
+                spot["sz"] = s.sz_lo + sz_span * (idx + 0.5) / n_spots
+
         rows.append({
             "sample_id": s.id,
             "sample_name": s.sample_name,
             "element_symbol": s.element_symbol,
             "status": (plan_entry.get("status") or "queued"),
+            "sx_lo": s.sx_lo, "sx_hi": s.sx_hi,
+            "sy_lo": s.sy_lo, "sy_hi": s.sy_hi,
+            "sz_lo": s.sz_lo, "sz_hi": s.sz_hi,
+            "emiss_energy_eV": s.emiss_energy_eV,
             "total_spots": int(n_spots),
             "filter_count": int(s.xas_filter),
             "count_time": float(count_time),
@@ -1573,6 +1640,7 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "regenerate_plan": t_regenerate_plan,
     "get_scans_since_last_plan_update": t_get_scans_since_last_plan_update,
     "get_scans_for_active_sample": t_get_scans_for_active_sample,
+    "upload_sample_alignment_results": t_upload_sample_alignment_results,
     "upload_sample_survey_results": t_upload_sample_survey_results,
     "get_comprehensive_collection_plan": t_get_comprehensive_collection_plan,
     "record_completed_scan": t_record_completed_scan,

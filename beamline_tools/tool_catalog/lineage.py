@@ -1324,6 +1324,24 @@ TOOL_LINEAGE: dict[str, dict] = {
         "source_detail": "Reads plan_json to detect the active sample, then joins SamplePosition.",
         "depends_on": ["get_plan"],
     },
+    "upload_sample_alignment_results": {
+        "long_description": (
+            "Persist Sample-Alignment agent outputs to SamplePosition rows. "
+            "Stores per-sample stage boundaries (sx/sy/sz lo/hi), measured "
+            "emission energy, suggested starting filter count, and count rate. "
+            "Called once per sample after the alignment recipe completes."
+        ),
+        "python_func": "plan_store.session.submit_sample_alignment_results(results)",
+        "spec_command": None,
+        "output": "JSON: {ok, updated:[sample_ids], count}",
+        "source": "autonomy_db",
+        "source_detail": (
+            "Mutates SamplePosition.sx_lo/sx_hi/sy_lo/sy_hi/sz_lo/sz_hi, "
+            ".emiss_energy_eV, .xas_filter (from suggested_filter), "
+            ".counts_per_sec (alignment-time reading)."
+        ),
+        "depends_on": [],
+    },
     "upload_sample_survey_results": {
         "long_description": (
             "Persist Sample-Surveyor outputs to SamplePosition rows. "

@@ -617,6 +617,54 @@ def get_samples_for_experiment(experiment_id: str) -> list[SamplePosition]:
         return list(session.exec(stmt).all())
 
 
+def submit_sample_alignment_results(
+    results: list[dict],
+) -> list[str]:
+    """Persist Sample-Alignment agent outputs to SamplePosition rows.
+
+    Each entry in *results* must include ``sample_id``.  Accepted
+    optional keys (all floats):
+
+    * ``sx_lo``, ``sx_hi``, ``sy_lo``, ``sy_hi``, ``sz_lo``, ``sz_hi``
+      — stage boundaries measured via d2scan / dscan.
+    * ``emiss_energy_eV`` — measured optimal emission energy.
+    * ``suggested_filter`` — starting filter count for this sample.
+    * ``counts_per_sec`` — measured count rate at the alignment energy.
+
+    Returns the list of sample_ids actually updated (unknown ids are
+    skipped silently).
+    """
+    updated: list[str] = []
+    if not results:
+        return updated
+    _float_keys = (
+        "sx_lo", "sx_hi", "sy_lo", "sy_hi", "sz_lo", "sz_hi",
+        "emiss_energy_eV",
+    )
+    with get_session() as session:
+        for entry in results:
+            sid = entry.get("sample_id")
+            if not sid:
+                continue
+            sp = session.get(SamplePosition, sid)
+            if sp is None:
+                continue
+            for key in _float_keys:
+                val = entry.get(key)
+                if val is not None:
+                    setattr(sp, key, float(val))
+            sf = entry.get("suggested_filter")
+            if sf is not None:
+                sp.xas_filter = int(sf)
+            cps = entry.get("counts_per_sec")
+            if cps is not None:
+                sp.survey_counts_per_sec = float(cps)
+            session.add(sp)
+            updated.append(sid)
+        session.commit()
+    return updated
+
+
 def submit_survey_results(
     results: list[dict],
 ) -> list[str]:

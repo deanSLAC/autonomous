@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at": "2026-05-09T22:33:57.593504+00:00",
-    "total_tools": 107,
+    "generated_at": "2026-05-09T22:55:39.571710+00:00",
+    "total_tools": 108,
     "generator": "scripts/generate_tools_config.py"
   },
   "tools": [
@@ -555,6 +555,21 @@
         "plan": {}
       },
       "sample_output": "{\"ok\": true}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "upload_sample_alignment_results",
+      "cli_path": "db",
+      "description": "Persist Sample-Alignment agent outputs to SamplePosition rows. Stores per-sample stage boundaries (sx/sy/sz lo/hi), measured emission energy, suggested starting filter count, and count rate. Called once per sample after the alignment recipe completes.",
+      "when_to_use": "Persist Sample-Alignment agent results to SamplePosition. Stores per-sample stage boundaries (sx/sy/sz lo/hi), measured emission energy, suggested starting filter, and count rate. Called once per sample after the alignment recipe completes. Justification is required (write op).",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "results": []
+      },
+      "sample_output": "",
       "simulated": false,
       "working_live": false,
       "comments": ""

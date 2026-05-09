@@ -83,17 +83,41 @@ crystal motors, and the energy-tracking anchor.
       determine the active counter for downstream alignment.** Even
       if `vortDT2` happens to read more counts than the selected
       one, trust the plotselected channel.
-   3. Run `auto_sample_align` (the procedure-spec macro) against
-      the sample's reference position. Inside that macro, the agent
-      / SPEC will:
-      - d2scan over Sx/Sy to find the sample edges.
-      - Optimize Sz on the chosen counter.
-      - Optionally re-tune emiss with `get_HERFD_energy`.
-   4. Verify the stored position is sensible (compare to the
+   3. Follow the sample-alignment recipe from the reference doc:
+      - d2scan over Sx/Sy to find the sample edges (boundary
+        detection).
+      - dscan Sz to find the vertical extent.
+      - Optimize emiss with `get_HERFD_energy` / emiss scan.
+      - Check count rate and note the filter count you used.
+   4. Verify the measured positions are sensible (compare to the
       placement order's expected position; sanity-check FWHM).
-   5. Mark the sample's stored position in the DB — this is done
-      by the macro itself; if it isn't, post a status update so
-      staff knows.
+   5. **Store the alignment results in the DB** so downstream
+      agents (surveyor, data collection) can retrieve them:
+
+      ```
+      beamtimehero db upload-sample-alignment-results \
+        --results '[{
+          "sample_id": "<id>",
+          "sx_lo": <val>, "sx_hi": <val>,
+          "sy_lo": <val>, "sy_hi": <val>,
+          "sz_lo": <val>, "sz_hi": <val>,
+          "emiss_energy_eV": <val>,
+          "suggested_filter": <n>,
+          "counts_per_sec": <cps>
+        }]' \
+        --justification "aligned sample <id>"
+      ```
+
+      This writes the sample boundaries, measured emission energy,
+      starting filter count, and count rate to the `SamplePosition`
+      table. The **Sample Surveyor** retrieves these via
+      `get-experiment-config` and the **Data Collector** retrieves
+      them via `get-comprehensive-collection-plan`. **If you skip
+      this step, downstream agents have no position data.**
+
+      You may call this once per sample (as you finish each one) or
+      batch all samples into a single call at the end — either way,
+      include every aligned sample in the results array.
 
 5. Save your alignment scan data under the `alignment` data file.
 

@@ -80,10 +80,19 @@ mid-collection, that's a sample-alignment-agent job — defer.
 2. `beamtimehero ref sample-data-collection` — the per-sample
    collection recipe (spot-by-spot strategy, statistics targets).
 3. `beamtimehero db get-comprehensive-collection-plan` — **your
-   source of truth**. Returns the planner-built work list:
-   per-sample spots (Sx/Sy/Sz), filter counts, count_time, n_reps
-   per spot, and order. This is what the surveyor + planner produced
-   for you.
+   source of truth**. Returns the planner-built work list with
+   per-sample:
+   - **boundaries**: `sx_lo/sx_hi`, `sy_lo/sy_hi`, `sz_lo/sz_hi`
+     (from the alignment agent) — defines the sample patch for
+     fresh-spot moves.
+   - **per-spot positions**: each entry in `spots[]` includes
+     `sx`, `sy`, `sz` — the motor coordinates to drive to.
+   - **emiss_energy_eV** — measured optimal emission energy.
+   - `filter_count`, `count_time`, `n_reps`, per-spot
+     `n_reps_planned / n_reps_completed / n_reps_remaining`.
+
+   This is what the alignment agent + surveyor + planner produced
+   for you. Use `spots[].sx/sy/sz` for motor moves.
 4. `beamtimehero db get-plan` — situational awareness:
    `budget.total_hours`, `budget.elapsed_hours`. The planner manages
    this; you should notice if you're running long but you do not
@@ -92,8 +101,8 @@ mid-collection, that's a sample-alignment-agent job — defer.
 5. **Drive the queue off `n_reps_remaining`, not `n_reps`.** The
    comprehensive plan returns, per sample:
    - `n_reps_remaining` (sample total)
-   - `spots: [{spot_index, n_reps_planned, n_reps_completed,
-     n_reps_remaining}, ...]`
+   - `spots: [{spot_index, sx, sy, sz, n_reps_planned,
+     n_reps_completed, n_reps_remaining}, ...]`
 
    Always work the **next remaining** rep on each spot — never
    re-run a spot/rep that's already at `n_reps_completed >=

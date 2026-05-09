@@ -1149,6 +1149,50 @@ AUTONOMY_TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "upload_sample_alignment_results",
+            "description": (
+                "Persist Sample-Alignment agent results to SamplePosition. "
+                "Stores per-sample stage boundaries (sx/sy/sz lo/hi), "
+                "measured emission energy, suggested starting filter, and "
+                "count rate. Called once per sample after the alignment "
+                "recipe completes. Justification is required (write op)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    **_J,
+                    "results": {
+                        "type": "array",
+                        "description": "One entry per aligned sample.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "sample_id": {"type": "string"},
+                                "sx_lo": {"type": "number", "description": "Sx lower bound"},
+                                "sx_hi": {"type": "number", "description": "Sx upper bound"},
+                                "sy_lo": {"type": "number", "description": "Sy lower bound"},
+                                "sy_hi": {"type": "number", "description": "Sy upper bound"},
+                                "sz_lo": {"type": "number", "description": "Sz lower bound"},
+                                "sz_hi": {"type": "number", "description": "Sz upper bound"},
+                                "emiss_energy_eV": {"type": "number",
+                                                    "description": "Measured optimal emission energy (eV)."},
+                                "suggested_filter": {"type": "integer", "minimum": 0,
+                                                     "description": "Starting filter count for this sample."},
+                                "counts_per_sec": {"type": "number", "minimum": 0,
+                                                   "description": "Measured count rate at alignment energy."},
+                            },
+                            "required": ["sample_id", "sx_lo", "sx_hi",
+                                         "sy_lo", "sy_hi", "sz_lo", "sz_hi"],
+                        },
+                    },
+                },
+                "required": ["justification", "results"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "upload_sample_survey_results",
             "description": (
                 "Persist Sample-Surveyor results to SamplePosition. "
@@ -1331,6 +1375,7 @@ AUTONOMY_TOOL_CATEGORIES = [
         "update_experiment_plan", "record_sample_progress", "get_plan",
         "get_experiment_config",
         "get_scans_since_last_plan_update", "get_scans_for_active_sample",
+        "upload_sample_alignment_results",
         "upload_sample_survey_results", "get_comprehensive_collection_plan",
         "get_remaining_beamtime", "get_staff_guidance", "list_open_interventions",
         "recent_actions",

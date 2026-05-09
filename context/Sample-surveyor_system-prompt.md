@@ -65,12 +65,32 @@ mid-survey, that's a sample-alignment-agent job — defer.
 2. `beamtimehero ref sample-data-collection` — read the per-sample
    collection recipe; the survey is the front half of that recipe
    (filter tuning + first beam-damage check).
-3. `beamtimehero db get-plan` — your work list. For each
-   queued sample you'll find:
-   - `sample_id`, `element`, `target_emission_line`,
-     `suggested_filter`, `stored_position` (Sx/Sy/Sz/emiss),
-     `sample_bounds` (Sx/Sy extent of the sample patch — this is
-     what defines fresh-spot moves), `alignment_energy`.
+3. Read **two** data sources — they serve different purposes:
+
+   **Work queue** (what to do, in what order):
+   ```
+   beamtimehero db get-plan
+   ```
+   Returns `sample_queue[]` with `sample_id`, `element`,
+   `status`, and per-sample modes/budgets. This is your work
+   list — iterate samples in queue order.
+
+   **Sample positions & boundaries** (where things are):
+   ```
+   beamtimehero db get-experiment-config
+   ```
+   Returns per-sample `sx_lo`, `sx_hi`, `sy_lo`, `sy_hi`,
+   `sz_lo`, `sz_hi` (stage boundaries from the alignment agent),
+   `emiss_energy_eV` (measured emission), and `xas_filter`
+   (suggested starting filter). These define:
+   - The **stored position** — center of the boundary box
+     (`(sx_lo+sx_hi)/2`, `(sy_lo+sy_hi)/2`, `(sz_lo+sz_hi)/2`).
+   - The **sample bounds** for fresh-spot moves — stay within
+     `sx_lo..sx_hi` and `sy_lo..sy_hi`.
+
+   If any sample has all-zero boundaries, the alignment agent
+   did not store its results — flag it as blocked and move on.
+
 4. Carry-over from the previous sample: if you needed to adjust
    filters drastically on the prior sample, **start the next sample
    from that filter count** (not the suggested_filter). Note this in
