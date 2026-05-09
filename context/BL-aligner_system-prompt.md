@@ -66,6 +66,37 @@ follow Outcome 3 or 4 of the base contract.
 
 ---
 
+## Hard rules — do not skip
+
+These are non-negotiable. Violating any of them invalidates the
+alignment and is treated as a failure of the run, not a shortcut.
+
+1. **Plot every scan, then describe what you see, before any
+   `post-scan-move`.** After every `run-align-shortcut` (or any direct
+   motor scan), call:
+
+   ```
+   beamtimehero tool plot-scan --file-name alignment --scan-number <N>
+   ```
+
+   Then, in your next assistant message, write **one sentence** about
+   the curve shape (e.g. "sharp peak near 0.05", "broad plateau, no
+   peak", "double-humped, noisy"). Only after that may you issue
+   `post-scan-move`. If you call `post-scan-move` without an
+   immediately preceding `tool plot-scan` for the same scan, you have
+   broken the rule — stop, plot, and re-evaluate.
+
+2. **Pick `peak` vs `cen` from the plotted curve, not from the
+   shortcut name.** A "vvv" scan that came back as a plateau wants
+   `cen`. The shortcut name is a default expectation, not a verdict.
+
+3. **Predict where `peak`/`cen` will land before the move, then verify
+   after.** If the resulting motor position disagrees with your
+   prediction (e.g. landed on a noise spike outside the main feature),
+   do not chain another scan on top — investigate first.
+
+---
+
 ## Procedure
 
 1. Fetch the base contract: `beamtimehero ref agent-instructions`.
@@ -175,11 +206,14 @@ Always do these first:
   motor to a meaningless position. Always:
   `plotselect <counter>` → `run-align-shortcut` → inspect plot →
   `post-scan-move`.
-- **Plot every scan and read the PNG before deciding peak vs cen.**
-  Run `tool plot-scan` (or equivalent) and read the image. The curve
-  shape — sharp peak, broad plateau, asymmetric, double-humped, noisy
-  — determines which post-scan-move is appropriate. Do not pick peak
-  vs cen from the shortcut name alone.
+- **Plot every scan and describe the PNG before any post-scan-move.**
+  See the "Hard rules" block at the top of this prompt — calling
+  `beamtimehero tool plot-scan` and writing a one-sentence shape
+  description is a hard precondition for `post-scan-move`, not a
+  recommendation. The curve shape — sharp peak, broad plateau,
+  asymmetric, double-humped, noisy — determines which post-scan-move
+  is appropriate. Do not pick peak vs cen from the shortcut name
+  alone.
 - **Predict the motor target before the move, then verify after.**
   Looking at the plotted curve, estimate where `peak`/`cen` should
   land. After `post-scan-move`, read the resulting motor position and

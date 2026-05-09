@@ -63,6 +63,32 @@ def status(experiment_id: str = Query(...)):
         holders = list(session.exec(
             select(SampleHolder).where(SampleHolder.experiment_id == experiment_id)
         ))
+        # Per-phase-run aggregates the dashboard tiles render
+        # (scans, max iteration, LLM consults, anomalies). One query
+        # over the experiment's runs and we fold in Python.
+        run_ids = [r.id for r in phase_runs]
+        scan_aggs: dict[str, dict] = {rid: {
+            "scan_count": 0, "max_iteration": 0,
+            "llm_count": 0, "anomaly_count": 0,
+        } for rid in run_ids}
+        if run_ids:
+            scan_rows = session.exec(
+                select(
+                    ScanRecord.phase_run_id,
+                    ScanRecord.iteration,
+                    ScanRecord.llm_consulted,
+                    ScanRecord.anomaly,
+                ).where(ScanRecord.phase_run_id.in_(run_ids))  # type: ignore[union-attr]
+            )
+            for prid, iteration, llm_consulted, anomaly in scan_rows:
+                a = scan_aggs[prid]
+                a["scan_count"] += 1
+                if iteration and iteration > a["max_iteration"]:
+                    a["max_iteration"] = iteration
+                if llm_consulted:
+                    a["llm_count"] += 1
+                if anomaly:
+                    a["anomaly_count"] += 1
 
     plan = get_experiment_plan(experiment_id) or {}
     current_phase = spec_cmd.get_phase()
@@ -96,6 +122,10 @@ def status(experiment_id: str = Query(...)):
                 "summary_image_path": r.summary_image_path,
                 "anomaly_flags": json.loads(r.anomaly_flags) if r.anomaly_flags else None,
                 "notes": r.notes,
+                **scan_aggs.get(r.id, {
+                    "scan_count": 0, "max_iteration": 0,
+                    "llm_count": 0, "anomaly_count": 0,
+                }),
             }
             for r in phase_runs
         ],
