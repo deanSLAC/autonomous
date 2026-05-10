@@ -31,6 +31,7 @@ from typing import Optional
 from orchestration.agent.claude_code_client import _Accumulator, _ingest_event
 from orchestration.agents import runs as agent_runs
 from orchestration.config import PROJECT_ROOT
+from orchestration.observability import mlflow_logging
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,66 @@ def _stream_json_user_msg(text: str) -> str:
             "content": [{"type": "text", "text": text}],
         },
     }) + "\n"
+
+
+_MLFLOW_EXPERIMENT = "autonomous/agents"
+
+
+def _log_run_to_mlflow(
+    run_id: str,
+    row: dict | None,
+    acc: _Accumulator,
+    final_text: str,
+    rc: int,
+) -> None:
+    """Best-effort: log one MLflow run per completed agent subprocess."""
+    if row is None:
+        return
+    agent_type = row.get("agent_type", "unknown")
+    try:
+        import mlflow
+        from collections import Counter
+        from datetime import datetime
+
+        started_str = row.get("started_at")
+        if started_str:
+            started = datetime.fromisoformat(started_str)
+            latency = (datetime.now() - started).total_seconds()
+        else:
+            latency = 0.0
+
+        tool_calls = list(acc.tool_calls_by_id.values())
+
+        with mlflow_logging.run(
+            _MLFLOW_EXPERIMENT,
+            run_name=f"{agent_type}/{run_id[:8]}",
+            agent_type=agent_type,
+            spawned_by=row.get("spawned_by"),
+            experiment_id=row.get("experiment_id"),
+        ) as mlf_run:
+            if mlf_run is None:
+                return
+            mlflow.log_param("agent_run_id", run_id)
+            mlflow.log_param("agent_type", agent_type)
+            mlflow.log_param("task_text", (row.get("task_text") or "")[:250])
+
+            mlflow.log_metric("latency_seconds", latency)
+            mlflow.log_metric("tool_call_count", len(tool_calls))
+            mlflow.log_metric("return_code", rc)
+            mlflow.log_metric("error", 0 if rc == 0 else 1)
+
+            tool_counts: Counter[str] = Counter()
+            for tc in tool_calls:
+                name = tc.get("name") or "?"
+                tool_counts[name] += 1
+            for name, count in tool_counts.items():
+                mlflow.set_tag(f"tool:{name}", count)
+
+            if final_text:
+                mlflow.log_text(final_text[:50_000], "response.md")
+
+    except Exception as e:  # noqa: BLE001
+        logger.warning("agent %s: mlflow logging failed: %s", run_id, e)
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +258,9 @@ def _drain_and_finalize(run_id: str, proc: subprocess.Popen) -> None:
     existing = agent_runs.get_run(run_id)
     if existing and existing.get("completed_at"):
         return
+
+    _log_run_to_mlflow(run_id, existing, acc, final_text, rc)
+
     agent_runs.complete_run(run_id, result=final_text)
     logger.info("agent %s: completed (rc=%d, %d chars)",
                 run_id, rc, len(final_text or ""))
