@@ -73,19 +73,25 @@ flowchart LR
 Every router is included in `ui/server/app.py:create_app`. Pages drive these
 endpoints over `fetch()`; nothing else should be calling them directly.
 
+> **Shared-script note:** `sample_planning` includes `autonomy.js` and
+> `dashboard.js`, so it polls the same orchestrator / dashboard / phase /
+> safety-switch / tool-plot APIs that the dashboard does. The "Primary
+> consumer" column below lists only pages whose *own* JS explicitly calls the
+> endpoint; add `sample_planning` for any row that mentions `dashboard`.
+
 | Prefix                  | File                              | Primary consumer page(s)                       |
 | ----------------------- | --------------------------------- | ---------------------------------------------- |
 | `/api/agents`           | `agents_api.py`                   | dashboard (agent panel)                         |
 | `/api`                  | `config_api.py`                   | config, sample_holders (defaults + submit)      |
-| `/api/dashboard`        | `dashboard_api.py`                | dashboard, phase                                |
-| `/api/orchestrator`     | `orchestrator_api.py`             | dashboard (status, guidance, intervention)      |
-| `/api/phase`            | `phase_runner_api.py`             | dashboard tiles, phase detail                   |
-| `/api/plan`             | `plan_api.py`                     | dashboard plan table, sample_planning           |
-| `/api/safety_switches`  | `safety_switches_api.py`          | dashboard autonomy bar                          |
-| `/api/sample_holders`   | `sample_holders_api.py`           | sample_holders                                  |
+| `/api/dashboard`        | `dashboard_api.py`                | dashboard, phase, sample_planning               |
+| `/api/orchestrator`     | `orchestrator_api.py`             | dashboard, sample_planning (status, guidance, intervention) |
+| `/api/phase`            | `phase_runner_api.py`             | dashboard, sample_planning, phase               |
+| `/api/plan`             | `plan_api.py`                     | dashboard, sample_planning                      |
+| `/api/safety_switches`  | `safety_switches_api.py`          | dashboard, sample_planning (autonomy bar)       |
+| `/api/sample_holders`   | `sample_holders_api.py`           | sample_holders, dashboard (holder updates via autonomy.js) |
 | `/api/slack`            | `slack_status_api.py`             | Slack bridge / manual posts                     |
 | `/api/spec_log`         | `spec_log_api.py`                 | dashboard (SPEC log tail)                       |
-| `/api/tool_plots`       | `tool_plots_api.py`               | dashboard (agent plot panel)                    |
+| `/api/tool_plots`       | `tool_plots_api.py`               | dashboard, sample_planning (agent plot panel)   |
 | `/api/viewer`           | `viewer_api.py`                   | viewer                                          |
 
 Top-level endpoints registered directly in `app.py` (not in a router):
@@ -103,7 +109,15 @@ Top-level endpoints registered directly in `app.py` (not in a router):
 ## Static asset bundles
 
 `ui/static/` mounts at `/static`. Each page directory is its own bundle.
-There is also a `shared/` directory (`chat_widget.js`) and `favicon.ico`.
+There is also a `shared/` directory and `favicon.ico`.
+
+### Shared scripts
+
+| Script                           | Included on                                   |
+| -------------------------------- | --------------------------------------------- |
+| `dashboard/static/dashboard.js`  | dashboard, phase, sample_planning, sample_holders, viewer |
+| `dashboard/autonomy.js`          | dashboard, sample_planning                    |
+| `shared/chat_widget.js`          | phase                                         |
 
 ## Action items / known gaps
 
