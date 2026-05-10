@@ -469,6 +469,29 @@ def _tail_file(
     # the next poll so we never feed half a JSON object to the parser.
     last_nl = chunk.rfind(b"\n")
     if last_nl < 0:
+        if len(chunk) >= _TAIL_MAX_BYTES:
+            # Oversized line: the entire 64 KB chunk has no newline, so
+            # we're stuck mid-line.  Scan forward from the end of the
+            # chunk to find the next newline and skip past it.  This
+            # drops the oversized line (un-parseable anyway) and lets
+            # subsequent polls resume on the next line.
+            skip_to = end
+            logger.warning("log_tail: skipping oversized JSONL line (%d KB) at offset %d in %s",
+                           len(chunk) // 1024, offset, path)
+            with open(path, "rb") as f2:
+                f2.seek(end)
+                while skip_to < size:
+                    extra = f2.read(min(_TAIL_MAX_BYTES, size - skip_to))
+                    if not extra:
+                        break
+                    nl_pos = extra.find(b"\n")
+                    if nl_pos >= 0:
+                        skip_to += nl_pos + 1
+                        break
+                    skip_to += len(extra)
+            if structured:
+                return {"path": path, "offset": skip_to, "events": [], "eof": size}
+            return {"path": path, "offset": skip_to, "content": "", "eof": size}
         if structured:
             return {"path": path, "offset": offset, "events": [], "eof": size}
         return {"path": path, "offset": offset, "content": "", "eof": size}
