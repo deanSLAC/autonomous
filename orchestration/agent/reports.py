@@ -34,11 +34,10 @@ except OSError:
     except OSError:
         pass  # use default
 
-# Grid layout labels for alignment_report 3x3
+# Grid layout labels for alignment_report 2x4
 ALIGNMENT_GRID_LABELS = [
-    "monvtra", "monhtra", "m1vert",
-    "m2horz", "pitch", "monvgap",
-    "Bz", "Bx", "beam size",
+    "monvtra", "monhtra", "m1vert", "m2horz",
+    "pitch",   "monvgap", "Bz",     "Bx",
 ]
 
 
@@ -144,9 +143,8 @@ def alignment_report(
     """Generate a 3x3 grid summary of beamline alignment scans.
 
     Grid layout:
-      [monvtra scan] [monhtra scan] [m1vert scan]
-      [m2horz scan]  [pitch scan]   [monvgap scan]
-      [Bz scan]      [Bx scan]      [beam size]
+      [monvtra scan] [monhtra scan] [m1vert scan]  [m2horz scan]
+      [pitch scan]   [monvgap scan] [Bz scan]      [Bx scan]
 
     Each subplot shows a scatter plot of motor position vs signal intensity,
     with peak/centroid marked and basic statistics annotated.
@@ -156,8 +154,8 @@ def alignment_report(
 
     Args:
         spec_datafile: Path to SPEC data file.
-        scan_numbers: List of up to 9 scan numbers corresponding to the grid
-            positions. If fewer than 9, remaining slots show 'No data'.
+        scan_numbers: List of up to 8 scan numbers corresponding to the grid
+            positions. If fewer than 8, remaining slots show 'No data'.
         output_dir: Directory to save the output PNG.
         metadata: Optional dict with keys: energy, crystal, beam_h_fwhm,
             beam_v_fwhm, anomaly_flags, timestamp, experiment_name.
@@ -170,17 +168,17 @@ def alignment_report(
 
     out_path = _ensure_output_dir(output_dir)
 
-    fig = plt.figure(figsize=(8, 8), dpi=150)
+    fig = plt.figure(figsize=(12, 6), dpi=150)
 
     # Use gridspec to leave room for annotation bar at bottom
-    gs = gridspec.GridSpec(4, 3, figure=fig, height_ratios=[1, 1, 1, 0.12],
+    gs = gridspec.GridSpec(3, 4, figure=fig, height_ratios=[1, 1, 0.16],
                            hspace=0.45, wspace=0.35)
 
-    # Pad scan_numbers to length 9
-    padded_scans = list(scan_numbers) + [None] * (9 - len(scan_numbers))
+    # Pad scan_numbers to length 8
+    padded_scans = list(scan_numbers) + [None] * (8 - len(scan_numbers))
 
-    for idx in range(9):
-        row, col = divmod(idx, 3)
+    for idx in range(8):
+        row, col = divmod(idx, 4)
         ax = fig.add_subplot(gs[row, col])
         label = ALIGNMENT_GRID_LABELS[idx] if idx < len(ALIGNMENT_GRID_LABELS) else f"slot {idx}"
 
@@ -193,7 +191,7 @@ def alignment_report(
             ax.tick_params(labelsize=6)
 
     # Bottom annotation bar
-    ax_ann = fig.add_subplot(gs[3, :])
+    ax_ann = fig.add_subplot(gs[2, :])
     ax_ann.axis("off")
 
     ann_parts = []
@@ -566,132 +564,3 @@ def sample_report(
     logger.info("Sample report saved to %s", filepath)
     return filepath
 
-
-def collection_progress(
-    experiment_name: str,
-    samples: list[dict],
-    output_dir: str = "/tmp/beamline_reports",
-) -> str:
-    """Generate collection progress summary.
-
-    Layout:
-    - Bar chart: scans completed vs planned per sample
-    - Color-coded: green (done), blue (in progress), gray (pending)
-    - Text: overall progress percentage, estimated time remaining
-
-    Args:
-        experiment_name: Name of the experiment for the report title.
-        samples: List of dicts, each with keys:
-            - name (str): Sample name.
-            - scans_done (int): Number of completed scans.
-            - scans_planned (int): Total planned scans.
-            - element (str, optional): Element symbol.
-            - technique (str, optional): Technique (XAS, RIXS, etc.).
-        output_dir: Directory to save the output PNG.
-
-    Returns:
-        Absolute path to the saved PNG file.
-    """
-    out_path = _ensure_output_dir(output_dir)
-
-    n = len(samples) if samples else 1
-    fig_height = max(4, 1.2 * n + 2)
-    fig, ax = plt.subplots(figsize=(8, fig_height), dpi=150)
-
-    if not samples:
-        ax.text(0.5, 0.5, "No sample data", transform=ax.transAxes,
-                ha="center", va="center", fontsize=12, color="#999999")
-        ax.set_title(f"Collection Progress: {experiment_name}",
-                     fontsize=11, fontweight="bold")
-        ax.axis("off")
-    else:
-        names = []
-        done_vals = []
-        remaining_vals = []
-        bar_colors_done = []
-
-        total_done = 0
-        total_planned = 0
-
-        for s in samples:
-            label = s.get("name", "?")
-            elem = s.get("element", "")
-            tech = s.get("technique", "")
-            if elem or tech:
-                label += f" ({', '.join(filter(None, [elem, tech]))}"
-                label += ")"
-            names.append(label)
-
-            sd = s.get("scans_done", 0)
-            sp = s.get("scans_planned", 0)
-            done_vals.append(sd)
-            remaining_vals.append(max(0, sp - sd))
-            total_done += sd
-            total_planned += sp
-
-            # Color coding
-            if sp > 0 and sd >= sp:
-                bar_colors_done.append("#2ca02c")  # green - done
-            elif sd > 0:
-                bar_colors_done.append("#1f77b4")  # blue - in progress
-            else:
-                bar_colors_done.append("#999999")  # gray - pending
-
-        y_pos = np.arange(n)
-
-        # Completed bars
-        ax.barh(y_pos, done_vals, color=bar_colors_done, height=0.6,
-                label="Completed", zorder=2)
-        # Remaining bars (stacked)
-        ax.barh(y_pos, remaining_vals, left=done_vals,
-                color="#e0e0e0", height=0.6, label="Remaining", zorder=1)
-
-        # Count labels on bars
-        for i in range(n):
-            total = done_vals[i] + remaining_vals[i]
-            if total > 0:
-                ax.text(done_vals[i] + remaining_vals[i] + 0.3, i,
-                        f"{done_vals[i]}/{total}",
-                        va="center", fontsize=7, color="#333333")
-
-        ax.set_yticks(y_pos)
-        ax.set_yticklabels(names, fontsize=7)
-        ax.set_xlabel("Scans", fontsize=8)
-        ax.invert_yaxis()
-        ax.tick_params(labelsize=6)
-
-        # Overall progress
-        pct = (total_done / total_planned * 100) if total_planned > 0 else 0
-        title = f"Collection Progress: {experiment_name}  ({pct:.0f}% complete)"
-        ax.set_title(title, fontsize=10, fontweight="bold")
-
-        # Estimated time remaining (rough: assume 1 min per scan)
-        remaining_scans = total_planned - total_done
-        if remaining_scans > 0:
-            est_hrs = remaining_scans / 60
-            if est_hrs >= 1:
-                time_str = f"~{est_hrs:.1f} hrs remaining ({remaining_scans} scans)"
-            else:
-                time_str = f"~{remaining_scans} min remaining ({remaining_scans} scans)"
-            ax.text(0.98, 0.02, time_str, transform=ax.transAxes,
-                    ha="right", va="bottom", fontsize=7, color="#666666",
-                    fontstyle="italic")
-
-        # Legend
-        from matplotlib.patches import Patch
-        legend_elements = [
-            Patch(facecolor="#2ca02c", label="Done"),
-            Patch(facecolor="#1f77b4", label="In progress"),
-            Patch(facecolor="#e0e0e0", label="Remaining"),
-        ]
-        ax.legend(handles=legend_elements, loc="lower right", fontsize=6)
-
-    plt.tight_layout()
-
-    filename = f"collection_progress_{_timestamp_str()}.png"
-    filepath = str(out_path / filename)
-    fig.savefig(filepath, bbox_inches="tight", dpi=150)
-    plt.close(fig)
-
-    logger.info("Collection progress saved to %s", filepath)
-    return filepath

@@ -311,9 +311,17 @@
             if (slug === "xes_alignment") phaseNames.push("spec_align", "xes_align");
             if (slug === "beamline_alignment") phaseNames.push("bl_align");
             if (slug === "sample_alignment") phaseNames.push("sample_align");
-            const runs = (data.phases || data.phase_runs || []).filter(p => phaseNames.includes(p.phase));
+            const allRuns = data.phases || data.phase_runs || [];
+            const runs = allRuns.filter(p => phaseNames.includes(p.phase));
             const run = runs[runs.length - 1];
             if (!run) {
+                // Collection page falls back to the latest sample_survey
+                // summary image so operators see the survey result before
+                // collection has started.
+                if (slug === "collection") {
+                    renderSampleSurveyFallback(allRuns);
+                    return;
+                }
                 renderRunData(null);
                 return;
             }
@@ -327,6 +335,28 @@
         } catch (_) {
             renderRunData(null);
         }
+    }
+
+    function renderSampleSurveyFallback(allRuns) {
+        const surveys = (allRuns || []).filter(p => p.phase === "sample_survey");
+        const latest = surveys[surveys.length - 1];
+        const imgPath = latest && latest.summary_image_path;
+        if (!imgPath) {
+            renderRunData(null);
+            return;
+        }
+        byId("phase-data-panel").style.display = "none";
+        const empty = byId("phase-empty-panel");
+        empty.style.display = "";
+        empty.innerHTML = `
+            <div class="panel-header">Sample survey summary</div>
+            <p class="muted">Data collection has not started yet — showing the most recent sample survey.</p>
+            <div class="report-image-container" style="display:block;">
+                <img src="/api/dashboard/image?path=${encodeURIComponent(imgPath)}" alt="Sample survey report">
+                <div class="report-image-label">Sample survey report</div>
+            </div>
+        `;
+        renderBadge("pending");
     }
 
     // ---- Chat widget mount --------------------------------------------

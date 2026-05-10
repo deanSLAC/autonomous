@@ -123,15 +123,31 @@ def _watch_exit(slug: str, slot: _Slot) -> None:
     except Exception as e:  # noqa: BLE001
         logger.warning("phase_runner: complete_run failed for %s: %s", slot.run_id, e)
     # Mark the matching PhaseRun (if any) complete/failed. kill() sets
-    # status="aborted" before us, so only update if still running.
+    # status="aborted" before us, so only update if still running. On
+    # successful exit we also render the phase summary image (best
+    # effort) and stamp its path onto the row so the dashboard / Slack
+    # surface it.
     if slot.phase_run_id:
         try:
             from orchestration.plan_store.session import get_phase_run
             existing_pr = get_phase_run(slot.phase_run_id)
             if existing_pr and existing_pr.status == "running":
+                summary_image_path: Optional[str] = None
+                if rc == 0:
+                    try:
+                        from orchestration.agent import phase_reports
+                        summary_image_path = phase_reports.generate_and_post(
+                            slug, slot.phase_run_id,
+                        )
+                    except Exception as e:  # noqa: BLE001
+                        logger.warning(
+                            "phase_runner: phase_reports.generate_and_post failed for %s: %s",
+                            slot.phase_run_id, e,
+                        )
                 complete_phase_run(
                     slot.phase_run_id,
                     status="completed" if rc == 0 else "failed",
+                    summary_image_path=summary_image_path,
                 )
         except Exception as e:  # noqa: BLE001
             logger.warning("phase_runner: complete_phase_run failed for %s: %s",
