@@ -35,7 +35,7 @@ exec claude -p \
   --verbose \
   --permission-mode acceptEdits \
   --append-system-prompt-file context/Sample-collection_system-prompt.md \
-  --allowedTools "Bash(beamtimehero *)" "Skill(assess-sample-damage)" "Skill(analyze-statistical-convergence)" \
+  --allowedTools "Bash(beamtimehero *)" "Bash(date)" "Skill(assess-sample-damage)" "Skill(analyze-statistical-convergence)" \
   --disallowedTools "Edit,Write,Agent" \
   --tools "Bash,Read" \
   --model "opus" \

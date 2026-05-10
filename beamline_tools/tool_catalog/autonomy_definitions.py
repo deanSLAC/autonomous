@@ -1115,7 +1115,9 @@ AUTONOMY_TOOL_DEFINITIONS = [
                 "Set a default per-sample time budget for an entire sample holder. "
                 "Stored under the plan's holder_budgets so new samples inherit it; "
                 "when apply_to_existing=true (default), existing samples on that "
-                "holder also get the new count_time/reps."
+                "holder also get the new count_time/reps. Can also set a stop_time "
+                "(absolute deadline) or hours_remaining (relative deadline) on the "
+                "holder row — the holder's collection should finish by that time."
             ),
             "parameters": {
                 "type": "object",
@@ -1126,7 +1128,36 @@ AUTONOMY_TOOL_DEFINITIONS = [
                     "reps": {"type": "integer"},
                     "mode": {"type": "string", "enum": ["xas", "emiss"]},
                     "apply_to_existing": {"type": "boolean", "default": True},
+                    "stop_time": {
+                        "type": "string",
+                        "description": "ISO-8601 absolute deadline (e.g. '2026-05-10T18:00:00').",
+                    },
+                    "hours_remaining": {
+                        "type": "number",
+                        "description": "Hours from now until the holder deadline. Mutually exclusive with stop_time.",
+                    },
                     "reason": {"type": "string"},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_holder_time_budget",
+            "description": (
+                "Return the time budget for one or all holders: beamtime_hours, "
+                "stop_time (absolute deadline), and hours_remaining (computed). "
+                "Read-only."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "holder_id": {
+                        "type": "string",
+                        "description": "Optional; omit to return all holders.",
+                    },
                 },
                 "required": [],
             },
@@ -1408,6 +1439,7 @@ AUTONOMY_TOOL_CATEGORIES = [
         "get_remaining_beamtime", "get_staff_guidance", "list_open_interventions",
         "recent_actions",
         "set_sample_time_budget", "set_holder_time_budget",
+        "get_holder_time_budget",
         "set_experiment_end_time", "regenerate_plan",
         "record_completed_scan", "record_convergence_stats",
     ]),

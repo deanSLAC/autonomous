@@ -67,6 +67,13 @@ _PHASE_LABELS: dict[str, str] = {
 
 def _default_seed(slug: str) -> str:
     label = _PHASE_LABELS.get(slug, slug.replace("_", " "))
+    if slug == "collection":
+        return (
+            f"Begin the {label} phase. Follow the procedure in your system "
+            "prompt end-to-end. You run until manually interrupted — do not "
+            "exit on your own. When the queue is exhausted, loop back and "
+            "keep collecting."
+        )
     return (
         f"Begin the {label} phase. Follow the procedure in your system "
         "prompt end-to-end and finish with the success / blocked / halt "

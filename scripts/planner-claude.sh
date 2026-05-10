@@ -43,6 +43,7 @@ exec claude -p \
     "Bash(beamtimehero tool *)" \
     "Bash(beamtimehero ref *)" \
     "Bash(beamtimehero steering *)" \
+    "Bash(date)" \
     "Skill(assess-sample-damage)" \
     "Skill(analyze-statistical-convergence)" \
   --disallowedTools "Edit,Write,Agent,Bash(beamtimehero spec-read *),Bash(beamtimehero spec-write *)" \

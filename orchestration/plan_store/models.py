@@ -118,6 +118,9 @@ class SampleHolder(SQLModel, table=True):
     # bottom on creation (see create_sample_holder).
     queue_order: int = Field(default=0, index=True)
     beamtime_hours: Optional[float] = None
+    # Absolute time by which collection on this holder should ideally
+    # wrap up.  Planning aid only — we never auto-stop.
+    stop_time: Optional[datetime] = None
     notes: Optional[str] = None
 
 
@@ -227,6 +230,10 @@ class SamplePosition(SQLModel, table=True):
     survey_energy_ev: Optional[float] = None
     survey_completed_at: Optional[datetime] = None
     survey_notes: Optional[str] = None
+    # Operator-set minimum number of scans/reps that MUST be collected
+    # for this sample before the planner can mark it done or move on.
+    # None means no minimum — convergence alone decides.
+    min_scans: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------

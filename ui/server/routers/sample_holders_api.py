@@ -61,6 +61,7 @@ def _holder_to_dict(h: SampleHolder, samples: list[SamplePosition] | None = None
         "n_samples": h.n_samples,
         "queue_order": h.queue_order,
         "beamtime_hours": h.beamtime_hours,
+        "stop_time": h.stop_time.isoformat() if getattr(h, "stop_time", None) else None,
         "notes": h.notes,
         "created_at": h.created_at.isoformat() if h.created_at else None,
         "updated_at": h.updated_at.isoformat() if h.updated_at else None,
@@ -88,6 +89,7 @@ def _holder_to_dict(h: SampleHolder, samples: list[SamplePosition] | None = None
                 "i0_gain": s.i0_gain or "",
                 "i0_offset": s.i0_offset or "",
                 "i1_gain": s.i1_gain or "",
+                "min_scans": getattr(s, "min_scans", None),
             }
             for s in (samples or [])
         ],
@@ -162,6 +164,7 @@ def _persist_samples(holder_id: str, experiment_id: str, samples: list[dict]) ->
             i0_gain=(s.get("i0_gain") or None),
             i0_offset=(s.get("i0_offset") or None),
             i1_gain=(s.get("i1_gain") or None),
+            min_scans=int(s["min_scans"]) if s.get("min_scans") is not None else None,
         )
 
 
@@ -234,12 +237,29 @@ async def update(body: dict):
             if errors:
                 return JSONResponse({"success": False, "errors": errors}, status_code=400)
 
+        # Parse stop_time from ISO-8601 string if present.
+        if "stop_time" in body:
+            raw_st = body["stop_time"]
+            if raw_st in (None, "", "None"):
+                parsed_stop_time = None
+            else:
+                try:
+                    parsed_stop_time = datetime.fromisoformat(str(raw_st))
+                except ValueError:
+                    return JSONResponse(
+                        {"success": False, "errors": [f"stop_time must be ISO-8601: {raw_st!r}"]},
+                        status_code=400,
+                    )
+        else:
+            parsed_stop_time = _SENTINEL
+
         h = update_sample_holder(
             holder_id,
             name=(body.get("name") or None),
             holder_type=(body.get("holder_type") or None),
             status=(body.get("status") or None),
             beamtime_hours=(_float_or_none(body["beamtime_hours"]) if "beamtime_hours" in body else _SENTINEL),
+            stop_time=parsed_stop_time,
             notes=(body.get("notes") if "notes" in body else None),
         )
 

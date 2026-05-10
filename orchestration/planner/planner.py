@@ -206,6 +206,15 @@ class PlannerSnapshot:
                 "  beamtime: end_time not set — "
                 "use `db set-experiment-end-time` to schedule the end of run.\n"
             )
+        elif self.beamtime_remaining_hours < 0:
+            extra = abs(self.beamtime_remaining_hours)
+            beamtime_line = (
+                f"  beamtime: EXTRA TIME — {extra:.2f}h past scheduled end "
+                f"(ended {self.end_time.isoformat(timespec='minutes')}; "
+                f"{self.beamtime_elapsed_hours:.2f}h elapsed of "
+                f"{self.beamtime_total_hours:.2f}h budgeted). "
+                f"Keep collecting — the operator will stop you manually.\n"
+            )
         else:
             beamtime_line = (
                 f"  beamtime: {self.beamtime_remaining_hours:.2f}h remaining "
@@ -289,7 +298,7 @@ def snapshot(experiment_id: str) -> PlannerSnapshot:
     if end_time is not None and created_at is not None:
         total_hours = max(0.0, (end_time - created_at).total_seconds() / 3600)
         elapsed = max(0.0, (now - created_at).total_seconds() / 3600)
-        remaining = max(0.0, (end_time - now).total_seconds() / 3600)
+        remaining = (end_time - now).total_seconds() / 3600
     else:
         total_hours = 0.0
         elapsed = 0.0

@@ -95,13 +95,17 @@ class PreconditionChecker:
                 expected > 0 and aligned >= expected,
                 f"{aligned}/{expected} configured samples have stored positions")
 
-        # collection → complete
+        # collection → complete: manual only.
+        # Data collection never self-completes. The operator must
+        # manually kill the collection agent when beamtime is over.
+        # This precondition always fails to block any automated
+        # transition; only a backward-transition (Slack-approved)
+        # or a direct operator phase override can leave collection.
         if prev == P.PHASE_COLLECTION and target == P.PHASE_COMPLETE:
-            done = self.get("collection_complete", False)
-            budget = self.get("beamtime_remaining_hours", 1.0)
-            add("collection_done_or_budget_exhausted",
-                bool(done) or (budget is not None and budget <= 0),
-                "all samples reached targets, or beamtime exhausted",
+            add("manual_stop_required",
+                False,
+                "data collection does not auto-complete — "
+                "the operator must manually stop the agent when beamtime is over",
             )
 
         return checks

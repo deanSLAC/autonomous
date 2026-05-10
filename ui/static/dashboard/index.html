@@ -40,6 +40,7 @@
     <div><span class="label">Beam</span><span class="value" id="exp-beam">--</span></div>
     <div><span class="label">Environment</span><span class="value" id="exp-env">--</span></div>
     <div><span class="label">Samples</span><span class="value"><span id="exp-samples-done">–</span> / <span id="exp-samples-total">–</span></span></div>
+    <div id="extra-time-pill" class="extra-time-pill" style="display:none;">EXTRA TIME <span id="extra-time-value"></span></div>
 </div>
 
 <!-- Autonomy strip — start/pause/resume/stop/reset retired. Each phase
@@ -226,6 +227,14 @@
             <div class="panel-header">
                 Sample plan
                 <span class="panel-sub" id="plan-summary">—</span>
+            </div>
+            <div class="holder-budget-bar" id="holder-budget-bar" style="display:none">
+                <span class="budget-label" id="budget-holder-name"></span>
+                <span class="budget-remaining" id="budget-remaining-text">—</span>
+                <span class="budget-edit">
+                    <input type="number" id="budget-hours-input" step="0.5" min="0" placeholder="hrs" style="width:60px">
+                    <button class="btn-budget-set" onclick="setHolderHoursRemaining()">Set</button>
+                </span>
             </div>
             <table class="plan-table">
                 <thead>

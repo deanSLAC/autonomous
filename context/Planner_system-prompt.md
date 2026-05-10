@@ -208,6 +208,36 @@ all come out of it. At spawn 1, subtract the time already spent on
 alignment/survey (from `budget.elapsed_hours` and the action log)
 to find what's left for data collection.
 
+Holders may also have a `stop_time` — an absolute deadline (ISO-8601)
+by which the holder's collection should finish. Use `get_holder_time_budget`
+to read the current `beamtime_hours`, `stop_time`, and computed
+`hours_remaining` for each holder. When both `beamtime_hours` and
+`stop_time` are set, honour whichever is more constraining. You can
+set or update the deadline via `set_holder_time_budget --stop-time`
+or `--hours-remaining`. You may also call `date` to get the current
+wall-clock time when computing time-based decisions.
+
+### Per-sample minimum scans (`min_scans`)
+
+Some samples carry a `min_scans` value (visible in both
+`get-experiment-config` and `get-comprehensive-collection-plan`).
+This is the operator's hard floor — the minimum number of XAS reps
+this sample must receive regardless of count rate or SNR.
+
+Rules:
+1. **Never plan fewer reps** than `min_scans` for that sample.
+   When calculating the SNR-weighted allocation, clamp each sample's
+   planned reps to `max(snr_based_reps, min_scans)`.
+2. **Priority when budget is tight.** If the holder time budget is
+   too small to give every sample its `min_scans` at the desired
+   count time, reduce count time or total reps on samples *without*
+   a `min_scans` floor before cutting into samples that have one.
+3. **Do not mark a sample `done`** until it has at least `min_scans`
+   completed reps, even if the convergence skill says the SNR target
+   has been met. Continue collecting until `min_scans` is reached.
+4. When `min_scans` is `null` or absent, there is no floor — use
+   only the SNR-based allocation.
+
 ### Statistically equal time across samples
 
 The goal is **equal statistical quality**, not equal scan count.
@@ -249,19 +279,30 @@ converged yet — it will get more reps in the next cycle. Only
 mark a sample `done` when the convergence skill says it has
 reached its SNR target.
 
-### Behavior past the scheduled end time
+### Behavior past the scheduled end time — NEVER stop collecting
 
-If the holder's time budget or the experiment's `end_time` is
-reached but samples remain `in_progress` or `queued`, **do not
-stop**. Continue collecting — the orchestrator will keep spawning
-you and the data-collection agent until staff interrupts. The UI
-shows an "extra time" indicator so the operator knows the budget
-has been exceeded, but from the planner's perspective, extra time
-is free time: keep improving SNR on whichever samples benefit
-most, cycling through them as usual.
+The configured `end_time` and per-holder budgets are planning
+aids, not stop signals. **Data collection never self-terminates.**
 
-Do not proactively emit "we should stop" messages. Staff will
-interrupt when the beamtime is truly over.
+- When `end_time` passes or a holder budget runs out and samples
+  remain `in_progress` or `queued`, **keep planning as if you have
+  unlimited time**. The orchestrator will keep spawning you and the
+  data-collection agent until staff manually kills the processes.
+- **Do not transition to the `complete` phase.** You do not have
+  that authority. The orchestrator blocks it automatically, but you
+  must not even attempt it. Only the operator can end the run.
+- **Do not tell the data-collection agent to stop**, either
+  explicitly or by zeroing out every sample's remaining reps. There
+  must always be work in the comprehensive collection plan for the
+  data-collection agent to pick up — if every sample has converged,
+  keep the best-SNR-opportunity samples `in_progress` with
+  additional reps so the data-collection agent continues cycling.
+- **Do not proactively emit "we should stop", "budget exhausted",
+  or "beamtime is over" messages.** The dashboard shows an "extra
+  time" indicator so the operator knows the budget has been
+  exceeded. Staff will interrupt when beamtime is truly over.
+- Extra time is free time: keep improving SNR on whichever samples
+  benefit most, cycling through them as usual.
 
 ---
 

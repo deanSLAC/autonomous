@@ -452,6 +452,7 @@ function addSample(data) {
     // emiss override) is determined by the alignment / survey phases, not
     // configured here.
     const xasFilter = (data && data.xas_filter != null) ? data.xas_filter : '';
+    const minScans = (data && data.min_scans != null) ? data.min_scans : '';
 
     const elemOptions = buildElementOptions(sElem);
 
@@ -475,6 +476,10 @@ function addSample(data) {
             <div class="form-group narrow">
                 <label>Filter</label>
                 <input type="number" id="samp_${idx}_xas_filter" value="${xasFilter}" min="0" max="255" placeholder="optional">
+            </div>
+            <div class="form-group narrow">
+                <label>Min scans</label>
+                <input type="number" id="samp_${idx}_min_scans" value="${minScans}" min="1" placeholder="optional">
             </div>
         </div>
     `;
@@ -567,6 +572,7 @@ function toggleAdvanced() {
 // ---------------------------------------------------------------------------
 
 function gatherExperimentData() {
+    const endTimeRaw = val('end_time');
     const data = {
         experiment_id: document.getElementById('experiment_id').value || undefined,
         experiment_name: val('experiment_name'),
@@ -578,6 +584,7 @@ function gatherExperimentData() {
         calibration_foil_element: val('calibration_foil_element'),
         calibration_foil_detector: val('calibration_foil_detector') || 'I2',
         data_directory: val('data_directory'),
+        end_time: endTimeRaw || null,
         llm_enabled: document.getElementById('llm_enabled').checked,
         llm_decide_enabled: document.getElementById('llm_decide_enabled').checked,
         elements: [],
@@ -626,9 +633,10 @@ function gatherSampleHolderData() {
     document.querySelectorAll('.sample-card').forEach(card => {
         const idx = parseInt(card.dataset.idx);
         const filterRaw = val(`samp_${idx}_xas_filter`);
+        const minScansRaw = val(`samp_${idx}_min_scans`);
 
-        // Form only collects name/element/filter. Everything else
-        // (positions, reps, count time, emiss override, gains) is
+        // Form only collects name/element/filter/min_scans. Everything
+        // else (positions, reps, count time, emiss override, gains) is
         // determined by alignment + survey phases; we send harmless
         // defaults here so the server validator passes.
         data.samples.push({
@@ -652,6 +660,7 @@ function gatherSampleHolderData() {
             rixs_end: null,
             rixs_step: -0.2,
             rixs_filter: 0,
+            min_scans: minScansRaw === '' ? null : parseInt(minScansRaw, 10) || null,
         });
     });
 
@@ -938,6 +947,25 @@ function populateForm(data) {
         exp.calibration_foil_detector || 'I2';
     document.getElementById('data_directory').value = exp.data_directory || '';
 
+    // End time (datetime-local input expects "YYYY-MM-DDTHH:MM" format)
+    const etInput = document.getElementById('end_time');
+    if (etInput && exp.end_time) {
+        const et = exp.end_time.slice(0, 16);
+        etInput.value = et;
+    } else if (etInput) {
+        etInput.value = '';
+    }
+
+    // Created at (read-only display)
+    const caGroup = document.getElementById('created_at_group');
+    const caDisplay = document.getElementById('created_at_display');
+    if (caGroup && caDisplay && exp.created_at) {
+        caDisplay.value = new Date(exp.created_at).toLocaleString();
+        caGroup.style.display = '';
+    } else if (caGroup) {
+        caGroup.style.display = 'none';
+    }
+
     // Advanced
     document.getElementById('llm_enabled').checked = exp.llm_enabled !== false;
     document.getElementById('llm_decide_enabled').checked = exp.llm_decide_enabled !== false;
@@ -1030,6 +1058,69 @@ function esc(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+}
+
+// ---------------------------------------------------------------------------
+// Setup New Experiment
+// ---------------------------------------------------------------------------
+
+async function setupNewExperiment() {
+    try {
+        const r = await fetch('/api/phase/run_status');
+        const j = await r.json();
+        const phases = (j && j.phases) || {};
+        const running = Object.entries(phases)
+            .filter(([, info]) => info.state === 'running')
+            .map(([slug]) => slug);
+        if (running.length > 0) {
+            alert(
+                'Cannot create a new experiment while agents are running.\n\n' +
+                'Running: ' + running.join(', ') + '\n\n' +
+                'Stop all agents from the dashboard first.'
+            );
+            return;
+        }
+    } catch (e) {
+        alert('Could not check agent status: ' + e.message + '\n\nStop all agents before creating a new experiment.');
+        return;
+    }
+
+    if (!confirm(
+        'Start a new experiment?\n\n' +
+        'This will clear the form and create a fresh experiment on next Save. ' +
+        'The current experiment is not deleted — you can reload it from the dashboard.'
+    )) return;
+
+    document.getElementById('experiment_id').value = '';
+    document.getElementById('experiment_name').value = '';
+    document.getElementById('end_time').value = '';
+    document.getElementById('mono_crystal').value = 'A';
+    document.getElementById('beam_size_h').value = 'big';
+    document.getElementById('beam_size_v').value = 'big';
+    document.getElementById('mirrors_out').checked = false;
+    _updateMirrorsOutState(false);
+    document.getElementById('sample_env').value = 'ambient';
+    document.getElementById('calibration_foil_element').value = '';
+    document.getElementById('calibration_foil_detector').value = 'I2';
+    document.getElementById('data_directory').value = '';
+    document.getElementById('llm_enabled').checked = true;
+    document.getElementById('llm_decide_enabled').checked = true;
+
+    const caGroup = document.getElementById('created_at_group');
+    if (caGroup) caGroup.style.display = 'none';
+
+    document.getElementById('elements-container').innerHTML = '';
+    elementCount = 0;
+    addElement();
+
+    const samplesContainer = document.getElementById('samples-container');
+    if (samplesContainer) samplesContainer.innerHTML = '';
+    sampleCount = 0;
+
+    const holderName = document.getElementById('sample_holder_name');
+    if (holderName) holderName.value = '';
+
+    clearMessages();
 }
 
 // ---------------------------------------------------------------------------

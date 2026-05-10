@@ -129,6 +129,17 @@ async def submit_experiment(data: dict):
         llm_enabled = data.get("llm_enabled", True)
         llm_decide_enabled = data.get("llm_decide_enabled", True)
 
+        end_time_raw = (data.get("end_time") or "").strip()
+        end_time_dt: datetime | None = None
+        if end_time_raw:
+            try:
+                end_time_dt = datetime.fromisoformat(end_time_raw)
+            except ValueError:
+                return JSONResponse(
+                    {"success": False, "errors": [f"Invalid end_time format: {end_time_raw}"]},
+                    status_code=400,
+                )
+
         existing_id = data.get("experiment_id")
         if existing_id:
             exp = get_experiment(existing_id)
@@ -146,6 +157,7 @@ async def submit_experiment(data: dict):
                     exp.data_path = data_dir
                     exp.calibration_foil_element = calibration_foil_element
                     exp.calibration_foil_detector = calibration_foil_detector
+                    exp.end_time = end_time_dt
                     session.add(exp)
                     session.commit()
                     session.refresh(exp)
@@ -166,6 +178,10 @@ async def submit_experiment(data: dict):
                 calibration_foil_detector=calibration_foil_detector,
             )
         experiment_id = exp.id
+
+        if end_time_dt and not existing_id:
+            from orchestration.plan_store.session import set_experiment_end_time
+            set_experiment_end_time(experiment_id, end_time_dt)
 
         # The only experiment-level overrides we still store in
         # config_yaml are the LLM flags. Per-channel gains moved to
@@ -298,6 +314,7 @@ async def submit_sample_holder(data: dict):
                 i0_gain=(s.get("i0_gain") or None),
                 i0_offset=(s.get("i0_offset") or None),
                 i1_gain=(s.get("i1_gain") or None),
+                min_scans=int(s["min_scans"]) if s.get("min_scans") is not None else None,
             )
 
         try:
@@ -395,6 +412,7 @@ def load_experiment(experiment_id: str):
                     "i0_gain": getattr(s, "i0_gain", None) or "",
                     "i0_offset": getattr(s, "i0_offset", None) or "",
                     "i1_gain": getattr(s, "i1_gain", None) or "",
+                    "min_scans": getattr(s, "min_scans", None),
                     "sample_id": s.id,
                 }
                 for s in samples
@@ -415,6 +433,8 @@ def load_experiment(experiment_id: str):
         "sample_holder_name": primary_holder["name"] if primary_holder else "",
         "calibration_foil_element": getattr(exp, "calibration_foil_element", None) or "",
         "calibration_foil_detector": getattr(exp, "calibration_foil_detector", None) or "I2",
+        "end_time": exp.end_time.isoformat() if exp.end_time else None,
+        "created_at": exp.created_at.isoformat() if exp.created_at else None,
         **{k: v for k, v in config_extra.items()
            if k in ("llm_enabled", "llm_decide_enabled")},
     }

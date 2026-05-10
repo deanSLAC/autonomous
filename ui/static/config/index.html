@@ -116,6 +116,18 @@
                         <input type="text" id="data_directory" placeholder="Auto-filled: /data/fifteen/{name}">
                     </div>
                 </div>
+
+                <div class="form-row">
+                    <div class="form-group medium">
+                        <label>Experiment End Time</label>
+                        <input type="datetime-local" id="end_time">
+                        <small class="form-hint">When should data collection wrap up? Used for time budgeting (collection never auto-stops).</small>
+                    </div>
+                    <div class="form-group medium" id="created_at_group" style="display:none;">
+                        <label>Created</label>
+                        <input type="text" id="created_at_display" readonly disabled class="readonly-field">
+                    </div>
+                </div>
             </div>
 
             <!-- ========== ELEMENTS SECTION ========== -->
@@ -151,6 +163,9 @@
             <div class="submit-area">
                 <button type="button" class="btn btn-submit" id="submit-experiment-btn" onclick="submitExperiment()">
                     Save Experiment
+                </button>
+                <button type="button" class="btn btn-new-experiment" id="new-experiment-btn" onclick="setupNewExperiment()">
+                    Setup New Experiment
                 </button>
             </div>
 

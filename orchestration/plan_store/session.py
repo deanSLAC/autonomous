@@ -312,6 +312,7 @@ def update_sample_holder(
     holder_type: Optional[str] = None,
     status: Optional[str] = None,
     beamtime_hours: float | None = _SENTINEL,
+    stop_time: datetime | None = _SENTINEL,
     notes: Optional[str] = None,
 ) -> Optional[SampleHolder]:
     with get_session() as session:
@@ -326,6 +327,8 @@ def update_sample_holder(
             h.status = status
         if beamtime_hours is not _SENTINEL:
             h.beamtime_hours = beamtime_hours
+        if stop_time is not _SENTINEL:
+            h.stop_time = stop_time
         if notes is not None:
             h.notes = notes
         h.updated_at = datetime.now()
@@ -560,6 +563,7 @@ def create_sample_position(
     i0_gain: Optional[str] = None,
     i0_offset: Optional[str] = None,
     i1_gain: Optional[str] = None,
+    min_scans: Optional[int] = None,
 ) -> SamplePosition:
     """Create and persist a new SamplePosition."""
     pos = SamplePosition(
@@ -594,6 +598,7 @@ def create_sample_position(
         i0_gain=i0_gain,
         i0_offset=i0_offset,
         i1_gain=i1_gain,
+        min_scans=min_scans,
     )
     with get_session() as session:
         session.add(pos)

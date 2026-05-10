@@ -470,6 +470,21 @@ function renderAutonomy(orc, dash) {
         setText("cur-phase", orc.phase);
     }
 
+    // Extra-time indicator: shown when beamtime_remaining_hours < 0
+    // (past the configured end_time) and we're in the collection phase.
+    const etPill = document.getElementById("extra-time-pill");
+    if (etPill) {
+        const remaining = snap.beamtime_remaining_hours;
+        const inCollection = orc && orc.phase === "collection";
+        if (remaining != null && remaining < 0 && inCollection) {
+            const extra = Math.abs(remaining);
+            const etVal = document.getElementById("extra-time-value");
+            if (etVal) etVal.textContent = `+${extra.toFixed(1)}h`;
+            etPill.style.display = "";
+        } else {
+            etPill.style.display = "none";
+        }
+    }
 
     if (!dash) {
         renderConfigTile(null);
@@ -515,6 +530,42 @@ function renderAutonomy(orc, dash) {
         ps.textContent =
             `${queue.length} samples · ${done} done · ${inprog} running · ${skip} skipped` +
             (budget != null ? ` · budget ${budget.toFixed(1)}h` : "");
+    }
+
+    // Holder budget bar — show hours-remaining for the active holder.
+    const budgetBar = document.getElementById("holder-budget-bar");
+    if (budgetBar) {
+        const holders = dash.holders || [];
+        // Pick the first holder with a stop_time, or just the first holder.
+        const active = holders.find(h => h.stop_time) || holders[0] || null;
+        if (active && (active.stop_time || active.beamtime_hours != null)) {
+            budgetBar.style.display = "";
+            const nameEl = document.getElementById("budget-holder-name");
+            const remEl  = document.getElementById("budget-remaining-text");
+            if (nameEl) nameEl.textContent = active.name || "Holder";
+            window.__budgetHolderId = active.id;
+            if (active.stop_time) {
+                const stop = new Date(active.stop_time);
+                const now  = new Date();
+                const hrsLeft = (stop - now) / 3600000;
+                if (remEl) {
+                    if (hrsLeft > 0) {
+                        remEl.textContent = `${hrsLeft.toFixed(1)}h remaining`;
+                        remEl.className = "budget-remaining";
+                    } else {
+                        remEl.textContent = `+${Math.abs(hrsLeft).toFixed(1)}h over`;
+                        remEl.className = "budget-remaining overdue";
+                    }
+                }
+            } else if (active.beamtime_hours != null) {
+                if (remEl) {
+                    remEl.textContent = `budget ${active.beamtime_hours.toFixed(1)}h (no deadline set)`;
+                    remEl.className = "budget-remaining";
+                }
+            }
+        } else {
+            budgetBar.style.display = "none";
+        }
     }
 
     // Plan edit history
@@ -850,6 +901,31 @@ function summarizePayload(action, payload) {
         return `<span class="muted">${escapeHtml(payload.note)}</span>`;
     }
     return "";
+}
+
+async function setHolderHoursRemaining() {
+    const holderId = window.__budgetHolderId;
+    if (!holderId) { alert("No active holder."); return; }
+    const inp = document.getElementById("budget-hours-input");
+    const hrs = parseFloat(inp && inp.value);
+    if (isNaN(hrs) || hrs < 0) { alert("Enter a valid number of hours."); return; }
+    const stopTime = new Date(Date.now() + hrs * 3600000).toISOString();
+    try {
+        const r = await fetch("/api/sample_holders/update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ holder_id: holderId, stop_time: stopTime }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j.success === false) {
+            alert((j.errors || []).join(", ") || j.detail || `error ${r.status}`);
+            return;
+        }
+        if (inp) inp.value = "";
+        refreshAutonomy();
+    } catch (e) {
+        alert(`Request failed: ${e}`);
+    }
 }
 
 async function planPost(path, body) {

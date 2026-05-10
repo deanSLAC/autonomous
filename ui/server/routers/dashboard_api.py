@@ -145,8 +145,15 @@ def status(experiment_id: str = Query(...)):
              "vortex_counter": e.vortex_counter or "vortDT"}
             for e in elements
         ],
-        "holders": [{"id": h.id, "name": h.name, "type": h.holder_type, "n_samples": h.n_samples}
-                    for h in holders],
+        "holders": [
+            {
+                "id": h.id, "name": h.name, "type": h.holder_type,
+                "n_samples": h.n_samples,
+                "beamtime_hours": h.beamtime_hours,
+                "stop_time": h.stop_time.isoformat() if getattr(h, "stop_time", None) else None,
+            }
+            for h in holders
+        ],
         "phase_runs": [
             {
                 "id": r.id, "phase": r.phase, "status": r.status,

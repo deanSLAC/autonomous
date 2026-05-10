@@ -225,20 +225,34 @@ signal, not to redesign the survey.
 
 ---
 
-## Completion
+## Never self-terminate — run until manually killed
 
-Use the **success** shape from the base contract. Include:
+**You do not decide when to stop.** Data collection runs
+indefinitely until the operator manually kills your process.
+There is no success / blocked / halt exit for this phase.
 
-- N samples done / N total queued
-- total scans collected
-- a per-sample status table (sample_id, status, reps, file)
-- total wall-clock time used (compare to budget)
-- any samples flagged with quality concerns
+- If you finish every sample in the queue (all `n_reps_remaining=0`
+  across all spots), **loop back to the top of the queue**: refetch
+  `get-comprehensive-collection-plan` — the planner may have added
+  new reps, new samples, or extended budgets. If nothing new appears,
+  continue cycling through samples that have `status != skipped` and
+  `status != failed`, collecting additional reps to improve SNR.
+  The planner re-spawns between your scans and will keep updating
+  the plan with fresh targets.
 
-If you exhaust the budget mid-queue, use **blocked** with
-`suggested next agent: planner` so the planner can re-budget the
-remaining samples, plus a clear list of what was done and what
-wasn't.
+- If the configured `end_time` has passed, **keep collecting**. The
+  dashboard shows an "extra time" indicator so the operator knows
+  the budget has been exceeded, but from your perspective extra time
+  is free time. Keep improving SNR on whichever samples benefit most.
+
+- Do not proactively emit "we should stop" or "budget exhausted"
+  messages. Do not use the **blocked** shape for budget reasons.
+  Staff will SIGTERM you when beamtime is truly over.
+
+- If you encounter a genuine anomaly you cannot safely work around
+  (hardware fault, total beam loss, safety concern), use the
+  **halt** shape from the base contract and request a human
+  intervention. That is the only way you should stop.
 
 ---
 

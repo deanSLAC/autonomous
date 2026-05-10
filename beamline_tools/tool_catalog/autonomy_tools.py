@@ -786,6 +786,7 @@ def t_get_experiment_config(args: dict) -> tuple[str, list[str]]:
                 "n_samples": h.n_samples,
                 "queue_order": h.queue_order,
                 "beamtime_hours": h.beamtime_hours,
+                "stop_time": h.stop_time.isoformat() if h.stop_time else None,
                 "samples": [
                     {
                         "id": s.id,
@@ -812,6 +813,7 @@ def t_get_experiment_config(args: dict) -> tuple[str, list[str]]:
                         "i0_gain": s.i0_gain,
                         "i0_offset": s.i0_offset,
                         "i1_gain": s.i1_gain,
+                        "min_scans": s.min_scans,
                     }
                     for s in samples
                 ],
@@ -1005,25 +1007,120 @@ def t_set_sample_time_budget(args: dict) -> tuple[str, list[str]]:
 
 
 def t_set_holder_time_budget(args: dict) -> tuple[str, list[str]]:
+    from datetime import datetime as _dt, timedelta as _td
+    from orchestration.plan_store.session import update_sample_holder as _ush
+
     xid = _require_xid()
     if not xid:
         return json.dumps({"ok": False, "error": "no active experiment"}), []
+
     count_time_s = args.get("count_time_s")
     reps = args.get("reps")
-    if count_time_s is None and reps is None:
-        return json.dumps({"ok": False, "error": "count_time_s or reps required"}), []
-    summary = planner.set_holder_time_budget(
-        xid, args.get("holder_id"),
-        count_time_s=count_time_s, reps=reps, mode=args.get("mode"),
-        apply_to_existing=bool(args.get("apply_to_existing", True)),
-    )
+    stop_time_iso = (args.get("stop_time") or "").strip() or None
+    hours_remaining = args.get("hours_remaining")
+
+    # At least one of count_time_s/reps or stop_time/hours_remaining must be given.
+    has_plan_fields = count_time_s is not None or reps is not None
+    has_stop_fields = stop_time_iso is not None or hours_remaining is not None
+
+    if not has_plan_fields and not has_stop_fields:
+        return json.dumps({
+            "ok": False,
+            "error": "provide count_time_s/reps and/or stop_time/hours_remaining",
+        }), []
+
+    # Handle stop_time / hours_remaining → persist on the SampleHolder row.
+    new_stop: _dt | None = None
+    holder_id = args.get("holder_id")
+    if has_stop_fields:
+        if stop_time_iso is not None and hours_remaining is not None:
+            return json.dumps({
+                "ok": False,
+                "error": "provide stop_time OR hours_remaining, not both",
+            }), []
+        if stop_time_iso is not None:
+            try:
+                new_stop = _dt.fromisoformat(stop_time_iso)
+            except ValueError as e:
+                return json.dumps({
+                    "ok": False,
+                    "error": f"stop_time must be ISO-8601: {e}",
+                }), []
+        else:
+            try:
+                hrs = float(hours_remaining)
+            except (TypeError, ValueError):
+                return json.dumps({
+                    "ok": False, "error": "hours_remaining must be a number",
+                }), []
+            new_stop = _dt.now() + _td(hours=hrs)
+
+        if holder_id:
+            _ush(holder_id, stop_time=new_stop)
+        else:
+            # Apply to all holders in the experiment.
+            from orchestration.plan_store.session import list_sample_holders as _lsh
+            for h in _lsh(xid):
+                _ush(h.id, stop_time=new_stop)
+
+    # Handle plan-level count_time_s / reps (existing behavior).
+    summary: dict = {}
+    if has_plan_fields:
+        summary = planner.set_holder_time_budget(
+            xid, holder_id,
+            count_time_s=count_time_s, reps=reps, mode=args.get("mode"),
+            apply_to_existing=bool(args.get("apply_to_existing", True)),
+        )
+    else:
+        summary = {"holder_id": holder_id}
+
+    if new_stop is not None:
+        summary["stop_time"] = new_stop.isoformat()
+
     _log_plan_edit_from_agent(
         xid, "set_holder_time_budget",
-        target_id=args.get("holder_id"),
+        target_id=holder_id,
         payload=summary,
         reason=args.get("reason"),
     )
     return _as_json(summary), []
+
+
+def t_get_holder_time_budget(args: dict) -> tuple[str, list[str]]:
+    """Return the time budget for a holder: beamtime_hours, stop_time,
+    and computed hours_remaining."""
+    from datetime import datetime as _dt
+    from orchestration.plan_store.session import list_sample_holders as _lsh
+
+    xid = _require_xid()
+    if not xid:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+
+    holder_id = (args.get("holder_id") or "").strip() or None
+    holders = _lsh(xid)
+    if holder_id:
+        holders = [h for h in holders if h.id == holder_id]
+        if not holders:
+            return json.dumps({
+                "ok": False,
+                "error": f"holder {holder_id!r} not found for this experiment",
+            }), []
+
+    results = []
+    now = _dt.now()
+    for h in holders:
+        hours_remaining: float | None = None
+        if h.stop_time is not None:
+            hours_remaining = max(0.0, (h.stop_time - now).total_seconds() / 3600)
+        results.append({
+            "holder_id": h.id,
+            "holder_name": h.name,
+            "beamtime_hours": h.beamtime_hours,
+            "stop_time": h.stop_time.isoformat() if h.stop_time else None,
+            "hours_remaining": hours_remaining,
+        })
+
+    return _as_json({"ok": True, "holders": results}), []
 
 
 def _resolve_active_sample_id(experiment_id: str) -> Optional[str]:
@@ -1415,6 +1512,7 @@ def t_get_comprehensive_collection_plan(args: dict) -> tuple[str, list[str]]:
             "counts_per_sec": cps,
             "planned_time_s": planned_time_s,
             "planned_scans_total": int(n_reps),
+            "min_scans": s.min_scans,
         })
 
     payload = {
@@ -1656,6 +1754,7 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "recent_actions": t_recent_actions,
     "set_sample_time_budget": t_set_sample_time_budget,
     "set_holder_time_budget": t_set_holder_time_budget,
+    "get_holder_time_budget": t_get_holder_time_budget,
     "set_experiment_end_time": t_set_experiment_end_time,
     "regenerate_plan": t_regenerate_plan,
     "get_scans_since_last_plan_update": t_get_scans_since_last_plan_update,
