@@ -122,7 +122,11 @@ def build_initial_plan(experiment_id: str,
             }
             for e in elements
         ],
-        "holders": [{"id": h.id, "name": h.name, "type": h.holder_type} for h in holders],
+        "holders": [
+            {"id": h.id, "name": h.name, "type": h.holder_type,
+             "beamtime_hours": h.beamtime_hours}
+            for h in holders
+        ],
         "sample_queue": queue,
         "thresholds": {
             "snr_target": DEFAULT_SNR_TARGET,

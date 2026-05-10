@@ -767,6 +767,7 @@ def t_get_experiment_config(args: dict) -> tuple[str, list[str]]:
                 "status": h.status,
                 "n_samples": h.n_samples,
                 "queue_order": h.queue_order,
+                "beamtime_hours": h.beamtime_hours,
                 "samples": [
                     {
                         "id": s.id,

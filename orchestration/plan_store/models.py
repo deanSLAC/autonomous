@@ -117,6 +117,7 @@ class SampleHolder(SQLModel, table=True):
     # holder that isn't "done" is the active one; new holders go to the
     # bottom on creation (see create_sample_holder).
     queue_order: int = Field(default=0, index=True)
+    beamtime_hours: Optional[float] = None
     notes: Optional[str] = None
 
 

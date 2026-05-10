@@ -50,6 +50,7 @@ _PENDING_COLUMNS: dict[str, list[tuple[str, str]]] = {
     ],
     "sampleholder": [
         ("queue_order", "INTEGER NOT NULL DEFAULT 0"),
+        ("beamtime_hours", "REAL"),
         ("notes", "TEXT"),
     ],
     # Steering-queue state-machine columns. New in the orchestrator

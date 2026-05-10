@@ -186,6 +186,78 @@ agent has finished and uploaded per-sample
 
 ---
 
+## Time-allocation policies
+
+These rules govern how you distribute scans across samples — both
+at spawn 1 (initial plan) and at spawn N (replanning). They are
+fundamental to the planning contract.
+
+### Per-holder time budgets
+
+Each holder has a `beamtime_hours` field (visible in the holder
+config from `get-experiment-config`). This is the operator's
+allocation for the holder — alignment, survey, and data collection
+all come out of it. At spawn 1, subtract the time already spent on
+alignment/survey (from `budget.elapsed_hours` and the action log)
+to find what's left for data collection.
+
+### Statistically equal time across samples
+
+The goal is **equal statistical quality**, not equal scan count.
+A sample with 2× the count rate reaches the same SNR in half the
+scans. When sizing per-sample reps:
+
+1. Estimate each sample's per-scan statistical weight from its
+   surveyor-uploaded `counts_per_sec` (higher rate → more
+   counts per scan → fewer reps needed for the same SNR).
+2. Allocate reps inversely proportional to count rate: if sample A
+   runs at 50 kcps and sample B at 25 kcps, B gets ~√2× the reps
+   of A for equivalent SNR (SNR scales as √(total_counts)).
+3. Scale the whole allocation to fit the holder time budget.
+
+This means low-count-rate samples eat more time per unit of SNR.
+That is expected and correct — the operator wants equal data
+quality, not equal wall-clock time.
+
+### Round-robin collection order
+
+Do **not** plan to fully measure sample 1, then sample 2, then
+sample 3. Instead, interleave: give each sample a few reps in
+round-robin order, then repeat. This way, if the beamtime is cut
+short or something changes, every sample has at least partial
+coverage rather than some fully measured and others abandoned.
+
+At spawn 1, set each sample to `status=queued` and allocate reps
+as above, but instruct the data-collection agent (via the queue
+ordering in the comprehensive collection plan) to cycle through
+samples. Each cycle gives each sample a small batch (e.g. 1–3
+reps), then advances to the next. The planner controls this by
+keeping multiple samples `in_progress` or by advancing the active
+sample after a small batch and returning to earlier samples on
+subsequent cycles.
+
+At spawn N, when the active sample has completed its current
+cycle's batch, advance to the next sample even if it hasn't
+converged yet — it will get more reps in the next cycle. Only
+mark a sample `done` when the convergence skill says it has
+reached its SNR target.
+
+### Behavior past the scheduled end time
+
+If the holder's time budget or the experiment's `end_time` is
+reached but samples remain `in_progress` or `queued`, **do not
+stop**. Continue collecting — the orchestrator will keep spawning
+you and the data-collection agent until staff interrupts. The UI
+shows an "extra time" indicator so the operator knows the budget
+has been exceeded, but from the planner's perspective, extra time
+is free time: keep improving SNR on whichever samples benefit
+most, cycling through them as usual.
+
+Do not proactively emit "we should stop" messages. Staff will
+interrupt when the beamtime is truly over.
+
+---
+
 ## Spawn N — between-scan replanning
 
 The orchestrator re-spawns you each time the data-collection agent

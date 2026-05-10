@@ -18,6 +18,7 @@ from sqlmodel import select
 
 from orchestration.config_generator import validate_sample_holder_data
 from orchestration.plan_store.session import (
+    _SENTINEL,
     create_sample_holder,
     create_sample_position,
     delete_sample_holder,
@@ -59,6 +60,7 @@ def _holder_to_dict(h: SampleHolder, samples: list[SamplePosition] | None = None
         "holder_type": h.holder_type,
         "n_samples": h.n_samples,
         "queue_order": h.queue_order,
+        "beamtime_hours": h.beamtime_hours,
         "notes": h.notes,
         "created_at": h.created_at.isoformat() if h.created_at else None,
         "updated_at": h.updated_at.isoformat() if h.updated_at else None,
@@ -186,11 +188,13 @@ async def create(body: dict):
         if errors:
             return JSONResponse({"success": False, "errors": errors}, status_code=400)
 
+        beamtime_hours = _float_or_none(body.get("beamtime_hours"))
         holder = create_sample_holder(
             experiment_id=experiment_id,
             name=name,
             n_samples=len(samples),
             holder_type=holder_type,
+            beamtime_hours=beamtime_hours,
         )
         _persist_samples(holder.id, experiment_id, samples)
 
@@ -235,6 +239,7 @@ async def update(body: dict):
             name=(body.get("name") or None),
             holder_type=(body.get("holder_type") or None),
             status=(body.get("status") or None),
+            beamtime_hours=(_float_or_none(body["beamtime_hours"]) if "beamtime_hours" in body else _SENTINEL),
             notes=(body.get("notes") if "notes" in body else None),
         )
 

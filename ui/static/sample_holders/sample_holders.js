@@ -41,7 +41,7 @@ async function shLoadHolders() {
     const expId = shGetExpId();
     if (!expId) {
         document.getElementById("holder-tbody").innerHTML =
-            '<tr><td colspan="6" style="text-align:center;color:#888">Select an experiment.</td></tr>';
+            '<tr><td colspan="7" style="text-align:center;color:#888">Select an experiment.</td></tr>';
         return;
     }
     const j = await shFetchJson(`/api/sample_holders/list?experiment_id=${encodeURIComponent(expId)}`);
@@ -55,7 +55,7 @@ function shRenderHolderList() {
     const summary = document.getElementById("holder-summary");
     if (!tbody) return;
     if (!_shHolders.length) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888">No sample holders yet — create one below.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888">No sample holders yet — create one below.</td></tr>';
         summary.textContent = "0 holders";
         return;
     }
@@ -72,6 +72,7 @@ function shRenderHolderList() {
             <td>${shEsc(h.holder_type)}</td>
             <td><span class="holder-status-pill ${shEsc(h.status)}">${shEsc(h.status)}</span></td>
             <td>${h.n_samples ?? 0}</td>
+            <td>${h.beamtime_hours != null ? h.beamtime_hours + " h" : "<span class='muted'>—</span>"}</td>
             <td class="row-actions">
                 <button ${first} title="Move up" onclick="shMoveHolder('${shEsc(h.id)}', -1)">↑</button>
                 <button ${last} title="Move down" onclick="shMoveHolder('${shEsc(h.id)}', 1)">↓</button>
@@ -146,6 +147,7 @@ function shNewHolder() {
     document.getElementById("sh-holder-type").value = "flat";
     document.getElementById("sh-holder-status").value = "configured";
     document.getElementById("sh-holder-notes").value = "";
+    document.getElementById("sh-beamtime-hours").value = "";
     shClearSamplesContainer();
     if (typeof addSample === "function") addSample();
     document.getElementById("sh-delete-btn").style.display = "none";
@@ -163,6 +165,7 @@ async function shEditHolder(holderId) {
     document.getElementById("sh-holder-type").value = j.holder_type || "flat";
     document.getElementById("sh-holder-status").value = j.status || "configured";
     document.getElementById("sh-holder-notes").value = j.notes || "";
+    document.getElementById("sh-beamtime-hours").value = (j.beamtime_hours != null) ? j.beamtime_hours : "";
     shClearSamplesContainer();
     (j.samples || []).forEach(s => {
         if (typeof addSample === "function") addSample(s);
@@ -185,6 +188,8 @@ async function shSaveHolder() {
     const holderType = document.getElementById("sh-holder-type").value;
     const status = document.getElementById("sh-holder-status").value;
     const notes = document.getElementById("sh-holder-notes").value;
+    const btRaw = document.getElementById("sh-beamtime-hours").value.trim();
+    const beamtimeHours = btRaw === "" ? null : parseFloat(btRaw);
 
     const gathered = (typeof gatherSampleHolderData === "function") ? gatherSampleHolderData() : { samples: [] };
     const samples = gathered.samples || [];
@@ -195,6 +200,7 @@ async function shSaveHolder() {
         holder_type: holderType,
         status,
         notes,
+        beamtime_hours: beamtimeHours,
         samples,
     };
     let j;

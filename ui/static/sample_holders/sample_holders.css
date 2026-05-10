@@ -75,3 +75,10 @@
 .holder-status-pill.ready { background: #def; color: #2563eb; }
 .holder-status-pill.collecting { background: #dfe; color: #1b7a1b; }
 .holder-status-pill.done { background: #dfd; color: #1b7a1b; }
+
+.form-hint {
+    display: block;
+    font-size: 0.78em;
+    color: var(--text-dim, #888);
+    margin-top: 3px;
+}

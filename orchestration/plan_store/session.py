@@ -29,6 +29,8 @@ from orchestration.plan_store.models import (
     ScanRecord,
 )
 
+_SENTINEL = object()
+
 # ---------------------------------------------------------------------------
 # Engine / session management
 # ---------------------------------------------------------------------------
@@ -265,6 +267,7 @@ def create_sample_holder(
     name: str,
     n_samples: int,
     holder_type: str = "flat",
+    beamtime_hours: float | None = None,
 ) -> SampleHolder:
     """Create and persist a new SampleHolder.
 
@@ -282,6 +285,7 @@ def create_sample_holder(
             name=name,
             n_samples=n_samples,
             holder_type=holder_type,
+            beamtime_hours=beamtime_hours,
             queue_order=max_order + 1,
         )
         session.add(holder)
@@ -307,6 +311,7 @@ def update_sample_holder(
     name: Optional[str] = None,
     holder_type: Optional[str] = None,
     status: Optional[str] = None,
+    beamtime_hours: float | None = _SENTINEL,
     notes: Optional[str] = None,
 ) -> Optional[SampleHolder]:
     with get_session() as session:
@@ -319,6 +324,8 @@ def update_sample_holder(
             h.holder_type = holder_type
         if status is not None:
             h.status = status
+        if beamtime_hours is not _SENTINEL:
+            h.beamtime_hours = beamtime_hours
         if notes is not None:
             h.notes = notes
         h.updated_at = datetime.now()
