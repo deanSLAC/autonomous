@@ -8,7 +8,7 @@ Responsibilities:
     receives as system context every turn — anchors the agent to the
     plan without removing its autonomy.
   * Accept revisions (plan dict replaced wholesale) from the agent tool
-    `update_experiment_plan`.
+    `update_plan`.
 
 Keeps no hidden state; the DB is the source of truth.
 """
@@ -226,7 +226,7 @@ class PlannerSnapshot:
             f"  thresholds: SNR target={self.plan.get('thresholds', {}).get('snr_target')}, "
             f"min reps/sample={self.plan.get('thresholds', {}).get('min_reps_per_sample')}\n"
             + phase_note
-            + "  plan updates should go through the `update_experiment_plan` tool "
+            + "  plan updates should go through the `update_plan` tool "
             "so the user can see the rationale."
         )
 

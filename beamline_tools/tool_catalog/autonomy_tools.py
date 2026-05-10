@@ -672,7 +672,7 @@ def t_post_status_update(args: dict) -> tuple[str, list[str]]:
         return json.dumps({"posted": False, "error": str(e)}), []
 
 
-def t_update_experiment_plan(args: dict) -> tuple[str, list[str]]:
+def t_update_plan(args: dict) -> tuple[str, list[str]]:
     experiment_id = spec_cmd.get_experiment_id()
     if not experiment_id:
         return json.dumps({"ok": False, "error": "no active experiment"}), []
@@ -1627,7 +1627,7 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "transition_phase": t_transition_phase,
     "request_human_intervention": t_request_human_intervention,
     "post_status_update": t_post_status_update,
-    "update_experiment_plan": t_update_experiment_plan,
+    "update_plan": t_update_plan,
     "record_sample_progress": t_record_sample_progress,
     "get_plan": t_get_plan,
     "get_experiment_config": t_get_experiment_config,

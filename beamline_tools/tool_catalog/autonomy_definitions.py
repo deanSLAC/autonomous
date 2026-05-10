@@ -915,7 +915,7 @@ AUTONOMY_TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
-            "name": "update_experiment_plan",
+            "name": "update_plan",
             "description": "Replace the live experiment plan JSON (structure decided by the agent).",
             "parameters": {
                 "type": "object",
@@ -1372,7 +1372,7 @@ AUTONOMY_TOOL_CATEGORIES = [
     ("CAT-7 State", ["get_element", "get_scan_number", "get_current_datafile", "get_plotselected_counter", "abort_current_scan"]),
     ("CAT-8 Orchestration", [
         "transition_phase", "request_human_intervention", "post_status_update",
-        "update_experiment_plan", "record_sample_progress", "get_plan",
+        "update_plan", "record_sample_progress", "get_plan",
         "get_experiment_config",
         "get_scans_since_last_plan_update", "get_scans_for_active_sample",
         "upload_sample_alignment_results",

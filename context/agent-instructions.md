@@ -214,7 +214,7 @@ When your phase's work is fully done:
    - Data collection: per-sample
      `beamtimehero db record-sample-progress --sample-id <id>
      --status done --reps-completed <n>` for every finished sample.
-   - Planner: any final `update_experiment_plan` or
+   - Planner: any final `update_plan` or
      `set_sample_time_budget` edits committed.
 
 2. Post a final status update:

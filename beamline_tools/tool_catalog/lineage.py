@@ -1129,7 +1129,7 @@ TOOL_LINEAGE: dict[str, dict] = {
         "source_detail": "Also emits a dashboard WebSocket event.",
         "depends_on": [],
     },
-    "update_experiment_plan": {
+    "update_plan": {
         "long_description": (
             "Replace the live experiment plan JSON wholesale. The "
             "structure is up to the agent, but downstream views expect "
@@ -1306,7 +1306,7 @@ TOOL_LINEAGE: dict[str, dict] = {
         "output": "JSON: {ok, plan_updated_at, count, scans:[{scan_number, sample_id, sample_name, technique, filter_setting, count_time, timestamp, spec_datafile}]}",
         "source": "autonomy_db",
         "source_detail": "Joins CollectionScan with SamplePosition for sample_name.",
-        "depends_on": ["get_plan", "update_experiment_plan"],
+        "depends_on": ["get_plan", "update_plan"],
     },
     "get_scans_for_active_sample": {
         "long_description": (

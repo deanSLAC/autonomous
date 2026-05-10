@@ -204,21 +204,29 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
 
         elif name == "analyze_convergence":
             from beamline_tools.generic_data.cosine_similarity import analyze_scan_quality
+            e_min = arguments.get("e_min")
+            e_max = arguments.get("e_max")
+            if e_min is None or e_max is None:
+                return json.dumps({"error": "e_min and e_max are required"}), []
             result = _analyze_with(
                 arguments.get("file_name"),
                 analyze_scan_quality,
-                e_min=arguments.get("e_min"),
-                e_max=arguments.get("e_max"),
+                e_min=e_min,
+                e_max=e_max,
             )
             return json.dumps(result, indent=2, default=str), images_b64
 
         elif name == "analyze_efficiency":
             from beamline_tools.experiment_planning.scan_efficiency import analyze_scan_efficiency
+            e_min = arguments.get("e_min")
+            e_max = arguments.get("e_max")
+            if e_min is None or e_max is None:
+                return json.dumps({"error": "e_min and e_max are required"}), []
             result = _analyze_with(
                 arguments.get("file_name"),
                 analyze_scan_efficiency,
-                e_min=arguments.get("e_min"),
-                e_max=arguments.get("e_max"),
+                e_min=e_min,
+                e_max=e_max,
                 include_raw_counts=bool(arguments.get("include_poisson_floor", True)),
             )
             return json.dumps(result, indent=2, default=str), images_b64

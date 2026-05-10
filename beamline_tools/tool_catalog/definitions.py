@@ -204,11 +204,9 @@ TOOL_DEFINITIONS = [
             "description": (
                 "Check if repeated scans have converged using cosine similarity metrics. "
                 "Reports per-scan similarity to the mean, cumulative convergence, and standard error. "
-                "WARNING: cosine similarity is amplitude-dominated; the post-edge plateau (defined "
-                "to be ~1.0 by edge-step normalization) dominates the metric. ALWAYS pass numeric "
-                "e_min/e_max to focus on the dynamic part of the spectrum (e.g. a specific feature "
-                "you've identified). Whole-spectrum mode (no bounds) is a structural over-estimate "
-                "of convergence — use only as a sanity check."
+                "Cosine similarity is amplitude-dominated; the post-edge plateau (defined "
+                "to be ~1.0 by edge-step normalization) dominates the metric. You must pass "
+                "e_min/e_max to focus on the dynamic part of the spectrum."
             ),
             "parameters": {
                 "type": "object",
@@ -226,7 +224,7 @@ TOOL_DEFINITIONS = [
                         "description": "Upper bound (eV) of the feature window to analyze.",
                     },
                 },
-                "required": [],
+                "required": ["e_min", "e_max"],
             },
         },
     },
@@ -238,9 +236,8 @@ TOOL_DEFINITIONS = [
                 "Comprehensive scan repetition efficiency report. Includes convergence, CV analysis, "
                 "rate-based and counts-based Poisson floor comparison, optimal scan count recommendation, "
                 "and a verdict (needs_more / reasonable / marginal / wasteful). "
-                "ALWAYS pass numeric e_min/e_max bounds for the feature you care about — running on the "
-                "whole spectrum averages dynamic content with normalization-defined plateaus and produces "
-                "an optimistic verdict. Identify the feature on the averaged spectrum first."
+                "e_min/e_max bounds are required — whole-spectrum mode averages dynamic content with "
+                "normalization-defined plateaus and produces structurally optimistic verdicts."
             ),
             "parameters": {
                 "type": "object",
@@ -251,7 +248,7 @@ TOOL_DEFINITIONS = [
                     },
                     "e_min": {
                         "type": "number",
-                        "description": "Lower bound (eV) of the feature window. Required in practice for meaningful verdicts.",
+                        "description": "Lower bound (eV) of the feature window.",
                     },
                     "e_max": {
                         "type": "number",
@@ -268,7 +265,7 @@ TOOL_DEFINITIONS = [
                         ),
                     },
                 },
-                "required": [],
+                "required": ["e_min", "e_max"],
             },
         },
     },

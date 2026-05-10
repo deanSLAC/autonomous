@@ -145,8 +145,8 @@ These are summaries. Consult reference docs for full detail before unfamiliar pr
 **Data collection:**
 - One SPEC file per sample (`open-data-file`)
 - `run-xas` or `run-emiss-scan` per sample with appropriate element, count time, and reps
-- Monitor convergence with `beamtimehero tool analyze-convergence`
-- Monitor efficiency with `beamtimehero tool analyze-efficiency`
+- Monitor convergence with `beamtimehero tool analyze-convergence --e-min <eV> --e-max <eV>`
+- Monitor efficiency with `beamtimehero tool analyze-efficiency --e-min <eV> --e-max <eV>`
 - Use `beamtimehero tool get-latest-scan` and `tool plot-scan` to inspect results
 
 

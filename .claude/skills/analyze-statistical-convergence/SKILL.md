@@ -15,21 +15,15 @@ This skill is the Planner's procedure. It composes existing tools — `analyze-e
 
 ---
 
-## Why the CLI verdict reads optimistic IN WHOLE-SPECTRUM MODE (read this first)
+## Why the tools require a feature window (read this first)
 
-The original `analyze-efficiency` / `analyze-convergence` defaults are structurally biased. The tools now accept `--e-min`/`--e-max` so you can sidestep the bias — but you must actually pass them. If you call these tools without bounds you will get the optimistic answer.
+`analyze-efficiency` and `analyze-convergence` require `--e-min` / `--e-max` bounds that bracket the spectral feature you care about.
 
-**Why the bias exists.** Edge-step normalization (run per-scan before stacking) defines the post-edge to be ~1.0 by construction. By the time the convergence math sees the stack, the post-edge has near-zero variance because we *made it that way*, not because it's well-measured. The pre-edge baseline is similarly defined to be ~0. Every point in those regions is a constant the math is averaging *with* the actual dynamic part of the spectrum — averaging the question with the answer.
+**Why.** Edge-step normalization defines the post-edge to be ~1.0 and the pre-edge to be ~0 by construction. These regions have near-zero variance because we *made it that way*, not because they're well-measured. The dynamic, scientifically interesting part of an XAS / HERFD spectrum is the near-edge feature(s): a white-line peak, a pre-edge shoulder, an oxidation-state-sensitive position. Only that region's convergence answers "do we have enough scans for publication?"
 
-The dynamic, scientifically interesting part of an XAS / HERFD spectrum is the near-edge feature(s) the experiment actually cares about: a specific white-line peak, a pre-edge shoulder, an oxidation-state-sensitive position. That's where the chemistry lives, and that is the only region whose convergence answers "do we have enough scans for publication?"
+Without windowing, cosine similarity is dominated by the flat plateaus (a white-line shoulder can change 20–30% rep-over-rep and the similarity still reads >0.999), and the CV knee is crossed too early. The feature window isolates the dynamic content from the normalization-defined constants.
 
-The three concrete consequences when running without bounds:
-
-1. **Cosine similarity is amplitude-dominated.** `analyze-convergence` computes `(A·B)/(‖A‖‖B‖)` on the whole edge-step-normalized spectrum. The post-edge plateau (≈1.0 over many points) dominates both the dot product and the norms. A white-line shoulder can change by 20–30% rep-over-rep and the cosine similarity still reads > 0.999.
-2. **CV is averaged across the whole spectrum** (with only a 5% edge trim). The flat post-edge and the flat pre-edge baseline drag the mean CV down. The per-rep marginal-improvement knee gets crossed early.
-3. **The verdict is therefore optimistic** in whole-spectrum mode and structurally unsuitable for the publication-quality stop decision.
-
-**The fix.** Always run the windowed tools with numeric `--e-min` / `--e-max` bounds you've read off the averaged spectrum (Procedure step 2). Use `analyze-feature-evolution` for the per-feature scalar verdict — that's the publication-quality test. Whole-spectrum mode is now a sanity check, not a stop signal.
+Identify the feature on the averaged spectrum (Procedure step 2), read off numeric bounds, and pass them to every windowed tool call. Use `analyze-feature-evolution` for the per-feature scalar verdict — that's the publication-quality test.
 
 ---
 
@@ -57,7 +51,7 @@ All via `beamtimehero ...`. Quick recipe per invocation. Order matters: you must
     - `beamtimehero tool average-scans --file-name <sample_id>` to see the averaged spectrum first, OR `plot-scan-stack --file-name <sample_id>` for a stacked-reps view. Read off the energy bounds of the feature you care about (white-line peak, pre-edge peak, dip between oscillations 1 and 2, etc.) — pick a tight window that brackets the feature with a small margin.
     - The plan should name the feature(s) of interest. If it doesn't, default to the white-line peak: it's the most prominent dynamic feature for almost every sample, and it's the publication-bar feature most often asked about.
     - Record the numeric `e_min`, `e_max` you've picked. You will pass these into every windowed tool call below.
-4. `beamtimehero tool analyze-efficiency --file-name <sample_id> --e-min <e_min> --e-max <e_max>` — primary verdict, run on the windowed feature. Returns `verdict` ∈ {`needs_more`, `reasonable`, `marginal`, `wasteful`}, `cv_mean_pct`, `poisson_limit_pct`, `counts_poisson_floor_pct` (absolute counts-based floor), `cv_vs_floor_ratio` (>>1 = systematics-limited, ~1 = at Poisson floor, more reps still help), `optimal_scan_count`, `marginal_improvement[]`, `cumulative_cv_pct[]`, and the full `convergence` sub-result. **Do not call this tool without bounds on a sample with a known feature** — whole-spectrum mode averages dynamic content with normalization-defined plateaus and produces an optimistic verdict.
+4. `beamtimehero tool analyze-efficiency --file-name <sample_id> --e-min <e_min> --e-max <e_max>` — primary verdict, run on the windowed feature. `e_min`/`e_max` are required. Returns `verdict` ∈ {`needs_more`, `reasonable`, `marginal`, `wasteful`}, `cv_mean_pct`, `poisson_limit_pct`, `counts_poisson_floor_pct` (absolute counts-based floor), `cv_vs_floor_ratio` (>>1 = systematics-limited, ~1 = at Poisson floor, more reps still help), `optimal_scan_count`, `marginal_improvement[]`, `cumulative_cv_pct[]`, and the full `convergence` sub-result.
 5. `beamtimehero tool analyze-feature-evolution --file-name <sample_id> --e-min <e_min> --e-max <e_max> --statistic <stat>` — the publication-quality test. Reduces each rep to a single scalar over the window (white-line height with `max`; white-line position with `argmax`; peak area with `integral`; height-above-baseline with `height`) and reports per-rep trace, running mean, running SEM, and a verdict (`converged` / `marginal` / `needs_more`) from the SEM and step-to-step drift directly. The default convergence target is `sem_threshold_frac=0.01` (1% of mean); tighten to 0.005 for very small features driving a result.
 6. `beamtimehero tool analyze-convergence --file-name <sample_id> --e-min <e_min> --e-max <e_max>` — secondary read (cosine similarity). Useful for spotting outliers in `individual_vs_mean` (flag any < 0.95). The cumulative-convergence number is amplitude-dominated even windowed; treat as background context, not as a stop signal.
 7. `beamtimehero tool group-scans-by-spot --file-name <sample_id>` — list spot clusters by Sx/Sy/Sz. If `n_spots > 1`, run the per-spot variant next.

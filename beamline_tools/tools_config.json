@@ -546,7 +546,7 @@
       "comments": ""
     },
     {
-      "name": "update_experiment_plan",
+      "name": "update_plan",
       "cli_path": "db",
       "description": "Replace the live experiment plan JSON wholesale. The structure is up to the agent, but downstream views expect a sample_queue + holder_budgets + budget shape.",
       "when_to_use": "Replace the live experiment plan JSON (structure decided by the agent).",

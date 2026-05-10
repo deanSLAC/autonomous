@@ -15,7 +15,7 @@ You are spawned **twice** in the lifecycle of a sample holder:
   the DB. Your job at this spawn is to **build the initial
   per-sample collection plan**: how many scans on each sample, on
   how many spots, with what count_time, fitting inside the holder
-  time budget. You write this plan via `update_experiment_plan`;
+  time budget. You write this plan via `update_plan`;
   the orchestrator then auto-generates a plan summary and posts it
   to Slack/dashboard (no agent action needed) and spawns the
   data-collection agent.
@@ -27,7 +27,7 @@ You are spawned **twice** in the lifecycle of a sample holder:
   plan accordingly**: advance the active sample if it has
   converged, shorten or extend remaining n_scans for the active
   sample, or skip a sample if budget pressure demands it. You
-  again write via `update_experiment_plan`.
+  again write via `update_plan`.
 
 The data-collection agent reads the plan you maintain via
 `get_comprehensive_collection_plan` and runs scans **one at a time**
@@ -66,7 +66,7 @@ You write to the experiment plan. The relevant tools (all under
 - `get-comprehensive-collection-plan` — the per-sample, per-spot
   collection-side view of the plan: spots (Sx/Sy/Sz), filters,
   count_time, n_reps remaining. The data-collection agent reads
-  this; you write to it (indirectly, via `update-experiment-plan`).
+  this; you write to it (indirectly, via `update-plan`).
 - `get-scans-since-last-plan-update` — the scans the
   data-collection agent has produced since you last edited the
   plan. Read at the start of spawn N.
@@ -95,7 +95,7 @@ You write to the experiment plan. The relevant tools (all under
   `2026-05-10T18:00:00`) OR `--hours-from-now <float>`. The
   planner's remaining-beamtime math is `end_time − now()`; staff
   granting an extra hour means pushing `end_time` out by 1 h.
-- `update-experiment-plan --plan '<json>'` — wholesale replacement.
+- `update-plan --plan '<json>'` — wholesale replacement.
   This is your primary write path at both spawn 1 and spawn N. The
   orchestrator auto-generates a plan summary on submission and
   posts to Slack/dashboard — you do not need to do that yourself.
@@ -104,10 +104,11 @@ You write to the experiment plan. The relevant tools (all under
 
 You also have:
 
-- `tool list-scans`, `tool read-scan`, `tool analyze-efficiency`,
-  `tool analyze-convergence`, `tool get-scan-deadtime` — for
-  diagnosing how long the data-collection agent's scans are taking
-  and whether they've converged.
+- `tool list-scans`, `tool read-scan`, `tool get-scan-deadtime` — for
+  diagnosing how long the data-collection agent's scans are taking.
+- `tool analyze-efficiency --e-min <eV> --e-max <eV>`,
+  `tool analyze-convergence --e-min <eV> --e-max <eV>` — convergence
+  and efficiency on a feature window. `e_min`/`e_max` are required.
 - `Skill(analyze-statistical-convergence)` — the primary
   convergence-decision skill. Invoke it on the active sample's
   accumulated scans to decide whether to advance.
@@ -117,7 +118,7 @@ You also have:
   has been doing.
 - `tool post-status-update --text "..."` — talk to staff. Note:
   the orchestrator already posts an auto-generated plan summary on
-  every `update_experiment_plan` submission; reserve manual status
+  every `update_plan` submission; reserve manual status
   updates for things that summary won't capture (e.g. "we lost an
   hour to a beam dump, replanned").
 
@@ -152,11 +153,7 @@ agent has finished and uploaded per-sample
    surveyor-uploaded `filter_count`, `counts_per_sec`,
    `survey_energy`, plus any per-sample notes
    (e.g. "drastic filter adjustment", "damage observed").
-6. **Lessons-learned from prior holders** (if any). If this is not
-   the first holder of the beamtime, scan recent action logs and
-   prior plans for hints — count rates that paid off, samples that
-   ate budget, filter strategies that worked.
-7. **Decide per-sample n_scans within the holder time budget.**
+6. **Decide per-sample n_scans within the holder time budget.**
    The relevant inputs:
    - per-sample scan duration (estimable from
      `count_time × n_energy_points`),
@@ -177,10 +174,10 @@ agent has finished and uploaded per-sample
      per-holder budget is yours.
    Aim to fit all queued samples; if budget is tight, weight
    high-priority samples first.
-8. Write the plan via `beamtimehero db update-experiment-plan
+7. Write the plan via `beamtimehero db update-plan
    --plan '<json>'`. The orchestrator's auto-summary posts to
    Slack/dashboard for you.
-9. Emit your **success** completion message — you're done with
+8. Emit your **success** completion message — you're done with
    spawn 1. The orchestrator will spawn the data-collection agent
    next, then re-spawn you between scans (spawn N below).
 
@@ -290,7 +287,7 @@ For each scan completion you're notified about:
 
    - **Plan-level** ("we lost an hour", "deprioritize CuO", "give
      Cu samples 2x reps") → handle directly: edit the plan via
-     `update-experiment-plan` / `set-sample-time-budget`, ack,
+     `update-plan` / `set-sample-time-budget`, ack,
      `complete <id> --result "<edit summary>"`.
    - **Data-collector-territory** ("skip S5", "stop after the
      current scan on Fe2O3", "switch S7 to count_time=2") →
@@ -332,16 +329,19 @@ For each scan completion you're notified about:
      `status=done` (or trim its remaining n_scans to zero), and
      promote the next queued sample to `status=in_progress` in
      the comprehensive collection plan. Update via
-     `update-experiment-plan`.
+     `update-plan`.
    - **Not converged, budget healthy** → leave the plan alone
      (unless steering says otherwise).
    - **Not converged, budget tight** → trim other samples'
      n_scans (lowest priority first) to keep this one going, or
      accept lower SNR here and advance early.
    - **Damage suspected** (rare; the surveyor caught most of these
-     up front) → optionally invoke `assess-sample-damage` on the
-     recent scans for confirmation; if damage is real, mark the
-     sample done early and advance.
+     up front) → move 100 eV over the edge and do a count. Then
+     increase filters by 1 and count again. Continue until counts
+     are reduced by 20%. Update the sample's `filter_bitmask` in
+     the plan and note the change via `record-sample-progress`.
+     This is a quick fix — a full sample damage assessment is not
+     needed during collection.
    - **Steering says replan** → fold its instruction into the
      edit (e.g. "lost an hour" → trim reps proportionally;
      "deprioritize CuO" → reorder/skip; "double Cu reps" →
@@ -350,7 +350,7 @@ For each scan completion you're notified about:
 8. **Update the plan.** If you decided to advance, trim, extend,
    or skip:
    ```
-   beamtimehero db update-experiment-plan --plan '<json>'
+   beamtimehero db update-plan --plan '<json>'
    ```
    The orchestrator's auto-summary posts to Slack/dashboard.
 9. Emit your **success** completion message — your spawn ends and
@@ -369,7 +369,7 @@ You'll see steering messages like:
 
 - "we lost an hour to the beam dump, replan" → reduce reps across
   the queue proportional to lost hours, post a status update, then
-  `update-experiment-plan`. (The end_time itself doesn't need to
+  `update-plan`. (The end_time itself doesn't need to
   move — the lost hour just means less data fits in the same
   remaining window.)
 - "staff just gave us an extra 2 hours" → `set-experiment-end-time
@@ -379,7 +379,7 @@ You'll see steering messages like:
   queue by editing per-sample order/status; lower priority samples
   may end up `skipped` if budget runs out.
 - "give every Cu sample 2x the reps" → `set-sample-time-budget` on
-  each Cu sample (or batch via `update-experiment-plan`).
+  each Cu sample (or batch via `update-plan`).
 - "what's our remaining budget?" → `get-plan` +
   `recent-actions`, compute, post status, complete the row with the
   numbers.

@@ -112,15 +112,15 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--weighting", choices=["equal", "inverse_variance"], default="equal",
                    help="'equal' (default) = unweighted; 'inverse_variance' = SNR-weighted by per-rep baseline noise.")
 
-    p = sub.add_parser("analyze-convergence", help="Check if repeated scans have converged (cosine similarity). Whole-spectrum mode is biased; pass --e-min/--e-max for a feature window.")
+    p = sub.add_parser("analyze-convergence", help="Check if repeated scans have converged (cosine similarity) on a feature window.")
     p.add_argument("--file-name", help="SPEC file name. If omitted, uses the most recent file.")
-    p.add_argument("--e-min", type=float, help="Lower bound (eV) of feature window. Strongly recommended.")
-    p.add_argument("--e-max", type=float, help="Upper bound (eV) of feature window.")
+    p.add_argument("--e-min", type=float, required=True, help="Lower bound (eV) of feature window.")
+    p.add_argument("--e-max", type=float, required=True, help="Upper bound (eV) of feature window.")
 
-    p = sub.add_parser("analyze-efficiency", help="Full scan repetition efficiency report. Pass --e-min/--e-max for a feature window — whole-spectrum mode is structurally optimistic.")
+    p = sub.add_parser("analyze-efficiency", help="Full scan repetition efficiency report on a feature window.")
     p.add_argument("--file-name", help="SPEC file name. If omitted, uses the most recent file.")
-    p.add_argument("--e-min", type=float, help="Lower bound (eV) of feature window. Strongly recommended.")
-    p.add_argument("--e-max", type=float, help="Upper bound (eV) of feature window.")
+    p.add_argument("--e-min", type=float, required=True, help="Lower bound (eV) of feature window.")
+    p.add_argument("--e-max", type=float, required=True, help="Upper bound (eV) of feature window.")
     p.add_argument("--no-poisson-floor", action="store_true",
                    help="Skip the absolute counts-based Poisson floor (faster).")
 
@@ -349,10 +349,8 @@ def run_cli(command_str: str) -> tuple[str, list[str]]:
     elif tool_name in ("analyze_convergence", "analyze_efficiency"):
         if args.file_name:
             tool_args["file_name"] = args.file_name
-        if args.e_min is not None:
-            tool_args["e_min"] = args.e_min
-        if args.e_max is not None:
-            tool_args["e_max"] = args.e_max
+        tool_args["e_min"] = args.e_min
+        tool_args["e_max"] = args.e_max
         if tool_name == "analyze_efficiency":
             tool_args["include_poisson_floor"] = not args.no_poisson_floor
     elif tool_name == "analyze_feature_evolution":
