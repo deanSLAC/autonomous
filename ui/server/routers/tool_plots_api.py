@@ -37,6 +37,19 @@ async def latest():
     return {"filename": p.name, "mtime": p.stat().st_mtime}
 
 
+@router.get("/statistics_trend")
+async def statistics_trend():
+    """Return metadata for the most-recent statistics trend plot."""
+    if not _PLOT_DIR.exists():
+        return {"filename": None, "mtime": 0}
+    pngs = list(_PLOT_DIR.glob("statistics_trend_*.png"))
+    if not pngs:
+        return {"filename": None, "mtime": 0}
+    pngs.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    p = pngs[0]
+    return {"filename": p.name, "mtime": p.stat().st_mtime}
+
+
 @router.get("/file/{filename}")
 async def file(filename: str):
     """Serve a single plot PNG. Filename is restricted to the plot dir

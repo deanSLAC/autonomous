@@ -360,6 +360,86 @@ def plot_feature_evolution(file_name, e_min, e_max, statistic="max"):
     )
 
 
+def plot_statistics_trend(stats, sample_name=""):
+    """Render a two-subplot statistics trend from pre-computed convergence stats.
+
+    Parameters
+    ----------
+    stats : dict
+        convergence_stats dict stored per-sample in the plan JSON. Expected
+        keys: feature_window_eV, cumulative_cv_pct, running_sem_frac,
+        snr_target, sem_threshold_frac, efficiency_verdict, feature_verdict,
+        statistic.
+    sample_name : str
+        Sample name for the plot title.
+
+    Returns
+    -------
+    (fig, summary_text) or (None, error_text)
+    """
+    import numpy as np
+
+    cv_pct = stats.get("cumulative_cv_pct")
+    sem_frac = stats.get("running_sem_frac")
+    if not cv_pct or not sem_frac:
+        return None, "convergence_stats missing cumulative_cv_pct or running_sem_frac"
+
+    n = len(cv_pct)
+    reps = np.arange(1, n + 1)
+    cv_arr = np.array(cv_pct, dtype=float)
+    sem_arr = np.array([(v if v is not None else np.nan) for v in sem_frac], dtype=float) * 100
+
+    window = stats.get("feature_window_eV") or [None, None]
+    snr_target = stats.get("snr_target", 8.0)
+    sem_threshold = stats.get("sem_threshold_frac", 0.01) * 100
+    eff_verdict = stats.get("efficiency_verdict", "?")
+    feat_verdict = stats.get("feature_verdict", "?")
+
+    fig, (ax_cv, ax_sem) = plt.subplots(2, 1, figsize=(10, 7), sharex=True)
+
+    # --- Top: Cumulative CV ---
+    ax_cv.plot(reps, cv_arr, "o-", color="C0", markersize=4, label="Cumulative CV")
+    poisson_cv = cv_arr[0] / np.sqrt(reps)
+    ax_cv.plot(reps, poisson_cv, "--", color="gray", alpha=0.7, label="1/√n Poisson")
+    cv_threshold = 100.0 / snr_target if snr_target > 0 else 12.5
+    ax_cv.axhline(cv_threshold, color="C3", linestyle="-", alpha=0.6,
+                  label=f"SNR={snr_target} threshold ({cv_threshold:.1f}%)")
+    ax_cv.set_ylabel("Cumulative CV (%)")
+    ax_cv.legend(fontsize=7, loc="upper right")
+    ax_cv.grid(alpha=0.3)
+
+    # --- Bottom: Feature SEM ---
+    ax_sem.plot(reps, sem_arr, "o-", color="C0", markersize=4, label="Feature SEM (% of mean)")
+    finite_sem = sem_arr[np.isfinite(sem_arr)]
+    if len(finite_sem) >= 2:
+        sem_start = finite_sem[0]
+        start_idx = int(np.where(np.isfinite(sem_arr))[0][0])
+        poisson_sem = sem_start * np.sqrt((start_idx + 1)) / np.sqrt(reps)
+        ax_sem.plot(reps, poisson_sem, "--", color="gray", alpha=0.7, label="1/√n Poisson")
+    ax_sem.axhline(sem_threshold, color="C1", linestyle="-", alpha=0.6,
+                   label=f"{sem_threshold:.0f}% publication threshold")
+    ax_sem.set_ylabel("SEM (% of mean)")
+    ax_sem.set_xlabel("Rep #")
+    ax_sem.legend(fontsize=7, loc="upper right")
+    ax_sem.grid(alpha=0.3)
+
+    e_min, e_max = window
+    window_str = f"[{e_min}, {e_max}] eV" if e_min is not None else ""
+    title = (
+        f"{sample_name} — statistics trend {window_str} "
+        f"(CV: {eff_verdict}, SEM: {feat_verdict})"
+    )
+    fig.suptitle(title, fontsize=9)
+    fig.tight_layout()
+
+    summary = (
+        f"Statistics trend for {sample_name}: "
+        f"CV verdict={eff_verdict}, feature verdict={feat_verdict}, "
+        f"final CV={cv_arr[-1]:.2f}%, final SEM={sem_arr[-1]:.2f}%."
+    )
+    return fig, summary
+
+
 def fig_to_base64(fig):
     """Convert a matplotlib figure to a base64-encoded PNG string."""
     buf = io.BytesIO()

@@ -55,9 +55,9 @@ def _is_running(agent_type: str) -> bool:
     return bool(list_active(agent_type=agent_type))
 
 
-def _latest_collection_scan_id() -> Optional[str]:
-    """Return the most recent CollectionScan id (by timestamp DESC). None
-    if none exist."""
+def _latest_collection_scan_id(experiment_id: str) -> Optional[str]:
+    """Return the most recent CollectionScan id for *this* experiment
+    (by timestamp DESC). None if none exist."""
     from sqlmodel import select
     from orchestration.plan_store.models import CollectionScan
     from orchestration.plan_store.session import get_session
@@ -65,6 +65,7 @@ def _latest_collection_scan_id() -> Optional[str]:
     with get_session() as session:
         row = session.exec(
             select(CollectionScan)
+            .where(CollectionScan.experiment_id == experiment_id)
             .order_by(CollectionScan.timestamp.desc())  # type: ignore[union-attr]
             .limit(1)
         ).first()
@@ -105,12 +106,13 @@ class TickState:
         # respawn the planner on startup just because old scans exist.
         self.last_seen_scan_id: Optional[str] = None
         self._initialized: bool = False
+        self.planner_was_running: bool = False
 
 
-async def _step_planner_respawn(state: TickState) -> None:
+async def _step_planner_respawn(state: TickState, experiment_id: str) -> None:
     """If there's a new CollectionScan since last tick, spawn the planner."""
     try:
-        latest = await asyncio.to_thread(_latest_collection_scan_id)
+        latest = await asyncio.to_thread(_latest_collection_scan_id, experiment_id)
     except Exception as e:  # noqa: BLE001
         logger.warning("orchestrator_tick: latest scan lookup failed: %s", e)
         return
@@ -147,12 +149,12 @@ async def _step_planner_respawn(state: TickState) -> None:
         logger.exception("orchestrator_tick: planner spawn failed: %s", e)
 
 
-async def _step_dispatch_deferred_steering() -> None:
+async def _step_dispatch_deferred_steering(experiment_id: str) -> None:
     """For each orphaned deferred row with a named target_agent_type,
     spawn that agent with a focused-task seed (only if not already running).
     """
     try:
-        rows = await asyncio.to_thread(list_orphaned_deferred_steering)
+        rows = await asyncio.to_thread(list_orphaned_deferred_steering, experiment_id)
     except Exception as e:  # noqa: BLE001
         logger.warning("orchestrator_tick: deferred lookup failed: %s", e)
         return
@@ -194,11 +196,11 @@ async def _step_dispatch_deferred_steering() -> None:
             logger.exception("orchestrator_tick: redispatch failed: %s", e)
 
 
-async def _step_stop_rows() -> None:
+async def _step_stop_rows(experiment_id: str) -> None:
     """STOP fast path — kill any running phase agent that ISN'T the
     target_agent_type, then spawn the target."""
     try:
-        rows = await asyncio.to_thread(list_pending_stops)
+        rows = await asyncio.to_thread(list_pending_stops, experiment_id)
     except Exception as e:  # noqa: BLE001
         logger.warning("orchestrator_tick: STOP lookup failed: %s", e)
         return
@@ -249,20 +251,94 @@ async def _step_stop_rows() -> None:
                 logger.warning("orchestrator_tick: STOP ack failed: %s", e)
 
 
+def _generate_statistics_trend() -> None:
+    """Read the active sample's convergence_stats from the plan and render
+    a statistics trend PNG to data/tool_plots/."""
+    from pathlib import Path
+    from orchestration.config import PROJECT_ROOT
+    from orchestration.plan_store.client import get_plan as _get_plan
+    from orchestration.plan_store.session import get_active_experiment
+
+    exp = get_active_experiment()
+    if not exp:
+        return
+    plan_row = _get_plan(exp.id)
+    if not plan_row:
+        return
+    body = plan_row.get("plan") or {}
+    queue = body.get("sample_queue") or []
+
+    active = None
+    for s in queue:
+        if s.get("status") == "in_progress":
+            active = s
+            break
+    if active is None or not active.get("convergence_stats"):
+        return
+
+    stats = active["convergence_stats"]
+    sample_name = active.get("sample_name", active.get("sample_id", ""))
+
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        from beamline_tools.spec_data.plotting import plot_statistics_trend, fig_to_base64
+        import base64
+        from datetime import datetime
+
+        fig, summary = plot_statistics_trend(stats, sample_name)
+        if fig is None:
+            logger.info("orchestrator_tick: statistics trend skipped: %s", summary)
+            return
+
+        out_dir = PROJECT_ROOT / "data" / "tool_plots"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        ts = f"{datetime.now():%Y%m%d_%H%M%S_%f}"
+        sid = active.get("sample_id", "unknown")
+        fname = f"statistics_trend_{sid}_{ts}.png"
+        b64 = fig_to_base64(fig)
+        (out_dir / fname).write_bytes(base64.b64decode(b64))
+        import matplotlib.pyplot as plt
+        plt.close(fig)
+        logger.info("orchestrator_tick: statistics trend plot saved: %s", fname)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("orchestrator_tick: statistics trend plot failed: %s", e)
+
+
+async def _step_statistics_trend(state: TickState) -> None:
+    """After the planner finishes a run, generate a statistics trend plot."""
+    planner_running = _is_running("planner")
+    if state.planner_was_running and not planner_running:
+        try:
+            await asyncio.to_thread(_generate_statistics_trend)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("orchestrator_tick: statistics trend step failed: %s", e)
+    state.planner_was_running = planner_running
+
+
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 
 async def run_forever() -> None:
     """Polling loop. Started by orchestration.api.lifespan."""
+    from orchestration.plan_store.session import get_active_experiment
+
     state = TickState()
     logger.info("orchestrator_tick: started (cadence=%.1fs)", _TICK_SECONDS)
     try:
         while True:
             try:
-                await _step_stop_rows()
-                await _step_dispatch_deferred_steering()
-                await _step_planner_respawn(state)
+                exp = await asyncio.to_thread(get_active_experiment)
+                if exp is None:
+                    await asyncio.sleep(_TICK_SECONDS)
+                    continue
+                experiment_id: str = exp.id
+
+                await _step_stop_rows(experiment_id)
+                await _step_dispatch_deferred_steering(experiment_id)
+                await _step_planner_respawn(state, experiment_id)
+                await _step_statistics_trend(state)
             except asyncio.CancelledError:
                 raise
             except Exception as e:  # noqa: BLE001

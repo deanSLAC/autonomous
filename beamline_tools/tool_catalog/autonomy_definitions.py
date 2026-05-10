@@ -948,6 +948,34 @@ AUTONOMY_TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "record_convergence_stats",
+            "description": (
+                "Store per-sample convergence statistics from the latest "
+                "analysis run. The orchestrator reads these to auto-generate "
+                "a statistics trend plot on the dashboard."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sample_id": {"type": "string"},
+                    "stats": {
+                        "type": "object",
+                        "description": (
+                            "Convergence statistics dict with keys: "
+                            "feature_window_eV ([e_min, e_max]), statistic, "
+                            "cumulative_cv_pct (array), snr_target, "
+                            "running_sem_frac (array), sem_threshold_frac, "
+                            "efficiency_verdict, feature_verdict."
+                        ),
+                    },
+                },
+                "required": ["sample_id", "stats"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_plan",
             "description": "Return the live experiment plan (config + sample queue + budget).",
             "parameters": {"type": "object", "properties": {}, "required": []},
@@ -1381,6 +1409,6 @@ AUTONOMY_TOOL_CATEGORIES = [
         "recent_actions",
         "set_sample_time_budget", "set_holder_time_budget",
         "set_experiment_end_time", "regenerate_plan",
-        "record_completed_scan",
+        "record_completed_scan", "record_convergence_stats",
     ]),
 ]

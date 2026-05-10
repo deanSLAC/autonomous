@@ -55,8 +55,9 @@ base layer.
 
 ## What you control
 
-You write to the experiment plan. The relevant tools (all under
-`beamtimehero db ...`):
+You write to the experiment plan. You have access to `beamtimehero db`,
+`beamtimehero tool`, `beamtimehero ref`, and `beamtimehero steering`.
+The relevant DB tools:
 
 - `get-experiment-config` — initial starting info (mostly element,
   beam config related). Read at the start of spawn 1.
@@ -101,6 +102,16 @@ You write to the experiment plan. The relevant tools (all under
   posts to Slack/dashboard — you do not need to do that yourself.
 - `regenerate-plan` — rebuild the sample queue from the DB while
   preserving progress and overrides. Use after a holder edit.
+- `record-convergence-stats --sample-id <id> --stats '<json>'` —
+  store the convergence analysis results for the active sample. The
+  orchestrator reads this to auto-generate a statistics trend plot
+  on the dashboard. Call this after running the convergence analysis
+  at each spawn N. The stats dict should contain:
+  `feature_window_eV` ([e_min, e_max]), `statistic` (e.g. "max"),
+  `cumulative_cv_pct` (array from analyze-efficiency),
+  `snr_target`, `running_sem_frac` (array from
+  analyze-feature-evolution), `sem_threshold_frac`,
+  `efficiency_verdict`, `feature_verdict`.
 
 You also have:
 
@@ -172,8 +183,7 @@ agent has finished and uploaded per-sample
      and subtract it from what's available for data collection
      before sizing per-sample reps. Don't plan as if the full
      per-holder budget is yours.
-   Aim to fit all queued samples; if budget is tight, weight
-   high-priority samples first.
+   Aim to fit all queued samples.
 7. Write the plan via `beamtimehero db update-plan
    --plan '<json>'`. The orchestrator's auto-summary posts to
    Slack/dashboard for you.
@@ -323,6 +333,12 @@ For each scan completion you're notified about:
    the active-sample scans. The skill quantifies whether further
    reps are buying SNR or just costing time. Output is a verdict
    plus per-feature progression.
+   **After running the skill, call `record-convergence-stats`** to
+   store the results. Pass the feature window, the `cumulative_cv_pct`
+   array from `analyze-efficiency`, the `running_sem_frac` array from
+   `analyze-feature-evolution`, both verdicts, and the `snr_target`.
+   The orchestrator uses this to render a live statistics trend on the
+   dashboard.
 7. Decide, integrating both the convergence verdict AND any
    pending planner-applicable steering:
    - **Converged** → advance the active sample. Mark it

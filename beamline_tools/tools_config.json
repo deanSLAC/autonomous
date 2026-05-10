@@ -560,6 +560,18 @@
       "comments": ""
     },
     {
+      "name": "record_convergence_stats",
+      "cli_path": "db",
+      "description": "Store per-sample convergence statistics for the dashboard statistics trend plot.",
+      "when_to_use": "After running convergence analysis on the active sample, store the cumulative CV, feature SEM, verdicts, and feature window so the orchestrator can render a live statistics trend plot.",
+      "enabled": true,
+      "sample_input": {"sample_id": "s1", "stats": {}},
+      "sample_output": "{\"ok\": true}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "upload_sample_alignment_results",
       "cli_path": "db",
       "description": "Persist Sample-Alignment agent outputs to SamplePosition rows. Stores per-sample stage boundaries (sx/sy/sz lo/hi), measured emission energy, suggested starting filter count, and count rate. Called once per sample after the alignment recipe completes.",

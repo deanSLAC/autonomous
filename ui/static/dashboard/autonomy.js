@@ -1264,6 +1264,33 @@ async function refreshAgentPlot() {
     } catch (_) {}
 }
 
+let _lastStatsTrendKey = null;
+async function refreshStatsTrend() {
+    try {
+        const r = await fetch(API + "/api/tool_plots/statistics_trend");
+        if (!r.ok) return;
+        const j = await r.json();
+        const sub = document.getElementById("stats-trend-sub");
+        const box = document.getElementById("stats-trend-plot");
+        if (!box) return;
+        if (!j.filename) {
+            if (sub) sub.textContent = "no data yet";
+            if (_lastStatsTrendKey !== null) {
+                box.innerHTML = '<div class="muted">No statistics trend yet.</div>';
+                _lastStatsTrendKey = null;
+            }
+            return;
+        }
+        const key = j.filename + "@" + j.mtime;
+        if (sub) sub.textContent = j.filename;
+        if (key !== _lastStatsTrendKey) {
+            const url = `${API}/api/tool_plots/file/${encodeURIComponent(j.filename)}?t=${j.mtime}`;
+            box.innerHTML = `<img src="${url}" alt="statistics trend">`;
+            _lastStatsTrendKey = key;
+        }
+    } catch (_) {}
+}
+
 async function refreshSafetySwitches() {
     try {
         const r = await fetch(API + "/api/safety_switches");
@@ -1411,9 +1438,11 @@ document.addEventListener("DOMContentLoaded", () => {
     refreshAgentOutput();
     refreshSpecOutput();
     refreshAgentPlot();
+    refreshStatsTrend();
     setInterval(refreshAgentOutput, 1500);
     setInterval(refreshSpecOutput, 1500);
     setInterval(refreshAgentPlot, 3000);
+    setInterval(refreshStatsTrend, 3000);
     autonomyPollTimer = setInterval(refreshAutonomy, POLL_MS);
     // Server health signal
     const srvDot = document.getElementById("server-dot");

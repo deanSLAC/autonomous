@@ -93,6 +93,7 @@ def build_initial_plan(experiment_id: str,
             "status": "queued",
             "snr_estimate": None,
             "efficiency_verdict": None,
+            "convergence_stats": None,
             "reps_completed": 0,
             "notes": [],
         })
@@ -336,6 +337,22 @@ def record_sample_progress(
                 s.setdefault("notes", []).append(
                     {"ts": datetime.now().isoformat(), "text": note}
                 )
+            break
+    body["updated_at"] = datetime.now().isoformat()
+    upsert_experiment_plan(experiment_id, plan=body)
+    return body
+
+
+def record_convergence_stats(
+    experiment_id: str,
+    sample_id: str,
+    stats: dict,
+) -> dict:
+    plan = get_plan(experiment_id) or {}
+    body = plan.get("plan", {})
+    for s in body.get("sample_queue", []):
+        if s.get("sample_id") == sample_id:
+            s["convergence_stats"] = stats
             break
     body["updated_at"] = datetime.now().isoformat()
     upsert_experiment_plan(experiment_id, plan=body)
@@ -647,6 +664,7 @@ def rebuild_plan_preserving_progress(
             "status": s.get("status"),
             "snr_estimate": s.get("snr_estimate"),
             "efficiency_verdict": s.get("efficiency_verdict"),
+            "convergence_stats": s.get("convergence_stats"),
             "reps_completed": s.get("reps_completed"),
             "notes": s.get("notes", []),
             # Preserve per-sample time-budget overrides the user has
@@ -674,7 +692,8 @@ def rebuild_plan_preserving_progress(
         sid = s.get("sample_id")
         prior = progress.get(sid)
         if prior:
-            for k in ("status", "snr_estimate", "efficiency_verdict", "reps_completed"):
+            for k in ("status", "snr_estimate", "efficiency_verdict",
+                      "convergence_stats", "reps_completed"):
                 if prior.get(k) is not None:
                     s[k] = prior[k]
             if prior.get("notes"):

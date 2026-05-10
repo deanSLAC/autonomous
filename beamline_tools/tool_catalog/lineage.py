@@ -1142,6 +1142,19 @@ TOOL_LINEAGE: dict[str, dict] = {
         "source_detail": "Writes the plan JSON onto the experiment row.",
         "depends_on": ["get_plan"],
     },
+    "record_convergence_stats": {
+        "long_description": (
+            "Store per-sample convergence statistics (cumulative CV, "
+            "feature SEM, verdicts, feature window) so the orchestrator "
+            "can render a live statistics trend plot on the dashboard."
+        ),
+        "python_func": "orchestrator.planner.record_convergence_stats(experiment_id, sample_id, stats)",
+        "spec_command": None,
+        "output": "JSON: {ok}",
+        "source": "autonomy_db",
+        "source_detail": "Writes convergence_stats onto a sample entry in the plan JSON.",
+        "depends_on": ["analyze_efficiency"],
+    },
     "record_sample_progress": {
         "long_description": (
             "Update per-sample status (queued/in_progress/done/skipped/"

@@ -713,6 +713,24 @@ def t_record_sample_progress(args: dict) -> tuple[str, list[str]]:
     return json.dumps({"ok": True}), []
 
 
+def t_record_convergence_stats(args: dict) -> tuple[str, list[str]]:
+    experiment_id = spec_cmd.get_experiment_id()
+    if not experiment_id:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+    stats = args.get("stats")
+    if isinstance(stats, str):
+        try:
+            stats = json.loads(stats)
+        except json.JSONDecodeError as e:
+            return json.dumps({"ok": False, "error": f"stats is not valid JSON: {e}"}), []
+    if not isinstance(stats, dict):
+        return json.dumps({"ok": False, "error": "stats must be a JSON object"}), []
+    planner.record_convergence_stats(
+        experiment_id, args["sample_id"], stats,
+    )
+    return json.dumps({"ok": True}), []
+
+
 def t_get_plan(args: dict) -> tuple[str, list[str]]:
     experiment_id = spec_cmd.get_experiment_id()
     if not experiment_id:
@@ -1629,6 +1647,7 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "post_status_update": t_post_status_update,
     "update_plan": t_update_plan,
     "record_sample_progress": t_record_sample_progress,
+    "record_convergence_stats": t_record_convergence_stats,
     "get_plan": t_get_plan,
     "get_experiment_config": t_get_experiment_config,
     "get_remaining_beamtime": t_get_remaining_beamtime,
