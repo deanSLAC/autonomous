@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/static/dashboard/static/dashboard.css?v=4">
     <link rel="stylesheet" href="/static/dashboard/autonomy.css?v=4">
     <link rel="stylesheet" href="/static/config/style.css?v=4">
-    <link rel="stylesheet" href="/static/sample_holders/sample_holders.css?v=4">
+    <link rel="stylesheet" href="/static/sample_holders/sample_holders.css?v=5">
 </head>
 <body>
 
@@ -26,7 +26,6 @@
             <option value="">No experiments</option>
         </select>
         <a href="/dashboard" class="theme-toggle topbar-link" title="Back to dashboard">Dashboard</a>
-        <a href="/sample_planning" class="theme-toggle topbar-link" title="Sample planning">Planning</a>
         <a href="/config" class="theme-toggle topbar-link" title="Experiment config">⚙</a>
         <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode">&#9790;</button>
     </div>
@@ -35,9 +34,12 @@
 <div class="main-grid">
 
     <div class="panel">
-        <div class="panel-header">
-            Holders for this experiment — first in queue is active
-            <span class="panel-sub" id="holder-summary">—</span>
+        <div class="panel-header panel-header-with-action">
+            <div>
+                Holders for this experiment — first in queue is active
+                <span class="panel-sub" id="holder-summary">—</span>
+            </div>
+            <button class="btn btn-primary" onclick="shNewHolder()">+ New holder</button>
         </div>
         <div id="message-area"></div>
         <table class="holder-list-table">
@@ -51,14 +53,14 @@
             <tbody id="holder-tbody"><tr><td colspan="7" style="text-align:center;color:#888">—</td></tr></tbody>
         </table>
         <div class="holder-list-footer">
-            <button class="btn btn-submit" onclick="shNewHolder()">+ New holder (at bottom of queue)</button>
-            <span class="muted">Changing the active holder triggers a plan regeneration.</span>
+            <button class="btn" onclick="shRegeneratePlan()" title="Rebuild the plan from the holder list, preserving per-sample progress">⟳ Regenerate plan</button>
+            <span class="muted">Saving a holder or changing the queue order regenerates the plan automatically.</span>
         </div>
     </div>
 
-    <div class="panel" id="holder-editor-panel" style="display:none;">
-        <div class="panel-header">
-            <span id="holder-editor-title">Edit holder</span>
+    <div class="panel editor-panel" id="holder-editor-panel" style="display:none;">
+        <div class="panel-header editor-panel-header" id="holder-editor-header">
+            <span class="editor-mode-badge" id="holder-editor-badge">＋ New holder</span>
             <span class="panel-sub" id="holder-editor-sub">—</span>
         </div>
 
@@ -105,6 +107,13 @@
                 <h2>Samples in this holder</h2>
                 <button type="button" class="btn btn-add" onclick="addSample()">+ Add Sample</button>
             </div>
+            <div class="bulk-budget-bar">
+                <span class="bulk-budget-label">Set all samples to:</span>
+                <label>count(s) <input type="number" id="sh-bulk-ct" min="0.1" step="0.1" placeholder="e.g. 0.5"></label>
+                <label>reps <input type="number" id="sh-bulk-reps" min="1" step="1" placeholder="e.g. 6"></label>
+                <label class="inline-check"><input type="checkbox" id="sh-bulk-overwrite" checked> overwrite existing values</label>
+                <button type="button" class="btn btn-add" onclick="shFillAllBudgets()">Fill all</button>
+            </div>
             <div id="samples-container"></div>
         </div>
 
@@ -117,7 +126,7 @@
 </div>
 
 <script src="/static/dashboard/static/dashboard.js?v=5"></script>
-<script src="/static/config/form.js?v=5"></script>
-<script src="/static/sample_holders/sample_holders.js?v=4"></script>
+<script src="/static/config/form.js?v=7"></script>
+<script src="/static/sample_holders/sample_holders.js?v=5"></script>
 </body>
 </html>

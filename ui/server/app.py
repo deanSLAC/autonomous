@@ -213,10 +213,6 @@ def create_app() -> FastAPI:
     async def phase_page():
         return _page(STATIC_DIR / "dashboard" / "phase.html")
 
-    @app.get(f"{BASE_PATH}/sample_planning")
-    async def sample_planning_page():
-        return _page(STATIC_DIR / "sample_planning" / "index.html")
-
     @app.get(f"{BASE_PATH}/sample_holders")
     async def sample_holders_page():
         return _page(STATIC_DIR / "sample_holders" / "index.html")

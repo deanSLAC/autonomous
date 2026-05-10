@@ -11,9 +11,8 @@ HTML page route or a new router.
 | `/`              | `dashboard/index.html` (alias)        | Default landing                                                                                   |
 | `/dashboard`     | `dashboard/index.html`                | Topbar "Dashboard" link from every other page                                                     |
 | `/phase`         | `dashboard/phase.html`                | Click any phase tile on the dashboard (`openPhaseDetail()` in `autonomy.js`)                      |
-| `/config`        | `config/index.html`                   | Topbar `⚙` from dashboard / sample_planning / sample_holders                                      |
-| `/sample_planning` | `sample_planning/index.html`        | Dashboard plan-footer link, sample_holders topbar link                                            |
-| `/sample_holders` | `sample_holders/index.html`          | Dashboard plan-footer link, sample_planning topbar link, viewer topbar link                       |
+| `/config`        | `config/index.html`                   | Topbar `⚙` from dashboard / sample_holders                                                        |
+| `/sample_holders` | `sample_holders/index.html`          | Dashboard plan-footer link, viewer topbar link                                                    |
 | `/viewer`        | `viewer/index.html`                   | Dashboard topbar "Data View" link, per-row "view" action in `sample_holders.js`                   |
 | `/tools`         | `tools/index.html`                    | Dashboard topbar "Tools" (opens in new tab)                                                       |
 
@@ -31,9 +30,8 @@ flowchart LR
     Root(["/"]):::page
     Dashboard["/dashboard<br/>(landing)"]:::page
     Phase["/phase?phase=...<br/>per-phase detail"]:::page
-    Config["/config<br/>experiment config"]:::page
-    Planning["/sample_planning<br/>plan & time budgets"]:::page
-    Holders["/sample_holders<br/>holder + sample config"]:::page
+    Config["/config<br/>experiment config<br/>+ planner thresholds"]:::page
+    Holders["/sample_holders<br/>holder + sample config<br/>+ per-sample plan view"]:::page
     Viewer["/viewer<br/>scan browser / overlay"]:::page
     Tools["/tools<br/>tool catalog"]:::page
 
@@ -42,7 +40,6 @@ flowchart LR
     Dashboard -->|topbar Tools| Tools
     Dashboard -->|topbar Data View| Viewer
     Dashboard -->|topbar ⚙| Config
-    Dashboard -->|plan footer| Planning
     Dashboard -->|plan footer| Holders
     Dashboard -->|tile click| Phase
 
@@ -50,12 +47,7 @@ flowchart LR
 
     Config --> Dashboard
 
-    Planning --> Dashboard
-    Planning --> Holders
-    Planning --> Config
-
     Holders --> Dashboard
-    Holders --> Planning
     Holders --> Config
     Holders -->|per-row view| Viewer
 
@@ -73,25 +65,19 @@ flowchart LR
 Every router is included in `ui/server/app.py:create_app`. Pages drive these
 endpoints over `fetch()`; nothing else should be calling them directly.
 
-> **Shared-script note:** `sample_planning` includes `autonomy.js` and
-> `dashboard.js`, so it polls the same orchestrator / dashboard / phase /
-> safety-switch / tool-plot APIs that the dashboard does. The "Primary
-> consumer" column below lists only pages whose *own* JS explicitly calls the
-> endpoint; add `sample_planning` for any row that mentions `dashboard`.
-
 | Prefix                  | File                              | Primary consumer page(s)                       |
 | ----------------------- | --------------------------------- | ---------------------------------------------- |
 | `/api/agents`           | `agents_api.py`                   | dashboard (agent panel)                         |
 | `/api`                  | `config_api.py`                   | config, sample_holders (defaults + submit)      |
-| `/api/dashboard`        | `dashboard_api.py`                | dashboard, phase, sample_planning               |
-| `/api/orchestrator`     | `orchestrator_api.py`             | dashboard, sample_planning (status, guidance, intervention) |
-| `/api/phase`            | `phase_runner_api.py`             | dashboard, sample_planning, phase               |
-| `/api/plan`             | `plan_api.py`                     | dashboard, sample_planning                      |
-| `/api/safety_switches`  | `safety_switches_api.py`          | dashboard, sample_planning (autonomy bar)       |
+| `/api/dashboard`        | `dashboard_api.py`                | dashboard, phase                                |
+| `/api/orchestrator`     | `orchestrator_api.py`             | dashboard (status, guidance, intervention)      |
+| `/api/phase`            | `phase_runner_api.py`             | dashboard, phase                                |
+| `/api/plan`             | `plan_api.py`                     | dashboard, config (thresholds), sample_holders (plan pills + regenerate) |
+| `/api/safety_switches`  | `safety_switches_api.py`          | dashboard (autonomy bar)                        |
 | `/api/sample_holders`   | `sample_holders_api.py`           | sample_holders, dashboard (holder updates via autonomy.js) |
 | `/api/slack`            | `slack_status_api.py`             | Slack bridge / manual posts                     |
 | `/api/spec_log`         | `spec_log_api.py`                 | dashboard (SPEC log tail)                       |
-| `/api/tool_plots`       | `tool_plots_api.py`               | dashboard, sample_planning (agent plot panel)   |
+| `/api/tool_plots`       | `tool_plots_api.py`               | dashboard (agent plot panel)                    |
 | `/api/viewer`           | `viewer_api.py`                   | viewer                                          |
 
 Top-level endpoints registered directly in `app.py` (not in a router):
@@ -115,8 +101,9 @@ There is also a `shared/` directory and `favicon.ico`.
 
 | Script                           | Included on                                   |
 | -------------------------------- | --------------------------------------------- |
-| `dashboard/static/dashboard.js`  | dashboard, phase, sample_planning, sample_holders, viewer |
-| `dashboard/autonomy.js`          | dashboard, sample_planning                    |
+| `dashboard/static/dashboard.js`  | dashboard, phase, sample_holders, viewer      |
+| `dashboard/autonomy.js`          | dashboard                                     |
+| `config/form.js`                 | config, sample_holders (sample card + gather) |
 | `shared/chat_widget.js`          | phase                                         |
 
 ## Action items / known gaps

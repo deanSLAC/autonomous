@@ -447,18 +447,17 @@ function addSample(data) {
 
     const sName = data ? data.name : '';
     const sElem = data ? data.element : '';
-    // Filter is an optional starting suggestion. Sample alignment + survey
-    // refine it; everything else (positions, reps, count time, gains,
-    // emiss override) is determined by the alignment / survey phases, not
-    // configured here.
     const xasFilter = (data && data.xas_filter != null) ? data.xas_filter : '';
     const minScans = (data && data.min_scans != null) ? data.min_scans : '';
+    const xasTime = (data && data.xas_time != null) ? data.xas_time : '';
+    const xasReps = (data && data.xas_reps != null) ? data.xas_reps : '';
 
     const elemOptions = buildElementOptions(sElem);
 
     card.innerHTML = `
         <div class="card-header">
             <span class="card-title">Sample ${idx}</span>
+            <span class="sample-plan-pills" id="samp_${idx}_plan_pills"></span>
             <button type="button" class="btn btn-remove" onclick="removeSample(${idx})">Remove</button>
         </div>
 
@@ -480,6 +479,17 @@ function addSample(data) {
             <div class="form-group narrow">
                 <label>Min scans</label>
                 <input type="number" id="samp_${idx}_min_scans" value="${minScans}" min="1" placeholder="optional">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group narrow">
+                <label>Count (s)</label>
+                <input type="number" id="samp_${idx}_xas_time" value="${xasTime}" min="0.1" step="0.1" placeholder="e.g. 0.5">
+            </div>
+            <div class="form-group narrow">
+                <label>Reps</label>
+                <input type="number" id="samp_${idx}_xas_reps" value="${xasReps}" min="1" step="1" placeholder="e.g. 10">
             </div>
         </div>
     `;
@@ -634,11 +644,12 @@ function gatherSampleHolderData() {
         const idx = parseInt(card.dataset.idx);
         const filterRaw = val(`samp_${idx}_xas_filter`);
         const minScansRaw = val(`samp_${idx}_min_scans`);
+        const xasTimeRaw = val(`samp_${idx}_xas_time`);
+        const xasRepsRaw = val(`samp_${idx}_xas_reps`);
 
-        // Form only collects name/element/filter/min_scans. Everything
-        // else (positions, reps, count time, emiss override, gains) is
-        // determined by alignment + survey phases; we send harmless
-        // defaults here so the server validator passes.
+        // count_time / reps default to 0.5 / 10 when blank; alignment +
+        // survey may revise later. Other fields (positions, emiss override,
+        // gains) are still set by those phases, not configured here.
         data.samples.push({
             name: val(`samp_${idx}_name`),
             element: val(`samp_${idx}_element`),
@@ -647,8 +658,8 @@ function gatherSampleHolderData() {
             sy_lo: 0, sy_hi: 0, sy_del: 0,
             sz_lo: 0, sz_hi: 0, sz_del: 0,
             do_xas: true,
-            xas_reps: 10,
-            xas_time: 0.5,
+            xas_reps: xasRepsRaw === '' ? 10 : (parseInt(xasRepsRaw, 10) || 10),
+            xas_time: xasTimeRaw === '' ? 0.5 : (parseFloat(xasTimeRaw) || 0.5),
             xas_filter: filterRaw === '' ? 0 : parseInt(filterRaw, 10) || 0,
             xas_emiss_override: null,
             i0_gain: '',
@@ -700,6 +711,8 @@ function submitExperiment() {
 
         if (result.success) {
             document.getElementById('experiment_id').value = result.experiment_id;
+
+            savePlannerThresholds(result.experiment_id);
 
             showSuccess(
                 `Experiment "${result.summary.experiment}" saved.`,
@@ -928,6 +941,34 @@ function loadExperiment(experimentId) {
     });
 }
 
+function loadPlannerThresholds(experimentId) {
+    fetch(`/api/plan/${encodeURIComponent(experimentId)}`)
+        .then(r => r.json())
+        .then(j => {
+            const t = (j && j.plan && j.plan.thresholds) || {};
+            const snrEl = document.getElementById('snr_target');
+            const repsEl = document.getElementById('min_reps_per_sample');
+            if (snrEl && t.snr_target != null) snrEl.value = t.snr_target;
+            if (repsEl && t.min_reps_per_sample != null) repsEl.value = t.min_reps_per_sample;
+        })
+        .catch(() => { /* no plan yet — leave inputs blank */ });
+}
+
+function savePlannerThresholds(experimentId) {
+    if (!experimentId) return;
+    const snr = parseFloat(document.getElementById('snr_target').value);
+    const reps = parseInt(document.getElementById('min_reps_per_sample').value, 10);
+    const body = { experiment_id: experimentId, author: 'web-user' };
+    if (!isNaN(snr)) body.snr_target = snr;
+    if (!isNaN(reps)) body.min_reps_per_sample = reps;
+    if (body.snr_target == null && body.min_reps_per_sample == null) return;
+    fetch('/api/plan/update_thresholds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    }).catch(() => { /* non-fatal — experiment is already saved */ });
+}
+
 function populateForm(data) {
     const exp = data.experiment;
 
@@ -969,6 +1010,11 @@ function populateForm(data) {
     // Advanced
     document.getElementById('llm_enabled').checked = exp.llm_enabled !== false;
     document.getElementById('llm_decide_enabled').checked = exp.llm_decide_enabled !== false;
+
+    // Planner thresholds (snr_target / min_reps_per_sample) live on the
+    // plan, not on the experiment record. Fetch separately and populate
+    // the inputs; blanks are fine if no plan exists yet.
+    if (exp.id) loadPlannerThresholds(exp.id);
 
     // Clear and re-add elements
     document.getElementById('elements-container').innerHTML = '';

@@ -82,3 +82,128 @@
     color: var(--text-dim, #888);
     margin-top: 3px;
 }
+
+/* Header rows that carry a primary action on the right */
+.panel-header-with-action {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+.panel-header-with-action .btn-primary {
+    background: var(--accent, #1b7a1b);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 7px 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+.panel-header-with-action .btn-primary:hover { filter: brightness(1.08); }
+
+/* Editor mode badge (new vs edit) */
+.editor-panel { border-left: 4px solid var(--border, #e0dbd2); }
+.editor-panel.editor-mode-new { border-left-color: #2f9c4a; }
+.editor-panel.editor-mode-edit { border-left-color: #2563eb; }
+
+.editor-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.editor-mode-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.9em;
+    background: rgba(0,0,0,0.04);
+    color: var(--text, #1a1a1a);
+}
+.editor-mode-new .editor-mode-badge {
+    background: rgba(47, 156, 74, 0.12);
+    color: #1d6a32;
+}
+.editor-mode-edit .editor-mode-badge {
+    background: rgba(37, 99, 235, 0.12);
+    color: #1d4ed8;
+}
+[data-theme="dark"] .editor-mode-new .editor-mode-badge {
+    background: rgba(61, 214, 140, 0.18);
+    color: #84e0aa;
+}
+[data-theme="dark"] .editor-mode-edit .editor-mode-badge {
+    background: rgba(92, 146, 255, 0.18);
+    color: #b8cfff;
+}
+
+/* Bulk per-sample fill bar inside the editor */
+.bulk-budget-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    align-items: center;
+    padding: 8px 12px;
+    margin: 6px 0 12px;
+    background: rgba(0,0,0,0.025);
+    border: 1px dashed var(--border, #e0dbd2);
+    border-radius: 6px;
+    font-size: 0.88em;
+}
+[data-theme="dark"] .bulk-budget-bar { background: rgba(255,255,255,0.03); }
+.bulk-budget-bar label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-dim, #6b6b6b);
+}
+.bulk-budget-bar input[type="number"] {
+    width: 78px;
+    padding: 4px 6px;
+    border: 1px solid var(--border, #e0dbd2);
+    border-radius: 4px;
+    background: var(--bg-card, #fff);
+    color: var(--text, #1a1a1a);
+}
+.bulk-budget-bar .bulk-budget-label {
+    font-weight: 600;
+    color: var(--text, #1a1a1a);
+}
+.inline-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.88em;
+    color: var(--text-dim, #6b6b6b);
+}
+
+/* Plan pills shown next to each sample card title */
+.sample-plan-pills {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    justify-content: flex-end;
+    margin-right: 10px;
+}
+.sample-plan-pills:empty { display: none; }
+.plan-status-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.78em;
+    background: #eee;
+    color: #333;
+    text-transform: lowercase;
+}
+.plan-status-pill.queued { background: #eef; color: #445; }
+.plan-status-pill.collecting { background: #dfe; color: #1b7a1b; }
+.plan-status-pill.done { background: #dfd; color: #1b7a1b; }
+.plan-status-pill.skipped { background: #eee; color: #666; }
+.plan-mini-stat {
+    font-size: 0.78em;
+    color: var(--text-dim, #6b6b6b);
+}

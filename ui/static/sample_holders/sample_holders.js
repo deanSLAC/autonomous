@@ -7,6 +7,10 @@
 let _shCurrentHolderId = null;
 let _shHolders = [];
 let _shElements = [];
+// Per-sample-name plan info (status / SNR / verdict) cached from /api/plan.
+// Keyed by sample_name because SamplePosition IDs are not exposed on the plan
+// queue entries; sample names are unique within a holder.
+let _shPlanByName = {};
 
 function shEsc(s) {
     if (s == null) return "";
@@ -37,6 +41,46 @@ async function shFetchJson(url, opts) {
     } catch (e) { alert(`Request failed: ${e}`); return null; }
 }
 
+async function shLoadPlanForCurrentExp() {
+    const expId = shGetExpId();
+    _shPlanByName = {};
+    if (!expId) return;
+    try {
+        const r = await fetch(`/api/plan/${encodeURIComponent(expId)}`);
+        const j = await r.json();
+        const queue = (j && j.plan && j.plan.sample_queue) || [];
+        queue.forEach(s => {
+            if (s && s.sample_name) {
+                _shPlanByName[s.sample_name] = {
+                    status: s.status || "queued",
+                    snr_estimate: s.snr_estimate,
+                    efficiency_verdict: s.efficiency_verdict || null,
+                };
+            }
+        });
+    } catch (e) {
+        // Plan may not exist yet — that's fine; pills just stay empty.
+    }
+}
+
+function shRenderPlanPillsForCards() {
+    document.querySelectorAll("#samples-container .sample-card").forEach(card => {
+        const idx = card.dataset.idx;
+        const nameInput = document.getElementById(`samp_${idx}_name`);
+        const target = document.getElementById(`samp_${idx}_plan_pills`);
+        if (!target) return;
+        const name = (nameInput && nameInput.value.trim()) || "";
+        const info = _shPlanByName[name];
+        if (!info) { target.innerHTML = ""; return; }
+        const snr = info.snr_estimate != null ? Number(info.snr_estimate).toFixed(1) : "–";
+        const verdict = info.efficiency_verdict || "–";
+        target.innerHTML =
+            `<span class="plan-status-pill ${shEsc(info.status)}">${shEsc(info.status)}</span>` +
+            `<span class="plan-mini-stat">SNR ${shEsc(snr)}</span>` +
+            `<span class="plan-mini-stat">${shEsc(verdict)}</span>`;
+    });
+}
+
 async function shLoadHolders() {
     const expId = shGetExpId();
     if (!expId) {
@@ -55,7 +99,7 @@ function shRenderHolderList() {
     const summary = document.getElementById("holder-summary");
     if (!tbody) return;
     if (!_shHolders.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888">No sample holders yet — create one below.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888">No sample holders yet — use “+ New holder” to add one.</td></tr>';
         summary.textContent = "0 holders";
         return;
     }
@@ -139,15 +183,34 @@ function shClearSamplesContainer() {
     // keep climbing, but the generated IDs stay unique.
 }
 
+function shSetEditorMode(mode, name) {
+    const panel = document.getElementById("holder-editor-panel");
+    const badge = document.getElementById("holder-editor-badge");
+    const sub = document.getElementById("holder-editor-sub");
+    if (!panel || !badge) return;
+    if (mode === "new") {
+        panel.classList.add("editor-mode-new");
+        panel.classList.remove("editor-mode-edit");
+        badge.textContent = "＋ New holder";
+        if (sub) sub.textContent = "Appended to end of queue";
+    } else {
+        panel.classList.add("editor-mode-edit");
+        panel.classList.remove("editor-mode-new");
+        badge.textContent = `✎ Editing: ${name || "—"}`;
+        if (sub) sub.textContent = "";
+    }
+}
+
 function shNewHolder() {
     _shCurrentHolderId = null;
-    document.getElementById("holder-editor-title").textContent = "New holder";
-    document.getElementById("holder-editor-sub").textContent = "Appended to end of queue";
+    shSetEditorMode("new");
     document.getElementById("sh-holder-name").value = "";
     document.getElementById("sh-holder-type").value = "flat";
     document.getElementById("sh-holder-status").value = "configured";
     document.getElementById("sh-holder-notes").value = "";
     document.getElementById("sh-beamtime-hours").value = "";
+    document.getElementById("sh-bulk-ct").value = "";
+    document.getElementById("sh-bulk-reps").value = "";
     shClearSamplesContainer();
     if (typeof addSample === "function") addSample();
     document.getElementById("sh-delete-btn").style.display = "none";
@@ -157,22 +220,62 @@ function shNewHolder() {
 
 async function shEditHolder(holderId) {
     _shCurrentHolderId = holderId;
+    await shLoadPlanForCurrentExp();
     const j = await shFetchJson(`/api/sample_holders/${encodeURIComponent(holderId)}`);
     if (!j) return;
-    document.getElementById("holder-editor-title").textContent = "Edit holder";
-    document.getElementById("holder-editor-sub").textContent = `ID ${holderId}`;
+    shSetEditorMode("edit", j.name);
     document.getElementById("sh-holder-name").value = j.name || "";
     document.getElementById("sh-holder-type").value = j.holder_type || "flat";
     document.getElementById("sh-holder-status").value = j.status || "configured";
     document.getElementById("sh-holder-notes").value = j.notes || "";
     document.getElementById("sh-beamtime-hours").value = (j.beamtime_hours != null) ? j.beamtime_hours : "";
+    document.getElementById("sh-bulk-ct").value = "";
+    document.getElementById("sh-bulk-reps").value = "";
     shClearSamplesContainer();
     (j.samples || []).forEach(s => {
         if (typeof addSample === "function") addSample(s);
     });
+    shRenderPlanPillsForCards();
     document.getElementById("sh-delete-btn").style.display = "";
     document.getElementById("holder-editor-panel").style.display = "";
     window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+}
+
+function shFillAllBudgets() {
+    const ctRaw = document.getElementById("sh-bulk-ct").value;
+    const repsRaw = document.getElementById("sh-bulk-reps").value;
+    const ct = ctRaw === "" ? null : parseFloat(ctRaw);
+    const reps = repsRaw === "" ? null : parseInt(repsRaw, 10);
+    if (ct == null && reps == null) {
+        alert("Enter a count time or reps to fill into all samples."); return;
+    }
+    const overwrite = document.getElementById("sh-bulk-overwrite").checked;
+    document.querySelectorAll("#samples-container .sample-card").forEach(card => {
+        const idx = card.dataset.idx;
+        const ctEl = document.getElementById(`samp_${idx}_xas_time`);
+        const repsEl = document.getElementById(`samp_${idx}_xas_reps`);
+        if (ct != null && ctEl && (overwrite || ctEl.value === "")) ctEl.value = ct;
+        if (reps != null && repsEl && (overwrite || repsEl.value === "")) repsEl.value = reps;
+    });
+}
+
+async function shRegeneratePlan() {
+    const expId = shGetExpId();
+    if (!expId) { alert("Select an experiment first."); return; }
+    if (!confirm("Rebuild the plan from the holder list? Per-sample progress is preserved.")) return;
+    const reason = prompt("Why regenerate? (optional)", "") || undefined;
+    const author = localStorage.getItem("plan-author") || "web-user";
+    const body = { experiment_id: expId, author };
+    if (reason) body.reason = reason;
+    const j = await shFetchJson("/api/plan/regenerate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+    if (j) {
+        shMessage(`<div class="success-box"><h3>Regenerated</h3><p>Plan rebuilt.</p></div>`);
+        shLoadHolders();
+    }
 }
 
 function shCloseEditor() {
@@ -234,6 +337,7 @@ async function shDeleteHolder() {
 
 function shOnExperimentChange() {
     shLoadElements().then(() => shLoadHolders());
+    // Plan data is only needed when an editor opens; we refresh it then.
 }
 
 document.addEventListener("DOMContentLoaded", () => {

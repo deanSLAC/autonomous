@@ -458,12 +458,11 @@ function renderAutonomy(orc, dash) {
     };
     setText("orc-total", snap.beamtime_total_hours != null ? snap.beamtime_total_hours.toFixed(1) : "–");
     setText("orc-elapsed", snap.beamtime_elapsed_hours != null ? snap.beamtime_elapsed_hours.toFixed(2) : "–");
-    // Samples done/total — exp-info bar on /dashboard, autonomy-bar pill on /sample_planning.
+    // Samples done/total — exp-info bar on /dashboard.
     const sDoneVal = snap.samples_completed != null ? snap.samples_completed : "–";
     const sTotVal = snap.samples_total != null ? snap.samples_total : "–";
     ["exp-samples-done", "orc-samples-done"].forEach(id => setText(id, sDoneVal));
     ["exp-samples-total", "orc-samples-total"].forEach(id => setText(id, sTotVal));
-    // /sample_planning still shows a Turn pill; populate it if present.
     if (orc && orc.turn_count != null) setText("orc-turn", orc.turn_count);
 
     if (orc && orc.phase) {
