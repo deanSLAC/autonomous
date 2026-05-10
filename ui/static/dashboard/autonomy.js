@@ -568,27 +568,6 @@ function renderAutonomy(orc, dash) {
         }
     }
 
-    // Plan edit history
-    const edits = dash.plan_edits || [];
-    const editsEl = document.getElementById("plan-edits");
-    if (editsEl) {
-        if (edits.length) {
-            editsEl.innerHTML = edits.map(e => {
-                const ts = (e.timestamp || "").replace("T", " ").slice(0, 19);
-                const target = e.target_id ? ` <span class="muted">${escapeHtml(e.target_id)}</span>` : "";
-                const reason = e.reason ? ` — ${escapeHtml(e.reason)}` : "";
-                const extra = summarizePayload(e.action, e.payload);
-                return `<div class="edit">
-                    <span class="when">${escapeHtml(ts)}</span>
-                    <span class="who">${escapeHtml(e.author || "?")}</span>
-                    <span class="act ${escapeHtml(e.action)}">${escapeHtml(e.action)}</span>${target}${extra ? ` ${extra}` : ""}${reason}
-                </div>`;
-            }).join("");
-        } else {
-            editsEl.innerHTML = '<div class="muted">No edits yet.</div>';
-        }
-    }
-
     window.__planQueue = queue;
     window.__planExpId = expId;
 
@@ -880,27 +859,6 @@ function applyGatingToTiles() {
 
 function currentAuthor() {
     return localStorage.getItem("plan-author") || "web-user";
-}
-
-function summarizePayload(action, payload) {
-    if (!payload) return "";
-    if (action === "set_end_time" && payload.end_time) {
-        return `<span class="muted">end → ${escapeHtml(payload.end_time)}</span>`;
-    }
-    if (action === "add_sample" && payload.sample) {
-        return `<span class="muted">${escapeHtml(payload.sample.sample_name || "")} (${escapeHtml(payload.sample.element_symbol || "")})</span>`;
-    }
-    if (action === "update_params") {
-        const keys = ["status", "snr_target", "note"].filter(k => payload[k] != null);
-        return `<span class="muted">${escapeHtml(keys.join(", "))}</span>`;
-    }
-    if (action === "reorder") {
-        return `<span class="muted">${(payload.order || []).length} samples</span>`;
-    }
-    if (action === "skip" && payload.note) {
-        return `<span class="muted">${escapeHtml(payload.note)}</span>`;
-    }
-    return "";
 }
 
 async function setHolderHoursRemaining() {

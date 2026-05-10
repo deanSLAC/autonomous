@@ -16,7 +16,6 @@ from orchestration.plan_store.client import (
     list_open_interventions,
     list_guidance,
     list_phase_transitions,
-    list_plan_edits,
 )
 from orchestration.plan_store.session import get_session, get_experiment, get_phase_runs_for_experiment
 from orchestration.plan_store.models import (
@@ -175,7 +174,6 @@ def status(experiment_id: str = Query(...)):
         "phase_transitions": list_phase_transitions(experiment_id),
         "interventions": list_open_interventions(experiment_id),
         "guidance": list_guidance(experiment_id, limit=20),
-        "plan_edits": list_plan_edits(experiment_id, limit=30),
     }
 
 
