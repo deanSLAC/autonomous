@@ -11,8 +11,16 @@
  *         page: "spectrometer_alignment",   // page slug
  *         page_context: { ...arbitrary JSON... },
  *       }),
+ *       sessionStorageKey: "chat:phase:abc:run-123",  // optional; enables
+ *         // per-thread session continuity by persisting ui_session_id in
+ *         // localStorage under this key. Omit for one-shot sessions (each
+ *         // message is its own session — the original widget behavior).
  *     });
  *   </script>
+ *
+ * Note: the message log is not replayed on page reload — when continuity
+ * is enabled, the agent has memory via `claude --resume`, but the UI starts
+ * empty. Add server-side replay if/when that's needed.
  *
  * Styling re-uses the .panel / .chat-log / .chat-compose / .chat-msg /
  * .typing-indicator classes already defined in dashboard.css +
@@ -58,12 +66,31 @@
         }
     }
 
+    function readStoredSessionId(key) {
+        if (!key) return null;
+        try { return localStorage.getItem(key) || null; } catch (_) { return null; }
+    }
+
+    function writeStoredSessionId(key, value) {
+        if (!key || !value) return;
+        try { localStorage.setItem(key, value); } catch (_) { /* ignore */ }
+    }
+
     function mountChatWidget(container, opts) {
         opts = opts || {};
         const header = opts.header || "Chat with the agent";
         const placeholder = opts.placeholder || "Ask the agent anything…  (Enter sends, Shift+Enter newline)";
         const emptyText = opts.emptyText || "No messages yet.";
         const endpoint = opts.endpoint || "/api/chat";
+        // sessionStorageKey may be a string OR a function returning a string,
+        // so callers can resolve it lazily once page state is loaded.
+        const sessionStorageKey = opts.sessionStorageKey || null;
+        function resolveSessionKey() {
+            if (typeof sessionStorageKey === "function") {
+                try { return sessionStorageKey() || null; } catch (_) { return null; }
+            }
+            return sessionStorageKey;
+        }
 
         container.classList.add("panel");
         container.innerHTML = `
@@ -101,12 +128,18 @@
                 if (ctx.experiment_id) body.experiment_id = ctx.experiment_id;
                 if (ctx.page) body.page = ctx.page;
                 if (ctx.page_context) body.page_context = ctx.page_context;
+                const sidKey = resolveSessionKey();
+                const storedSid = readStoredSessionId(sidKey);
+                if (storedSid) body.ui_session_id = storedSid;
                 const r = await fetch(endpoint, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(body),
                 });
                 const j = await r.json().catch(() => ({}));
+                if (j && j.ui_session_id) {
+                    writeStoredSessionId(sidKey, j.ui_session_id);
+                }
                 setTyping(log, status, false);
                 if (!r.ok) {
                     appendMessage(log, "assistant", "Error: " + (j.error || j.detail || `HTTP ${r.status}`));

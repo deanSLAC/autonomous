@@ -263,6 +263,13 @@ def create_app() -> FastAPI:
                 {"error": "Chat router not initialized"}, status_code=503,
             )
 
+        # Phase-page chats include `page` (slug) and `page_context` (live
+        # page state JSON). Dashboard chat omits these — the handler treats
+        # missing page_context as "skip the page-context block in the seed",
+        # so dashboard behavior is unchanged.
+        page = payload.get("page")
+        page_context = payload.get("page_context")
+
         # Run on a worker thread — handle_inbound does sync DB + spawn().
         result = await asyncio.to_thread(
             router.handle_inbound,
@@ -272,6 +279,8 @@ def create_app() -> FastAPI:
             thread_ts=None,
             source="ui",
             ui_session_id=ui_session_id,
+            page=page,
+            page_context=page_context,
         )
         return {
             "queued": True,

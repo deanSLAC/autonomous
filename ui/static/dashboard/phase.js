@@ -346,6 +346,15 @@
                 page: pageState.slug || "phase",
                 page_context: buildPageContext(),
             }),
+            // Continuity per (experiment, phase slug). Resolved lazily because
+            // experimentId is filled in after phase data loads. No replay on
+            // reload — the agent has memory via claude --resume, but the UI
+            // log starts empty.
+            sessionStorageKey: () => {
+                const exp = pageState.experimentId || "noexp";
+                const slug = pageState.slug || "phase";
+                return `chat:phase:${exp}:${slug}`;
+            },
         });
     }
 
