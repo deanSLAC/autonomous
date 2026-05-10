@@ -105,7 +105,7 @@ autonomous/
 | `/history` | Scrollable action_log viewer |
 | `/api/chat` | POST — free-form chat with the agent |
 | `/api/submit_experiment` · `/api/submit_sample_holder` · `/api/load_experiment/{id}` · `/api/lookup_energy` · `/api/defaults` | Form backends |
-| `/api/dashboard/experiments` · `/api/dashboard/status?experiment_id=…` · `/api/dashboard/phase/{run_id}` · `/api/dashboard/action_log` · `/api/dashboard/image?path=…` | Dashboard API |
+| `/api/dashboard/experiments` · `/api/dashboard/status?experiment_id=…` · `/api/dashboard/phase/{run_id}` · `/api/dashboard/image?path=…` | Dashboard API |
 | `/api/orchestrator/start` · `/pause` · `/resume` · `/stop` · `/status` · `/guidance` · `/intervention/{id}/resolve` · `/phase` | Orchestrator control |
 | `/api/plan/{id}` (GET) · `/api/plan/add_sample` · `/remove_sample` · `/skip_sample` · `/reorder` · `/update_sample` · `/extend_budget` · `/update_thresholds` · `/api/plan/{id}/edits` | Plan steering — every edit is attributed + logged to PlanEdit |
 | `/ws` | WebSocket: phase events, action updates, interventions, staff messages |

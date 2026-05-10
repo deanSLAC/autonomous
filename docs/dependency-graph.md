@@ -16,7 +16,6 @@ HTML page route or a new router.
 | `/sample_holders` | `sample_holders/index.html`          | Dashboard plan-footer link, sample_planning topbar link, viewer topbar link                       |
 | `/viewer`        | `viewer/index.html`                   | Dashboard topbar "Data View" link, per-row "view" action in `sample_holders.js`                   |
 | `/tools`         | `tools/index.html`                    | Dashboard topbar "Tools" (opens in new tab)                                                       |
-| `/insight`       | `insight/index.html`                  | Dashboard topbar "Insight", config nav, sample_planning topbar                                    |
 
 > **Note on aliases:** `/` and `/dashboard` both serve `dashboard/index.html`.
 > If `BASE_PATH` is set (deployment behind a prefix), every route above is
@@ -37,12 +36,10 @@ flowchart LR
     Holders["/sample_holders<br/>holder + sample config"]:::page
     Viewer["/viewer<br/>scan browser / overlay"]:::page
     Tools["/tools<br/>tool catalog"]:::page
-    Insight["/insight<br/>agent insight"]:::page
 
     Root -.alias.-> Dashboard
 
     Dashboard -->|topbar Tools| Tools
-    Dashboard -->|topbar Insight| Insight
     Dashboard -->|topbar Data View| Viewer
     Dashboard -->|topbar ⚙| Config
     Dashboard -->|plan footer| Planning
@@ -52,11 +49,9 @@ flowchart LR
     Phase --> Dashboard
 
     Config --> Dashboard
-    Config --> Insight
 
     Planning --> Dashboard
     Planning --> Holders
-    Planning --> Insight
     Planning --> Config
 
     Holders --> Dashboard
@@ -69,9 +64,6 @@ flowchart LR
 
     Tools --> Dashboard
 
-    Insight --> Dashboard
-    Insight -->|"Chat"| Root
-
     Slack[("Slack workspace")]:::ext
     Slack -->|setdir / steering / chat / intervention resolve| Dashboard
 ```
@@ -83,10 +75,9 @@ endpoints over `fetch()`; nothing else should be calling them directly.
 
 | Prefix                  | File                              | Primary consumer page(s)                       |
 | ----------------------- | --------------------------------- | ---------------------------------------------- |
-| `/api/agents`           | `agents_api.py`                   | dashboard (agent panel), insight                |
+| `/api/agents`           | `agents_api.py`                   | dashboard (agent panel)                         |
 | `/api`                  | `config_api.py`                   | config, sample_holders (defaults + submit)      |
 | `/api/dashboard`        | `dashboard_api.py`                | dashboard, phase                                |
-| `/api/insight`          | `insight_api.py`                  | insight                                         |
 | `/api/orchestrator`     | `orchestrator_api.py`             | dashboard (status, guidance, intervention)      |
 | `/api/phase`            | `phase_runner_api.py`             | dashboard tiles, phase detail                   |
 | `/api/plan`             | `plan_api.py`                     | dashboard plan table, sample_planning           |
@@ -118,6 +109,6 @@ There is also a `shared/` directory (`chat_widget.js`) and `favicon.ico`.
 
 - **`/tools` opens in a new tab** while every other topbar link replaces the
   current page. Intentional, but worth keeping in mind when matching styles.
-- The dashboard topbar now exposes Tools / Insight / **Data View** / `⚙`.
+- The dashboard topbar now exposes Tools / **Data View** / `⚙`.
   Keep these in sync with the topbar on every other page so a user never
   loses access to a major area by navigating away from the dashboard.

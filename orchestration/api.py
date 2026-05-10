@@ -24,7 +24,7 @@ from contextlib import asynccontextmanager
 from typing import Any, Callable, Optional
 
 from beamline_tools.spec_control import spec_cmd
-from orchestration.agent.conversation import ConversationService, set_turn_sink
+from orchestration.agent.conversation import ConversationService
 from orchestration.agent.claude_code_client import ClaudeCodeClient
 from orchestration.agent.opencode_client import OpenCodeClient
 from orchestration.config import AGENT_BACKEND, OPENCODE_URL, llm_enabled
@@ -44,7 +44,6 @@ _conversation: Optional[ConversationService] = None
 _event_emitter: Callable[[dict], Any] = lambda evt: None
 _slack_status_post: Callable[[str], Any] = lambda text: None
 _slack_post_steering_reply: Callable[[str, str, str], Any] = lambda c, t, s: None
-_insight_record_turn: Optional[Callable[[dict], dict]] = None
 
 
 def _make_agent_client():
@@ -72,11 +71,6 @@ def set_slack_status_post(fn: Callable[[str], Any]) -> None:
 def set_slack_post_steering_reply(fn: Callable[[str, str, str], Any]) -> None:
     global _slack_post_steering_reply
     _slack_post_steering_reply = fn
-
-
-def set_insight_record_turn(fn: Callable[[dict], dict]) -> None:
-    global _insight_record_turn
-    _insight_record_turn = fn
 
 
 # ---------------------------------------------------------------------------
@@ -432,13 +426,7 @@ async def lifespan(app):
     autonomy_tools.set_intervention_notifier(_notify_intervention)
     autonomy_tools.set_phase_approval_requester(_phase_approval_requester)
 
-    # 5. Turn sink (insight panel)
-    if _insight_record_turn is not None:
-        set_turn_sink(lambda payload: _event_emitter({
-            "type": "turn_complete", "turn": _insight_record_turn(payload),
-        }))
-
-    # 6. Orchestrator polling tick — auto-respawn the planner after each
+    # 5. Orchestrator polling tick — auto-respawn the planner after each
     #    new CollectionScan, redispatch deferred steering rows that named
     #    a target_agent_type, and handle STOP rows.
     from orchestration.planner.orchestrator_tick import run_forever as _tick_run

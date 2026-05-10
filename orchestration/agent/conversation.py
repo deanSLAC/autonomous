@@ -9,11 +9,9 @@ server (see scripts/start_opencode.sh, opencode.json).
 from __future__ import annotations
 
 import logging
-import threading
 import time
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Callable, Optional
 
 import mlflow
 
@@ -34,32 +32,6 @@ class ConversationResult:
     tool_calls: list[dict] = field(default_factory=list)
     thoughts: list[str] = field(default_factory=list)
     prompt: str = ""
-
-
-# Optional sink for "turn complete" events — wired by app.py to broadcast
-# a single tool-trace event to the WebSocket-attached Insight UI. Runs
-# in whatever thread the conversation handler runs in; sinks must be
-# thread-safe (the app uses asyncio.run_coroutine_threadsafe).
-TurnSink = Optional[Callable[[dict], None]]
-_sink: TurnSink = None
-_sink_lock = threading.Lock()
-
-
-def set_turn_sink(sink: TurnSink) -> None:
-    global _sink
-    with _sink_lock:
-        _sink = sink
-
-
-def _emit_turn(payload: dict) -> None:
-    with _sink_lock:
-        sink = _sink
-    if sink is None:
-        return
-    try:
-        sink(payload)
-    except Exception as e:
-        logger.warning("turn sink failed: %s", e)
 
 
 def _log_run_success(
@@ -179,11 +151,7 @@ class ConversationService:
             except Exception as e:
                 _log_run_failure(run, e)
                 logger.error("opencode send failed: %s", e, exc_info=True)
-                err = ConversationResult(text=f"Error: {e}", prompt=combined)
-                _emit_turn({"type": "turn_complete", "source": "chat",
-                            "prompt": combined, "text": err.text,
-                            "tool_calls": [], "thoughts": [], "images": []})
-                return err
+                return ConversationResult(text=f"Error: {e}", prompt=combined)
             latency = time.perf_counter() - t0
             _log_run_success(
                 run, client=self.client, source=source, prompt=combined,
@@ -195,18 +163,11 @@ class ConversationService:
         if out.images:
             stored += f"\n\n[{len(out.images)} plot(s) generated]"
         self.messages.append({"role": "assistant", "content": stored})
-        result = ConversationResult(
+        return ConversationResult(
             text=out.text, images=out.images,
             tool_calls=out.tool_calls, thoughts=out.thoughts,
             prompt=combined,
         )
-        _emit_turn({
-            "type": "turn_complete", "source": "chat",
-            "prompt": combined, "text": out.text,
-            "tool_calls": out.tool_calls, "thoughts": out.thoughts,
-            "images": out.images,
-        })
-        return result
 
     def handle_staff_llm(
         self,
@@ -229,11 +190,7 @@ class ConversationService:
             except Exception as e:
                 _log_run_failure(run, e)
                 logger.error("opencode staff-LLM send failed: %s", e, exc_info=True)
-                err = ConversationResult(text=f"Error: {e}", prompt=prompt)
-                _emit_turn({"type": "turn_complete", "source": "staff",
-                            "prompt": prompt, "text": err.text,
-                            "tool_calls": [], "thoughts": [], "images": []})
-                return err
+                return ConversationResult(text=f"Error: {e}", prompt=prompt)
             latency = time.perf_counter() - t0
             _log_run_success(
                 run, client=self.client, source=source, prompt=prompt,
@@ -245,18 +202,11 @@ class ConversationService:
         if out.images:
             stored += f"\n\n[{len(out.images)} plot(s) generated]"
         self.messages.append({"role": "assistant", "content": stored})
-        result = ConversationResult(
+        return ConversationResult(
             text=out.text, images=out.images,
             tool_calls=out.tool_calls, thoughts=out.thoughts,
             prompt=prompt,
         )
-        _emit_turn({
-            "type": "turn_complete", "source": "staff",
-            "prompt": prompt, "text": out.text,
-            "tool_calls": out.tool_calls, "thoughts": out.thoughts,
-            "images": out.images,
-        })
-        return result
 
     def reset(self) -> None:
         self.messages.clear()

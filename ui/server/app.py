@@ -34,7 +34,6 @@ from ui.server.routers import (
     agents_api,
     config_api,
     dashboard_api,
-    insight_api,
     orchestrator_api,
     phase_runner_api,
     plan_api,
@@ -120,7 +119,6 @@ def create_app() -> FastAPI:
         orch_api.set_event_emitter(broadcast)
         orch_api.set_slack_status_post(lambda text: slack_bridge.post_status_update(text))
         orch_api.set_slack_post_steering_reply(slack_bridge.post_steering_reply)
-        orch_api.set_insight_record_turn(insight_api.record_turn)
 
         # Wire Slack bridge → orchestration routing callbacks.
         def _on_setdir(dir_name: str) -> str:
@@ -171,7 +169,6 @@ def create_app() -> FastAPI:
     app.include_router(safety_switches_api.router)
     app.include_router(spec_log_api.router)
     app.include_router(tool_plots_api.router)
-    app.include_router(insight_api.router)
     app.include_router(sample_holders_api.router)
     app.include_router(slack_status_api.router)
     app.include_router(viewer_api.router)
@@ -231,10 +228,6 @@ def create_app() -> FastAPI:
     @app.get(f"{BASE_PATH}/tools")
     async def tools_page():
         return _page(STATIC_DIR / "tools" / "index.html")
-
-    @app.get(f"{BASE_PATH}/insight")
-    async def insight_page():
-        return _page(STATIC_DIR / "insight" / "index.html")
 
     # -- chat endpoint --------------------------------------------------
     #
