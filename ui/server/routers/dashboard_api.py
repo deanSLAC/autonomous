@@ -271,6 +271,12 @@ def image(path: str):
 
 @router.get("/action_log")
 def action_log(limit: int = 100, experiment_id: Optional[str] = None):
+    if not experiment_id:
+        from orchestration.plan_store.session import get_active_experiment
+        exp = get_active_experiment()
+        if exp is None:
+            return {"actions": [], "queries": []}
+        experiment_id = exp.id
     return {
         "actions": recent_actions(limit=limit, experiment_id=experiment_id),
         "queries": recent_queries(limit=limit, experiment_id=experiment_id),

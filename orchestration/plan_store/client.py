@@ -157,16 +157,18 @@ def add_guidance(
     return row
 
 
-def consume_pending_guidance(experiment_id: str | None) -> list[dict]:
+def consume_pending_guidance(experiment_id: str) -> list[dict]:
     """Mark all pending guidance consumed and return it as plain dicts.
 
     Returns dicts (not ORM rows) so the result is usable after the session
     has closed.
     """
     with get_session() as session:
-        stmt = select(StaffGuidance).where(StaffGuidance.consumed == False)  # noqa: E712
-        if experiment_id:
-            stmt = stmt.where(StaffGuidance.experiment_id == experiment_id)
+        stmt = (
+            select(StaffGuidance)
+            .where(StaffGuidance.consumed == False)  # noqa: E712
+            .where(StaffGuidance.experiment_id == experiment_id)
+        )
         stmt = stmt.order_by(StaffGuidance.timestamp)
         rows: list[StaffGuidance] = list(session.exec(stmt))
         now = datetime.now()
@@ -186,7 +188,7 @@ def consume_pending_guidance(experiment_id: str | None) -> list[dict]:
         return snapshot
 
 
-def list_guidance(experiment_id: str | None, limit: int = 50) -> list[dict]:
+def list_guidance(experiment_id: str, limit: int = 50) -> list[dict]:
     """Return deliberate human-directed guidance only.
 
     Plan-edit side effects previously wrote rows here with
@@ -195,9 +197,11 @@ def list_guidance(experiment_id: str | None, limit: int = 50) -> list[dict]:
     at read time — no migration needed.
     """
     with get_session() as session:
-        stmt = select(StaffGuidance).where(StaffGuidance.source != "web-plan")
-        if experiment_id:
-            stmt = stmt.where(StaffGuidance.experiment_id == experiment_id)
+        stmt = (
+            select(StaffGuidance)
+            .where(StaffGuidance.source != "web-plan")
+            .where(StaffGuidance.experiment_id == experiment_id)
+        )
         stmt = stmt.order_by(StaffGuidance.timestamp.desc()).limit(limit)
         return [
             {
@@ -460,21 +464,23 @@ def add_steering(
 
 
 def list_pending_steering(
-    experiment_id: str | None = None,
+    experiment_id: str,
     *,
     limit: int = 50,
 ) -> list[dict]:
     """Return steering rows where `completed_at IS NULL`, most-recent first."""
     with get_session() as session:
-        stmt = select(StaffGuidance).where(StaffGuidance.completed_at.is_(None))  # type: ignore[union-attr]
-        if experiment_id:
-            stmt = stmt.where(StaffGuidance.experiment_id == experiment_id)
+        stmt = (
+            select(StaffGuidance)
+            .where(StaffGuidance.completed_at.is_(None))  # type: ignore[union-attr]
+            .where(StaffGuidance.experiment_id == experiment_id)
+        )
         stmt = stmt.order_by(StaffGuidance.timestamp.desc()).limit(limit)  # type: ignore[union-attr]
         return [_steering_to_dict(r) for r in session.exec(stmt)]
 
 
 def list_unacked_steering(
-    experiment_id: str | None = None,
+    experiment_id: str,
     *,
     limit: int = 50,
 ) -> list[dict]:
@@ -484,9 +490,8 @@ def list_unacked_steering(
             select(StaffGuidance)
             .where(StaffGuidance.completed_at.is_(None))  # type: ignore[union-attr]
             .where(StaffGuidance.active_agent_ack_at.is_(None))  # type: ignore[union-attr]
+            .where(StaffGuidance.experiment_id == experiment_id)
         )
-        if experiment_id:
-            stmt = stmt.where(StaffGuidance.experiment_id == experiment_id)
         stmt = stmt.order_by(StaffGuidance.timestamp.desc()).limit(limit)  # type: ignore[union-attr]
         return [_steering_to_dict(r) for r in session.exec(stmt)]
 
@@ -601,7 +606,7 @@ def record_orchestrator_ack(
 # ---------------------------------------------------------------------------
 
 def list_new_steering_for_orchestrator(
-    experiment_id: str | None = None,
+    experiment_id: str,
 ) -> list[dict]:
     """Rows the orchestrator has not yet ack'd, oldest first (FIFO).
 
@@ -614,14 +619,13 @@ def list_new_steering_for_orchestrator(
             select(StaffGuidance)
             .where(StaffGuidance.orchestrator_ack_at.is_(None))  # type: ignore[union-attr]
             .where(StaffGuidance.completed_at.is_(None))  # type: ignore[union-attr]
+            .where(StaffGuidance.experiment_id == experiment_id)
         )
-        if experiment_id:
-            stmt = stmt.where(StaffGuidance.experiment_id == experiment_id)
         stmt = stmt.order_by(StaffGuidance.timestamp)  # type: ignore[union-attr]
         return [_steering_to_dict(r) for r in session.exec(stmt)]
 
 
-def list_completed_unposted_steering() -> list[dict]:
+def list_completed_unposted_steering(experiment_id: str) -> list[dict]:
     """Completed rows whose Slack reply hasn't been posted yet.
 
     Filters: `completed_at IS NOT NULL AND slack_replied_at IS NULL
@@ -634,12 +638,13 @@ def list_completed_unposted_steering() -> list[dict]:
             .where(StaffGuidance.completed_at.is_not(None))  # type: ignore[union-attr]
             .where(StaffGuidance.slack_replied_at.is_(None))  # type: ignore[union-attr]
             .where(StaffGuidance.slack_thread_ts.is_not(None))  # type: ignore[union-attr]
+            .where(StaffGuidance.experiment_id == experiment_id)
             .order_by(StaffGuidance.completed_at)  # type: ignore[union-attr]
         )
         return [_steering_to_dict(r) for r in session.exec(stmt)]
 
 
-def list_orphaned_deferred_steering() -> list[dict]:
+def list_orphaned_deferred_steering(experiment_id: str) -> list[dict]:
     """Steering rows that were deferred to an agent which has since finished.
 
     Predicate: `orchestrator_ack_at IS NOT NULL AND completed_at IS NULL
@@ -658,18 +663,20 @@ def list_orphaned_deferred_steering() -> list[dict]:
             .where(StaffGuidance.completed_at.is_(None))  # type: ignore[union-attr]
             .where(StaffGuidance.active_agent_run_id.is_not(None))  # type: ignore[union-attr]
             .where(AgentRun.completed_at.is_not(None))  # type: ignore[union-attr]
+            .where(StaffGuidance.experiment_id == experiment_id)
             .order_by(StaffGuidance.timestamp)  # type: ignore[union-attr]
         )
         return [_steering_to_dict(r) for (r, _agent) in session.exec(stmt)]
 
 
-def list_pending_stops() -> list[dict]:
+def list_pending_stops(experiment_id: str) -> list[dict]:
     """STOP rows that haven't been completed yet — orchestrator runs ASAP."""
     with get_session() as session:
         stmt = (
             select(StaffGuidance)
             .where(StaffGuidance.is_stop == True)  # noqa: E712
             .where(StaffGuidance.completed_at.is_(None))  # type: ignore[union-attr]
+            .where(StaffGuidance.experiment_id == experiment_id)
             .order_by(StaffGuidance.timestamp)  # type: ignore[union-attr]
         )
         return [_steering_to_dict(r) for r in session.exec(stmt)]

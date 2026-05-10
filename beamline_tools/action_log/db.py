@@ -134,31 +134,31 @@ def log_query(
 # Readers (for dashboard + history viewer)
 # ---------------------------------------------------------------------------
 
-def recent_actions(limit: int = 50, experiment_id: str | None = None) -> list[dict]:
+def recent_actions(limit: int = 50, *, experiment_id: str) -> list[dict]:
     """Returns live action-log rows (invalidated_at IS NULL).
 
     Rows marked invalidated by /api/orchestrator/reset are hidden here
     so the re-run guards + dashboard tape treat a reset run as fresh.
     """
     with get_session() as session:
-        stmt = select(ActionLog).where(ActionLog.invalidated_at.is_(None))
-        if experiment_id:
-            stmt = stmt.where(ActionLog.experiment_id == experiment_id)
+        stmt = (
+            select(ActionLog)
+            .where(ActionLog.invalidated_at.is_(None))
+            .where(ActionLog.experiment_id == experiment_id)
+        )
         stmt = stmt.order_by(ActionLog.timestamp.desc()).limit(limit)
         rows: Iterable[ActionLog] = session.exec(stmt)
         return [_action_to_dict(r) for r in rows]
 
 
-def recent_queries(limit: int = 50, experiment_id: str | None = None) -> list[dict]:
+def recent_queries(limit: int = 50, *, experiment_id: str) -> list[dict]:
     with get_session() as session:
-        stmt = select(QueryLog).order_by(QueryLog.timestamp.desc()).limit(limit)
-        if experiment_id:
-            stmt = (
-                select(QueryLog)
-                .where(QueryLog.experiment_id == experiment_id)
-                .order_by(QueryLog.timestamp.desc())
-                .limit(limit)
-            )
+        stmt = (
+            select(QueryLog)
+            .where(QueryLog.experiment_id == experiment_id)
+            .order_by(QueryLog.timestamp.desc())
+            .limit(limit)
+        )
         return [
             {
                 "id": r.id,

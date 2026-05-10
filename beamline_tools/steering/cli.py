@@ -63,6 +63,13 @@ def _print_not_found(steering_id: str) -> int:
 
 def cmd_pending(args: argparse.Namespace) -> int:
     experiment_id = getattr(args, "experiment_id", None)
+    if not experiment_id:
+        from orchestration.plan_store.session import get_active_experiment
+        exp = get_active_experiment()
+        if exp is None:
+            print(json.dumps({"ok": False, "error": "no active experiment"}))
+            return 1
+        experiment_id = exp.id
     if getattr(args, "unacked", False):
         rows = list_unacked_steering(experiment_id=experiment_id)
     else:
