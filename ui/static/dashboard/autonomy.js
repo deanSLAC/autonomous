@@ -29,9 +29,7 @@ function openConfig() {
 }
 
 function openSampleHolderConfig() {
-    // Land directly on the Sample Holder tab of /config. form.js reads
-    // the query param on DOMContentLoaded and switches tabs.
-    window.location.href = "/config?tab=samples";
+    window.location.href = "/sample_holders";
 }
 
 function openPhaseDetail(phase) {
@@ -548,7 +546,7 @@ function renderAutonomy(orc, dash) {
     const actions = dash.action_log || [];
     if (actionsEl) {
         if (actions.length) {
-            actionsEl.innerHTML = actions.slice(0, 30).map(a => {
+            actionsEl.innerHTML = actions.slice(0, 200).map(a => {
                 const badge = a.success === 1 ? "ok" : a.success === 0 ? "err" : "pend";
                 const badgeText = a.success === 1 ? "OK" : a.success === 0 ? "FAIL" : "…";
                 const ts = a.timestamp ? a.timestamp.slice(11, 19) : "";
@@ -710,6 +708,7 @@ function _detectPhaseTransitions(prev, curr) {
         const prevState = (prev[slug] || {}).state;
         const newState = (info || {}).state;
         if (prevState === "running" && newState && newState !== "running") {
+            if (slug === "planner") return;
             const label = _PHASE_LABELS_FOR_ALERT[slug] || slug;
             const startedAt = info.started_at || info.startedAt;
             const finishedAt = info.finished_at || info.finishedAt;

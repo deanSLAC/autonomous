@@ -29,12 +29,6 @@
 
 <div class="form-container">
 
-    <!-- Tab Bar -->
-    <div class="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('experiment')">Experiment Setup</button>
-        <button class="tab-btn" onclick="switchTab('samples')">Sample Holder</button>
-    </div>
-
     <!-- Messages -->
     <div class="message-area" id="message-area"></div>
 
@@ -158,51 +152,6 @@
             <div class="submit-area">
                 <button type="button" class="btn btn-submit" id="submit-experiment-btn" onclick="submitExperiment()">
                     Save Experiment
-                </button>
-            </div>
-
-        </form>
-    </div>
-
-    <!-- ==================== TAB 2: SAMPLE HOLDER ==================== -->
-    <div id="tab-samples" class="tab-content hidden">
-        <form id="samples-form" onsubmit="return false;">
-
-            <!-- Experiment summary banner (read-only) -->
-            <div class="experiment-summary-banner" id="experiment-summary-banner">
-                <p class="banner-placeholder">No experiment configured yet. Save an experiment in the Experiment Setup tab first.</p>
-            </div>
-
-            <!-- ========== SAMPLE HOLDER SECTION ========== -->
-            <div class="section" id="sample-holder-section" style="display: none;">
-                <div class="section-header">
-                    <h2>Sample Holder</h2>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group wide">
-                        <label>Sample Holder Name <span class="required">*</span></label>
-                        <input type="text" id="sample_holder_name" placeholder="e.g. sample_holder_1" required>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ========== SAMPLES SECTION ========== -->
-            <div class="section" id="samples-section" style="display: none;">
-                <div class="section-header">
-                    <h2>Samples</h2>
-                    <button type="button" class="btn btn-add" onclick="addSample()">+ Add Sample</button>
-                </div>
-
-                <div id="samples-container">
-                    <!-- Sample cards inserted here by JS -->
-                </div>
-            </div>
-
-            <!-- ========== SUBMIT SAMPLE HOLDER ========== -->
-            <div class="submit-area" id="submit-samples-area" style="display: none;">
-                <button type="button" class="btn btn-submit" id="submit-samples-btn" onclick="submitSampleHolder()">
-                    Save Sample Holder
                 </button>
             </div>
 

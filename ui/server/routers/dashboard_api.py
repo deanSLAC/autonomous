@@ -164,7 +164,7 @@ def status(experiment_id: str = Query(...)):
             }
             for r in phase_runs
         ],
-        "action_log": recent_actions(limit=30, experiment_id=experiment_id),
+        "action_log": recent_actions(limit=200, experiment_id=experiment_id),
         "query_log": recent_queries(limit=30, experiment_id=experiment_id),
         "phase_transitions": list_phase_transitions(experiment_id),
         "interventions": list_open_interventions(experiment_id),

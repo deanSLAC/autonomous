@@ -17,7 +17,7 @@ from pathlib import Path
 import uuid
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from orchestration import api as orch_api
@@ -235,35 +235,6 @@ def create_app() -> FastAPI:
     @app.get(f"{BASE_PATH}/insight")
     async def insight_page():
         return _page(STATIC_DIR / "insight" / "index.html")
-
-    @app.get(f"{BASE_PATH}/history", response_class=HTMLResponse)
-    async def history_page():
-        return (
-            '<!DOCTYPE html><html><head><meta charset="utf-8">'
-            '<title>Action log</title>'
-            '<link rel="stylesheet" href="/static/dashboard/static/dashboard.css">'
-            '<link rel="stylesheet" href="/static/dashboard/autonomy.css">'
-            '</head><body>'
-            '<div class="topbar"><div class="topbar-left">'
-            '<div class="topbar-title">Action &amp; Query log</div></div></div>'
-            '<div style="padding:24px"><div class="panel">'
-            '<div class="panel-header">Recent actions (last 200)</div>'
-            '<div id="actions" class="action-tape"></div></div></div>'
-            '<script>(async () => {'
-            'const r = await fetch("/api/dashboard/action_log?limit=200");'
-            'const j = await r.json();'
-            'const el = document.getElementById("actions");'
-            'el.innerHTML = (j.actions || []).map(a => {'
-            'const badge = a.success === 1 ? "ok" : a.success === 0 ? "err" : "pend";'
-            'const txt = a.success === 1 ? "OK" : a.success === 0 ? "FAIL" : "…";'
-            'return `<div class="action-row" title="${(a.justification||"").replace(/"/g,"&quot;")}">'
-            '<span class="phase">${(a.timestamp||"").slice(11,19)}</span>'
-            '<span class="phase">${a.phase||""}</span>'
-            '<span class="cmd">${a.command}</span>'
-            '<span class="just">${(a.justification||"").slice(0,180)}</span>'
-            '<span class="badge ${badge}">${txt}</span></div>`;}).join("");})();</script>'
-            '</body></html>'
-        )
 
     # -- chat endpoint --------------------------------------------------
     #

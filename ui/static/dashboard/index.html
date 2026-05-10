@@ -29,6 +29,7 @@
         </select>
         <a href="/tools" target="_blank" rel="noopener" class="theme-toggle topbar-link" title="What the agent can do (opens in new tab)">Tools</a>
         <a href="/insight" class="theme-toggle topbar-link" title="Agent insight">Insight</a>
+        <a href="/viewer" class="theme-toggle topbar-link" title="Browse and overlay collected scans">Data View</a>
         <a href="/config" class="theme-toggle topbar-link" title="Experiment config">⚙</a>
         <button class="theme-toggle" id="theme-toggle" title="Toggle dark mode">&#9790;</button>
     </div>
@@ -243,16 +244,7 @@
             </div>
         </div>
 
-        <!-- Agent I/O row: full-width agent output + plots, then steering+chat (50/50), then full-width spec. -->
         <div class="agent-row">
-            <div class="panel">
-                <div class="panel-header">
-                    Agent Output
-                    <span class="panel-sub" id="agent-output-sub">idle</span>
-                </div>
-                <div id="agent-output" class="agent-output log-tail-tall"><div class="muted">Waiting for the agent…</div></div>
-            </div>
-
             <div class="panel">
                 <div class="panel-header">
                     Agent Plots
@@ -261,6 +253,27 @@
                 <div id="agent-plot" class="agent-plot">
                     <div class="muted">No plots yet.</div>
                 </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">Action log (most recent)</div>
+                <div id="action-tape" class="action-tape"><div class="muted">No actions yet.</div></div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    SPEC Output
+                    <span class="panel-sub" id="spec-output-sub">--</span>
+                </div>
+                <pre id="spec-output" class="log-tail"><span class="muted">Waiting for SPEC log…</span></pre>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    Agent Output
+                    <span class="panel-sub" id="agent-output-sub">idle</span>
+                </div>
+                <div id="agent-output" class="agent-output log-tail-tall"><div class="muted">Waiting for the agent…</div></div>
             </div>
 
             <div class="agent-row-top">
@@ -292,24 +305,11 @@
                     </div>
                 </div>
             </div>
-
-            <div class="panel">
-                <div class="panel-header">
-                    SPEC Output
-                    <span class="panel-sub" id="spec-output-sub">--</span>
-                </div>
-                <pre id="spec-output" class="log-tail"><span class="muted">Waiting for SPEC log…</span></pre>
-            </div>
         </div>
 
         <div class="panel">
             <div class="panel-header">Plan history</div>
             <div id="plan-edits" class="plan-edits-feed"><div class="muted">No edits yet.</div></div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-header">Action log (most recent)</div>
-            <div id="action-tape" class="action-tape"><div class="muted">No actions yet.</div></div>
         </div>
     </div>
 </div>
