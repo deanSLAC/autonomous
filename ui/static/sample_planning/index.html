@@ -35,27 +35,6 @@
     </div>
 </div>
 
-<div class="autonomy-bar">
-    <div class="autonomy-bar-left">
-        <button class="btn-autonomy" id="btn-start" onclick="autonomyAction('start')">▶ Start</button>
-        <button class="btn-autonomy" id="btn-pause" onclick="autonomyAction('pause')">⏸ Pause</button>
-        <button class="btn-autonomy" id="btn-resume" onclick="autonomyAction('resume')">▶ Resume</button>
-        <button class="btn-autonomy" id="btn-stop" onclick="autonomyAction('stop')">⏹ Stop</button>
-    </div>
-    <div class="autonomy-bar-center">
-        <span class="metric-pill"><span class="label">Phase</span> <span id="cur-phase">–</span></span>
-        <span class="metric-pill"><span class="label">Turn</span> <span id="orc-turn">–</span></span>
-        <span class="metric-pill"><span class="label">Beamtime</span>
-            <span id="orc-elapsed">–</span>h / <span id="orc-total">–</span>h</span>
-        <span class="metric-pill"><span class="label">Samples</span>
-            <span id="orc-samples-done">–</span> / <span id="orc-samples-total">–</span></span>
-    </div>
-    <div class="autonomy-bar-right">
-        <span class="metric-pill"><span class="label">Running</span>
-            <span id="orc-running" class="dot-bad">no</span></span>
-    </div>
-</div>
-
 <div id="interventions-banner" class="interventions" style="display:none;"></div>
 
 <div class="main-grid">
@@ -206,41 +185,6 @@
         </div>
     </div>
 
-    <!-- Staff guidance feed + chat (identical capability to dashboard) -->
-    <div class="agent-row">
-        <div class="panel">
-            <div class="panel-header">Latest agent output</div>
-            <div id="latest-summary" class="agent-summary"><div class="muted">Waiting for the agent…</div></div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-header">Staff guidance feed</div>
-            <div id="guidance-feed" class="guidance-feed"><div class="muted">No guidance yet.</div></div>
-            <div class="guidance-compose">
-                <input type="text" id="guidance-input" placeholder="Steer the agent (e.g. 'give Cu samples 2× count time')">
-                <button onclick="submitGuidance()">Send</button>
-            </div>
-        </div>
-
-        <div class="panel">
-            <div class="panel-header">
-                Chat with the agent
-                <span class="panel-sub" id="chat-status"></span>
-            </div>
-            <div id="chat-log" class="chat-log"><div class="muted">No messages yet.</div></div>
-            <div class="chat-compose">
-                <textarea id="chat-input" rows="3"
-                          placeholder="Ask the agent to adjust the plan…"
-                          onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendChat();}"></textarea>
-                <button onclick="sendChat()">Send</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="panel">
-        <div class="panel-header">Plan history</div>
-        <div id="plan-edits" class="plan-edits-feed"><div class="muted">No edits yet.</div></div>
-    </div>
 </div>
 
 <script src="/static/dashboard/static/dashboard.js?v=4"></script>
