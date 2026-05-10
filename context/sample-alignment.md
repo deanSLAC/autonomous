@@ -36,17 +36,19 @@ To prepare the sample holder for data collection:
 ### Alignment for one sample
 - mv to the center of the top sample (lowest Sz val)
 - Depending on count rate from the coarse scan, add filters if needed (As a starting point, if <8 keV put 4, above that put 10), then check the counts again.
-- do a ct, look at vortDT, make sure we have something
-- Next we scan the emiss motor.  Typical scan: 'dscan emiss 8 -8 50 .3' (emiss should be scanned in the negative direction due to motor backlash) but this can be adjusted as needed.
-- Look at a plot of the emiss scan, does it look reasonable? If not, do some more sample scans (as described below), then repeat an emiss scan again later.
-- Use the get herfd energy tool to mv emiss to the optimal position.
+- do a ct, look at the proper vortDTN counter, make sure we have something
 - Now do fine position scans of the sample holder. Typical scans would be: 
     - dscan Sz -3 3 30 .3
         - Vertically check out the homogeneity and finer alignment of the sample. Note the boundaries of the sample counts, Sz low and Sz high.
+    - dscan Sy -8 8 40 .3 
+        - The y axis scans the sample in the beam direction, moving the sample through the focus of the spectrometer. We should see a wide, symmetric peak on the vortDTN counter.
     - d2scan Sx -8 8 Sy -8 8 40 .3 -- see beamtimehero CLI run_diagonal_scan
         - Sample is aligned at 45 degrees, so we scan 2 dimensions to align the sample in the beam
-    - dscan Sy -8 8 40 .3 
-        - The y axis scans the sample in the beam direction. Ordinarily that would not be useful, but in this case we are moving the sample through the focus of the spectrometer. We should see a wide, symmetric peak on vortDT
+- Next we scan the emiss motor (assuming we have found at least 300 cps).  Typical scan: 'dscan emiss 8 -8 50 .
+3' (emiss should be scanned in the negative direction due to motor backlash) but this can be adjusted as needed.
+- Look at a plot of the emiss scan, does it look reasonable? If not, do some more sample scans (as described below), then repeat an emiss scan again later.
+- Use the get herfd energy tool to mv emiss to the optimal position.
+
 - Keep track of the per-sample values you'll need later in collection:
     1. Sx and Sy positions
     2. Sz boundaries. We will measure from multiple spots on one sample, moving vertically by 2 beam sizes between spots. Therefore we will want to know the start and end Sz values we could step between.
