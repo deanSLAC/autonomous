@@ -107,12 +107,46 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("average-scans", help="Average all energy scans in a SPEC file after edge-step normalization")
     p.add_argument("--file-name", help="SPEC file name. If omitted, uses the most recent file with >1 energy scan.")
+    p.add_argument("--e-min", type=float, help="Lower energy bound (eV) to crop the average to.")
+    p.add_argument("--e-max", type=float, help="Upper energy bound (eV) to crop the average to.")
+    p.add_argument("--weighting", choices=["equal", "inverse_variance"], default="equal",
+                   help="'equal' (default) = unweighted; 'inverse_variance' = SNR-weighted by per-rep baseline noise.")
 
-    p = sub.add_parser("analyze-convergence", help="Check if repeated scans have converged (cosine similarity metrics)")
+    p = sub.add_parser("analyze-convergence", help="Check if repeated scans have converged (cosine similarity). Whole-spectrum mode is biased; pass --e-min/--e-max for a feature window.")
     p.add_argument("--file-name", help="SPEC file name. If omitted, uses the most recent file.")
+    p.add_argument("--e-min", type=float, help="Lower bound (eV) of feature window. Strongly recommended.")
+    p.add_argument("--e-max", type=float, help="Upper bound (eV) of feature window.")
 
-    p = sub.add_parser("analyze-efficiency", help="Full scan repetition efficiency report: convergence, CV, optimal count, verdict")
+    p = sub.add_parser("analyze-efficiency", help="Full scan repetition efficiency report. Pass --e-min/--e-max for a feature window — whole-spectrum mode is structurally optimistic.")
     p.add_argument("--file-name", help="SPEC file name. If omitted, uses the most recent file.")
+    p.add_argument("--e-min", type=float, help="Lower bound (eV) of feature window. Strongly recommended.")
+    p.add_argument("--e-max", type=float, help="Upper bound (eV) of feature window.")
+    p.add_argument("--no-poisson-floor", action="store_true",
+                   help="Skip the absolute counts-based Poisson floor (faster).")
+
+    p = sub.add_parser("analyze-feature-evolution",
+                       help="Per-rep scalar trace + convergence verdict for a feature defined by [e_min, e_max] and a statistic. Publication-quality test.")
+    p.add_argument("--file-name", required=True, help="SPEC file name.")
+    p.add_argument("--e-min", type=float, required=True, help="Lower bound (eV) of feature window.")
+    p.add_argument("--e-max", type=float, required=True, help="Upper bound (eV) of feature window.")
+    p.add_argument("--statistic", choices=["max", "min", "mean", "median", "integral", "argmax", "argmin", "height"],
+                   default="max", help="Reduction over the window. 'max'=white-line height; 'argmax'=position; 'integral'=area.")
+    p.add_argument("--sem-threshold-frac", type=float, default=0.01,
+                   help="Target final SEM as fraction of running mean (default 0.01 = 1%%).")
+    p.add_argument("--drift-threshold-frac", type=float, default=0.01,
+                   help="Target step-to-step running-mean drift fraction.")
+
+    p = sub.add_parser("group-scans-by-spot",
+                       help="Cluster a file's scans by sample spot using Sx/Sy/Sz motor positions.")
+    p.add_argument("--file-name", required=True, help="SPEC file name.")
+    p.add_argument("--tol-mm", type=float, default=0.05, help="Position tolerance in mm (default 0.05).")
+
+    p = sub.add_parser("analyze-per-spot",
+                       help="Run convergence analysis per spot + report between/within heterogeneity F-statistic.")
+    p.add_argument("--file-name", required=True, help="SPEC file name.")
+    p.add_argument("--e-min", type=float, help="Lower bound (eV) of feature window.")
+    p.add_argument("--e-max", type=float, help="Upper bound (eV) of feature window.")
+    p.add_argument("--tol-mm", type=float, default=0.05, help="Position tolerance in mm.")
 
     # --- Plot commands ---
     p = sub.add_parser("plot-scan", help="Generate a plot of scan data")
@@ -123,6 +157,32 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("plot-averaged-scans", help="Plot averaged energy scans for multiple samples overlaid")
     p.add_argument("--file-names", required=True, help="JSON array of SPEC file names to compare")
+
+    p = sub.add_parser("plot-scan-stack",
+                       help="Overlay all reps of one sample, color-progressed by rep order. Optionally cropped to [e_min, e_max].")
+    p.add_argument("--file-name", required=True, help="SPEC file name.")
+    p.add_argument("--e-min", type=float, help="Lower bound (eV).")
+    p.add_argument("--e-max", type=float, help="Upper bound (eV).")
+
+    p = sub.add_parser("plot-first-half-vs-second-half",
+                       help="Compare first-half vs second-half running averages with SEM bands. Reports max |Δ|/SEM.")
+    p.add_argument("--file-name", required=True, help="SPEC file name.")
+    p.add_argument("--e-min", type=float, help="Lower bound (eV).")
+    p.add_argument("--e-max", type=float, help="Upper bound (eV).")
+
+    p = sub.add_parser("plot-running-average",
+                       help="Plot the running average across reps as it accumulates, with final SEM band.")
+    p.add_argument("--file-name", required=True, help="SPEC file name.")
+    p.add_argument("--e-min", type=float, help="Lower bound (eV).")
+    p.add_argument("--e-max", type=float, help="Upper bound (eV).")
+
+    p = sub.add_parser("plot-feature-evolution",
+                       help="Plot per-rep scalar over [e_min, e_max] vs rep number with running mean ±SEM.")
+    p.add_argument("--file-name", required=True, help="SPEC file name.")
+    p.add_argument("--e-min", type=float, required=True, help="Lower bound (eV).")
+    p.add_argument("--e-max", type=float, required=True, help="Upper bound (eV).")
+    p.add_argument("--statistic", choices=["max", "min", "mean", "median", "integral", "argmax", "argmin", "height"],
+                   default="max", help="Reduction over the window.")
 
     p = sub.add_parser("plot-data", help="General-purpose line chart from data arrays")
     p.add_argument("--x", required=True, help="JSON array of X values")
@@ -208,14 +268,19 @@ def run_cli(command_str: str) -> tuple[str, list[str]]:
 
     parser = _build_parser()
 
-    # Capture --help output instead of exiting
-    if not cmd or "--help" in cmd or "-h" in cmd:
+    # Capture --help output instead of exiting. Use tokenized check so command
+    # names containing "-h" (e.g. plot-first-half-vs-second-half) don't false-trigger.
+    try:
+        _tokens = shlex.split(cmd) if cmd else []
+    except ValueError:
+        _tokens = []
+    _wants_help = (not cmd) or ("--help" in _tokens) or ("-h" in _tokens)
+    if _wants_help:
         buf = io.StringIO()
         parser.print_help(buf) if not cmd or cmd in ("--help", "-h") else None
         if cmd and cmd not in ("--help", "-h"):
             # Try to get subcommand help
-            parts = shlex.split(cmd)
-            subcmd = parts[0] if parts else ""
+            subcmd = _tokens[0] if _tokens else ""
             try:
                 sub_parser = parser._subparsers._group_actions[0].choices.get(subcmd)
                 if sub_parser:
@@ -276,9 +341,37 @@ def run_cli(command_str: str) -> tuple[str, list[str]]:
     elif tool_name == "average_scans":
         if args.file_name:
             tool_args["file_name"] = args.file_name
+        if args.e_min is not None:
+            tool_args["e_min"] = args.e_min
+        if args.e_max is not None:
+            tool_args["e_max"] = args.e_max
+        tool_args["weighting"] = args.weighting
     elif tool_name in ("analyze_convergence", "analyze_efficiency"):
         if args.file_name:
             tool_args["file_name"] = args.file_name
+        if args.e_min is not None:
+            tool_args["e_min"] = args.e_min
+        if args.e_max is not None:
+            tool_args["e_max"] = args.e_max
+        if tool_name == "analyze_efficiency":
+            tool_args["include_poisson_floor"] = not args.no_poisson_floor
+    elif tool_name == "analyze_feature_evolution":
+        tool_args["file_name"] = args.file_name
+        tool_args["e_min"] = args.e_min
+        tool_args["e_max"] = args.e_max
+        tool_args["statistic"] = args.statistic
+        tool_args["sem_threshold_frac"] = args.sem_threshold_frac
+        tool_args["drift_threshold_frac"] = args.drift_threshold_frac
+    elif tool_name == "group_scans_by_spot":
+        tool_args["file_name"] = args.file_name
+        tool_args["tol_mm"] = args.tol_mm
+    elif tool_name == "analyze_per_spot":
+        tool_args["file_name"] = args.file_name
+        if args.e_min is not None:
+            tool_args["e_min"] = args.e_min
+        if args.e_max is not None:
+            tool_args["e_max"] = args.e_max
+        tool_args["tol_mm"] = args.tol_mm
     elif tool_name == "plot_averaged_scans":
         tool_args["file_names"] = json.loads(args.file_names)
     elif tool_name == "plot_scan":
@@ -288,6 +381,17 @@ def run_cli(command_str: str) -> tuple[str, list[str]]:
             tool_args["counter"] = args.counter
         if args.normalize_by:
             tool_args["normalize_by"] = args.normalize_by
+    elif tool_name in ("plot_scan_stack", "plot_first_half_vs_second_half", "plot_running_average"):
+        tool_args["file_name"] = args.file_name
+        if args.e_min is not None:
+            tool_args["e_min"] = args.e_min
+        if args.e_max is not None:
+            tool_args["e_max"] = args.e_max
+    elif tool_name == "plot_feature_evolution":
+        tool_args["file_name"] = args.file_name
+        tool_args["e_min"] = args.e_min
+        tool_args["e_max"] = args.e_max
+        tool_args["statistic"] = args.statistic
     elif tool_name == "plot_data":
         tool_args["x"] = json.loads(args.x)
         tool_args["y"] = json.loads(args.y)

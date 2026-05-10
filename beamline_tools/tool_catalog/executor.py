@@ -9,6 +9,7 @@ import logging
 
 import matplotlib
 matplotlib.use("Agg")
+import numpy as np
 
 from beamline_tools.spec_data import scans as scan_data
 from beamline_tools.spec_data import plotting
@@ -27,21 +28,58 @@ def register_dispatch(name: str, fn) -> None:
     _EXTRA_DISPATCH[name] = fn
 
 
-def _analyze_with(file_name, analyzer):
-    """Shared shape for convergence and efficiency: load normalized arrays, run analyzer, attach context."""
+def _analyze_with(
+    file_name,
+    analyzer,
+    e_min=None,
+    e_max=None,
+    scan_numbers=None,
+    include_raw_counts: bool = False,
+):
+    """Shared shape for convergence and efficiency: load normalized arrays
+    (optionally windowed to [e_min, e_max] and/or restricted to scan_numbers),
+    run analyzer, attach context.
+
+    If include_raw_counts is True, also load the raw active-counter rate stack
+    over the SAME energy window and pass it to the analyzer as
+    raw_counts_per_point. The analyzer must accept that kwarg.
+    """
     try:
-        combined, file_name, counter, used_scans = scan_data.get_normalized_scan_arrays(file_name)
+        combined, file_name, counter, used_scans = scan_data.get_normalized_scan_arrays(
+            file_name, e_min=e_min, e_max=e_max, scan_numbers=scan_numbers,
+        )
     except ValueError as e:
         return {"error": str(e)}
     if len(used_scans) < 2:
         return {"error": f"Need at least 2 scans, found {len(used_scans)}."}
-    scan_data_2d = combined.dropna().values.T.tolist()
-    result = analyzer(scan_data_2d)
+
+    # Drop rows with NaN in any scan to keep a common grid
+    combined_clean = combined.dropna()
+    scan_data_2d = combined_clean.values.T.tolist()
+
+    kwargs = {}
+    if include_raw_counts:
+        try:
+            raw_combined, _, _, raw_used = scan_data.get_raw_counter_arrays(
+                file_name, scan_numbers=used_scans,
+            )
+            # Align raw counts to the same energy grid as the windowed normalized stack
+            raw_aligned = raw_combined.reindex(combined_clean.index)
+            count_times = raw_combined.attrs.get("count_times", [1.0] * len(raw_used))
+            # Convert rate -> per-rep total counts at each point: rate * count_time
+            raw_total = raw_aligned.values * np.array(count_times)[np.newaxis, :]
+            kwargs["raw_counts_per_point"] = raw_total.T.tolist()
+        except Exception as e:
+            logger.warning("Could not load raw counts for Poisson floor: %s", e)
+
+    result = analyzer(scan_data_2d, **kwargs) if kwargs else analyzer(scan_data_2d)
     if "error" in result:
         return result
     result["file_name"] = file_name
     result["active_counter"] = counter
     result["scan_numbers"] = used_scans
+    if e_min is not None and e_max is not None:
+        result["energy_window"] = [e_min, e_max]
     return result
 
 
@@ -151,21 +189,159 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
 
         elif name == "average_scans":
             file_name = arguments.get("file_name")
+            e_min = arguments.get("e_min")
+            e_max = arguments.get("e_max")
+            weighting = arguments.get("weighting", "equal")
             if file_name:
-                result = scan_data.average_energy_scans(file_name=file_name)
+                result = scan_data.average_energy_scans(
+                    file_name=file_name, e_min=e_min, e_max=e_max, weighting=weighting,
+                )
             else:
-                result = scan_data.average_latest_energy_scans()
+                result = scan_data.average_latest_energy_scans(
+                    e_min=e_min, e_max=e_max, weighting=weighting,
+                )
             return json.dumps(result, indent=2), images_b64
 
         elif name == "analyze_convergence":
             from beamline_tools.generic_data.cosine_similarity import analyze_scan_quality
-            result = _analyze_with(arguments.get("file_name"), analyze_scan_quality)
+            result = _analyze_with(
+                arguments.get("file_name"),
+                analyze_scan_quality,
+                e_min=arguments.get("e_min"),
+                e_max=arguments.get("e_max"),
+            )
             return json.dumps(result, indent=2, default=str), images_b64
 
         elif name == "analyze_efficiency":
             from beamline_tools.experiment_planning.scan_efficiency import analyze_scan_efficiency
-            result = _analyze_with(arguments.get("file_name"), analyze_scan_efficiency)
+            result = _analyze_with(
+                arguments.get("file_name"),
+                analyze_scan_efficiency,
+                e_min=arguments.get("e_min"),
+                e_max=arguments.get("e_max"),
+                include_raw_counts=bool(arguments.get("include_poisson_floor", True)),
+            )
             return json.dumps(result, indent=2, default=str), images_b64
+
+        elif name == "analyze_feature_evolution":
+            from beamline_tools.experiment_planning.scan_features import (
+                analyze_feature_evolution,
+            )
+            file_name = arguments.get("file_name")
+            e_min = arguments.get("e_min")
+            e_max = arguments.get("e_max")
+            statistic = arguments.get("statistic", "max")
+            sem_target = float(arguments.get("sem_threshold_frac", 0.01))
+            drift_target = float(arguments.get("drift_threshold_frac", 0.01))
+            if e_min is None or e_max is None:
+                return (
+                    json.dumps({
+                        "error": "analyze_feature_evolution requires e_min and e_max (numeric eV bounds)."
+                    }, indent=2),
+                    images_b64,
+                )
+            try:
+                combined, file_name, counter, used_scans = (
+                    scan_data.get_normalized_scan_arrays(file_name)
+                )
+            except ValueError as e:
+                return json.dumps({"error": str(e)}, indent=2), images_b64
+            combined = combined.dropna()
+            energy = combined.index.values.tolist()
+            scan_2d = combined.values.T.tolist()
+            result = analyze_feature_evolution(
+                scan_2d, energy, e_min, e_max, statistic=statistic,
+                sem_threshold_frac=sem_target, drift_threshold_frac=drift_target,
+            )
+            if isinstance(result, dict):
+                result.setdefault("file_name", file_name)
+                result.setdefault("active_counter", counter)
+                result.setdefault("scan_numbers", used_scans)
+            return json.dumps(result, indent=2, default=str), images_b64
+
+        elif name == "group_scans_by_spot":
+            file_name = arguments.get("file_name")
+            tol_mm = float(arguments.get("tol_mm", 0.05))
+            if not file_name:
+                return (
+                    json.dumps({"error": "file_name is required."}, indent=2),
+                    images_b64,
+                )
+            result = scan_data.group_scans_by_spot(file_name, tol_mm=tol_mm)
+            return json.dumps(result, indent=2, default=str), images_b64
+
+        elif name == "analyze_per_spot":
+            from beamline_tools.experiment_planning.scan_efficiency import (
+                analyze_scan_efficiency,
+            )
+            from beamline_tools.experiment_planning.scan_features import (
+                heterogeneity_f_statistic,
+            )
+            file_name = arguments.get("file_name")
+            e_min = arguments.get("e_min")
+            e_max = arguments.get("e_max")
+            tol_mm = float(arguments.get("tol_mm", 0.05))
+            if not file_name:
+                return (
+                    json.dumps({"error": "file_name is required."}, indent=2),
+                    images_b64,
+                )
+            grouping = scan_data.group_scans_by_spot(file_name, tol_mm=tol_mm)
+            if "error" in grouping:
+                return json.dumps(grouping, indent=2), images_b64
+
+            per_spot_results = []
+            per_spot_arrays = []
+            for spot in grouping["spots"]:
+                if spot["spot_id"] == -1 or spot["n_scans"] < 2:
+                    continue
+                try:
+                    combined, _, counter, used = scan_data.get_normalized_scan_arrays(
+                        file_name,
+                        e_min=e_min,
+                        e_max=e_max,
+                        scan_numbers=spot["scan_numbers"],
+                    )
+                except ValueError as e:
+                    per_spot_results.append({
+                        "spot_id": spot["spot_id"],
+                        "error": str(e),
+                    })
+                    continue
+                clean = combined.dropna()
+                arr_2d = clean.values.T.tolist()
+                per_spot_arrays.append(arr_2d)
+                eff = analyze_scan_efficiency(arr_2d)
+                per_spot_results.append({
+                    "spot_id": spot["spot_id"],
+                    "center": spot["center"],
+                    "scan_numbers": spot["scan_numbers"],
+                    "n_scans": spot["n_scans"],
+                    "verdict": eff.get("verdict"),
+                    "cv_mean_pct": eff.get("cv_mean_pct"),
+                    "final_convergence": eff.get("convergence", {}).get(
+                        "cumulative_convergence", [None]
+                    )[-1],
+                })
+
+            heterogeneity = None
+            if len(per_spot_arrays) >= 2:
+                # Trim each spot's stack to the minimum n_points across spots
+                min_pts = min(len(a[0]) for a in per_spot_arrays)
+                trimmed = [[row[:min_pts] for row in a] for a in per_spot_arrays]
+                heterogeneity = heterogeneity_f_statistic(trimmed)
+
+            return (
+                json.dumps({
+                    "file_name": file_name,
+                    "energy_window": [e_min, e_max] if (e_min is not None and e_max is not None) else None,
+                    "tol_mm": tol_mm,
+                    "n_spots_analyzed": len(per_spot_results),
+                    "per_spot": per_spot_results,
+                    "heterogeneity": heterogeneity,
+                }, indent=2, default=str),
+                images_b64,
+            )
 
         elif name == "plot_averaged_scans":
             file_names = arguments.get("file_names", [])
@@ -184,6 +360,55 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
                 arguments.get("scan_number", 1),
                 counter=arguments.get("counter"),
                 normalize_by=arguments.get("normalize_by"),
+            )
+            if fig:
+                images_b64.append(fig_to_base64(fig))
+                import matplotlib.pyplot as plt
+                plt.close(fig)
+            return summary, images_b64
+
+        elif name == "plot_scan_stack":
+            fig, summary = plotting.plot_scan_stack(
+                arguments.get("file_name", ""),
+                e_min=arguments.get("e_min"),
+                e_max=arguments.get("e_max"),
+            )
+            if fig:
+                images_b64.append(fig_to_base64(fig))
+                import matplotlib.pyplot as plt
+                plt.close(fig)
+            return summary, images_b64
+
+        elif name == "plot_first_half_vs_second_half":
+            fig, summary = plotting.plot_first_half_vs_second_half(
+                arguments.get("file_name", ""),
+                e_min=arguments.get("e_min"),
+                e_max=arguments.get("e_max"),
+            )
+            if fig:
+                images_b64.append(fig_to_base64(fig))
+                import matplotlib.pyplot as plt
+                plt.close(fig)
+            return summary, images_b64
+
+        elif name == "plot_running_average":
+            fig, summary = plotting.plot_running_average(
+                arguments.get("file_name", ""),
+                e_min=arguments.get("e_min"),
+                e_max=arguments.get("e_max"),
+            )
+            if fig:
+                images_b64.append(fig_to_base64(fig))
+                import matplotlib.pyplot as plt
+                plt.close(fig)
+            return summary, images_b64
+
+        elif name == "plot_feature_evolution":
+            fig, summary = plotting.plot_feature_evolution(
+                arguments.get("file_name", ""),
+                e_min=arguments.get("e_min"),
+                e_max=arguments.get("e_max"),
+                statistic=arguments.get("statistic", "max"),
             )
             if fig:
                 images_b64.append(fig_to_base64(fig))

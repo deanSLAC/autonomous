@@ -153,6 +153,213 @@ def plot_averaged_scans_overlay(file_names):
     return fig, summary
 
 
+def plot_scan_stack(file_name, e_min=None, e_max=None):
+    """Overlay all reps of one file on a single axis, color-progressed by rep order.
+
+    Each rep is edge-step normalized (the standard pipeline) before plotting,
+    so the y-axis is comparable across reps and across spots.
+
+    e_min, e_max are optional numeric eV bounds; when provided, the plot is
+    cropped to that window so the agent can inspect a feature directly.
+    """
+    import numpy as np
+
+    try:
+        combined, file_name, counter, used = scans.get_normalized_scan_arrays(
+            file_name, e_min=e_min, e_max=e_max,
+        )
+    except ValueError as e:
+        return None, f"Could not load scans for {file_name}: {e}"
+    if combined.shape[1] < 2:
+        return None, f"Need >= 2 reps to make a stack plot, got {combined.shape[1]}."
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    n_reps = combined.shape[1]
+    cmap = plt.get_cmap("viridis")
+    for i, col in enumerate(combined.columns):
+        color = cmap(i / max(n_reps - 1, 1))
+        ax.plot(combined.index, combined[col], color=color, alpha=0.7, linewidth=1.0,
+                label=col if n_reps <= 12 else None)
+
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Edge-step normalized signal")
+    title = f"{file_name} — stacked reps ({n_reps} scans, counter={counter})"
+    if e_min is not None and e_max is not None:
+        title += f"  window=[{e_min:.1f}, {e_max:.1f}] eV"
+    ax.set_title(title, fontsize=10)
+    if n_reps <= 12:
+        ax.legend(fontsize=7, ncol=2)
+    else:
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=1, vmax=n_reps))
+        sm.set_array([])
+        cb = fig.colorbar(sm, ax=ax, pad=0.02)
+        cb.set_label("rep #")
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    return fig, (
+        f"Stacked reps: {file_name} ({n_reps} scans)" +
+        (f" windowed to [{e_min}, {e_max}] eV" if e_min is not None else "")
+    )
+
+
+def plot_first_half_vs_second_half(file_name, e_min=None, e_max=None):
+    """Compare the average of the first half of reps to the second half, with
+    SEM bands. Visual cross-check for whether reps are stationary or drifting.
+    """
+    import numpy as np
+
+    try:
+        combined, file_name, counter, used = scans.get_normalized_scan_arrays(
+            file_name, e_min=e_min, e_max=e_max,
+        )
+    except ValueError as e:
+        return None, f"Could not load scans for {file_name}: {e}"
+    n = combined.shape[1]
+    if n < 4:
+        return None, f"Need >= 4 reps for half-vs-half comparison, got {n}."
+
+    half = n // 2
+    first = combined.iloc[:, :half]
+    second = combined.iloc[:, half:]
+
+    m1 = first.mean(axis=1).values
+    s1 = (first.std(axis=1) / np.sqrt(half)).values
+    m2 = second.mean(axis=1).values
+    s2 = (second.std(axis=1) / np.sqrt(n - half)).values
+    energy = combined.index.values
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(energy, m1, label=f"first {half} reps", color="C0", linewidth=1.4)
+    ax.fill_between(energy, m1 - s1, m1 + s1, color="C0", alpha=0.2)
+    ax.plot(energy, m2, label=f"last {n - half} reps", color="C3", linewidth=1.4)
+    ax.fill_between(energy, m2 - s2, m2 + s2, color="C3", alpha=0.2)
+
+    diff = m2 - m1
+    sem_combined = np.sqrt(s1**2 + s2**2)
+    n_sigma_max = float(np.nanmax(np.abs(diff) / np.where(sem_combined > 0, sem_combined, 1.0)))
+
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Edge-step normalized signal")
+    title = (
+        f"{file_name} — first vs second half (max |Δ|/SEM = {n_sigma_max:.1f}σ)"
+    )
+    if e_min is not None and e_max is not None:
+        title += f"  window=[{e_min:.1f}, {e_max:.1f}]"
+    ax.set_title(title, fontsize=10)
+    ax.legend(fontsize=8)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    summary = (
+        f"First-half vs second-half: max |Δ|/SEM = {n_sigma_max:.2f} sigma. "
+        f"<2 sigma: halves agree; >3 sigma: halves disagree at some feature, "
+        f"more reps may not help (drift, damage, or heterogeneity)."
+    )
+    return fig, summary
+
+
+def plot_running_average(file_name, e_min=None, e_max=None):
+    """Plot the running average and SEM band as more reps accumulate, on the
+    given window. One line per cumulative subset (1..n reps), color-progressed.
+    """
+    import numpy as np
+
+    try:
+        combined, file_name, counter, used = scans.get_normalized_scan_arrays(
+            file_name, e_min=e_min, e_max=e_max,
+        )
+    except ValueError as e:
+        return None, f"Could not load scans for {file_name}: {e}"
+    n = combined.shape[1]
+    if n < 2:
+        return None, f"Need >= 2 reps for running average, got {n}."
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    cmap = plt.get_cmap("viridis")
+    energy = combined.index.values
+    for i in range(2, n + 1):
+        subset = combined.iloc[:, :i]
+        m = subset.mean(axis=1).values
+        color = cmap(i / max(n, 1))
+        ax.plot(energy, m, color=color, alpha=0.7, linewidth=0.9)
+
+    final_mean = combined.mean(axis=1).values
+    final_sem = (combined.std(axis=1) / np.sqrt(n)).values
+    ax.fill_between(energy, final_mean - final_sem, final_mean + final_sem,
+                    color="black", alpha=0.15, label=f"final ±SEM (n={n})")
+
+    ax.set_xlabel("Energy (eV)")
+    ax.set_ylabel("Edge-step normalized running mean")
+    title = f"{file_name} — running average through {n} reps"
+    if e_min is not None and e_max is not None:
+        title += f"  window=[{e_min:.1f}, {e_max:.1f}]"
+    ax.set_title(title, fontsize=10)
+    ax.legend(fontsize=8)
+    ax.grid(alpha=0.3)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=2, vmax=n))
+    sm.set_array([])
+    cb = fig.colorbar(sm, ax=ax, pad=0.02)
+    cb.set_label("running sum through rep #")
+    fig.tight_layout()
+    return fig, f"Running average through {n} reps; band = final ±SEM."
+
+
+def plot_feature_evolution(file_name, e_min, e_max, statistic="max"):
+    """Plot a single per-rep scalar (the chosen statistic over [e_min, e_max])
+    versus rep number, with running mean and ±SEM band overlaid.
+
+    Agent must supply numeric e_min and e_max — this function does not infer
+    a window. Useful statistics: "max" (white-line height), "argmax" (white-line
+    position), "integral" (peak area), "min" / "argmin" (dip), "height" (max−min).
+    """
+    import numpy as np
+    from beamline_tools.experiment_planning.scan_features import (
+        extract_window_scalar, analyze_scalar_convergence,
+    )
+
+    try:
+        combined, file_name, counter, used = scans.get_normalized_scan_arrays(file_name)
+    except ValueError as e:
+        return None, f"Could not load scans for {file_name}: {e}"
+    n = combined.shape[1]
+    if n < 2:
+        return None, f"Need >= 2 reps for feature evolution, got {n}."
+
+    clean = combined.dropna()
+    energy = clean.index.values.tolist()
+    scan_2d = clean.values.T.tolist()
+    extract = extract_window_scalar(scan_2d, energy, e_min, e_max, statistic)
+    if "error" in extract:
+        return None, extract["error"]
+    vals = np.array(extract["per_rep_values"])
+    conv = analyze_scalar_convergence(vals.tolist())
+    running_mean = np.array(conv["running_mean"])
+    running_sem = np.array(conv["running_sem"])
+    rep_idx = np.arange(1, len(vals) + 1)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(rep_idx, vals, "o", color="C0", label=f"per-rep {statistic} in window")
+    ax.plot(rep_idx, running_mean, "-", color="C3", linewidth=1.5, label="running mean")
+    ax.fill_between(rep_idx, running_mean - running_sem, running_mean + running_sem,
+                    color="C3", alpha=0.2, label="±SEM")
+    ax.set_xlabel("Rep #")
+    ax.set_ylabel(f"{statistic} over [{e_min}, {e_max}] eV")
+    title = (
+        f"{file_name} — feature {statistic} evolution "
+        f"(verdict: {conv['verdict']}, SEM={conv['final_sem_frac']:.2%} of mean, "
+        f"last drift={conv['final_drift_frac']:.2%})"
+    )
+    ax.set_title(title, fontsize=9)
+    ax.legend(fontsize=8)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    return fig, (
+        f"Feature evolution ({statistic} on [{e_min}, {e_max}] eV): "
+        f"verdict={conv['verdict']}, final mean={conv['final_mean']:.4g}, "
+        f"final SEM={conv['final_sem']:.4g} ({conv['final_sem_frac']:.2%} of mean), "
+        f"last running-mean step={conv['final_drift_frac']:.2%}."
+    )
+
+
 def fig_to_base64(fig):
     """Convert a matplotlib figure to a base64-encoded PNG string."""
     buf = io.BytesIO()

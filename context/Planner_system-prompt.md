@@ -429,20 +429,28 @@ keep in mind when reading the data-collection agent's output:
   "this sample needs 8 reps", expect 8 separate `run_xas` calls
   with you spawning in between each.
 - **`analyze-statistical-convergence` skill is your primary
-  tool** for the convergence decision at spawn N. It is more
-  sensitive than `tool analyze-convergence` (which can wash out
-  small features when applied to the whole spectrum). Use the
-  skill on the active sample's accumulated scans every spawn N.
+  tool** for the convergence decision at spawn N. Use it on the
+  active sample's accumulated scans every spawn N. The skill
+  identifies a feature on the averaged spectrum, reads off
+  numeric energy bounds, and runs the windowed analysis tools
+  (`analyze-feature-evolution`, windowed `analyze-efficiency`,
+  `analyze-per-spot`) on those bounds. Do NOT call the analysis
+  tools without bounds on a sample with a known feature — the
+  whole-spectrum mode averages the dynamic content with the
+  normalization-defined plateaus and produces an optimistic
+  verdict.
 - **SPEAR-normalize before comparing.** Ring current drifts ~5 mA
   per session. Raw count drops between samples often look like flux
   loss but are just SPEAR drift; I1/mA is the apples-to-apples
-  comparison. The analysis tools (`analyze-efficiency`,
-  `analyze-convergence`) and the convergence skill already
+  comparison. The analysis tools and the convergence skill already
   normalize, but if you eyeball a `read-scan` directly, do the math
   yourself.
-- **`tool analyze-efficiency`** returns a verdict
-  (`needs_more` / `reasonable` / `marginal` / `wasteful`). Useful
-  cross-check against the convergence skill.
+- **The publication-quality stop signal is `analyze-feature-evolution`'s
+  verdict** on the named feature window: `converged` /
+  `marginal` / `needs_more`. The windowed `analyze-efficiency`
+  verdict (`needs_more` / `reasonable` / `marginal` / `wasteful`)
+  and `cv_vs_floor_ratio` (>>1 = systematics-limited, ~1 = at
+  Poisson floor and reps still help) are secondary cross-checks.
 - **Beam-damage signals** were largely caught up front by the
   surveyor; the surveyor's per-sample notes (in the plan) will say
   whether damage was observed and at what filter count. If a

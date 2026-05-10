@@ -19,6 +19,7 @@ def analyze_scan_efficiency(
     scan_data: list[list[float]],
     efficiency_threshold: float = 0.05,
     min_recommended_scans: int = 2,
+    raw_counts_per_point: list[list[float]] | None = None,
 ) -> dict[str, Any]:
     """
     Comprehensive efficiency analysis for repeated scan data.
@@ -35,13 +36,26 @@ def analyze_scan_efficiency(
         Fractional CV improvement below which adding scans is not worthwhile.
     min_recommended_scans : int, default=2
         Floor for the optimal scan count recommendation.
+    raw_counts_per_point : list[list[float]], optional
+        Raw (un-normalized) total counts per energy point per scan, same shape
+        as scan_data. If provided, an absolute counts-based Poisson floor is
+        computed: at each energy point the achievable per-rep CV is
+        1/sqrt(N_total) where N_total is summed across all reps. The floor is
+        averaged over the analysis window and reported alongside the existing
+        rate-based metric. If actual cumulative CV plateaus above this floor,
+        more reps cannot help (limit is systematic, not statistical).
 
     Returns
     -------
     dict with keys:
         - convergence: full result from analyze_scan_quality
         - cv_mean_pct: average coefficient of variation (%)
-        - poisson_limit_pct: how close to theoretical Poisson limit (%)
+        - poisson_limit_pct: how close to theoretical sqrt(n) improvement (%)
+        - counts_poisson_floor_pct: absolute counts-based achievable CV floor (%)
+          (only present when raw_counts_per_point is provided)
+        - cv_vs_floor_ratio: cv_mean_pct / counts_poisson_floor_pct
+          (>1 = systematics-limited, more reps won't help; ~1 = at the floor;
+          <1 means floor estimate is wrong, usually wrong counter passed)
         - optimal_scan_count: recommended number of scans
         - marginal_improvement: per-scan fractional CV improvement
         - current_vs_optimal: human-readable comparison string
@@ -99,6 +113,40 @@ def analyze_scan_efficiency(
     else:
         poisson_limit_pct = 100.0
 
+    # --- Component 4b: Counts-based Poisson floor (absolute) ---
+    counts_poisson_floor_pct = None
+    cv_vs_floor_ratio = None
+    if raw_counts_per_point is not None:
+        counts_arr = np.array(raw_counts_per_point, dtype=float)
+        if counts_arr.shape != data.shape:
+            return {
+                "error": (
+                    f"raw_counts_per_point shape {counts_arr.shape} does not match "
+                    f"scan_data shape {data.shape}."
+                )
+            }
+        # Total counts at each energy point, summed across all reps:
+        total_counts_per_point = np.sum(np.maximum(counts_arr, 0.0), axis=0)
+        # Achievable per-point CV at the Poisson floor (single-rep equivalent):
+        # CV_floor(E) = 1/sqrt(N_per_rep_avg) where N_per_rep_avg = total/n_scans.
+        # We want to compare to cv_mean which is std/mean ACROSS reps, so the
+        # apples-to-apples floor for the rep-to-rep CV is 1/sqrt(N_per_rep).
+        n_per_rep = total_counts_per_point / max(n_scans, 1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            cv_floor_per_point = np.where(
+                n_per_rep > 0, 1.0 / np.sqrt(n_per_rep), np.nan
+            )
+        if n_points > 2 * trim:
+            cv_floor_window = cv_floor_per_point[trim:-trim]
+        else:
+            cv_floor_window = cv_floor_per_point
+        cv_floor_window = cv_floor_window[np.isfinite(cv_floor_window)]
+        if cv_floor_window.size > 0:
+            counts_poisson_floor_pct = float(np.mean(cv_floor_window) * 100)
+            if counts_poisson_floor_pct > 0:
+                cv_vs_floor_ratio = round(cv_mean * 100 / counts_poisson_floor_pct, 3)
+
     # --- Component 5: Marginal improvement & optimal scan count ---
     marginal_improvement = np.zeros(n_scans)
     marginal_improvement[0] = 1.0
@@ -146,7 +194,7 @@ def analyze_scan_efficiency(
             f"The additional {n_scans - optimal_scan_count} scans provide minimal improvement."
         )
 
-    return {
+    out = {
         "convergence": convergence_result,
         "n_scans": n_scans,
         "n_points": n_points,
@@ -159,3 +207,7 @@ def analyze_scan_efficiency(
         "verdict": verdict,
         "verdict_explanation": explanation,
     }
+    if counts_poisson_floor_pct is not None:
+        out["counts_poisson_floor_pct"] = round(counts_poisson_floor_pct, 4)
+        out["cv_vs_floor_ratio"] = cv_vs_floor_ratio
+    return out

@@ -159,14 +159,39 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "average_scans",
-            "description": "Average all energy scans in a SPEC file after edge-step normalization. Returns mean and standard deviation across scans. If file_name is omitted, uses the most recent file with >1 energy scan.",
+            "description": (
+                "Average all energy scans in a SPEC file after edge-step normalization. "
+                "Returns mean and standard deviation across scans. If file_name is omitted, "
+                "uses the most recent file with >1 energy scan. Optionally crops the average "
+                "to a numeric energy window [e_min, e_max] in eV, and supports SNR-aware "
+                "inverse-variance weighting across reps."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "file_name": {
                         "type": "string",
                         "description": "SPEC file name. If omitted, uses the most recent file with >1 energy scan.",
-                    }
+                    },
+                    "e_min": {
+                        "type": "number",
+                        "description": "Lower energy bound (eV) for the returned average. Optional; if both e_min and e_max are given, the average is cropped to that window. Normalization is still done on the full scan.",
+                    },
+                    "e_max": {
+                        "type": "number",
+                        "description": "Upper energy bound (eV) for the returned average.",
+                    },
+                    "weighting": {
+                        "type": "string",
+                        "enum": ["equal", "inverse_variance"],
+                        "default": "equal",
+                        "description": (
+                            "'equal' = unweighted mean (default). 'inverse_variance' = weight each "
+                            "rep by 1/sigma_i^2 where sigma_i is estimated from that rep's post-edge "
+                            "baseline std. Use inverse_variance when reps come from spots with very "
+                            "different signal levels and you want SNR-optimal averaging."
+                        ),
+                    },
                 },
                 "required": [],
             },
@@ -176,14 +201,30 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "analyze_convergence",
-            "description": "Check if repeated scans have converged using cosine similarity metrics. Reports per-scan similarity to the mean, cumulative convergence, and standard error. Use this when the user asks 'do I have enough scans?'",
+            "description": (
+                "Check if repeated scans have converged using cosine similarity metrics. "
+                "Reports per-scan similarity to the mean, cumulative convergence, and standard error. "
+                "WARNING: cosine similarity is amplitude-dominated; the post-edge plateau (defined "
+                "to be ~1.0 by edge-step normalization) dominates the metric. ALWAYS pass numeric "
+                "e_min/e_max to focus on the dynamic part of the spectrum (e.g. a specific feature "
+                "you've identified). Whole-spectrum mode (no bounds) is a structural over-estimate "
+                "of convergence — use only as a sanity check."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "file_name": {
                         "type": "string",
                         "description": "SPEC file name. If omitted, uses the most recent file.",
-                    }
+                    },
+                    "e_min": {
+                        "type": "number",
+                        "description": "Lower bound (eV) of the feature window to analyze. Identify the feature on the averaged spectrum first, then pass its bounds.",
+                    },
+                    "e_max": {
+                        "type": "number",
+                        "description": "Upper bound (eV) of the feature window to analyze.",
+                    },
                 },
                 "required": [],
             },
@@ -193,16 +234,157 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "analyze_efficiency",
-            "description": "Comprehensive scan repetition efficiency report. Includes convergence, CV analysis, Poisson limit comparison, optimal scan count recommendation, and a verdict (needs_more / reasonable / marginal / wasteful).",
+            "description": (
+                "Comprehensive scan repetition efficiency report. Includes convergence, CV analysis, "
+                "rate-based and counts-based Poisson floor comparison, optimal scan count recommendation, "
+                "and a verdict (needs_more / reasonable / marginal / wasteful). "
+                "ALWAYS pass numeric e_min/e_max bounds for the feature you care about — running on the "
+                "whole spectrum averages dynamic content with normalization-defined plateaus and produces "
+                "an optimistic verdict. Identify the feature on the averaged spectrum first."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "file_name": {
                         "type": "string",
                         "description": "SPEC file name. If omitted, uses the most recent file.",
-                    }
+                    },
+                    "e_min": {
+                        "type": "number",
+                        "description": "Lower bound (eV) of the feature window. Required in practice for meaningful verdicts.",
+                    },
+                    "e_max": {
+                        "type": "number",
+                        "description": "Upper bound (eV) of the feature window.",
+                    },
+                    "include_poisson_floor": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": (
+                            "If true (default), also compute the absolute counts-based Poisson floor "
+                            "from the raw active counter. Result includes counts_poisson_floor_pct and "
+                            "cv_vs_floor_ratio: ratio ~1 means at the floor (more reps still help "
+                            "as 1/sqrt(n)); ratio >>1 means systematics-limited (more reps won't help)."
+                        ),
+                    },
                 },
                 "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_feature_evolution",
+            "description": (
+                "Per-rep scalar trace + convergence verdict for a feature defined by an energy window "
+                "and a statistic. The agent identifies a feature on the spectrum (white-line peak, "
+                "pre-edge shoulder, dip between oscillations, etc.) and passes the numeric eV bounds "
+                "and the statistic that captures it. Returns running mean, running SEM, and a verdict "
+                "(converged / marginal / needs_more) for that scalar. This is the publication-quality "
+                "test: the feature SEM should be a small fraction of its mean and the running mean "
+                "should be flat rep-over-rep."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_name": {
+                        "type": "string",
+                        "description": "SPEC file name.",
+                    },
+                    "e_min": {
+                        "type": "number",
+                        "description": "Lower bound (eV) of the feature window. REQUIRED.",
+                    },
+                    "e_max": {
+                        "type": "number",
+                        "description": "Upper bound (eV) of the feature window. REQUIRED.",
+                    },
+                    "statistic": {
+                        "type": "string",
+                        "enum": ["max", "min", "mean", "median", "integral", "argmax", "argmin", "height"],
+                        "default": "max",
+                        "description": (
+                            "Reduction over the window. 'max' = white-line height. 'argmax' = white-line "
+                            "energy / edge position. 'integral' = peak area. 'min' / 'argmin' = a dip's "
+                            "value / position. 'height' = max - min in window (peak prominence). 'mean' / "
+                            "'median' = average value (use when the feature is a plateau)."
+                        ),
+                    },
+                    "sem_threshold_frac": {
+                        "type": "number",
+                        "default": 0.01,
+                        "description": (
+                            "Target final SEM as a fraction of the running mean. 0.01 (1%) is the "
+                            "default for publication-quality on a prominent feature; tighten to 0.005 "
+                            "for very small features driving a result."
+                        ),
+                    },
+                    "drift_threshold_frac": {
+                        "type": "number",
+                        "default": 0.01,
+                        "description": "Step-to-step running-mean drift target as fraction of the latest mean.",
+                    },
+                },
+                "required": ["file_name", "e_min", "e_max"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "group_scans_by_spot",
+            "description": (
+                "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. "
+                "Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful "
+                "before convergence analysis when reps came from multiple spots — between-spot "
+                "differences can pollute whole-file CV. Pair with analyze_per_spot."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_name": {"type": "string", "description": "SPEC file name."},
+                    "tol_mm": {
+                        "type": "number",
+                        "default": 0.05,
+                        "description": "Position tolerance in mm for grouping. Default 0.05 mm.",
+                    },
+                },
+                "required": ["file_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_per_spot",
+            "description": (
+                "Run the full convergence/efficiency analysis SEPARATELY for each sample spot in "
+                "the file (grouped by Sx/Sy/Sz), and report a between-spot vs within-spot "
+                "heterogeneity F-statistic. F~1 = spots agree (safe to combine); F>>1 = spots "
+                "disagree beyond shot noise (the combined average is a population mean, not a "
+                "single chemistry — more reps won't fix it). Pass numeric e_min/e_max for the "
+                "feature you care about."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_name": {"type": "string", "description": "SPEC file name."},
+                    "e_min": {
+                        "type": "number",
+                        "description": "Lower bound (eV) of the feature window. Strongly recommended.",
+                    },
+                    "e_max": {
+                        "type": "number",
+                        "description": "Upper bound (eV) of the feature window.",
+                    },
+                    "tol_mm": {
+                        "type": "number",
+                        "default": 0.05,
+                        "description": "Position tolerance in mm for grouping.",
+                    },
+                },
+                "required": ["file_name"],
             },
         },
     },
@@ -244,6 +426,96 @@ TOOL_DEFINITIONS = [
                     }
                 },
                 "required": ["file_names"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "plot_scan_stack",
+            "description": (
+                "Overlay all reps of one sample on a single axis, color-progressed by rep order. "
+                "Use to visually judge whether reps scatter symmetrically around a stable mean "
+                "(converged), are still drifting in one direction (more reps needed or evolving "
+                "sample), or are being burned away (damage). Pass numeric e_min/e_max to crop to "
+                "the feature you care about."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_name": {"type": "string", "description": "SPEC file name."},
+                    "e_min": {"type": "number", "description": "Lower bound (eV). Optional but strongly recommended."},
+                    "e_max": {"type": "number", "description": "Upper bound (eV)."},
+                },
+                "required": ["file_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "plot_first_half_vs_second_half",
+            "description": (
+                "Compare the average of the first half of reps to the second half, with SEM bands. "
+                "Reports max |Δ|/SEM. <2σ: halves agree, sample is stationary. >3σ at any feature: "
+                "the halves disagree, more reps may not help (drift, damage, or heterogeneity). "
+                "This is the strongest single-glance test for whether the sample is publication-clean."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_name": {"type": "string", "description": "SPEC file name."},
+                    "e_min": {"type": "number", "description": "Lower bound (eV). Optional."},
+                    "e_max": {"type": "number", "description": "Upper bound (eV)."},
+                },
+                "required": ["file_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "plot_running_average",
+            "description": (
+                "Plot the running average across reps as it evolves (one line per cumulative subset, "
+                "color-progressed by rep #), with the final ±SEM band. Shows whether the running "
+                "mean is still changing rep-over-rep at the feature of interest."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_name": {"type": "string", "description": "SPEC file name."},
+                    "e_min": {"type": "number", "description": "Lower bound (eV). Optional."},
+                    "e_max": {"type": "number", "description": "Upper bound (eV)."},
+                },
+                "required": ["file_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "plot_feature_evolution",
+            "description": (
+                "Plot a single per-rep scalar (the chosen statistic over [e_min, e_max]) versus rep "
+                "number, with running mean and ±SEM band. The visual companion to "
+                "analyze_feature_evolution. Use to confirm a feature has flatlined; a still-trending "
+                "trace means the feature is not yet converged regardless of whole-spectrum verdicts."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_name": {"type": "string", "description": "SPEC file name."},
+                    "e_min": {"type": "number", "description": "Lower bound (eV). REQUIRED."},
+                    "e_max": {"type": "number", "description": "Upper bound (eV). REQUIRED."},
+                    "statistic": {
+                        "type": "string",
+                        "enum": ["max", "min", "mean", "median", "integral", "argmax", "argmin", "height"],
+                        "default": "max",
+                        "description": "Reduction over the window. See analyze_feature_evolution for guidance.",
+                    },
+                },
+                "required": ["file_name", "e_min", "e_max"],
             },
         },
     },
