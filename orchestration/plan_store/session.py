@@ -83,6 +83,8 @@ def _migrate_holder_pacing(engine):
             cursor.execute("ALTER TABLE sampleholder ADD COLUMN started_at TEXT")
         if "completed_at" not in columns:
             cursor.execute("ALTER TABLE sampleholder ADD COLUMN completed_at TEXT")
+        if "stop_time" not in columns:
+            cursor.execute("ALTER TABLE sampleholder ADD COLUMN stop_time TEXT")
         cursor.execute("""
             UPDATE sampleholder SET started_at = created_at
             WHERE status = 'done' AND started_at IS NULL
