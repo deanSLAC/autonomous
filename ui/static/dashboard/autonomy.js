@@ -568,6 +568,22 @@ function renderAutonomy(orc, dash) {
         }
     }
 
+    // Holder pacing projection
+    const pacingEl = document.getElementById("holder-pacing-text");
+    if (pacingEl) {
+        const p = dash.holder_pacing || {};
+        if (p.completed_holders > 0 && p.avg_hours_per_holder != null) {
+            let txt = `avg ${p.avg_hours_per_holder.toFixed(1)}h/holder (${p.completed_holders} done)`;
+            if (p.projected_additional_holders != null) {
+                txt += ` · ~${p.projected_additional_holders} more can fit`;
+            }
+            pacingEl.textContent = txt;
+            pacingEl.style.display = "";
+        } else {
+            pacingEl.style.display = "none";
+        }
+    }
+
     window.__planQueue = queue;
     window.__planExpId = expId;
 

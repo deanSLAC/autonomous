@@ -750,6 +750,12 @@
 }
 .plan-footer-bar .tile-link:hover { text-decoration: underline; }
 
+.holder-pacing-bar {
+    font-size: 0.85em;
+    color: var(--text-dim, #888);
+    padding: 2px 8px 4px;
+    margin-bottom: 4px;
+}
 .holder-budget-bar {
     display: flex;
     gap: 10px;

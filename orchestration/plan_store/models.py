@@ -121,6 +121,8 @@ class SampleHolder(SQLModel, table=True):
     # Absolute time by which collection on this holder should ideally
     # wrap up.  Planning aid only — we never auto-stop.
     stop_time: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
     notes: Optional[str] = None
 
 

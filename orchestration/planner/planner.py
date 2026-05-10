@@ -170,6 +170,7 @@ class PlannerSnapshot:
     samples_queued: int
     plan: dict = field(default_factory=dict)
     experiment: dict = field(default_factory=dict)
+    holder_pacing: dict = field(default_factory=dict)
 
     def to_system_context(self) -> str:
         exp = self.experiment or {}
@@ -222,6 +223,22 @@ class PlannerSnapshot:
                 f"{self.beamtime_elapsed_hours:.2f}h elapsed of "
                 f"{self.beamtime_total_hours:.2f}h total)\n"
             )
+        pacing = self.holder_pacing or {}
+        if pacing.get("completed_holders", 0) > 0:
+            pacing_line = (
+                f"  holder pacing: {pacing['completed_holders']} completed "
+                f"(avg {pacing['avg_hours_per_holder']:.1f}h/holder), "
+                f"{pacing['holders_not_started']} not started"
+            )
+            if pacing.get("projected_additional_holders") is not None:
+                pacing_line += (
+                    f", ~{pacing['projected_additional_holders']} more holders "
+                    f"can fit in {pacing['remaining_beamtime_hours']:.1f}h remaining"
+                )
+            pacing_line += "\n"
+        else:
+            pacing_line = ""
+
         return (
             "[PLANNER STATE]\n"
             f"  phase: {self.phase}\n"
@@ -233,12 +250,69 @@ class PlannerSnapshot:
             + beamtime_line
             + f"  samples: {self.samples_completed} done / {self.samples_in_progress} in progress / "
             f"{self.samples_queued} queued ({self.samples_total} total)\n"
-            f"  thresholds: SNR target={self.plan.get('thresholds', {}).get('snr_target')}, "
+            + pacing_line
+            + f"  thresholds: SNR target={self.plan.get('thresholds', {}).get('snr_target')}, "
             f"min reps/sample={self.plan.get('thresholds', {}).get('min_reps_per_sample')}\n"
             + phase_note
             + "  plan updates should go through the `update_plan` tool "
             "so the user can see the rationale."
         )
+
+
+def compute_holder_pacing(experiment_id: str) -> dict:
+    """Average hours per completed holder and projected remaining capacity."""
+    with get_session() as session:
+        exp = session.get(Experiment, experiment_id)
+        if exp is None:
+            return {}
+        holders = list(session.exec(
+            select(SampleHolder)
+            .where(SampleHolder.experiment_id == experiment_id)
+            .order_by(SampleHolder.queue_order, SampleHolder.created_at)
+        ))
+
+    now = datetime.now()
+    remaining_hours: float | None = None
+    if exp.end_time is not None:
+        remaining_hours = (exp.end_time - now).total_seconds() / 3600
+
+    completed_durations: list[float] = []
+    active_elapsed: float | None = None
+    for h in holders:
+        started = getattr(h, "started_at", None)
+        completed = getattr(h, "completed_at", None)
+        if started and completed and (h.status or "") == "done":
+            completed_durations.append(
+                (completed - started).total_seconds() / 3600
+            )
+        elif started and (h.status or "") not in ("configured", "done"):
+            active_elapsed = (now - started).total_seconds() / 3600
+
+    completed_count = len(completed_durations)
+    avg_hours = (
+        round(sum(completed_durations) / completed_count, 2)
+        if completed_count > 0 else None
+    )
+    holders_not_started = sum(
+        1 for h in holders if (h.status or "") == "configured"
+    )
+    projected_additional: int | None = None
+    if avg_hours is not None and remaining_hours is not None and avg_hours > 0:
+        projected_additional = int(remaining_hours / avg_hours)
+
+    return {
+        "total_holders": len(holders),
+        "completed_holders": completed_count,
+        "holders_not_started": holders_not_started,
+        "avg_hours_per_holder": avg_hours,
+        "active_holder_elapsed_hours": (
+            round(active_elapsed, 2) if active_elapsed is not None else None
+        ),
+        "projected_additional_holders": projected_additional,
+        "remaining_beamtime_hours": (
+            round(remaining_hours, 2) if remaining_hours is not None else None
+        ),
+    }
 
 
 def snapshot(experiment_id: str) -> PlannerSnapshot:
@@ -304,6 +378,11 @@ def snapshot(experiment_id: str) -> PlannerSnapshot:
         elapsed = 0.0
         remaining = 0.0
 
+    try:
+        pacing = compute_holder_pacing(experiment_id)
+    except Exception:
+        pacing = {}
+
     return PlannerSnapshot(
         experiment_id=experiment_id,
         phase=plan.get("phase", "setup"),
@@ -317,6 +396,7 @@ def snapshot(experiment_id: str) -> PlannerSnapshot:
         samples_queued=queued,
         plan=plan_body,
         experiment=exp_meta,
+        holder_pacing=pacing,
     )
 
 

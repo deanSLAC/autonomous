@@ -217,6 +217,23 @@ set or update the deadline via `set_holder_time_budget --stop-time`
 or `--hours-remaining`. You may also call `date` to get the current
 wall-clock time when computing time-based decisions.
 
+### Cross-holder pacing
+
+The `[PLANNER STATE]` block includes a `holder pacing` line showing:
+average hours per completed holder, how many holders remain in the
+queue, and how many additional holders can fit in the remaining
+beamtime at the current pace. The `get-holder-time-budget` tool also
+returns this data under the `pacing` key.
+
+Use this information to:
+- **Flag early** when the pace suggests queued holders will be cut
+  ("at current pace we can only fit 2 of the 4 remaining holders").
+- **Adjust per-sample budgets** to make room for more holders when
+  the projection is tight.
+- **Post a status update** when the projection changes significantly.
+
+This line only appears after at least one holder has completed.
+
 ### Per-sample minimum scans (`min_scans`)
 
 Some samples carry a `min_scans` value (visible in both

@@ -32,6 +32,15 @@ from beamline_tools.spec_control import spec_cmd
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
+def _holder_pacing(experiment_id: str) -> dict:
+    try:
+        from orchestration.planner.planner import compute_holder_pacing
+        return compute_holder_pacing(experiment_id)
+    except Exception:
+        return {}
+
+
+
 @router.get("/experiments")
 def experiments(limit: int = 20):
     with get_session() as session:
@@ -147,12 +156,13 @@ def status(experiment_id: str = Query(...)):
         "holders": [
             {
                 "id": h.id, "name": h.name, "type": h.holder_type,
-                "n_samples": h.n_samples,
+                "n_samples": h.n_samples, "status": h.status,
                 "beamtime_hours": h.beamtime_hours,
                 "stop_time": h.stop_time.isoformat() if getattr(h, "stop_time", None) else None,
             }
             for h in holders
         ],
+        "holder_pacing": _holder_pacing(experiment_id),
         "phase_runs": [
             {
                 "id": r.id, "phase": r.phase, "status": r.status,

@@ -66,8 +66,34 @@ def get_engine(db_path: str | None = None):
 
     os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
     SQLModel.metadata.create_all(_engine)
+    _migrate_holder_pacing(_engine)
 
     return _engine
+
+
+def _migrate_holder_pacing(engine):
+    """Add started_at/completed_at columns to sampleholder if missing."""
+    import sqlite3
+    conn = sqlite3.connect(_db_path())
+    try:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(sampleholder)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "started_at" not in columns:
+            cursor.execute("ALTER TABLE sampleholder ADD COLUMN started_at TEXT")
+        if "completed_at" not in columns:
+            cursor.execute("ALTER TABLE sampleholder ADD COLUMN completed_at TEXT")
+        cursor.execute("""
+            UPDATE sampleholder SET started_at = created_at
+            WHERE status = 'done' AND started_at IS NULL
+        """)
+        cursor.execute("""
+            UPDATE sampleholder SET completed_at = updated_at
+            WHERE status = 'done' AND completed_at IS NULL
+        """)
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def get_session() -> Session:
@@ -324,6 +350,10 @@ def update_sample_holder(
         if holder_type is not None:
             h.holder_type = holder_type
         if status is not None:
+            if h.started_at is None and status != "configured":
+                h.started_at = datetime.now()
+            if status == "done" and h.completed_at is None:
+                h.completed_at = datetime.now()
             h.status = status
         if beamtime_hours is not _SENTINEL:
             h.beamtime_hours = beamtime_hours

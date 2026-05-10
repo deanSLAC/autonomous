@@ -1120,7 +1120,14 @@ def t_get_holder_time_budget(args: dict) -> tuple[str, list[str]]:
             "hours_remaining": hours_remaining,
         })
 
-    return _as_json({"ok": True, "holders": results}), []
+    from orchestration.planner.planner import compute_holder_pacing
+    pacing = {}
+    try:
+        pacing = compute_holder_pacing(xid)
+    except Exception:
+        pass
+
+    return _as_json({"ok": True, "holders": results, "pacing": pacing}), []
 
 
 def _resolve_active_sample_id(experiment_id: str) -> Optional[str]:
