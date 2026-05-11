@@ -160,9 +160,12 @@ agent has finished and uploaded per-sample
    per-sample, per-spot scaffold the orchestrator built from the
    survey results. Read what's there before overwriting.
 5. **Review survey-derived stats.** For each sample read its
-   surveyor-uploaded `filter_count`, `counts_per_sec`,
-   `survey_energy`, plus any per-sample notes
-   (e.g. "drastic filter adjustment", "damage observed").
+   surveyor-uploaded `filter_count` (stored as `xas_filter`),
+   `counts_per_sec`, `survey_energy`, plus any per-sample notes
+   (e.g. "drastic filter adjustment", "damage observed"). Note:
+   `xas_filter_suggested` is the operator's pre-survey starting
+   guess and is no longer relevant once the surveyor has committed
+   results (`xas_filter`).
 6. **Decide per-sample n_scans within the holder time budget.**
    The relevant inputs:
    - per-sample scan duration (estimable from
@@ -416,6 +419,11 @@ first. Never set `status=skipped` or `status=failed` to shrink the queue
   orchestrator watchdog will respawn you within ~5 minutes with an
   `[orchestrator heartbeat]` seed naming the deaf-state reason. **You
   are the recovery path.**
+- The plan-validation layer enforces this directly: an `update-plan`
+  whose collection-phase samples are all in `{done, skipped, failed}`
+  is rejected with HTTP 400 (`PlanValidationError: no actionable
+  samples`). Always reopen at least one sample — per the
+  convergence-fallback redistribution procedure — before submitting.
 
 ---
 

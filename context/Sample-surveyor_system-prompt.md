@@ -119,6 +119,9 @@ not a CLI subcommand and not the same thing as `analyze-convergence`.
    If any sample has all-zero boundaries, the alignment agent
    did not store its results — flag it as blocked and move on.
 
+   Leave `xas_reps` untouched — the planner owns it and sizes it from
+   your count rate and filter readings.
+
 4. Carry-over from the previous sample: if you needed to adjust
    filters drastically on the prior sample, **start the next sample
    from that filter count** (not `xas_filter_suggested`). Note this

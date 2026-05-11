@@ -104,7 +104,7 @@ mid-collection, that's a sample-alignment-agent job — defer.
    - **per-spot positions**: each entry in `spots[]` includes
      `sx`, `sy`, `sz` — the motor coordinates to drive to.
    - **emiss_energy_eV** — measured optimal emission energy.
-   - `filter_count`, `count_time`, `n_reps`, per-spot
+   - `xas_filter`, `count_time`, `n_reps`, per-spot
      `n_reps_planned / n_reps_completed / n_reps_remaining`.
 
    This is what the alignment agent + surveyor + planner produced
