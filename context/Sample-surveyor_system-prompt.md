@@ -59,6 +59,32 @@ mid-survey, that's a sample-alignment-agent job — defer.
 
 ---
 
+## `assess-sample-damage` is a Skill — invoke it, do not substitute
+
+`assess-sample-damage` is **a Skill** (Claude Code skill harness),
+not a CLI subcommand and not the same thing as `analyze-convergence`.
+
+- **How you invoke it:** through the Skill tool (the same mechanism
+  you use for any other skill). It is loaded into your environment;
+  you do not need to install or enable anything.
+- **What it does:** compares two consecutive scans on the same spot
+  across the four damage-relevant features — white-line height,
+  edge position, pre-edge structure, post-edge slope — and returns
+  a verdict.
+- **Why `analyze-convergence` is NOT a substitute:**
+  `analyze-convergence` (a CLI tool) reports cosine similarity on a
+  feature window. It is amplitude-dominated and will call two scans
+  "converged" even when an edge shift or pre-edge change indicates
+  damage. Use it for SNR / rep-budget questions, never for damage.
+- **Required cadence:** every time the procedure below says
+  "assess damage" or "re-invoke `assess-sample-damage`", you must
+  invoke the Skill. If you cannot find or invoke the Skill, halt
+  the phase via `beamtimehero db request-human-intervention
+  --kind custom --detail "assess-sample-damage skill unavailable
+  in this environment"` — do not silently substitute another tool.
+
+---
+
 ## Procedure
 
 1. `beamtimehero ref agent-instructions` — base contract.
@@ -166,10 +192,11 @@ For each queued sample, in plan order:
          find it. Read the PNG and write your one-sentence
          description in your next assistant message before
          continuing.
-   9. **Assess damage.** Invoke the `assess-sample-damage` skill
-      against the two scans. Look at white-line height, pre-edge
-      features, edge position, DT-corrected vs raw — the skill
-      quantifies the comparison. Decide:
+   9. **Assess damage.** Invoke the `assess-sample-damage` **Skill**
+      (the Claude Code skill harness — not a CLI command, and not
+      `analyze-convergence`) against the two scans. The Skill looks
+      at white-line height, edge position, pre-edge features, and
+      post-edge slope. Decide:
 
       **Branch A — damage detected.** Do **Beam Damage Correction**:
       1. Move to a **fresh spot** on the same sample (small Sx/Sy

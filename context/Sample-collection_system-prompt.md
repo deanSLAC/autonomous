@@ -37,19 +37,35 @@ beamtimehero ref agent-instructions
 Completion contract, never-do list, and the SPEC↔CLI translation
 table.
 
-**Steering queue exemption.** The base contract tells every agent
-to drain `beamtimehero steering pending --unacked` between every
-tool call. **You are exempt from that requirement.** During
-collection the **planner** owns the steering queue: it re-spawns
-between each of your scans, reads steering, and either acts on
-plan-level requests itself or — for things in your scope (skip a
-sample, change reps, etc.) — folds them into the comprehensive
-collection plan as edits. You pick those up by **refetching
-`get-comprehensive-collection-plan` before every new scan** (see
-the procedure below). Do not call `steering pending`, do not
-`ack`/`defer`/`complete` steering rows. The only exception is a
-direct STOP signal, which the orchestrator delivers by killing
-your subprocess group — you don't need to poll for it.
+**Steering queue cadence (overrides the base contract).** The base
+contract says drain `beamtimehero steering pending --unacked`
+between every tool call. For data collection that is unrealistic
+(you make hundreds of tool calls per hour and most of them are
+short bookkeeping reads). Your concrete contract is:
+
+- **Run `beamtimehero steering pending --unacked` at least once
+  every 5 minutes of wall-clock**, AND
+- **always immediately after `run-xas` returns** (you have a brief
+  natural gap there — use it).
+
+This puts the cadence at ~15-20 polls per hour, surfaces any
+operator message within at most one rep, and keeps you inside
+the base contract's intent without overspending on polling.
+
+For steering rows you find: by default, `defer` plan-level edits
+(reps, sample order, skip a sample) to the planner — it re-spawns
+between your scans and folds those into the comprehensive collection
+plan. Act directly only on collection-scope messages (e.g.
+"change filter on sample X to 8") or STOP-class rows (`is_stop=true`).
+Always `ack` before acting; never `complete` a row you did not
+fulfill.
+
+You also still pick up planner-folded edits by refetching
+`get-comprehensive-collection-plan` before every new scan (see the
+procedure below). A direct STOP signal is delivered by the
+orchestrator killing your subprocess group — you don't have to
+poll for it specifically, but the 5-minute cadence above catches
+it as a secondary safety net.
 
 ---
 
