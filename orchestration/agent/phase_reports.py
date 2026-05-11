@@ -113,12 +113,17 @@ def _scans_in_window(window: tuple[datetime, datetime]) -> list[dict]:
     start, end = window
     out: list[dict] = []
     for s in scans:
-        dt_str = s.get("date_time")
-        if not dt_str:
+        dt_val = s.get("date_time")
+        if dt_val is None:
             continue
-        try:
-            dt = datetime.fromisoformat(dt_str)
-        except (TypeError, ValueError):
+        if isinstance(dt_val, datetime):
+            dt = dt_val
+        elif isinstance(dt_val, str):
+            try:
+                dt = datetime.fromisoformat(dt_val)
+            except ValueError:
+                continue
+        else:
             continue
         if start <= dt <= end:
             s = dict(s)
