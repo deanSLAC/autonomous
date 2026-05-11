@@ -94,7 +94,7 @@ def _pack_header(cmd: int, datatype: int, datalen: int, serial: int, name: str) 
     t = time.time()
     sec = int(t)
     usec = int((t - sec) * 1_000_000)
-    name_bytes = name.encode("latin-1")[: SV_NAME_LEN - 1].ljust(SV_NAME_LEN, b"\x00")
+    name_bytes = name.encode("latin-1", errors="replace")[: SV_NAME_LEN - 1].ljust(SV_NAME_LEN, b"\x00")
     return struct.pack(
         _HDR_FMT,
         SV_SPEC_MAGIC, SV_VERSION, _HDR_SIZE,
@@ -226,7 +226,7 @@ def dispatch(spec_string: str, *, timeout_s: float = 1800.0) -> DispatchResult:
             transport="tcp",
         )
 
-    data_bytes = spec_string.encode("latin-1") + b"\x00"
+    data_bytes = spec_string.encode("latin-1", errors="replace") + b"\x00"
     with conn.send_lock:
         conn.serial += 1
         serial = conn.serial
