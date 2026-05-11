@@ -404,13 +404,20 @@ def plot_statistics_trend(stats, sample_name=""):
     ax_cv.grid(alpha=0.3)
 
     # --- Bottom: Feature SEM ---
-    ax_sem.plot(reps, sem_arr, "o-", color="C0", markersize=4, label="Feature SEM (% of mean)")
-    finite_sem = sem_arr[np.isfinite(sem_arr)]
-    if len(finite_sem) >= 2:
-        sem_start = finite_sem[0]
-        start_idx = int(np.where(np.isfinite(sem_arr))[0][0])
-        poisson_sem = sem_start * np.sqrt((start_idx + 1)) / np.sqrt(reps)
-        ax_sem.plot(reps, poisson_sem, "--", color="gray", alpha=0.7, label="1/√n Poisson")
+    # Rep 1 has SEM=0 by definition (single sample); skip it so the
+    # axis isn't pinned to zero.
+    sem_reps = reps[1:]
+    sem_vals = sem_arr[1:]
+    ax_sem.plot(sem_reps, sem_vals, "o-", color="C0", markersize=4,
+                label="Feature SEM (% of mean)")
+    finite_mask = np.isfinite(sem_vals) & (sem_vals > 0)
+    if finite_mask.sum() >= 2:
+        first = int(np.where(finite_mask)[0][0])
+        anchor = sem_vals[first]
+        anchor_rep = sem_reps[first]
+        poisson_sem = anchor * np.sqrt(anchor_rep) / np.sqrt(sem_reps)
+        ax_sem.plot(sem_reps, poisson_sem, "--", color="gray", alpha=0.7,
+                    label="1/√n Poisson")
     ax_sem.axhline(sem_threshold, color="C1", linestyle="-", alpha=0.6,
                    label=f"{sem_threshold:.0f}% publication threshold")
     ax_sem.set_ylabel("SEM (% of mean)")
