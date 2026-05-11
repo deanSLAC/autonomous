@@ -126,9 +126,6 @@ async def submit_experiment(data: dict):
         foil_det_raw = (data.get("calibration_foil_detector") or "").strip()
         calibration_foil_detector = foil_det_raw if foil_det_raw in ("I1", "I2") else "I2"
 
-        llm_enabled = data.get("llm_enabled", True)
-        llm_decide_enabled = data.get("llm_decide_enabled", True)
-
         end_time_raw = (data.get("end_time") or "").strip()
         end_time_dt: datetime | None = None
         if end_time_raw:
@@ -182,19 +179,6 @@ async def submit_experiment(data: dict):
         if end_time_dt and not existing_id:
             from orchestration.plan_store.session import set_experiment_end_time
             set_experiment_end_time(experiment_id, end_time_dt)
-
-        # The only experiment-level overrides we still store in
-        # config_yaml are the LLM flags. Per-channel gains moved to
-        # the per-sample row.
-        config_extra = {
-            "llm_enabled": llm_enabled,
-            "llm_decide_enabled": llm_decide_enabled,
-        }
-        with get_session() as session:
-            exp_db = session.get(Experiment, experiment_id)
-            exp_db.config_yaml = yaml.dump(config_extra)
-            session.add(exp_db)
-            session.commit()
 
         elements_data = data.get("elements", [])
         for i, el in enumerate(elements_data):
@@ -381,12 +365,6 @@ def load_experiment(experiment_id: str):
     if exp is None:
         return JSONResponse({"success": False, "error": "Experiment not found"}, status_code=404)
     elements = get_elements_for_experiment(experiment_id)
-    config_extra = {}
-    if exp.config_yaml:
-        try:
-            config_extra = yaml.safe_load(exp.config_yaml) or {}
-        except yaml.YAMLError:
-            config_extra = {}
     # Holders + samples
     holders = []
     samples_flat: list[dict] = []
@@ -435,8 +413,6 @@ def load_experiment(experiment_id: str):
         "calibration_foil_detector": getattr(exp, "calibration_foil_detector", None) or "I2",
         "end_time": exp.end_time.isoformat() if exp.end_time else None,
         "created_at": exp.created_at.isoformat() if exp.created_at else None,
-        **{k: v for k, v in config_extra.items()
-           if k in ("llm_enabled", "llm_decide_enabled")},
     }
     return {
         "success": True,

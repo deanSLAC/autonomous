@@ -403,7 +403,6 @@ def _generate_mac_content(
     lines.append("global MONO_CRYSTAL CRYSTAL_SET BEAM_SIZE_H BEAM_SIZE_V MIRRORS_OUT OPTIMIZED_ENERGY")
     lines.append("global N_ELEMENTS N_SAMPLES HOOKS_ENABLED HOOK_URL USER_DIR")
     lines.append("global I0_GAIN I0_OFFSET I1_GAIN")
-    lines.append("global LLM_ENABLED LLM_DECIDE_ENABLED")
     lines.append("global CALIBRATION_FOIL_ELEMENT CALIBRATION_FOIL_DETECTOR")
     lines.append("")
 
@@ -433,10 +432,6 @@ def _generate_mac_content(
     # Hooks default on
     lines.append("HOOKS_ENABLED = 1")
     lines.append('HOOK_URL = "http://localhost:8005"')
-
-    # LLM toggles
-    lines.append("LLM_ENABLED = 1")
-    lines.append("LLM_DECIDE_ENABLED = 1")
 
     # Gains
     i0_gain = crystal_gains.get("default_i0_gain", "100 nA/V")

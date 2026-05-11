@@ -32,7 +32,6 @@ class Experiment(SQLModel, table=True):
     mirrors_out: bool = Field(default=False)      # mirrors removed (energy above cutoff)
     sample_env: Optional[str] = None  # cryostat, ambient, operando, liquid_jet
     status: str = Field(default="created", index=True)  # created/aligning/collecting/done
-    config_yaml: Optional[str] = None  # Full YAML text of experiment config
     data_path: Optional[str] = None  # e.g. /data/fifteen/{name}
     # Operator-confirmed flag: spectrometer was aligned for this experiment's
     # crystals. Gates Sample Alignment / Data Collection tiles in the

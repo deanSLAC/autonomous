@@ -509,17 +509,6 @@ function _updateFoilElementPlaceholder() {
 }
 
 // ---------------------------------------------------------------------------
-// Advanced Section Toggle
-// ---------------------------------------------------------------------------
-
-function toggleAdvanced() {
-    const header = document.querySelector('.collapsible-header');
-    const content = document.getElementById('advanced-content');
-    header.classList.toggle('collapsed');
-    content.classList.toggle('collapsed');
-}
-
-// ---------------------------------------------------------------------------
 // Data Gathering
 // ---------------------------------------------------------------------------
 
@@ -537,8 +526,6 @@ function gatherExperimentData() {
         calibration_foil_detector: val('calibration_foil_detector') || 'I2',
         data_directory: val('data_directory'),
         end_time: endTimeRaw || null,
-        llm_enabled: document.getElementById('llm_enabled').checked,
-        llm_decide_enabled: document.getElementById('llm_decide_enabled').checked,
         elements: [],
     };
 
@@ -804,10 +791,6 @@ function populateForm(data) {
         caGroup.style.display = 'none';
     }
 
-    // Advanced
-    document.getElementById('llm_enabled').checked = exp.llm_enabled !== false;
-    document.getElementById('llm_decide_enabled').checked = exp.llm_decide_enabled !== false;
-
     // Planner thresholds (snr_target / min_reps_per_sample) live on the
     // plan, not on the experiment record. Fetch separately and populate
     // the inputs; blanks are fine if no plan exists yet.
@@ -938,9 +921,6 @@ async function setupNewExperiment() {
     document.getElementById('calibration_foil_element').value = '';
     document.getElementById('calibration_foil_detector').value = 'I2';
     document.getElementById('data_directory').value = '';
-    document.getElementById('llm_enabled').checked = true;
-    document.getElementById('llm_decide_enabled').checked = true;
-
     const caGroup = document.getElementById('created_at_group');
     if (caGroup) caGroup.style.display = 'none';
 
