@@ -85,7 +85,11 @@ crystal motors, and the energy-tracking anchor.
       one, trust the plotselected channel.
    3. Follow the sample-alignment recipe from the reference doc:
       - d2scan over Sx/Sy to find the sample edges (boundary
-        detection).
+        detection). **Samples on a holder are typically found within
+        a ±3 mm box in Sx and Sy around the holder's nominal origin —
+        not necessarily at (Sx, Sy) = (0, 0).** If your first scan at
+        (0, 0) shows < 10× background, do a `d2scan(Sx, Sy)` over
+        ±3 mm first to locate the sample, then refine.
       - dscan Sz to find the vertical extent.
       - Optimize emiss with `get_HERFD_energy` / emiss scan.
       - Check count rate and note the filter count you used.
