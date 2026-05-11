@@ -200,7 +200,8 @@ def _render_alignment(
     # list of ints. Replace Nones with a sentinel scan number (-1) so the
     # renderer's per-cell try/except draws "No data" for missing slots.
     sn_arg = [n if n is not None else -1 for n in scan_numbers]
-    out_path = str(REPORTS_DIR / f"alignment_{phase_run_id}.png")
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_path = str(REPORTS_DIR / f"alignment_{phase_run_id}_{ts}.png")
     out_dir = str(REPORTS_DIR)
 
     from orchestration.agent import reports
@@ -211,7 +212,7 @@ def _render_alignment(
         metadata=metadata,
     )
     # alignment_report writes its own timestamped filename; rename to the
-    # phase_run-keyed name so summary_image_path is stable.
+    # phase_run-keyed name so summary_image_path is recorded once and stable.
     try:
         if written and written != out_path:
             os.replace(written, out_path)
@@ -343,7 +344,8 @@ def _render_sample_survey(
         )
         return None
 
-    out_path = str(REPORTS_DIR / f"sample_survey_{phase_run_id}.png")
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_path = str(REPORTS_DIR / f"sample_survey_{phase_run_id}_{ts}.png")
     out_dir = str(REPORTS_DIR)
 
     from orchestration.agent import reports
