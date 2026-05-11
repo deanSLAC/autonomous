@@ -170,7 +170,12 @@ async function shLoadElements() {
         const j = await r.json();
         if (j && j.success) {
             _shElements = j.elements || [];
-            if (typeof window !== "undefined") window._cachedElements = _shElements;
+            if (typeof window !== "undefined") {
+                window._cachedElements = _shElements;
+                if (typeof window.setCachedElements === "function") {
+                    window.setCachedElements(_shElements);
+                }
+            }
         }
     } catch {}
 }
@@ -201,7 +206,7 @@ function shSetEditorMode(mode, name) {
     }
 }
 
-function shNewHolder() {
+async function shNewHolder() {
     _shCurrentHolderId = null;
     shSetEditorMode("new");
     document.getElementById("sh-holder-name").value = "";
@@ -212,6 +217,7 @@ function shNewHolder() {
     document.getElementById("sh-bulk-ct").value = "";
     document.getElementById("sh-bulk-reps").value = "";
     shClearSamplesContainer();
+    await shLoadElements();
     if (typeof addSample === "function") addSample();
     document.getElementById("sh-delete-btn").style.display = "none";
     document.getElementById("holder-editor-panel").style.display = "";
@@ -232,6 +238,7 @@ async function shEditHolder(holderId) {
     document.getElementById("sh-bulk-ct").value = "";
     document.getElementById("sh-bulk-reps").value = "";
     shClearSamplesContainer();
+    await shLoadElements();
     (j.samples || []).forEach(s => {
         if (typeof addSample === "function") addSample(s);
     });

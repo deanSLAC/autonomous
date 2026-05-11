@@ -529,6 +529,12 @@ function buildElementOptions(selected) {
 // Cache of elements from the active experiment (for Tab 2 when Tab 1 elements aren't in DOM)
 let _cachedElements = [];
 
+// Cross-script setter so callers outside this module (e.g. /sample_holders)
+// can populate the module-local cache that buildElementOptions() reads.
+window.setCachedElements = function (els) {
+    _cachedElements = Array.isArray(els) ? els : [];
+};
+
 function updateSampleElementDropdowns() {
     const selects = document.querySelectorAll('.sample-element-select');
     selects.forEach(sel => {
