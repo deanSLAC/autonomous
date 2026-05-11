@@ -317,8 +317,13 @@ def validate_sample_holder_data(data: dict, element_names: set[str] | None = Non
             except (ValueError, TypeError):
                 errors.append(f"{pfx}: XAS count time must be a number")
 
+            # xas_filter_suggested is the operator's starting guess; None is
+            # the "no preset" sentinel and treated as 0 (let the surveyor pick).
+            raw_filter = s.get("xas_filter_suggested")
+            if raw_filter is None:
+                raw_filter = s.get("xas_filter", 0)
             try:
-                filt = int(s.get("xas_filter_suggested", s.get("xas_filter", 0)))
+                filt = int(raw_filter or 0)
                 if filt < 0 or filt > 255:
                     errors.append(f"{pfx}: XAS filter must be 0-255")
             except (ValueError, TypeError):

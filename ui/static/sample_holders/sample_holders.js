@@ -130,7 +130,12 @@ function shRenderHolderList() {
             <td>${shEsc(h.holder_type)}</td>
             <td><span class="holder-status-pill ${shEsc(h.status)}">${shEsc(h.status)}</span></td>
             <td>${h.n_samples ?? 0}</td>
-            <td>${h.beamtime_hours != null ? h.beamtime_hours + " h" : "<span class='muted'>—</span>"}</td>
+            <td>${h.stop_time
+                ? new Date(h.stop_time).toLocaleString(undefined, {
+                    month: "short", day: "numeric",
+                    hour: "2-digit", minute: "2-digit",
+                  })
+                : "<span class='muted'>—</span>"}</td>
             <td class="row-actions">
                 <button ${first} title="Move up" onclick="shMoveHolder('${shEsc(h.id)}', -1)">↑</button>
                 <button ${last} title="Move down" onclick="shMoveHolder('${shEsc(h.id)}', 1)">↓</button>
@@ -227,7 +232,8 @@ async function shNewHolder() {
     document.getElementById("sh-holder-type").value = "flat";
     document.getElementById("sh-holder-status").value = "configured";
     document.getElementById("sh-holder-notes").value = "";
-    document.getElementById("sh-beamtime-hours").value = "";
+    document.getElementById("sh-hours-remaining").value = "";
+    shUpdateStopPreview();
     document.getElementById("sh-bulk-ct").value = "";
     document.getElementById("sh-bulk-min-scans").value = "";
     shClearSamplesContainer();
@@ -248,7 +254,16 @@ async function shEditHolder(holderId) {
     document.getElementById("sh-holder-type").value = j.holder_type || "flat";
     document.getElementById("sh-holder-status").value = j.status || "configured";
     document.getElementById("sh-holder-notes").value = j.notes || "";
-    document.getElementById("sh-beamtime-hours").value = (j.beamtime_hours != null) ? j.beamtime_hours : "";
+    // Pre-fill from the current stop_time as hours-from-now so an operator
+    // editing mid-run sees the time they actually have left.
+    const hoursInp = document.getElementById("sh-hours-remaining");
+    if (j.stop_time) {
+        const hrsLeft = (new Date(j.stop_time) - new Date()) / 3600000;
+        hoursInp.value = hrsLeft > 0 ? hrsLeft.toFixed(1) : "0";
+    } else {
+        hoursInp.value = "";
+    }
+    shUpdateStopPreview();
     document.getElementById("sh-bulk-ct").value = "";
     document.getElementById("sh-bulk-min-scans").value = "";
     shClearSamplesContainer();
@@ -304,6 +319,27 @@ function shCloseEditor() {
     document.getElementById("holder-editor-panel").style.display = "none";
 }
 
+function shUpdateStopPreview() {
+    const inp = document.getElementById("sh-hours-remaining");
+    const out = document.getElementById("sh-stop-time-preview");
+    if (!inp || !out) return;
+    const raw = inp.value.trim();
+    if (raw === "") {
+        out.textContent = "Becomes the stop time — leave blank to clear deadline";
+        return;
+    }
+    const hrs = parseFloat(raw);
+    if (!isFinite(hrs) || hrs < 0) {
+        out.textContent = "Enter a positive number of hours";
+        return;
+    }
+    const stop = new Date(Date.now() + hrs * 3600000);
+    out.textContent = "→ stops at " + stop.toLocaleString(undefined, {
+        month: "short", day: "numeric",
+        hour: "2-digit", minute: "2-digit",
+    });
+}
+
 async function shSaveHolder() {
     const expId = shGetExpId();
     if (!expId) { alert("Select an experiment first."); return; }
@@ -312,8 +348,20 @@ async function shSaveHolder() {
     const holderType = document.getElementById("sh-holder-type").value;
     const status = document.getElementById("sh-holder-status").value;
     const notes = document.getElementById("sh-holder-notes").value;
-    const btRaw = document.getElementById("sh-beamtime-hours").value.trim();
-    const beamtimeHours = btRaw === "" ? null : parseFloat(btRaw);
+
+    // Operator enters hours; we commit an absolute stop_time = now + N so
+    // mid-run edits unambiguously mean "ends N hours from this moment."
+    // Blank input → explicit null clears any existing deadline.
+    const hrsRaw = document.getElementById("sh-hours-remaining").value.trim();
+    let stopTime = null;
+    if (hrsRaw !== "") {
+        const hrs = parseFloat(hrsRaw);
+        if (!isFinite(hrs) || hrs < 0) {
+            alert("Hours remaining must be a positive number.");
+            return;
+        }
+        stopTime = new Date(Date.now() + hrs * 3600000).toISOString();
+    }
 
     const gathered = (typeof gatherSampleHolderData === "function") ? gatherSampleHolderData() : { samples: [] };
     const samples = gathered.samples || [];
@@ -324,7 +372,7 @@ async function shSaveHolder() {
         holder_type: holderType,
         status,
         notes,
-        beamtime_hours: beamtimeHours,
+        stop_time: stopTime,
         samples,
     };
     let j;

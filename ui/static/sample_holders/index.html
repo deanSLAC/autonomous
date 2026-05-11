@@ -46,7 +46,7 @@
             <thead>
                 <tr>
                     <th>#</th><th>Name</th><th>Type</th>
-                    <th>Status</th><th># samples</th><th>Budget</th>
+                    <th>Status</th><th># samples</th><th>Stops at</th>
                     <th style="text-align:right;">Actions</th>
                 </tr>
             </thead>
@@ -91,10 +91,10 @@
         </div>
         <div class="form-row">
             <div class="form-group medium">
-                <label>Time Budget (hours)</label>
-                <input type="number" id="sh-beamtime-hours" min="0" step="0.5"
-                       placeholder="e.g. 8">
-                <span class="form-hint">How many hours the planner should allocate to this holder</span>
+                <label>Hours remaining</label>
+                <input type="number" id="sh-hours-remaining" min="0" step="0.5"
+                       placeholder="e.g. 8" oninput="shUpdateStopPreview()">
+                <span class="form-hint" id="sh-stop-time-preview">Becomes the stop time — leave blank to clear deadline</span>
             </div>
             <div class="form-group wide">
                 <label>Notes</label>
@@ -126,7 +126,7 @@
 </div>
 
 <script src="/static/dashboard/static/dashboard.js?v=5"></script>
-<script src="/static/config/form.js?v=11"></script>
-<script src="/static/sample_holders/sample_holders.js?v=8"></script>
+<script src="/static/config/form.js?v=12"></script>
+<script src="/static/sample_holders/sample_holders.js?v=9"></script>
 </body>
 </html>

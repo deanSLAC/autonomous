@@ -324,6 +324,7 @@ def create_sample_holder(
     n_samples: int,
     holder_type: str = "flat",
     beamtime_hours: float | None = None,
+    stop_time: datetime | None = None,
 ) -> SampleHolder:
     """Create and persist a new SampleHolder.
 
@@ -342,6 +343,7 @@ def create_sample_holder(
             n_samples=n_samples,
             holder_type=holder_type,
             beamtime_hours=beamtime_hours,
+            stop_time=stop_time,
             queue_order=max_order + 1,
         )
         session.add(holder)

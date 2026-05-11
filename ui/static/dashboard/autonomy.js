@@ -532,33 +532,24 @@ function renderAutonomy(orc, dash) {
     }
 
     // Holder budget bar — show hours-remaining for the active holder.
+    // Only stop_time drives this bar; beamtime_hours is dormant data.
     const budgetBar = document.getElementById("holder-budget-bar");
     if (budgetBar) {
         const holders = dash.holders || [];
-        // Pick the first holder with a stop_time, or just the first holder.
-        const active = holders.find(h => h.stop_time) || holders[0] || null;
-        if (active && (active.stop_time || active.beamtime_hours != null)) {
+        const active = holders.find(h => h.stop_time) || null;
+        if (active) {
             budgetBar.style.display = "";
             const nameEl = document.getElementById("budget-holder-name");
             const remEl  = document.getElementById("budget-remaining-text");
             if (nameEl) nameEl.textContent = active.name || "Holder";
-            if (active.stop_time) {
-                const stop = new Date(active.stop_time);
-                const now  = new Date();
-                const hrsLeft = (stop - now) / 3600000;
-                if (remEl) {
-                    if (hrsLeft > 0) {
-                        remEl.textContent = `${hrsLeft.toFixed(1)}h remaining`;
-                        remEl.className = "budget-remaining";
-                    } else {
-                        remEl.textContent = `+${Math.abs(hrsLeft).toFixed(1)}h over`;
-                        remEl.className = "budget-remaining overdue";
-                    }
-                }
-            } else if (active.beamtime_hours != null) {
-                if (remEl) {
-                    remEl.textContent = `budget ${active.beamtime_hours.toFixed(1)}h (no deadline set)`;
+            const hrsLeft = (new Date(active.stop_time) - new Date()) / 3600000;
+            if (remEl) {
+                if (hrsLeft > 0) {
+                    remEl.textContent = `${hrsLeft.toFixed(1)}h remaining`;
                     remEl.className = "budget-remaining";
+                } else {
+                    remEl.textContent = `+${Math.abs(hrsLeft).toFixed(1)}h over`;
+                    remEl.className = "budget-remaining overdue";
                 }
             }
         } else {

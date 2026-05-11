@@ -65,6 +65,7 @@ class HolderCreateIn(BaseModel):
     status: str | None = None
     notes: str | None = None
     beamtime_hours: float | None = None
+    stop_time: str | None = None
     samples: list[SampleIn] = Field(default_factory=list)
 
 
@@ -208,6 +209,17 @@ def _upsert_samples(holder_id: str, experiment_id: str, samples: list[dict]) -> 
         delete_sample_position(old_id)
 
 
+def _parse_stop_time(raw: str | None) -> datetime | None:
+    """Parse an ISO-8601 stop_time string from a request body.
+
+    Returns None for null/empty (explicit clear). Raises ValueError on malformed
+    input so callers can surface a clean 400.
+    """
+    if raw in (None, "", "None"):
+        return None
+    return datetime.fromisoformat(str(raw))
+
+
 def _integrity_error_response(e: IntegrityError) -> JSONResponse:
     """Map SQL integrity violations to actionable messages for the UI."""
     msg = str(getattr(e, "orig", e)).lower()
@@ -247,12 +259,21 @@ async def create(body: HolderCreateIn):
             return JSONResponse({"success": False, "errors": errors}, status_code=400)
 
         try:
+            stop_time = _parse_stop_time(body.stop_time)
+        except ValueError:
+            return JSONResponse(
+                {"success": False, "errors": [f"stop_time must be ISO-8601: {body.stop_time!r}"]},
+                status_code=400,
+            )
+
+        try:
             holder = create_sample_holder(
                 experiment_id=body.experiment_id,
                 name=name,
                 n_samples=len(samples),
                 holder_type=holder_type,
                 beamtime_hours=body.beamtime_hours,
+                stop_time=stop_time,
             )
             _upsert_samples(holder.id, body.experiment_id, samples)
         except IntegrityError as e:
@@ -303,14 +324,13 @@ async def update(body: HolderUpdateIn):
         # model_fields_set; omitted fields default to None but aren't in the set.
         fields_set = body.model_fields_set
 
-        # Parse stop_time from ISO-8601 string if present.
+        # Parse stop_time from ISO-8601 string if present. Distinguish
+        # "field omitted" (leave alone) from "field sent as null" (clear).
         if "stop_time" not in fields_set:
             parsed_stop_time = _SENTINEL
-        elif body.stop_time in (None, "", "None"):
-            parsed_stop_time = None
         else:
             try:
-                parsed_stop_time = datetime.fromisoformat(str(body.stop_time))
+                parsed_stop_time = _parse_stop_time(body.stop_time)
             except ValueError:
                 return JSONResponse(
                     {"success": False, "errors": [f"stop_time must be ISO-8601: {body.stop_time!r}"]},
