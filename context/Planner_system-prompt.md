@@ -109,8 +109,7 @@ The relevant DB tools:
   at each spawn N. The stats dict should contain:
   `feature_window_eV` ([e_min, e_max]), `statistic` (e.g. "max"),
   `cumulative_cv_pct` (array from analyze-efficiency),
-  `snr_target`, `running_sem_frac` (array from
-  analyze-feature-evolution), `sem_threshold_frac`,
+  `running_sem_frac` (array from analyze-feature-evolution),
   `efficiency_verdict`, `feature_verdict`.
 
 You also have:
@@ -465,9 +464,8 @@ For each scan completion you're notified about:
    **After running the skill, call `record-convergence-stats`** to
    store the results. Pass the feature window, the `cumulative_cv_pct`
    array from `analyze-efficiency`, the `running_sem_frac` array from
-   `analyze-feature-evolution`, both verdicts, and the `snr_target`.
-   The orchestrator uses this to render a live statistics trend on the
-   dashboard.
+   `analyze-feature-evolution`, and both verdicts. The orchestrator
+   uses this to render a live statistics trend on the dashboard.
 7. Decide, integrating both the convergence verdict AND any
    pending planner-applicable steering:
    - **Converged** → advance the active sample. Mark it

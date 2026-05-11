@@ -368,8 +368,7 @@ def plot_statistics_trend(stats, sample_name=""):
     stats : dict
         convergence_stats dict stored per-sample in the plan JSON. Expected
         keys: feature_window_eV, cumulative_cv_pct, running_sem_frac,
-        snr_target, sem_threshold_frac, efficiency_verdict, feature_verdict,
-        statistic.
+        efficiency_verdict, feature_verdict, statistic.
     sample_name : str
         Sample name for the plot title.
 
@@ -390,7 +389,6 @@ def plot_statistics_trend(stats, sample_name=""):
     sem_arr = np.array([(v if v is not None else np.nan) for v in sem_frac], dtype=float) * 100
 
     window = stats.get("feature_window_eV") or [None, None]
-    snr_target = stats.get("snr_target", 8.0)
     sem_threshold = stats.get("sem_threshold_frac", 0.01) * 100
     eff_verdict = stats.get("efficiency_verdict", "?")
     feat_verdict = stats.get("feature_verdict", "?")
@@ -401,9 +399,6 @@ def plot_statistics_trend(stats, sample_name=""):
     ax_cv.plot(reps, cv_arr, "o-", color="C0", markersize=4, label="Cumulative CV")
     poisson_cv = cv_arr[0] / np.sqrt(reps)
     ax_cv.plot(reps, poisson_cv, "--", color="gray", alpha=0.7, label="1/√n Poisson")
-    cv_threshold = 100.0 / snr_target if snr_target > 0 else 12.5
-    ax_cv.axhline(cv_threshold, color="C3", linestyle="-", alpha=0.6,
-                  label=f"SNR={snr_target} threshold ({cv_threshold:.1f}%)")
     ax_cv.set_ylabel("Cumulative CV (%)")
     ax_cv.legend(fontsize=7, loc="upper right")
     ax_cv.grid(alpha=0.3)

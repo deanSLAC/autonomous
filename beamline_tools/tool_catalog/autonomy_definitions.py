@@ -963,8 +963,8 @@ AUTONOMY_TOOL_DEFINITIONS = [
                         "description": (
                             "Convergence statistics dict with keys: "
                             "feature_window_eV ([e_min, e_max]), statistic, "
-                            "cumulative_cv_pct (array), snr_target, "
-                            "running_sem_frac (array), sem_threshold_frac, "
+                            "cumulative_cv_pct (array from analyze-efficiency), "
+                            "running_sem_frac (array from analyze-feature-evolution), "
                             "efficiency_verdict, feature_verdict."
                         ),
                     },
