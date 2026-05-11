@@ -977,8 +977,14 @@ async function stopSpec() {
 // ---------------------------------------------------------------------------
 
 const _tailState = {
-    agent: { path: null, offset: 0, cards: new Map() },
-    spec:  { path: null, offset: -1, started: false },
+    agent:   { path: null, offset: 0, cards: new Map() },
+    planner: { path: null, offset: 0, cards: new Map() },
+    spec:    { path: null, offset: -1, started: false },
+};
+
+const _PANEL_IDS = {
+    agent:   { host: "agent-output",   sub: "agent-output-sub",   placeholder: "Waiting for the agent…" },
+    planner: { host: "planner-output", sub: "planner-output-sub", placeholder: "Waiting for planner…" },
 };
 
 const _LOG_TAIL_MAX_CHARS = 64 * 1024;
@@ -1017,11 +1023,12 @@ function _toolChipClass(tool) {
     return _TOOL_CHIP[tool] || "tool";
 }
 
-function _agentResetPanel() {
-    const el = document.getElementById("agent-output");
+function _agentResetPanel(kind = "agent") {
+    const ids = _PANEL_IDS[kind];
+    const el = document.getElementById(ids.host);
     if (!el) return;
-    el.innerHTML = '<div class="muted">Waiting for the agent…</div>';
-    _tailState.agent.cards.clear();
+    el.innerHTML = `<div class="muted">${ids.placeholder}</div>`;
+    _tailState[kind].cards.clear();
 }
 
 function _formatDetail(detail) {
@@ -1040,8 +1047,8 @@ function _isNearBottom(el, slack = 60) {
     return (el.scrollHeight - el.scrollTop - el.clientHeight) < slack;
 }
 
-function _renderAgentEvent(host, ev) {
-    const cards = _tailState.agent.cards;
+function _renderAgentEvent(host, ev, kind = "agent") {
+    const cards = _tailState[kind].cards;
 
     if (ev.kind === "tool_use") {
         const card = document.createElement("div");
@@ -1164,22 +1171,22 @@ function _labeledBlock(label, child) {
     return wrap;
 }
 
-function _trimAgentCards(host) {
+function _trimAgentCards(host, kind = "agent") {
     while (host.children.length > _AGENT_MAX_CARDS) {
         const first = host.firstElementChild;
         if (!first) break;
         if (first.dataset && first.dataset.toolUseId) {
-            _tailState.agent.cards.delete(first.dataset.toolUseId);
+            _tailState[kind].cards.delete(first.dataset.toolUseId);
         }
         host.removeChild(first);
     }
 }
 
-async function _fetchAgentEvents(slug, offset) {
-    const url = slug
-        ? `${API}/api/phase/log_tail?format=structured&slug=${encodeURIComponent(slug)}&offset=${offset}`
-        : `${API}/api/phase/log_tail?format=structured&offset=${offset}`;
-    const r = await fetch(url);
+async function _fetchAgentEvents(slug, offset, exclude) {
+    const params = new URLSearchParams({ format: "structured", offset: String(offset) });
+    if (slug) params.set("slug", slug);
+    if (exclude) params.set("exclude", exclude);
+    const r = await fetch(`${API}/api/phase/log_tail?${params.toString()}`);
     if (!r.ok) return null;
     return r.json();
 }
@@ -1187,7 +1194,8 @@ async function _fetchAgentEvents(slug, offset) {
 async function refreshAgentOutput() {
     const st = _tailState.agent;
     try {
-        const j = await _fetchAgentEvents(null, st.offset);
+        // Agent Output ignores the planner — planner has its own panel below.
+        const j = await _fetchAgentEvents(null, st.offset, "planner");
         if (!j) return;
         const sub = document.getElementById("agent-output-sub");
         if (sub) sub.textContent = j.slug ? `${j.slug}` : "idle";
@@ -1195,31 +1203,56 @@ async function refreshAgentOutput() {
         if (j.path !== st.path) {
             st.path = j.path;
             st.offset = 0;
-            _agentResetPanel();
+            _agentResetPanel("agent");
             if (j.path) {
                 const j2 = await _fetchAgentEvents(j.slug, 0);
                 if (j2) {
-                    _renderAgentEvents(j2.events || []);
+                    _renderAgentEvents(j2.events || [], "agent");
                     st.offset = j2.offset;
                 }
             }
             return;
         }
-        _renderAgentEvents(j.events || []);
+        _renderAgentEvents(j.events || [], "agent");
         st.offset = j.offset;
     } catch (_) {}
 }
 
-function _renderAgentEvents(events) {
+async function refreshPlannerOutput() {
+    const st = _tailState.planner;
+    try {
+        const j = await _fetchAgentEvents("planner", st.offset);
+        if (!j) return;
+        const sub = document.getElementById("planner-output-sub");
+        if (sub) sub.textContent = j.path ? "planner" : "idle";
+        if (j.path !== st.path) {
+            st.path = j.path;
+            st.offset = 0;
+            _agentResetPanel("planner");
+            if (j.path) {
+                const j2 = await _fetchAgentEvents("planner", 0);
+                if (j2) {
+                    _renderAgentEvents(j2.events || [], "planner");
+                    st.offset = j2.offset;
+                }
+            }
+            return;
+        }
+        _renderAgentEvents(j.events || [], "planner");
+        st.offset = j.offset;
+    } catch (_) {}
+}
+
+function _renderAgentEvents(events, kind = "agent") {
     if (!events || !events.length) return;
-    const host = document.getElementById("agent-output");
+    const host = document.getElementById(_PANEL_IDS[kind].host);
     if (!host) return;
     // First content arrives → drop placeholder.
     const placeholder = host.querySelector(".muted");
     if (placeholder && host.children.length === 1) host.innerHTML = "";
     const stickToBottom = _isNearBottom(host);
-    for (const ev of events) _renderAgentEvent(host, ev);
-    _trimAgentCards(host);
+    for (const ev of events) _renderAgentEvent(host, ev, kind);
+    _trimAgentCards(host, kind);
     if (stickToBottom) host.scrollTop = host.scrollHeight;
 }
 
@@ -1450,10 +1483,12 @@ document.addEventListener("DOMContentLoaded", () => {
     refreshSafetySwitches();
     setInterval(refreshSafetySwitches, 5000);
     refreshAgentOutput();
+    refreshPlannerOutput();
     refreshSpecOutput();
     refreshAgentPlot();
     refreshStatsTrend();
     setInterval(refreshAgentOutput, 1500);
+    setInterval(refreshPlannerOutput, 1500);
     setInterval(refreshSpecOutput, 1500);
     setInterval(refreshAgentPlot, 3000);
     setInterval(refreshStatsTrend, 3000);

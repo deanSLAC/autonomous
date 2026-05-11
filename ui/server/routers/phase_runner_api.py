@@ -588,6 +588,7 @@ async def log_tail(
     offset: int = 0,
     projected: bool = True,
     format: str = "text",
+    exclude: str | None = None,
 ):
     """Tail the most recent phase agent log.
 
@@ -600,8 +601,16 @@ async def log_tail(
     JSONL agent log. Pass `projected=false` to get the raw JSONL.
     Pass `format=structured` to receive a list of structured event
     dicts under `events` (for card-based UIs).
+
+    `exclude` (comma-separated slugs) is honored only when `slug` is
+    not given — it filters those slugs out of the auto-pick. Used by
+    the Agent Output panel to ignore the planner.
     """
-    target = slug or phase_runner.latest_active_slug()
+    if slug:
+        target = slug
+    else:
+        exclude_set = {s for s in (exclude or "").split(",") if s} or None
+        target = phase_runner.latest_active_slug(exclude=exclude_set)
     if target is None:
         if format == "structured":
             return {"slug": None, "path": None, "offset": 0, "events": [], "eof": 0}

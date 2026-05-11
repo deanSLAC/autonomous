@@ -36,7 +36,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional
 
 from orchestration.agents import runs as agent_runs
 from orchestration.agents.spawn import _stream_json_user_msg
@@ -466,17 +466,21 @@ def get_log_path(slug: str) -> Optional[str]:
         return last.get("log_path") if last else None
 
 
-def latest_active_slug() -> Optional[str]:
+def latest_active_slug(exclude: Optional[Iterable[str]] = None) -> Optional[str]:
     """Pick the most recently started slug — running first, finished otherwise.
 
     Used by the dashboard's Agent Output panel to auto-tail whichever
     phase is currently active without the operator picking one.
+
+    `exclude` is an optional iterable of slugs to skip — used by the
+    Agent Output panel to ignore the planner (which has its own panel).
     """
+    skip = set(exclude or ())
     with _lock:
         running = [
             (slot.started_at, slug)
             for slug, slot in _slots.items()
-            if slot.proc.poll() is None
+            if slug not in skip and slot.proc.poll() is None
         ]
         if running:
             running.sort(reverse=True)
@@ -484,6 +488,7 @@ def latest_active_slug() -> Optional[str]:
         finished = [
             (info.get("finished_at") or info.get("started_at") or 0, slug)
             for slug, info in _last_results.items()
+            if slug not in skip
         ]
     if not finished:
         return None
