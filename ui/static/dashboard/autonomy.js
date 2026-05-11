@@ -542,7 +542,6 @@ function renderAutonomy(orc, dash) {
             const nameEl = document.getElementById("budget-holder-name");
             const remEl  = document.getElementById("budget-remaining-text");
             if (nameEl) nameEl.textContent = active.name || "Holder";
-            window.__budgetHolderId = active.id;
             if (active.stop_time) {
                 const stop = new Date(active.stop_time);
                 const now  = new Date();
@@ -874,31 +873,6 @@ function applyGatingToTiles() {
 
 function currentAuthor() {
     return localStorage.getItem("plan-author") || "web-user";
-}
-
-async function setHolderHoursRemaining() {
-    const holderId = window.__budgetHolderId;
-    if (!holderId) { alert("No active holder."); return; }
-    const inp = document.getElementById("budget-hours-input");
-    const hrs = parseFloat(inp && inp.value);
-    if (isNaN(hrs) || hrs < 0) { alert("Enter a valid number of hours."); return; }
-    const stopTime = new Date(Date.now() + hrs * 3600000).toISOString();
-    try {
-        const r = await fetch("/api/sample_holders/update", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ holder_id: holderId, stop_time: stopTime }),
-        });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok || j.success === false) {
-            alert((j.errors || []).join(", ") || j.detail || `error ${r.status}`);
-            return;
-        }
-        if (inp) inp.value = "";
-        refreshAutonomy();
-    } catch (e) {
-        alert(`Request failed: ${e}`);
-    }
 }
 
 async function planPost(path, body) {
