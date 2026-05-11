@@ -159,6 +159,15 @@ def _watch_exit(slug: str, slot: _Slot) -> None:
         except Exception as e:  # noqa: BLE001
             logger.warning("phase_runner: complete_phase_run failed for %s: %s",
                            slot.phase_run_id, e)
+    elif rc == 0:
+        # No PhaseRun row → no phase summary render, no Slack post. This
+        # is what happens when experiment_id wasn't set at spawn time.
+        # Log loudly so the silent failure mode doesn't recur unnoticed.
+        logger.warning(
+            "phase_runner: %s exited rc=0 but had no phase_run_id; "
+            "skipping summary render + Slack post (was experiment_id set?)",
+            slug,
+        )
     with _lock:
         _last_results[slug] = {
             "exit_code": rc,

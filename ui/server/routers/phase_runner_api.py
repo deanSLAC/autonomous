@@ -17,10 +17,11 @@ from fastapi import APIRouter, HTTPException
 
 from orchestration.agent import phase_runner
 from orchestration.plan_store.session import (
+    get_active_experiment,
     get_experiment,
     set_spectrometer_aligned,
 )
-from beamline_tools.spec_control import spec_cmd
+from beamline_tools.spec_control import phase_allowlist, spec_cmd
 
 logger = logging.getLogger(__name__)
 
@@ -514,6 +515,25 @@ def _tail_file(
 
 @router.post("/run/{slug}")
 async def run_phase(slug: str):
+    # Activate the phase before spawning. spec_cmd._PHASE_STATE is the
+    # source of truth phase_runner.start() reads for experiment_id; if
+    # it's still None at spawn time, the matching PhaseRun row is
+    # skipped and the post-exit report/Slack hook in _watch_exit
+    # short-circuits.
+    exp = get_active_experiment()
+    if exp is not None:
+        new_phase = (
+            slug if slug in phase_allowlist.VALID_PHASES else spec_cmd.get_phase()
+        )
+        try:
+            spec_cmd.set_phase(new_phase, experiment_id=exp.id)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("run_phase: set_phase(%r) failed: %s", new_phase, e)
+    else:
+        logger.warning(
+            "run_phase: no active experiment; spawning %r without experiment_id",
+            slug,
+        )
     try:
         info = phase_runner.start(slug)
     except ValueError as e:
