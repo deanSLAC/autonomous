@@ -30,13 +30,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
+from datetime import datetime
 from typing import Optional
 
 from orchestration.agent import phase_runner
 from orchestration.agents import list_active
 from orchestration.plan_store.client import (
+    get_plan,
     list_orphaned_deferred_steering,
     list_pending_stops,
+    list_unacked_steering,
     record_orchestrator_ack,
 )
 
@@ -44,6 +48,15 @@ logger = logging.getLogger(__name__)
 
 
 _TICK_SECONDS = 3.0
+
+# Collection-phase watchdog thresholds. The planner is normally respawned
+# on every new CollectionScan row; if the data collector stops producing
+# scans (e.g. the plan was zeroed out) the system goes deaf. These cover
+# the three plausible deaf states.
+_HEARTBEAT_MINUTES = 5.0           # planner finished and hasn't run since
+_STALE_STEERING_MINUTES = 3.0      # operator steering unacked >3 min
+_IDLE_SCAN_MINUTES = 5.0           # no new CollectionScan in >5 min
+_MIN_HEARTBEAT_GAP_MINUTES = 5.0   # re-arm guard (3-sec tick would spam)
 
 
 # ---------------------------------------------------------------------------
@@ -107,6 +120,10 @@ class TickState:
         self.last_seen_scan_id: Optional[str] = None
         self._initialized: bool = False
         self.planner_was_running: bool = False
+        # Watchdog tracking — wall-clock timestamps from time.time().
+        self.last_planner_finish_time: Optional[float] = None
+        self.last_scan_time: Optional[float] = None
+        self.last_heartbeat_spawn_time: Optional[float] = None
 
 
 async def _step_planner_respawn(state: TickState, experiment_id: str) -> None:
@@ -127,6 +144,7 @@ async def _step_planner_respawn(state: TickState, experiment_id: str) -> None:
 
     # New scan(s) since last tick.
     state.last_seen_scan_id = latest
+    state.last_scan_time = time.time()
 
     if _is_running("planner"):
         # Already running — let it finish; the next scan will trigger another
@@ -305,10 +323,112 @@ def _generate_statistics_trend() -> None:
         logger.warning("orchestrator_tick: statistics trend plot failed: %s", e)
 
 
+def _oldest_unacked_steering_age_s(experiment_id: str) -> Optional[float]:
+    """Wall-clock age of the oldest unacked steering row in seconds.
+    None if the queue is empty or timestamps are missing."""
+    rows = list_unacked_steering(experiment_id)
+    if not rows:
+        return None
+    oldest_ts = None
+    for row in rows:
+        ts = row.get("timestamp")
+        if not ts:
+            continue
+        try:
+            dt = datetime.fromisoformat(ts)
+        except ValueError:
+            continue
+        if oldest_ts is None or dt < oldest_ts:
+            oldest_ts = dt
+    if oldest_ts is None:
+        return None
+    return max(0.0, (datetime.now() - oldest_ts).total_seconds())
+
+
+async def _step_collection_heartbeat(state: TickState, experiment_id: str) -> None:
+    """Watchdog respawn during the `collection` phase.
+
+    `_step_planner_respawn` is the only automatic spawn trigger and it
+    fires on new CollectionScan rows. If the data collector stops
+    producing scans (e.g. the plan zeroed out all reps) the system
+    goes deaf — no planner respawns, no steering processing. This
+    step covers that hole by spawning the planner when any of three
+    quiescent-state thresholds tripped.
+    """
+    try:
+        plan = await asyncio.to_thread(get_plan, experiment_id)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("orchestrator_tick: heartbeat plan lookup failed: %s", e)
+        return
+    if not plan or plan.get("phase") != "collection":
+        return
+    if _is_running("planner"):
+        return
+
+    now = time.time()
+    if (
+        state.last_heartbeat_spawn_time is not None
+        and (now - state.last_heartbeat_spawn_time) < _MIN_HEARTBEAT_GAP_MINUTES * 60
+    ):
+        return
+
+    reason: Optional[str] = None
+    if (
+        state.last_planner_finish_time is not None
+        and (now - state.last_planner_finish_time) > _HEARTBEAT_MINUTES * 60
+    ):
+        idle_min = (now - state.last_planner_finish_time) / 60
+        reason = f"planner idle {idle_min:.1f} min"
+    else:
+        try:
+            steering_age = await asyncio.to_thread(
+                _oldest_unacked_steering_age_s, experiment_id,
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.warning("orchestrator_tick: heartbeat steering lookup failed: %s", e)
+            steering_age = None
+        if steering_age is not None and steering_age > _STALE_STEERING_MINUTES * 60:
+            reason = f"steering unacked {steering_age / 60:.1f} min"
+        elif (
+            state.last_scan_time is not None
+            and (now - state.last_scan_time) > _IDLE_SCAN_MINUTES * 60
+        ):
+            idle_min = (now - state.last_scan_time) / 60
+            reason = f"no new scans in {idle_min:.1f} min"
+
+    if reason is None:
+        return
+
+    seed = (
+        f"[orchestrator heartbeat] {reason}. "
+        f"Run the mandatory status assessment; if zero actionable samples "
+        f"remain, reopen the queue and distribute extra reps proportionally "
+        f"per the convergence-fallback procedure."
+    )
+    try:
+        info = await asyncio.to_thread(
+            phase_runner.start, "planner",
+            seed_text=seed,
+            spawned_by="orchestrator:heartbeat",
+        )
+        state.last_heartbeat_spawn_time = now
+        logger.info(
+            "orchestrator_tick: heartbeat spawned planner (run_id=%s) — %s",
+            info.get("run_id"), reason,
+        )
+    except ValueError as e:
+        logger.info("orchestrator_tick: heartbeat spawn skipped: %s", e)
+        state.last_heartbeat_spawn_time = now
+    except Exception as e:  # noqa: BLE001
+        logger.exception("orchestrator_tick: heartbeat spawn failed: %s", e)
+
+
 async def _step_statistics_trend(state: TickState) -> None:
-    """After the planner finishes a run, generate a statistics trend plot."""
+    """After the planner finishes a run, generate a statistics trend plot
+    and stamp the watchdog's `last_planner_finish_time`."""
     planner_running = _is_running("planner")
     if state.planner_was_running and not planner_running:
+        state.last_planner_finish_time = time.time()
         try:
             await asyncio.to_thread(_generate_statistics_trend)
         except Exception as e:  # noqa: BLE001
@@ -338,6 +458,7 @@ async def run_forever() -> None:
                 await _step_stop_rows(experiment_id)
                 await _step_dispatch_deferred_steering(experiment_id)
                 await _step_planner_respawn(state, experiment_id)
+                await _step_collection_heartbeat(state, experiment_id)
                 await _step_statistics_trend(state)
             except asyncio.CancelledError:
                 raise
