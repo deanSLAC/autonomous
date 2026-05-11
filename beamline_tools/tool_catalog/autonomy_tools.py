@@ -689,6 +689,35 @@ def t_post_status_update(args: dict) -> tuple[str, list[str]]:
         return json.dumps({"posted": False, "error": str(e)}), []
 
 
+def t_log_status_assessment(args: dict) -> tuple[str, list[str]]:
+    import datetime as _dt
+    import re as _re
+    from orchestration.agent.phase_runner import _logs_dir
+
+    text = args.get("text", "")
+    if isinstance(text, str):
+        text = text.strip()
+    if not text:
+        return json.dumps({"logged": False, "error": "text required"}), []
+
+    experiment_id = spec_cmd.get_experiment_id() or "unknown"
+    spawn: Optional[int] = None
+    m = _re.search(r"\[STATUS ASSESSMENT\s*[—-]\s*spawn\s+(\d+)\]", text)
+    if m:
+        spawn = int(m.group(1))
+
+    record = {
+        "ts": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "experiment_id": experiment_id,
+        "spawn": spawn,
+        "text": text,
+    }
+    path = _logs_dir() / f"status_assessments_{experiment_id}.jsonl"
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return json.dumps({"logged": True, "path": str(path), "spawn": spawn}), []
+
+
 def t_update_plan(args: dict) -> tuple[str, list[str]]:
     experiment_id = spec_cmd.get_experiment_id()
     if not experiment_id:
@@ -1779,6 +1808,7 @@ AUTONOMY_DISPATCH: dict[str, callable] = {
     "transition_phase": t_transition_phase,
     "request_human_intervention": t_request_human_intervention,
     "post_status_update": t_post_status_update,
+    "log_status_assessment": t_log_status_assessment,
     "update_plan": t_update_plan,
     "record_sample_progress": t_record_sample_progress,
     "record_convergence_stats": t_record_convergence_stats,

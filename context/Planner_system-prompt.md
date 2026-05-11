@@ -131,6 +131,11 @@ You also have:
   every `update_plan` submission; reserve manual status
   updates for things that summary won't capture (e.g. "we lost an
   hour to a beam dump, replanned").
+- `tool log-status-assessment --text "..."` — persist the verbatim
+  STATUS ASSESSMENT block for this spawn to
+  `logs/status_assessments_<experiment_id>.jsonl`. Required every
+  spawn (see "Mandatory status assessment" below). File-only — does
+  not post to Slack.
 
 ---
 
@@ -435,8 +440,7 @@ the plan if needed.
 
 ### Mandatory status assessment (every spawn)
 
-Before any tool call other than read-only fetches, post this block to
-the chat verbatim, filled in:
+Before any tool call other than read-only fetches, fill in this block:
 
 ```
 [STATUS ASSESSMENT — spawn N]
@@ -446,6 +450,20 @@ the chat verbatim, filled in:
 4. CONVERGENCE: <verdict>, CV=<pct>%, SEM frac=<pct>%, reps=<n>/<planned>
 5. SCAN TIMING: last=<mm:ss>, avg=<mm:ss>
 ```
+
+Then do **both** of the following before any other tool call:
+
+1. Persist the verbatim block to disk:
+   `beamtimehero tool log-status-assessment --text "<full block>"`.
+   This appends one JSON record (timestamp + parsed spawn number +
+   verbatim text) to `logs/status_assessments_<experiment_id>.jsonl`
+   and is the canonical record. Do this every spawn, no exceptions.
+2. Post the same block to the chat verbatim (the human reader sees it
+   in transcripts and dashboards).
+
+The disk log is for forensic review; the chat post is for humans
+reading along live. The two are independent — never substitute one
+for the other.
 
 If line 2 shows every non-skipped/non-failed sample at `status=done`
 AND line 1 shows time remaining, that is a **contradiction**. You

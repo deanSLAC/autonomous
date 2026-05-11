@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at": "2026-05-09T22:55:39.571710+00:00",
-    "total_tools": 108,
+    "generated_at": "2026-05-11T10:34:31.984589+00:00",
+    "total_tools": 118,
     "generator": "scripts/generate_tools_config.py"
   },
   "tools": [
@@ -9,9 +9,12 @@
       "name": "analyze_convergence",
       "cli_path": "tool",
       "description": "Answer 'do I have enough scans?' via cosine similarity of each scan to the running mean, plus cumulative convergence and standard error.",
-      "when_to_use": "Check if repeated scans have converged using cosine similarity metrics. Reports per-scan similarity to the mean, cumulative convergence, and standard error. Use this when the user asks 'do I have enough scans?'",
+      "when_to_use": "Check if repeated scans have converged using cosine similarity metrics. Reports per-scan similarity to the mean, cumulative convergence, and standard error. Cosine similarity is amplitude-dominated; the post-edge plateau (defined to be ~1.0 by edge-step normalization) dominates the metric. You must pass e_min/e_max to focus on the dynamic part of the spectrum.",
       "enabled": true,
-      "sample_input": {},
+      "sample_input": {
+        "e_min": 0.0,
+        "e_max": 0.0
+      },
       "sample_output": "{\"per_scan_similarity\": [0.9812, 0.9934, 0.9971, 0.9985], \"cumulative\": [0.9812, 0.9873, 0.9906, 0.9926], \"std_error\": 0.0038, \"verdict\": \"converged\", \"file_name\": \"Fe_HERFD_0001\", \"active_counter\": \"vortDT\", \"scan_numbers\": [1, 2, 3, 4]}",
       "simulated": false,
       "working_live": true,
@@ -21,19 +24,52 @@
       "name": "analyze_efficiency",
       "cli_path": "tool",
       "description": "Comprehensive scan-repetition efficiency report: convergence, coefficient of variation, comparison to the Poisson statistical limit, and a terminal verdict (needs_more / reasonable / marginal / wasteful).",
-      "when_to_use": "Comprehensive scan repetition efficiency report. Includes convergence, CV analysis, Poisson limit comparison, optimal scan count recommendation, and a verdict (needs_more / reasonable / marginal / wasteful).",
+      "when_to_use": "Comprehensive scan repetition efficiency report. Includes convergence, CV analysis, rate-based and counts-based Poisson floor comparison, optimal scan count recommendation, and a verdict (needs_more / reasonable / marginal / wasteful). e_min/e_max bounds are required \u2014 whole-spectrum mode averages dynamic content with normalization-defined plateaus and produces structurally optimistic verdicts.",
       "enabled": true,
-      "sample_input": {},
+      "sample_input": {
+        "e_min": 0.0,
+        "e_max": 0.0
+      },
       "sample_output": "{\"convergence\": 0.9926, \"cv\": 0.041, \"poisson_ratio\": 1.12, \"recommended_n\": 6, \"verdict\": \"reasonable\", \"file_name\": \"Cu_XAS_0002\", \"active_counter\": \"vortDT\", \"scan_numbers\": [1, 2, 3, 4, 5]}",
       "simulated": false,
       "working_live": true,
       "comments": ""
     },
     {
+      "name": "analyze_feature_evolution",
+      "cli_path": "tool",
+      "description": "Per-rep scalar trace + convergence verdict for a feature defined by an energy window and a statistic. The agent identifies a feature on the spectrum (white-line peak, pre-edge shoulder, dip between oscillations, etc.) and passes the numeric eV bounds and the statistic that captures it. Returns running mean, running SEM, and a verdict (converged / marginal / needs_more) for that scalar. This is the publication-quality test: the feature SEM should be a small fraction of its mean and the running mean should be flat rep-over-rep.",
+      "when_to_use": "Per-rep scalar trace + convergence verdict for a feature defined by an energy window and a statistic. The agent identifies a feature on the spectrum (white-line peak, pre-edge shoulder, dip between oscillations, etc.) and passes the numeric eV bounds and the statistic that captures it. Returns running mean, running SEM, and a verdict (converged / marginal / needs_more) for that scalar. This is the publication-quality test: the feature SEM should be a small fraction of its mean and the running mean should be flat rep-over-rep.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "e_min": 0.0,
+        "e_max": 0.0
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "analyze_per_spot",
+      "cli_path": "tool",
+      "description": "Run the full convergence/efficiency analysis SEPARATELY for each sample spot in the file (grouped by Sx/Sy/Sz), and report a between-spot vs within-spot heterogeneity F-statistic. F~1 = spots agree (safe to combine); F>>1 = spots disagree beyond shot noise (the combined average is a population mean, not a single chemistry \u2014 more reps won't fix it). Pass numeric e_min/e_max for the feature you care about.",
+      "when_to_use": "Run the full convergence/efficiency analysis SEPARATELY for each sample spot in the file (grouped by Sx/Sy/Sz), and report a between-spot vs within-spot heterogeneity F-statistic. F~1 = spots agree (safe to combine); F>>1 = spots disagree beyond shot noise (the combined average is a population mean, not a single chemistry \u2014 more reps won't fix it). Pass numeric e_min/e_max for the feature you care about.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "average_scans",
       "cli_path": "tool",
       "description": "Edge-step normalize every energy scan in a file, then average them. Returns the mean, the point-wise standard deviation, and the number of scans averaged.",
-      "when_to_use": "Average all energy scans in a SPEC file after edge-step normalization. Returns mean and standard deviation across scans. If file_name is omitted, uses the most recent file with >1 energy scan.",
+      "when_to_use": "Average all energy scans in a SPEC file after edge-step normalization. Returns mean and standard deviation across scans. If file_name is omitted, uses the most recent file with >1 energy scan. Optionally crops the average to a numeric energy window [e_min, e_max] in eV, and supports SNR-aware inverse-variance weighting across reps.",
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"x\": [7090.0, 7095.0, \"...\", 7200.0], \"mean\": [0.01, 0.02, \"...\", 1.02], \"std\": [0.003, 0.004, \"...\", 0.008], \"n_scans\": 5, \"file_name\": \"Fe_HERFD_0001\"}",
@@ -80,6 +116,18 @@
       "sample_output": "CNT000  EPICS_SC  0  0  1  0x001  sec  Seconds\nCNT001  EPICS_SC  0  1  1  0x002  I0   I0\nCNT002  EPICS_SC  0  2  1  0x000  I1   I1\n...",
       "simulated": false,
       "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "get_holder_time_budget",
+      "cli_path": "tool",
+      "description": "Return the time budget for one or all holders: beamtime_hours, stop_time (absolute deadline), and hours_remaining (computed). Read-only.",
+      "when_to_use": "Return the time budget for one or all holders: beamtime_hours, stop_time (absolute deadline), and hours_remaining (computed). Read-only.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
       "comments": ""
     },
     {
@@ -134,6 +182,20 @@
       "comments": ""
     },
     {
+      "name": "group_scans_by_spot",
+      "cli_path": "tool",
+      "description": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful before convergence analysis when reps came from multiple spots \u2014 between-spot differences can pollute whole-file CV. Pair with analyze_per_spot.",
+      "when_to_use": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful before convergence analysis when reps came from multiple spots \u2014 between-spot differences can pollute whole-file CV. Pair with analyze_per_spot.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "list_files",
       "cli_path": "tool",
       "description": "List non-SPEC files (macros, configs, notes) in the scan directory so the agent can decide what to read or edit.",
@@ -165,6 +227,20 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "[{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 5, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"I0\", \"I1\", \"vortDT\"], \"npoints\": 301, \"timestamp\": \"2026-05-04T10:45:00\"}]",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "log_status_assessment",
+      "cli_path": "tool",
+      "description": "Append the planner's STATUS ASSESSMENT block to a per-experiment JSONL file under logs/. Canonical record of the per-spawn assessment \u2014 separate from Slack.",
+      "when_to_use": "Append the planner's STATUS ASSESSMENT block to logs/status_assessments_<experiment_id>.jsonl. File-only record (does not post to Slack).",
+      "enabled": true,
+      "sample_input": {
+        "text": "example"
+      },
+      "sample_output": "{\"logged\": true, \"path\": \"logs/status_assessments_EXP_2026-05-11.jsonl\", \"spawn\": 3}",
       "simulated": false,
       "working_live": true,
       "comments": ""
@@ -214,6 +290,50 @@
       "comments": ""
     },
     {
+      "name": "plot_feature_evolution",
+      "cli_path": "tool",
+      "description": "Plot a single per-rep scalar (the chosen statistic over [e_min, e_max]) versus rep number, with running mean and \u00b1SEM band. The visual companion to analyze_feature_evolution. Use to confirm a feature has flatlined; a still-trending trace means the feature is not yet converged regardless of whole-spectrum verdicts.",
+      "when_to_use": "Plot a single per-rep scalar (the chosen statistic over [e_min, e_max]) versus rep number, with running mean and \u00b1SEM band. The visual companion to analyze_feature_evolution. Use to confirm a feature has flatlined; a still-trending trace means the feature is not yet converged regardless of whole-spectrum verdicts.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "e_min": 0.0,
+        "e_max": 0.0
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "plot_first_half_vs_second_half",
+      "cli_path": "tool",
+      "description": "Compare the average of the first half of reps to the second half, with SEM bands. Reports max |\u0394|/SEM. <2\u03c3: halves agree, sample is stationary. >3\u03c3 at any feature: the halves disagree, more reps may not help (drift, damage, or heterogeneity). This is the strongest single-glance test for whether the sample is publication-clean.",
+      "when_to_use": "Compare the average of the first half of reps to the second half, with SEM bands. Reports max |\u0394|/SEM. <2\u03c3: halves agree, sample is stationary. >3\u03c3 at any feature: the halves disagree, more reps may not help (drift, damage, or heterogeneity). This is the strongest single-glance test for whether the sample is publication-clean.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "plot_running_average",
+      "cli_path": "tool",
+      "description": "Plot the running average across reps as it evolves (one line per cumulative subset, color-progressed by rep #), with the final \u00b1SEM band. Shows whether the running mean is still changing rep-over-rep at the feature of interest.",
+      "when_to_use": "Plot the running average across reps as it evolves (one line per cumulative subset, color-progressed by rep #), with the final \u00b1SEM band. Shows whether the running mean is still changing rep-over-rep at the feature of interest.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "plot_scan",
       "cli_path": "tool",
       "description": "Render one scan as a PNG and return it to the user. Auto-detects the active counter; accepts an optional normalize_by counter.",
@@ -226,6 +346,20 @@
       "sample_output": "Fe_HERFD_0001 scan #3: ascan energy 7090 7200 301 1.0 (counter: vortDT). [PNG image returned]",
       "simulated": false,
       "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "plot_scan_stack",
+      "cli_path": "tool",
+      "description": "Overlay all reps of one sample on a single axis, color-progressed by rep order. Use to visually judge whether reps scatter symmetrically around a stable mean (converged), are still drifting in one direction (more reps needed or evolving sample), or are being burned away (damage). Pass numeric e_min/e_max to crop to the feature you care about.",
+      "when_to_use": "Overlay all reps of one sample on a single axis, color-progressed by rep order. Use to visually judge whether reps scatter symmetrically around a stable mean (converged), are still drifting in one direction (more reps needed or evolving sample), or are being burned away (damage). Pass numeric e_min/e_max to crop to the feature you care about.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
       "comments": ""
     },
     {
@@ -452,6 +586,21 @@
       "comments": ""
     },
     {
+      "name": "record_convergence_stats",
+      "cli_path": "db",
+      "description": "Store per-sample convergence statistics (cumulative CV, feature SEM, verdicts, feature window) so the orchestrator can render a live statistics trend plot on the dashboard.",
+      "when_to_use": "Store per-sample convergence statistics from the latest analysis run. The orchestrator reads these to auto-generate a statistics trend plot on the dashboard.",
+      "enabled": true,
+      "sample_input": {
+        "sample_id": "example",
+        "stats": {}
+      },
+      "sample_output": "{\"ok\": true}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "record_sample_progress",
       "cli_path": "db",
       "description": "Update per-sample status (queued/in_progress/done/skipped/failed), SNR estimate, efficiency verdict, and reps completed. Preserves the rest of the plan.",
@@ -508,7 +657,7 @@
       "name": "set_holder_time_budget",
       "cli_path": "db",
       "description": "Set a default per-sample time budget for a whole sample holder. New samples inherit the default; when apply_to_existing is true (default), existing samples on that holder also pick up the change.",
-      "when_to_use": "Set a default per-sample time budget for an entire sample holder. Stored under the plan's holder_budgets so new samples inherit it; when apply_to_existing=true (default), existing samples on that holder also get the new count_time/reps.",
+      "when_to_use": "Set a default per-sample time budget for an entire sample holder. Stored under the plan's holder_budgets so new samples inherit it; when apply_to_existing=true (default), existing samples on that holder also get the new count_time/reps. Can also set a stop_time (absolute deadline) or hours_remaining (relative deadline) on the holder row \u2014 the holder's collection should finish by that time.",
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"ok\": true, \"samples_updated\": 4}",
@@ -554,18 +703,6 @@
       "sample_input": {
         "plan": {}
       },
-      "sample_output": "{\"ok\": true}",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "record_convergence_stats",
-      "cli_path": "db",
-      "description": "Store per-sample convergence statistics for the dashboard statistics trend plot.",
-      "when_to_use": "After running convergence analysis on the active sample, store the cumulative CV, feature SEM, verdicts, and feature window so the orchestrator can render a live statistics trend plot.",
-      "enabled": true,
-      "sample_input": {"sample_id": "s1", "stats": {}},
       "sample_output": "{\"ok\": true}",
       "simulated": false,
       "working_live": false,
@@ -1147,7 +1284,7 @@
       "name": "run_xas",
       "cli_path": "spec-write",
       "description": "Calls the SPEC run_xas macro, which dispatches to <El>_xas for the element set by the prior select_element. Args: cntSec (null\u21921 s), nbrScan (null\u21921), emission (0 \u2192 emiss motor unchanged), nbrFilter (<0 \u2192 filter motor unchanged).",
-      "when_to_use": "This command will call the _xas macro function for spectrum collection based on the element set by select_element. All args get passed onto the <El>_xas func: \"<El>_xas  cntSec  nbrScan  emission  nbrFilter\". Null value for cntSec defaults to 1s, nbrScan to 1, if emission is zero the emiss is not moved, if nbrFilter <0 then filter motor isnt moved",
+      "when_to_use": "This command will call the _xas macro function for spectrum collection based on the element set by select_element. All args get passed onto the <El>_xas func: \"<El>_xas  cntSec  nbrScan  emission  nbrFilter\". Null value for cntSec defaults to 1s, nbrScan to 1, if emission is zero the emiss is not moved, if nbrFilter <0 then filter motor isnt moved. Optional `element` arg first runs select_element(<element>) for the convenience of single-call element switching.",
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester"

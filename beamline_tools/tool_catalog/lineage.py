@@ -1129,6 +1129,19 @@ TOOL_LINEAGE: dict[str, dict] = {
         "source_detail": "Also emits a dashboard WebSocket event.",
         "depends_on": [],
     },
+    "log_status_assessment": {
+        "long_description": (
+            "Append the planner's STATUS ASSESSMENT block to a "
+            "per-experiment JSONL file under logs/. Canonical record "
+            "of the per-spawn assessment — separate from Slack."
+        ),
+        "python_func": "open(logs/status_assessments_<experiment_id>.jsonl, 'a').write(record)",
+        "spec_command": None,
+        "output": "JSON: {logged, path, spawn}",
+        "source": "filesystem",
+        "source_detail": "Writes one JSON record per call to logs/status_assessments_<experiment_id>.jsonl.",
+        "depends_on": [],
+    },
     "update_plan": {
         "long_description": (
             "Replace the live experiment plan JSON wholesale. The "

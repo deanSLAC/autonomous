@@ -935,6 +935,22 @@ AUTONOMY_TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "log_status_assessment",
+            "description": (
+                "Append the planner's STATUS ASSESSMENT block to "
+                "logs/status_assessments_<experiment_id>.jsonl. File-only "
+                "record (does not post to Slack)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"text": {"type": "string"}},
+                "required": ["text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "update_plan",
             "description": "Replace the live experiment plan JSON (structure decided by the agent).",
             "parameters": {
@@ -1451,6 +1467,7 @@ AUTONOMY_TOOL_CATEGORIES = [
     ("CAT-7 State", ["get_element", "get_scan_number", "get_current_datafile", "get_plotselected_counter", "abort_current_scan"]),
     ("CAT-8 Orchestration", [
         "transition_phase", "request_human_intervention", "post_status_update",
+        "log_status_assessment",
         "update_plan", "record_sample_progress", "get_plan",
         "get_experiment_config",
         "get_scans_since_last_plan_update", "get_scans_for_active_sample",
