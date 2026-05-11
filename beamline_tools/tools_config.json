@@ -482,14 +482,14 @@
       "cli_path": "db",
       "description": "Pause the agent and ask a human to perform a physical action (crystal install, sample mount, foil insert, hardware reset, or custom). Posts to Slack and blocks until staff resolves it from the dashboard or Slack.",
       "when_to_use": "Pause the agent and ask a human to complete a physical action (crystal install, sample mount, foil insert, etc.). Posts to Slack and blocks until resolved.",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {
         "kind": "crystal_install",
         "detail": "example"
       },
       "sample_output": "{\"resolved\": true, \"note\": \"Fe foil inserted\", \"resolver\": \"staff_jane\"}",
       "simulated": false,
-      "working_live": false,
+      "working_live": true,
       "comments": ""
     },
     {
