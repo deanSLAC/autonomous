@@ -167,8 +167,30 @@ def _add_arg(p: argparse.ArgumentParser, key: str, prop: dict, required: bool) -
 # sees a consistent shape.
 class _ToolParser(argparse.ArgumentParser):
     def error(self, message: str) -> None:  # type: ignore[override]
-        print(json.dumps({"ok": False, "error": f"argparse: {message}"}))
+        hint = _argparse_error_hint(message)
+        payload: dict = {"ok": False, "error": f"argparse: {message}"}
+        if hint:
+            payload["hint"] = hint
+        print(json.dumps(payload))
         sys.exit(2)
+
+
+def _argparse_error_hint(message: str) -> str | None:
+    """Surface domain-specific hints for common argparse misuses.
+
+    Agents reliably try `--element <X>` on tools where element is set
+    out-of-band by a prior `select_element` call (e.g. on `run-xas`,
+    on `run-motor-scan`, on motor moves). The argparse default
+    "unrecognized arguments: --element Au" is unhelpful in that case;
+    point them at the right tool.
+    """
+    if "--element" in message and "unrecognized" in message.lower():
+        return (
+            "Element is set via `spec-write select-element --element <X>` "
+            "(or via the optional `--element` arg on `spec-write run-xas`). "
+            "Other tools take the element implicitly from the current SPEC state."
+        )
+    return None
 
 
 def _build_parser() -> argparse.ArgumentParser:

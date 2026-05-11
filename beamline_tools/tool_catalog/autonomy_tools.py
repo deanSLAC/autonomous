@@ -243,8 +243,20 @@ def t_run_diagonal_scan(args: dict) -> tuple[str, list[str]]:
             "ok": False,
             "error": f"motor '{motor2}' not on allowlist for phase '{phase}'",
         }), []
-    delta_lo = args.get("delta_lo", -8)
-    delta_hi = args.get("delta_hi", 8)
+    delta = args.get("delta")
+    delta_lo_explicit = "delta_lo" in args
+    delta_hi_explicit = "delta_hi" in args
+    if delta is not None and (delta_lo_explicit or delta_hi_explicit):
+        return json.dumps({
+            "ok": False,
+            "error": "pass either `delta` (symmetric) or `delta_lo`+`delta_hi`, not both",
+        }), []
+    if delta is not None:
+        delta_lo = -float(delta)
+        delta_hi = +float(delta)
+    else:
+        delta_lo = args.get("delta_lo", -8)
+        delta_hi = args.get("delta_hi", 8)
     a = [
         motor1, str(delta_lo), str(delta_hi),
         motor2, str(delta_lo), str(delta_hi),
@@ -266,6 +278,11 @@ def t_fit_emission_peak(args: dict) -> tuple[str, list[str]]:
 
 def t_run_xas(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
+    element = args.get("element")
+    if element:
+        sel_res = spec_cmd.call("select_element", [str(element)], justification=j)
+        if not sel_res.get("ok", True):
+            return _as_json(sel_res), []
     cnt_sec = args.get("count_time")
     nbr_scan = args.get("n_reps")
     emission = args.get("emission_ev")

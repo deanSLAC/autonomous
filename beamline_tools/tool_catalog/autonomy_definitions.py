@@ -257,6 +257,15 @@ AUTONOMY_TOOL_DEFINITIONS = [
                     "npoints": {"type": "integer"},
                     "count_time": {"type": "number",
                                    "description": "Seconds per point."},
+                    "delta": {
+                        "type": "number",
+                        "description": (
+                            "Symmetric shorthand for `delta_lo=-delta, "
+                            "delta_hi=+delta`. Mutually exclusive with "
+                            "`delta_lo`/`delta_hi` — pass either `delta` "
+                            "alone, or `delta_lo`+`delta_hi`, not both."
+                        ),
+                    },
                     "delta_lo": {
                         "type": "number", "default": -8,
                         "description": "Lower delta bound. Applied to both motors. Default -8.",
@@ -308,12 +317,23 @@ AUTONOMY_TOOL_DEFINITIONS = [
                 "args get passed onto the <El>_xas func: \"<El>_xas  cntSec  "
                 "nbrScan  emission  nbrFilter\". Null value for cntSec "
                 "defaults to 1s, nbrScan to 1, if emission is zero the emiss "
-                "is not moved, if nbrFilter <0 then filter motor isnt moved"
+                "is not moved, if nbrFilter <0 then filter motor isnt moved. "
+                "Optional `element` arg first runs select_element(<element>) "
+                "for the convenience of single-call element switching."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     **_J,
+                    "element": {
+                        "type": "string",
+                        "description": (
+                            "Optional. If provided, runs select_element(<element>) "
+                            "before the XAS scan (sets energy, emiss, ROI, "
+                            "plot-selected counter). E.g. 'Fe', 'Cu', 'Au'. "
+                            "Omit if the element is already set."
+                        ),
+                    },
                     "count_time": {
                         "type": "number",
                         "description": "cntSec — null defaults to 1 s.",
