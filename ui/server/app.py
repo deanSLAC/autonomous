@@ -62,6 +62,12 @@ logging.basicConfig(
     format=_LOG_FMT, level=logging.INFO,
     handlers=[logging.StreamHandler(), _log_file_handler],
 )
+# silx emits warnings every time it re-parses an in-flight SPEC file
+# (aborted-scan markers, partially-written G1/G3 headers). They are
+# benign — the file watcher re-parses moments later when the scan
+# completes. Silence both readers at the source.
+logging.getLogger("silx.io.specfile").setLevel(logging.ERROR)
+logging.getLogger("silx.io.spech5").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 _NOCACHE = {"Cache-Control": "no-cache, no-store, must-revalidate"}
