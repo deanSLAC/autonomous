@@ -232,13 +232,19 @@ indefinitely until the operator manually kills your process.
 There is no success / blocked / halt exit for this phase.
 
 - If you finish every sample in the queue (all `n_reps_remaining=0`
-  across all spots), **loop back to the top of the queue**: refetch
-  `get-comprehensive-collection-plan` — the planner may have added
-  new reps, new samples, or extended budgets. If nothing new appears,
-  continue cycling through samples that have `status != skipped` and
-  `status != failed`, collecting additional reps to improve SNR.
-  The planner re-spawns between your scans and will keep updating
-  the plan with fresh targets.
+  across all spots for every non-skipped/non-failed sample), do **not**
+  cycle back onto `status=done` samples. They are converged; reopening
+  them is the planner's job. Recovery:
+  1. Refetch `get-comprehensive-collection-plan`. The planner may have
+     already added work.
+  2. If still no work, wait 30 seconds and refetch.
+  3. Continue polling at that cadence. The orchestrator watchdog
+     respawns the planner within ~5 minutes of the deaf state; the
+     planner restores reps across the queue per its convergence-
+     fallback procedure, and the loop resumes naturally.
+  4. **Never run `run_xas` on a `status=done` sample to "wake" the
+     planner.** Recovery does not require beam.
+  5. Halt only for genuine safety/hardware anomalies — never "no work."
 
 - If the configured `end_time` has passed, **keep collecting**. The
   dashboard shows an "extra time" indicator so the operator knows
