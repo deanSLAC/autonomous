@@ -21,7 +21,7 @@ from orchestration.plan_store.models import (
     PlanEdit,
     StaffGuidance,
 )
-from orchestration.plan_store.session import get_session
+from orchestration.plan_store.session import _commit_with_retry, get_session
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +82,10 @@ def list_phase_transitions(experiment_id: str) -> list[dict]:
 # Experiment plan
 # ---------------------------------------------------------------------------
 
+class StaleVersionError(Exception):
+    """Raised when upsert_experiment_plan detects a concurrent update."""
+
+
 def upsert_experiment_plan(
     experiment_id: str,
     *,
@@ -90,6 +94,7 @@ def upsert_experiment_plan(
     plan: dict | None = None,
     beamtime_elapsed_hours: float | None = None,
     notes: str | None = None,
+    expected_version: int | None = None,
 ) -> ExperimentPlan:
     with get_session() as session:
         row = session.exec(
@@ -97,6 +102,12 @@ def upsert_experiment_plan(
         ).first()
         if row is None:
             row = ExperimentPlan(experiment_id=experiment_id)
+            session.add(row)
+        elif expected_version is not None and row.version != expected_version:
+            raise StaleVersionError(
+                f"plan version mismatch for {experiment_id}: "
+                f"expected {expected_version}, found {row.version}"
+            )
         if beamtime_total_hours is not None:
             row.beamtime_total_hours = beamtime_total_hours
         if beamtime_elapsed_hours is not None:
@@ -108,8 +119,9 @@ def upsert_experiment_plan(
         if notes is not None:
             row.notes = notes
         row.updated_at = datetime.now()
+        row.version = (row.version or 0) + 1
         session.add(row)
-        session.commit()
+        _commit_with_retry(session)
         session.refresh(row)
     return row
 
@@ -131,6 +143,7 @@ def get_plan(experiment_id: str) -> Optional[dict]:
             "phase": row.phase,
             "plan": json.loads(row.plan_json or "{}"),
             "notes": row.notes,
+            "version": getattr(row, "version", 0) or 0,
         }
 
 

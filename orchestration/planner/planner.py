@@ -23,8 +23,14 @@ from typing import Any, Optional
 
 from sqlmodel import select
 
+from typing import Callable
+
 from orchestration.config import DEFAULT_BEAMTIME_HOURS
-from orchestration.plan_store.client import get_plan, upsert_experiment_plan
+from orchestration.plan_store.client import (
+    StaleVersionError,
+    get_plan,
+    upsert_experiment_plan,
+)
 from orchestration.plan_store.session import get_session
 from orchestration.plan_store.models import (
     CollectionScan,
@@ -422,6 +428,36 @@ def snapshot(experiment_id: str) -> PlannerSnapshot:
     )
 
 
+_MAX_PLAN_RETRIES = 3
+
+
+def _mutate_plan(
+    experiment_id: str,
+    fn: Callable[[dict, list[dict]], None],
+) -> dict:
+    """Read plan, apply *fn(body, queue)*, write back with optimistic lock.
+
+    Retries up to ``_MAX_PLAN_RETRIES`` times on version conflict so
+    concurrent writers don't silently clobber each other.
+    """
+    for attempt in range(_MAX_PLAN_RETRIES):
+        wrapper = get_plan(experiment_id) or {}
+        version = wrapper.get("version", 0)
+        body = wrapper.get("plan") or {}
+        queue = body.setdefault("sample_queue", [])
+        fn(body, queue)
+        body["updated_at"] = datetime.now().isoformat()
+        try:
+            upsert_experiment_plan(
+                experiment_id, plan=body, expected_version=version,
+            )
+            return body
+        except StaleVersionError:
+            if attempt == _MAX_PLAN_RETRIES - 1:
+                raise
+    return body  # unreachable, but keeps the type checker happy
+
+
 def record_sample_progress(
     experiment_id: str,
     sample_id: str,
@@ -432,26 +468,23 @@ def record_sample_progress(
     reps_completed: int | None = None,
     note: str | None = None,
 ) -> dict:
-    plan = get_plan(experiment_id) or {}
-    body = plan.get("plan", {})
-    for s in body.get("sample_queue", []):
-        if s.get("sample_id") == sample_id:
-            if status is not None:
-                s["status"] = status
-            if snr_estimate is not None:
-                s["snr_estimate"] = snr_estimate
-            if efficiency_verdict is not None:
-                s["efficiency_verdict"] = efficiency_verdict
-            if reps_completed is not None:
-                s["reps_completed"] = reps_completed
-            if note:
-                s.setdefault("notes", []).append(
-                    {"ts": datetime.now().isoformat(), "text": note}
-                )
-            break
-    body["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(experiment_id, plan=body)
-    return body
+    def apply(body: dict, queue: list[dict]) -> None:
+        for s in queue:
+            if s.get("sample_id") == sample_id:
+                if status is not None:
+                    s["status"] = status
+                if snr_estimate is not None:
+                    s["snr_estimate"] = snr_estimate
+                if efficiency_verdict is not None:
+                    s["efficiency_verdict"] = efficiency_verdict
+                if reps_completed is not None:
+                    s["reps_completed"] = reps_completed
+                if note:
+                    s.setdefault("notes", []).append(
+                        {"ts": datetime.now().isoformat(), "text": note}
+                    )
+                break
+    return _mutate_plan(experiment_id, apply)
 
 
 def record_convergence_stats(
@@ -459,21 +492,28 @@ def record_convergence_stats(
     sample_id: str,
     stats: dict,
 ) -> dict:
-    plan = get_plan(experiment_id) or {}
-    body = plan.get("plan", {})
-    for s in body.get("sample_queue", []):
-        if s.get("sample_id") == sample_id:
-            s["convergence_stats"] = stats
-            break
-    body["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(experiment_id, plan=body)
-    return body
+    def apply(body: dict, queue: list[dict]) -> None:
+        for s in queue:
+            if s.get("sample_id") == sample_id:
+                s["convergence_stats"] = stats
+                break
+    return _mutate_plan(experiment_id, apply)
 
 
 def replace_plan(experiment_id: str, new_plan: dict) -> dict:
     _require_actionable_samples(experiment_id, new_plan)
-    new_plan["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(experiment_id, plan=new_plan)
+    for attempt in range(_MAX_PLAN_RETRIES):
+        wrapper = get_plan(experiment_id) or {}
+        version = wrapper.get("version", 0)
+        new_plan["updated_at"] = datetime.now().isoformat()
+        try:
+            upsert_experiment_plan(
+                experiment_id, plan=new_plan, expected_version=version,
+            )
+            return new_plan
+        except StaleVersionError:
+            if attempt == _MAX_PLAN_RETRIES - 1:
+                raise
     return new_plan
 
 
@@ -510,13 +550,6 @@ def _make_sample_entry(
     }
 
 
-def _load_plan(experiment_id: str) -> tuple[dict, list[dict]]:
-    wrapper = get_plan(experiment_id) or {}
-    body = wrapper.get("plan") or {}
-    queue = body.setdefault("sample_queue", [])
-    return body, queue
-
-
 def add_sample_to_plan(
     experiment_id: str,
     *,
@@ -527,68 +560,69 @@ def add_sample_to_plan(
     modes: list | None = None,
     position: int | None = None,
 ) -> dict:
-    body, queue = _load_plan(experiment_id)
     entry = _make_sample_entry(
         sample_id=sample_id, sample_name=sample_name,
         element_symbol=element_symbol, holder_id=holder_id, modes=modes,
     )
-    if position is None or position >= len(queue):
-        queue.append(entry)
-    else:
-        queue.insert(max(0, position), entry)
-    body["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(experiment_id, plan=body)
+
+    def apply(body: dict, queue: list[dict]) -> None:
+        if position is None or position >= len(queue):
+            queue.append(entry)
+        else:
+            queue.insert(max(0, position), entry)
+
+    _mutate_plan(experiment_id, apply)
     return entry
 
 
 def remove_sample_from_plan(experiment_id: str, sample_id: str) -> bool:
-    body, queue = _load_plan(experiment_id)
-    before = len(queue)
-    body["sample_queue"] = [s for s in queue if s.get("sample_id") != sample_id]
-    if len(body["sample_queue"]) == before:
-        return False
-    body["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(experiment_id, plan=body)
-    return True
+    state = {"found": False}
+
+    def apply(body: dict, queue: list[dict]) -> None:
+        before = len(queue)
+        body["sample_queue"] = [s for s in queue if s.get("sample_id") != sample_id]
+        state["found"] = len(body["sample_queue"]) < before
+
+    _mutate_plan(experiment_id, apply)
+    return state["found"]
 
 
 def skip_sample(experiment_id: str, sample_id: str, *, note: str | None = None) -> bool:
-    body, queue = _load_plan(experiment_id)
-    found = False
-    for s in queue:
-        if s.get("sample_id") == sample_id:
-            s["status"] = "skipped"
-            if note:
-                s.setdefault("notes", []).append(
-                    {"ts": datetime.now().isoformat(), "text": note}
-                )
-            found = True
-            break
-    if not found:
-        return False
-    body["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(experiment_id, plan=body)
-    return True
+    state = {"found": False}
+
+    def apply(body: dict, queue: list[dict]) -> None:
+        for s in queue:
+            if s.get("sample_id") == sample_id:
+                s["status"] = "skipped"
+                if note:
+                    s.setdefault("notes", []).append(
+                        {"ts": datetime.now().isoformat(), "text": note}
+                    )
+                state["found"] = True
+                break
+
+    _mutate_plan(experiment_id, apply)
+    return state["found"]
 
 
 def reorder_plan(experiment_id: str, new_order: list[str]) -> bool:
     """Reorder the queue by sample_id. IDs missing from new_order stay at the end
     in their existing relative order.
     """
-    body, queue = _load_plan(experiment_id)
-    index = {s.get("sample_id"): s for s in queue}
-    reordered: list[dict] = []
-    seen: set[str] = set()
-    for sid in new_order:
-        if sid in index and sid not in seen:
-            reordered.append(index[sid])
-            seen.add(sid)
-    for s in queue:
-        if s.get("sample_id") not in seen:
-            reordered.append(s)
-    body["sample_queue"] = reordered
-    body["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(experiment_id, plan=body)
+    def apply(body: dict, queue: list[dict]) -> None:
+        index = {s.get("sample_id"): s for s in queue}
+        reordered: list[dict] = []
+        seen: set[str] = set()
+        for sid in new_order:
+            if sid in index and sid not in seen:
+                reordered.append(index[sid])
+                seen.add(sid)
+        for s in queue:
+            if s.get("sample_id") not in seen:
+                reordered.append(s)
+        body["sample_queue"] = reordered
+
+    _mutate_plan(experiment_id, apply)
     return True
 
 
@@ -601,28 +635,27 @@ def update_sample_params(
     snr_target: float | None = None,
     note: str | None = None,
 ) -> bool:
-    body, queue = _load_plan(experiment_id)
-    found = False
-    for s in queue:
-        if s.get("sample_id") != sample_id:
-            continue
-        if modes is not None:
-            s["modes"] = modes
-        if status is not None:
-            s["status"] = status
-        if snr_target is not None:
-            s["snr_target"] = snr_target
-        if note:
-            s.setdefault("notes", []).append(
-                {"ts": datetime.now().isoformat(), "text": note}
-            )
-        found = True
-        break
-    if not found:
-        return False
-    body["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(experiment_id, plan=body)
-    return True
+    state = {"found": False}
+
+    def apply(body: dict, queue: list[dict]) -> None:
+        for s in queue:
+            if s.get("sample_id") != sample_id:
+                continue
+            if modes is not None:
+                s["modes"] = modes
+            if status is not None:
+                s["status"] = status
+            if snr_target is not None:
+                s["snr_target"] = snr_target
+            if note:
+                s.setdefault("notes", []).append(
+                    {"ts": datetime.now().isoformat(), "text": note}
+                )
+            state["found"] = True
+            break
+
+    _mutate_plan(experiment_id, apply)
+    return state["found"]
 
 
 def _apply_mode_fields(
@@ -666,38 +699,37 @@ def set_sample_time_budget(
     `n_spots`) or a list[int] (explicit per-spot rep count, also sets
     n_spots). Returns False if the sample is not in the queue.
     """
-    body, queue = _load_plan(experiment_id)
-    updated = False
-    for s in queue:
-        if s.get("sample_id") != sample_id:
-            continue
-        modes = s.get("modes") or []
-        for m in modes:
-            if mode and m.get("mode") != mode:
+    state = {"updated": False}
+
+    def apply(body: dict, queue: list[dict]) -> None:
+        for s in queue:
+            if s.get("sample_id") != sample_id:
                 continue
-            _apply_mode_fields(
-                m,
-                count_time_s=count_time_s, reps=reps,
-                reps_per_spot=reps_per_spot, n_spots=n_spots,
-            )
-            updated = True
-        if updated:
-            s.setdefault("notes", []).append(
-                {
-                    "ts": datetime.now().isoformat(),
-                    "text": (
-                        f"time budget updated (count_time_s={count_time_s}, "
-                        f"reps={reps}, reps_per_spot={reps_per_spot}, "
-                        f"n_spots={n_spots}, mode={mode or 'all'})"
-                    ),
-                }
-            )
-        break
-    if not updated:
-        return False
-    body["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(experiment_id, plan=body)
-    return True
+            sample_modes = s.get("modes") or []
+            for m in sample_modes:
+                if mode and m.get("mode") != mode:
+                    continue
+                _apply_mode_fields(
+                    m,
+                    count_time_s=count_time_s, reps=reps,
+                    reps_per_spot=reps_per_spot, n_spots=n_spots,
+                )
+                state["updated"] = True
+            if state["updated"]:
+                s.setdefault("notes", []).append(
+                    {
+                        "ts": datetime.now().isoformat(),
+                        "text": (
+                            f"time budget updated (count_time_s={count_time_s}, "
+                            f"reps={reps}, reps_per_spot={reps_per_spot}, "
+                            f"n_spots={n_spots}, mode={mode or 'all'})"
+                        ),
+                    }
+                )
+            break
+
+    _mutate_plan(experiment_id, apply)
+    return state["updated"]
 
 
 def set_holder_time_budget(
@@ -718,42 +750,42 @@ def set_holder_time_budget(
     `holder_id=None` acts as a global default (applies to all samples).
     Returns a summary dict so the caller can log it.
     """
-    body, queue = _load_plan(experiment_id)
-    holder_budgets = body.setdefault("holder_budgets", {})
-    key = holder_id or "_default"
-    entry = holder_budgets.setdefault(key, {})
-    if count_time_s is not None:
-        entry["count_time_s"] = float(count_time_s)
-    if reps is not None:
-        entry["reps"] = int(reps)
-    if mode is not None:
-        entry["mode"] = mode
+    state = {"n_updated": 0}
 
-    n_updated = 0
-    if apply_to_existing:
-        for s in queue:
-            if holder_id and s.get("holder_id") != holder_id:
-                continue
-            for m in s.get("modes") or []:
-                if mode and m.get("mode") != mode:
+    def apply(body: dict, queue: list[dict]) -> None:
+        holder_budgets = body.setdefault("holder_budgets", {})
+        key = holder_id or "_default"
+        entry = holder_budgets.setdefault(key, {})
+        if count_time_s is not None:
+            entry["count_time_s"] = float(count_time_s)
+        if reps is not None:
+            entry["reps"] = int(reps)
+        if mode is not None:
+            entry["mode"] = mode
+
+        if apply_to_existing:
+            for s in queue:
+                if holder_id and s.get("holder_id") != holder_id:
                     continue
-                _apply_mode_fields(m, count_time_s=count_time_s, reps=reps)
-                n_updated += 1
-            s.setdefault("notes", []).append(
-                {
-                    "ts": datetime.now().isoformat(),
-                    "text": f"holder budget applied (count_time_s={count_time_s}, reps={reps}, mode={mode or 'all'})",
-                }
-            )
+                for m in s.get("modes") or []:
+                    if mode and m.get("mode") != mode:
+                        continue
+                    _apply_mode_fields(m, count_time_s=count_time_s, reps=reps)
+                    state["n_updated"] += 1
+                s.setdefault("notes", []).append(
+                    {
+                        "ts": datetime.now().isoformat(),
+                        "text": f"holder budget applied (count_time_s={count_time_s}, reps={reps}, mode={mode or 'all'})",
+                    }
+                )
 
-    body["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(experiment_id, plan=body)
+    _mutate_plan(experiment_id, apply)
     return {
         "holder_id": holder_id,
         "count_time_s": count_time_s,
         "reps": reps,
         "mode": mode,
-        "samples_updated": n_updated,
+        "samples_updated": state["n_updated"],
     }
 
 
@@ -768,92 +800,89 @@ def rebuild_plan_preserving_progress(
     `status`, `snr_estimate`, `reps_completed`, etc. that the agent has
     already recorded for samples still present in the DB.
     """
-    previous = get_plan(experiment_id) or {}
-    prev_body = previous.get("plan") or {}
-    prev_queue = prev_body.get("sample_queue") or []
-    progress: dict[str, dict] = {
-        s.get("sample_id"): {
-            "status": s.get("status"),
-            "snr_estimate": s.get("snr_estimate"),
-            "efficiency_verdict": s.get("efficiency_verdict"),
-            "convergence_stats": s.get("convergence_stats"),
-            "reps_completed": s.get("reps_completed"),
-            "notes": s.get("notes", []),
-            # Preserve per-sample time-budget overrides the user has
-            # already applied. Mode overrides win over holder-default +
-            # DB values on regeneration.
-            "modes": s.get("modes"),
+    for attempt in range(_MAX_PLAN_RETRIES):
+        previous = get_plan(experiment_id) or {}
+        version = previous.get("version", 0)
+        prev_body = previous.get("plan") or {}
+        prev_queue = prev_body.get("sample_queue") or []
+        progress: dict[str, dict] = {
+            s.get("sample_id"): {
+                "status": s.get("status"),
+                "snr_estimate": s.get("snr_estimate"),
+                "efficiency_verdict": s.get("efficiency_verdict"),
+                "convergence_stats": s.get("convergence_stats"),
+                "reps_completed": s.get("reps_completed"),
+                "notes": s.get("notes", []),
+                "modes": s.get("modes"),
+            }
+            for s in prev_queue if s.get("sample_id")
         }
-        for s in prev_queue if s.get("sample_id")
-    }
 
-    # Carry across budget + thresholds + holder_budgets so regeneration
-    # doesn't reset user-authored overrides.
-    budget = prev_body.get("budget", {})
-    thresholds = prev_body.get("thresholds", {})
-    holder_budgets = prev_body.get("holder_budgets", {})
+        budget = prev_body.get("budget", {})
+        thresholds = prev_body.get("thresholds", {})
+        holder_budgets = prev_body.get("holder_budgets", {})
 
-    total_hours = beamtime_hours
-    if total_hours is None:
-        total_hours = budget.get("beamtime_total_hours") or previous.get("beamtime_total_hours")
+        total_hours = beamtime_hours
+        if total_hours is None:
+            total_hours = budget.get("beamtime_total_hours") or previous.get("beamtime_total_hours")
 
-    new_plan = build_initial_plan(experiment_id, beamtime_hours=total_hours)
+        new_plan = build_initial_plan(experiment_id, beamtime_hours=total_hours)
 
-    # Re-apply preserved data (status, progress, notes)
-    for s in new_plan.get("sample_queue", []):
-        sid = s.get("sample_id")
-        prior = progress.get(sid)
-        if prior:
-            for k in ("status", "snr_estimate", "efficiency_verdict",
-                      "convergence_stats", "reps_completed"):
-                if prior.get(k) is not None:
-                    s[k] = prior[k]
-            if prior.get("notes"):
-                s["notes"] = prior["notes"]
-    if thresholds:
-        new_plan["thresholds"] = {**new_plan.get("thresholds", {}), **thresholds}
-    if holder_budgets:
-        new_plan["holder_budgets"] = holder_budgets
-        # Apply holder budgets to the freshly-built queue first, so the
-        # per-sample overrides below can trump them on a sample-by-sample
-        # basis.
         for s in new_plan.get("sample_queue", []):
-            hid = s.get("holder_id")
-            bud = holder_budgets.get(hid) or holder_budgets.get("_default") or {}
-            for m in s.get("modes") or []:
-                if bud.get("mode") and m.get("mode") != bud["mode"]:
-                    continue
-                _apply_mode_fields(
-                    m,
-                    count_time_s=bud.get("count_time_s"),
-                    reps=bud.get("reps"),
-                )
-    # Re-apply per-sample mode overrides (user-authored count_time_s /
-    # reps survive regeneration).
-    for s in new_plan.get("sample_queue", []):
-        prior_modes = (progress.get(s.get("sample_id")) or {}).get("modes") or []
-        if not prior_modes:
-            continue
-        by_name = {m.get("mode"): m for m in prior_modes if isinstance(m, dict)}
-        for m in s.get("modes") or []:
-            prev = by_name.get(m.get("mode"))
-            if not prev:
+            sid = s.get("sample_id")
+            prior = progress.get(sid)
+            if prior:
+                for k in ("status", "snr_estimate", "efficiency_verdict",
+                          "convergence_stats", "reps_completed"):
+                    if prior.get(k) is not None:
+                        s[k] = prior[k]
+                if prior.get("notes"):
+                    s["notes"] = prior["notes"]
+        if thresholds:
+            new_plan["thresholds"] = {**new_plan.get("thresholds", {}), **thresholds}
+        if holder_budgets:
+            new_plan["holder_budgets"] = holder_budgets
+            for s in new_plan.get("sample_queue", []):
+                hid = s.get("holder_id")
+                bud = holder_budgets.get(hid) or holder_budgets.get("_default") or {}
+                for m in s.get("modes") or []:
+                    if bud.get("mode") and m.get("mode") != bud["mode"]:
+                        continue
+                    _apply_mode_fields(
+                        m,
+                        count_time_s=bud.get("count_time_s"),
+                        reps=bud.get("reps"),
+                    )
+        for s in new_plan.get("sample_queue", []):
+            prior_modes = (progress.get(s.get("sample_id")) or {}).get("modes") or []
+            if not prior_modes:
                 continue
-            if prev.get("count_time_s") is not None:
-                m["count_time_s"] = prev["count_time_s"]
-            if prev.get("reps") is not None:
-                m["reps"] = prev["reps"]
-    if budget:
-        new_plan.setdefault("budget", {}).update(budget)
-        if total_hours is not None:
-            new_plan["budget"]["beamtime_total_hours"] = float(total_hours)
+            by_name = {m.get("mode"): m for m in prior_modes if isinstance(m, dict)}
+            for m in s.get("modes") or []:
+                prev = by_name.get(m.get("mode"))
+                if not prev:
+                    continue
+                if prev.get("count_time_s") is not None:
+                    m["count_time_s"] = prev["count_time_s"]
+                if prev.get("reps") is not None:
+                    m["reps"] = prev["reps"]
+        if budget:
+            new_plan.setdefault("budget", {}).update(budget)
+            if total_hours is not None:
+                new_plan["budget"]["beamtime_total_hours"] = float(total_hours)
 
-    new_plan["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(
-        experiment_id,
-        plan=new_plan,
-        beamtime_total_hours=new_plan.get("budget", {}).get("beamtime_total_hours"),
-    )
+        new_plan["updated_at"] = datetime.now().isoformat()
+        try:
+            upsert_experiment_plan(
+                experiment_id,
+                plan=new_plan,
+                beamtime_total_hours=new_plan.get("budget", {}).get("beamtime_total_hours"),
+                expected_version=version,
+            )
+            return new_plan
+        except StaleVersionError:
+            if attempt == _MAX_PLAN_RETRIES - 1:
+                raise
     return new_plan
 
 
@@ -864,14 +893,17 @@ def update_thresholds(
     min_reps_per_sample: int | None = None,
     max_drift_ev: float | None = None,
 ) -> dict:
-    body, _ = _load_plan(experiment_id)
-    thresholds = body.setdefault("thresholds", {})
-    if snr_target is not None:
-        thresholds["snr_target"] = snr_target
-    if min_reps_per_sample is not None:
-        thresholds["min_reps_per_sample"] = min_reps_per_sample
-    if max_drift_ev is not None:
-        thresholds["max_drift_ev"] = max_drift_ev
-    body["updated_at"] = datetime.now().isoformat()
-    upsert_experiment_plan(experiment_id, plan=body)
-    return thresholds
+    result: dict = {}
+
+    def apply(body: dict, queue: list[dict]) -> None:
+        thresholds = body.setdefault("thresholds", {})
+        if snr_target is not None:
+            thresholds["snr_target"] = snr_target
+        if min_reps_per_sample is not None:
+            thresholds["min_reps_per_sample"] = min_reps_per_sample
+        if max_drift_ev is not None:
+            thresholds["max_drift_ev"] = max_drift_ev
+        result.update(thresholds)
+
+    _mutate_plan(experiment_id, apply)
+    return result

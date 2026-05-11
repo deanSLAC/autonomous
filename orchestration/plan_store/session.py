@@ -8,12 +8,15 @@ file from the beamline_tools action_log DB.
 
 from __future__ import annotations
 
+import logging
 import os
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import event
+from sqlalchemy.exc import OperationalError
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from orchestration.plan_store.models import (
@@ -30,6 +33,26 @@ from orchestration.plan_store.models import (
 )
 
 _SENTINEL = object()
+_logger = logging.getLogger(__name__)
+
+_RETRY_BACKOFF = (0.1, 0.2, 0.4)
+
+
+def _commit_with_retry(
+    session: Session, max_attempts: int = 3,
+) -> None:
+    """Retry session.commit() on transient SQLite BUSY errors."""
+    for attempt in range(max_attempts):
+        try:
+            session.commit()
+            return
+        except OperationalError as e:
+            if "database is locked" not in str(e) or attempt == max_attempts - 1:
+                raise
+            _logger.warning("SQLite BUSY on commit (attempt %d/%d), retrying",
+                            attempt + 1, max_attempts)
+            time.sleep(_RETRY_BACKOFF[min(attempt, len(_RETRY_BACKOFF) - 1)])
+
 
 # ---------------------------------------------------------------------------
 # Engine / session management
@@ -68,6 +91,7 @@ def get_engine(db_path: str | None = None):
     SQLModel.metadata.create_all(_engine)
     _migrate_holder_pacing(_engine)
     _migrate_sample_position(_engine)
+    _migrate_plan_version(_engine)
 
     return _engine
 
@@ -124,6 +148,23 @@ def _migrate_sample_position(engine):
                 "WHERE xas_filter_suggested = 0 AND xas_filter > 0"
             )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def _migrate_plan_version(engine):
+    """Add version column to experimentplan if missing."""
+    import sqlite3
+    conn = sqlite3.connect(_db_path())
+    try:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(experimentplan)")
+        cols = {row[1] for row in cursor.fetchall()}
+        if "version" not in cols:
+            cursor.execute(
+                "ALTER TABLE experimentplan ADD COLUMN version INTEGER DEFAULT 0"
+            )
+            conn.commit()
     finally:
         conn.close()
 
@@ -839,7 +880,7 @@ def create_collection_scan(
     )
     with get_session() as session:
         session.add(scan)
-        session.commit()
+        _commit_with_retry(session)
         session.refresh(scan)
     return scan
 

@@ -11,15 +11,33 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from datetime import datetime
 from typing import Any, Iterable, Optional
 
+from sqlalchemy.exc import OperationalError
 from sqlmodel import select
 
 from beamline_tools.action_log.models import ActionLog, QueryLog
 from beamline_tools.action_log.session import get_session
 
 logger = logging.getLogger(__name__)
+
+_RETRY_BACKOFF = (0.1, 0.2, 0.4)
+
+
+def _commit_with_retry(session, max_attempts: int = 3) -> None:
+    """Retry session.commit() on transient SQLite BUSY errors."""
+    for attempt in range(max_attempts):
+        try:
+            session.commit()
+            return
+        except OperationalError as e:
+            if "database is locked" not in str(e) or attempt == max_attempts - 1:
+                raise
+            logger.warning("SQLite BUSY on commit (attempt %d/%d), retrying",
+                           attempt + 1, max_attempts)
+            time.sleep(_RETRY_BACKOFF[min(attempt, len(_RETRY_BACKOFF) - 1)])
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +71,7 @@ def start_action(
     )
     with get_session() as session:
         session.add(row)
-        session.commit()
+        _commit_with_retry(session)
         session.refresh(row)
     logger.info(
         "action_log[%s] START phase=%s cmd=%s args=%s",

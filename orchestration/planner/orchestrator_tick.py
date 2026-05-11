@@ -86,15 +86,10 @@ def _latest_collection_scan_id(experiment_id: str) -> Optional[str]:
 
 
 def _focused_steering_seed(row: dict) -> str:
-    """Seed prompt body used when the orchestrator respawns an agent
-    for the sole purpose of handling one deferred steering message.
+    """Seed prompt delivered to the agent over stdin when the orchestrator
+    respawns it for a single deferred steering message.
 
-    The launcher .sh ignores stdin, so this lands in `task_text` (a
-    DB note for audit) rather than in the agent's actual prompt. The
-    role-specific system prompt already tells the agent to drain
-    pending steering at the top of every spawn — between agent-
-    instructions §1 and `BEAMTIMEHERO_AGENT_RUN_ID` in env, the
-    respawned agent will pick this row up automatically."""
+    Also recorded as `task_text` on the AgentRun row for audit."""
     return (
         f"[orchestrator focused-task respawn]\n"
         f"steering_id={row.get('id')}  author={row.get('author')}  "
