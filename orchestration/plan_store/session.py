@@ -100,7 +100,11 @@ def _migrate_holder_pacing(engine):
 
 
 def _migrate_sample_position(engine):
-    """Add min_scans column to sampleposition if missing."""
+    """Add new columns to sampleposition if missing.
+
+    SQLite doesn't auto-evolve schemas; new fields on SamplePosition need to
+    be added here so pre-existing DBs don't 500 on column-not-found.
+    """
     import sqlite3
     conn = sqlite3.connect(_db_path())
     try:
@@ -109,6 +113,16 @@ def _migrate_sample_position(engine):
         columns = {row[1] for row in cursor.fetchall()}
         if "min_scans" not in columns:
             cursor.execute("ALTER TABLE sampleposition ADD COLUMN min_scans INTEGER")
+        if "xas_filter_suggested" not in columns:
+            cursor.execute(
+                "ALTER TABLE sampleposition ADD COLUMN xas_filter_suggested INTEGER NOT NULL DEFAULT 0"
+            )
+            # Backfill from xas_filter so currently-aligned holders don't
+            # appear to "lose" their value when the operator re-opens them.
+            cursor.execute(
+                "UPDATE sampleposition SET xas_filter_suggested = xas_filter "
+                "WHERE xas_filter_suggested = 0 AND xas_filter > 0"
+            )
         conn.commit()
     finally:
         conn.close()
@@ -596,9 +610,10 @@ def create_sample_position(
     total_spots: int = 1,
     enabled: bool = True,
     do_xas: bool = True,
-    xas_reps: int = 10,
+    xas_reps: int = 0,
     xas_time: float = 0.5,
     xas_filter: int = 0,
+    xas_filter_suggested: int = 0,
     xas_emiss_override: Optional[float] = None,
     do_rixs: bool = False,
     rixs_time: float = 1.0,
@@ -634,6 +649,7 @@ def create_sample_position(
         xas_reps=xas_reps,
         xas_time=xas_time,
         xas_filter=xas_filter,
+        xas_filter_suggested=xas_filter_suggested,
         xas_emiss_override=xas_emiss_override,
         do_rixs=do_rixs,
         rixs_time=rixs_time,
@@ -651,6 +667,37 @@ def create_sample_position(
         session.commit()
         session.refresh(pos)
     return pos
+
+
+def update_sample_position(sample_id: str, **fields) -> Optional[SamplePosition]:
+    """Update only the fields passed; others are left alone.
+
+    Used by the sample_holders UI upsert path so editing one field doesn't
+    clobber agent-populated columns (alignment bounds, gains, survey data).
+    """
+    with get_session() as session:
+        sp = session.get(SamplePosition, sample_id)
+        if sp is None:
+            return None
+        for k, v in fields.items():
+            if v is _SENTINEL:
+                continue
+            setattr(sp, k, v)
+        session.add(sp)
+        session.commit()
+        session.refresh(sp)
+    return sp
+
+
+def delete_sample_position(sample_id: str) -> bool:
+    """Delete a single SamplePosition by id. Returns True if a row was removed."""
+    with get_session() as session:
+        sp = session.get(SamplePosition, sample_id)
+        if sp is None:
+            return False
+        session.delete(sp)
+        session.commit()
+    return True
 
 
 def get_samples_for_holder(sample_holder_id: str) -> list[SamplePosition]:

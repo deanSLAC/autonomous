@@ -305,16 +305,11 @@ def validate_sample_holder_data(data: dict, element_names: set[str] | None = Non
                 except (ValueError, TypeError):
                     errors.append(f"{pfx}: {motor} must be a number")
 
-        # XAS validation
+        # XAS validation. xas_reps is no longer operator-facing; the planner
+        # / convergence skill grows the budget dynamically and 0 means "no
+        # preset cap" so we don't validate it as a positive integer anymore.
         do_xas = s.get("do_xas", True)
         if do_xas:
-            try:
-                reps = int(s.get("xas_reps", 0))
-                if reps < 1:
-                    errors.append(f"{pfx}: XAS repetitions must be > 0")
-            except (ValueError, TypeError):
-                errors.append(f"{pfx}: XAS repetitions must be an integer")
-
             try:
                 ct = float(s.get("xas_time", 0))
                 if ct <= 0:
@@ -323,7 +318,7 @@ def validate_sample_holder_data(data: dict, element_names: set[str] | None = Non
                 errors.append(f"{pfx}: XAS count time must be a number")
 
             try:
-                filt = int(s.get("xas_filter", 0))
+                filt = int(s.get("xas_filter_suggested", s.get("xas_filter", 0)))
                 if filt < 0 or filt > 255:
                     errors.append(f"{pfx}: XAS filter must be 0-255")
             except (ValueError, TypeError):
@@ -520,7 +515,10 @@ def _generate_mac_content(
         lines.append(f"SAMPLE_{i}_DO_XAS = {1 if s.do_xas else 0}")
         lines.append(f"SAMPLE_{i}_XAS_REPS = {s.xas_reps}")
         lines.append(f"SAMPLE_{i}_XAS_TIME = {s.xas_time}")
-        lines.append(f"SAMPLE_{i}_XAS_FILTER = {s.xas_filter}")
+        # Pre-survey, xas_filter is 0; fall back to the operator's suggested
+        # starting value so the first scan isn't taken with zero attenuation.
+        effective_filter = s.xas_filter if s.xas_filter > 0 else s.xas_filter_suggested
+        lines.append(f"SAMPLE_{i}_XAS_FILTER = {effective_filter}")
 
         # Emission energy: use override if set, otherwise look up from element
         xas_emiss = s.xas_emiss_override or s.emiss_energy_eV or 0

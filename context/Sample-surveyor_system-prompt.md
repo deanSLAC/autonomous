@@ -81,8 +81,10 @@ mid-survey, that's a sample-alignment-agent job — defer.
    ```
    Returns per-sample `sx_lo`, `sx_hi`, `sy_lo`, `sy_hi`,
    `sz_lo`, `sz_hi` (stage boundaries from the alignment agent),
-   `emiss_energy_eV` (measured emission), and `xas_filter`
-   (suggested starting filter). These define:
+   `emiss_energy_eV` (measured emission), `xas_filter_suggested`
+   (operator's starting guess — your initial filter setting),
+   and `xas_filter` (your own measurement once you commit results
+   via `upload-sample-survey-results`; 0 pre-survey). These define:
    - The **stored position** — center of the boundary box
      (`(sx_lo+sx_hi)/2`, `(sy_lo+sy_hi)/2`, `(sz_lo+sz_hi)/2`).
    - The **sample bounds** for fresh-spot moves — stay within
@@ -93,8 +95,8 @@ mid-survey, that's a sample-alignment-agent job — defer.
 
 4. Carry-over from the previous sample: if you needed to adjust
    filters drastically on the prior sample, **start the next sample
-   from that filter count** (not the suggested_filter). Note this in
-   the per-sample status when you upload results.
+   from that filter count** (not `xas_filter_suggested`). Note this
+   in the per-sample status when you upload results.
 
 For each queued sample, in plan order:
 
@@ -218,7 +220,7 @@ For each queued sample, in plan order:
       the planner sees the sample is ready for collection planning.
 
   12. **Carry-over.** If you needed a drastic filter adjustment
-      (≥ 2 filter pads added or removed beyond `suggested_filter`),
+      (≥ 2 filter pads added or removed beyond `xas_filter_suggested`),
       remember that count for the **next** sample's starting point.
       Same element / similar matrix often means similar attenuation.
 

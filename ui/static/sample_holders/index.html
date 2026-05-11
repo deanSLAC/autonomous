@@ -110,8 +110,8 @@
             <div class="bulk-budget-bar">
                 <span class="bulk-budget-label">Set all samples to:</span>
                 <label>count(s) <input type="number" id="sh-bulk-ct" min="0.1" step="0.1" placeholder="e.g. 0.5"></label>
-                <label>reps <input type="number" id="sh-bulk-reps" min="1" step="1" placeholder="e.g. 6"></label>
-                <label class="inline-check"><input type="checkbox" id="sh-bulk-overwrite" checked> overwrite existing values</label>
+                <label>min scans <input type="number" id="sh-bulk-min-scans" min="1" step="1" placeholder="e.g. 3"></label>
+                <label class="inline-check"><input type="checkbox" id="sh-bulk-overwrite"> overwrite existing values</label>
                 <button type="button" class="btn btn-add" onclick="shFillAllBudgets()">Fill all</button>
             </div>
             <div id="samples-container"></div>
@@ -126,7 +126,7 @@
 </div>
 
 <script src="/static/dashboard/static/dashboard.js?v=5"></script>
-<script src="/static/config/form.js?v=10"></script>
-<script src="/static/sample_holders/sample_holders.js?v=7"></script>
+<script src="/static/config/form.js?v=11"></script>
+<script src="/static/sample_holders/sample_holders.js?v=8"></script>
 </body>
 </html>

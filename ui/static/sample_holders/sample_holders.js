@@ -229,7 +229,7 @@ async function shNewHolder() {
     document.getElementById("sh-holder-notes").value = "";
     document.getElementById("sh-beamtime-hours").value = "";
     document.getElementById("sh-bulk-ct").value = "";
-    document.getElementById("sh-bulk-reps").value = "";
+    document.getElementById("sh-bulk-min-scans").value = "";
     shClearSamplesContainer();
     await shLoadElements();
     if (typeof addSample === "function") addSample();
@@ -250,7 +250,7 @@ async function shEditHolder(holderId) {
     document.getElementById("sh-holder-notes").value = j.notes || "";
     document.getElementById("sh-beamtime-hours").value = (j.beamtime_hours != null) ? j.beamtime_hours : "";
     document.getElementById("sh-bulk-ct").value = "";
-    document.getElementById("sh-bulk-reps").value = "";
+    document.getElementById("sh-bulk-min-scans").value = "";
     shClearSamplesContainer();
     await shLoadElements();
     (j.samples || []).forEach(s => {
@@ -264,19 +264,19 @@ async function shEditHolder(holderId) {
 
 function shFillAllBudgets() {
     const ctRaw = document.getElementById("sh-bulk-ct").value;
-    const repsRaw = document.getElementById("sh-bulk-reps").value;
+    const minScansRaw = document.getElementById("sh-bulk-min-scans").value;
     const ct = ctRaw === "" ? null : parseFloat(ctRaw);
-    const reps = repsRaw === "" ? null : parseInt(repsRaw, 10);
-    if (ct == null && reps == null) {
-        alert("Enter a count time or reps to fill into all samples."); return;
+    const minScans = minScansRaw === "" ? null : parseInt(minScansRaw, 10);
+    if (ct == null && minScans == null) {
+        alert("Enter a count time or min scans to fill into all samples."); return;
     }
     const overwrite = document.getElementById("sh-bulk-overwrite").checked;
     document.querySelectorAll("#samples-container .sample-card").forEach(card => {
         const idx = card.dataset.idx;
         const ctEl = document.getElementById(`samp_${idx}_xas_time`);
-        const repsEl = document.getElementById(`samp_${idx}_xas_reps`);
+        const minScansEl = document.getElementById(`samp_${idx}_min_scans`);
         if (ct != null && ctEl && (overwrite || ctEl.value === "")) ctEl.value = ct;
-        if (reps != null && repsEl && (overwrite || repsEl.value === "")) repsEl.value = reps;
+        if (minScans != null && minScansEl && (overwrite || minScansEl.value === "")) minScansEl.value = minScans;
     });
 }
 
@@ -357,8 +357,16 @@ async function shDeleteHolder() {
 // ---- Initialization ------------------------------------------------------
 
 function shOnExperimentChange() {
-    shLoadElements().then(() => shLoadHolders());
-    // Plan data is only needed when an editor opens; we refresh it then.
+    // Auto-open the first holder for editing if nothing is open yet — the
+    // common case is "land here, edit one thing, save" and there's no good
+    // reason to make the operator click Edit on the only holder in the list.
+    shLoadElements()
+        .then(() => shLoadHolders())
+        .then(() => {
+            if (_shHolders.length && !_shCurrentHolderId) {
+                shEditHolder(_shHolders[0].id);
+            }
+        });
 }
 
 document.addEventListener("DOMContentLoaded", () => {

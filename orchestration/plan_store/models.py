@@ -205,9 +205,13 @@ class SamplePosition(SQLModel, table=True):
     enabled: bool = True
     # XAS parameters
     do_xas: bool = True
-    xas_reps: int = 10
+    xas_reps: int = 0
     xas_time: float = 0.5
+    # xas_filter is the *measured* filter the Sample Surveyor agent landed on
+    # via damage assessment. The operator's starting guess lives in
+    # xas_filter_suggested; the surveyor reads that and writes here.
     xas_filter: int = 0
+    xas_filter_suggested: int = 0
     xas_emiss_override: Optional[float] = None  # Override element emission
     # RIXS parameters
     do_rixs: bool = False
@@ -221,12 +225,11 @@ class SamplePosition(SQLModel, table=True):
     i0_offset: Optional[str] = None
     i1_gain: Optional[str] = None
     # Sample-survey results — populated by the Sample Surveyor agent at the
-    # end of its run via `upload_sample_survey_results`. The survey picks an
-    # appropriate filter setting (xas_filter is overwritten with that value
-    # for downstream Data Collection use) and records the resulting count
-    # rate at the survey energy. `survey_energy_ev` and `survey_notes` are
-    # informational. `survey_completed_at` flags the row as having been
-    # surveyed.
+    # end of its run via `upload_sample_survey_results`. The survey reads
+    # xas_filter_suggested as its starting point, refines via damage
+    # assessment, and writes the result into xas_filter for downstream Data
+    # Collection use. `survey_energy_ev` and `survey_notes` are informational.
+    # `survey_completed_at` flags the row as having been surveyed.
     survey_counts_per_sec: Optional[float] = None
     survey_energy_ev: Optional[float] = None
     survey_completed_at: Optional[datetime] = None

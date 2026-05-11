@@ -802,7 +802,13 @@ def t_get_experiment_config(args: dict) -> tuple[str, list[str]]:
                         "do_xas": s.do_xas,
                         "xas_reps": s.xas_reps,
                         "xas_time": s.xas_time,
+                        # xas_filter is the *measured* value (0 pre-survey);
+                        # xas_filter_suggested is the operator's starting
+                        # guess. The Sample Surveyor agent should read the
+                        # suggested value as its first attempt and write the
+                        # damage-assessment-derived result back to xas_filter.
                         "xas_filter": s.xas_filter,
+                        "xas_filter_suggested": s.xas_filter_suggested,
                         "xas_emiss_override": s.xas_emiss_override,
                         "do_rixs": s.do_rixs,
                         "rixs_time": s.rixs_time,
@@ -1510,7 +1516,10 @@ def t_get_comprehensive_collection_plan(args: dict) -> tuple[str, list[str]]:
             "sz_lo": s.sz_lo, "sz_hi": s.sz_hi,
             "emiss_energy_eV": s.emiss_energy_eV,
             "total_spots": int(n_spots),
-            "filter_count": int(s.xas_filter),
+            # filter_count is the value Data Collection should actually use:
+            # the surveyor's measurement when present, falling back to the
+            # operator's suggested starting filter pre-survey.
+            "filter_count": int(s.xas_filter or s.xas_filter_suggested),
             "count_time": float(count_time),
             "n_reps": int(n_reps),
             "n_reps_completed": sample_completed,

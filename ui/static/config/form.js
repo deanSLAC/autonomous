@@ -380,13 +380,15 @@ function addSample(data) {
     card.className = 'sample-card';
     card.id = `sample-card-${idx}`;
     card.dataset.idx = idx;
+    // Preserve the existing SamplePosition id across edits so the backend
+    // upsert can update in place instead of wipe-and-replace.
+    card.dataset.sampleId = (data && data.id) || '';
 
     const sName = data ? data.name : '';
     const sElem = data ? data.element : '';
-    const xasFilter = (data && data.xas_filter != null) ? data.xas_filter : '';
+    const xasFilterSuggested = (data && data.xas_filter_suggested != null) ? data.xas_filter_suggested : '';
     const minScans = (data && data.min_scans != null) ? data.min_scans : '';
     const xasTime = (data && data.xas_time != null) ? data.xas_time : '';
-    const xasReps = (data && data.xas_reps != null) ? data.xas_reps : '';
 
     const elemOptions = buildElementOptions(sElem);
 
@@ -409,8 +411,9 @@ function addSample(data) {
                 </select>
             </div>
             <div class="form-group narrow">
-                <label>Filter</label>
-                <input type="number" id="samp_${idx}_xas_filter" value="${xasFilter}" min="0" max="255" placeholder="optional">
+                <label>Suggested filter</label>
+                <input type="number" id="samp_${idx}_xas_filter_suggested" value="${xasFilterSuggested}" min="0" max="255" placeholder="optional">
+                <span class="form-hint">Starting guess — surveyor refines via damage assessment</span>
             </div>
             <div class="form-group narrow">
                 <label>Min scans</label>
@@ -422,10 +425,6 @@ function addSample(data) {
             <div class="form-group narrow">
                 <label>Count (s)</label>
                 <input type="number" id="samp_${idx}_xas_time" value="${xasTime}" min="0.1" step="0.1" placeholder="e.g. 0.5">
-            </div>
-            <div class="form-group narrow">
-                <label>Reps</label>
-                <input type="number" id="samp_${idx}_xas_reps" value="${xasReps}" min="1" step="1" placeholder="e.g. 10">
             </div>
         </div>
     `;
@@ -441,24 +440,31 @@ function removeSample(idx) {
 function buildElementOptions(selected) {
     // Try to build from element cards on Tab 1
     const cards = document.querySelectorAll('.element-card');
-    let opts = '<option value="">-- Select --</option>';
 
+    // Collect available symbols up front so we can detect the single-element
+    // case and auto-select rather than leaving the operator with a blank
+    // dropdown they always have to interact with.
+    let symbols = [];
     if (cards.length > 0) {
         cards.forEach(card => {
-            const idx = card.dataset.idx;
-            const sym = getElementSymbol(parseInt(idx));
-            if (sym) {
-                const sel = (sym === selected) ? ' selected' : '';
-                opts += `<option value="${sym}"${sel}>${sym}</option>`;
-            }
+            const sym = getElementSymbol(parseInt(card.dataset.idx));
+            if (sym) symbols.push(sym);
         });
     } else if (_cachedElements && _cachedElements.length > 0) {
-        // Fall back to cached elements from experiment summary
-        _cachedElements.forEach(el => {
-            const sel = (el.symbol === selected) ? ' selected' : '';
-            opts += `<option value="${el.symbol}"${sel}>${el.symbol}</option>`;
-        });
+        symbols = _cachedElements.map(el => el.symbol).filter(Boolean);
     }
+
+    const single = symbols.length === 1 ? symbols[0] : null;
+    const effective = selected || single || '';
+
+    // Drop the "-- Select --" placeholder when there's a single forced choice
+    // and nothing pre-selected — otherwise keep it for multi-element experiments
+    // where requiring an explicit choice is correct.
+    let opts = (single && !selected) ? '' : '<option value="">-- Select --</option>';
+    symbols.forEach(sym => {
+        const sel = (sym === effective) ? ' selected' : '';
+        opts += `<option value="${sym}"${sel}>${sym}</option>`;
+    });
     return opts;
 }
 
@@ -563,6 +569,9 @@ function gatherExperimentData() {
 }
 
 function gatherSampleHolderData() {
+    // Emit only the fields this form actually owns. Alignment bounds, gains,
+    // toggles, emiss override, and RIXS params are agent-managed — sending
+    // hardcoded defaults for them would clobber agent-set values on every save.
     const expEl = document.getElementById('experiment_id');
     const data = {
         experiment_id: (expEl && expEl.value) || undefined,
@@ -572,36 +581,17 @@ function gatherSampleHolderData() {
 
     document.querySelectorAll('.sample-card').forEach(card => {
         const idx = parseInt(card.dataset.idx);
-        const filterRaw = val(`samp_${idx}_xas_filter`);
+        const filterRaw = val(`samp_${idx}_xas_filter_suggested`);
         const minScansRaw = val(`samp_${idx}_min_scans`);
         const xasTimeRaw = val(`samp_${idx}_xas_time`);
-        const xasRepsRaw = val(`samp_${idx}_xas_reps`);
 
-        // count_time / reps default to 0.5 / 10 when blank; alignment +
-        // survey may revise later. Other fields (positions, emiss override,
-        // gains) are still set by those phases, not configured here.
         data.samples.push({
+            id: card.dataset.sampleId || null,
             name: val(`samp_${idx}_name`),
             element: val(`samp_${idx}_element`),
-            enabled: true,
-            sx_lo: 0, sx_hi: 0, sx_del: 0,
-            sy_lo: 0, sy_hi: 0, sy_del: 0,
-            sz_lo: 0, sz_hi: 0, sz_del: 0,
-            do_xas: true,
-            xas_reps: xasRepsRaw === '' ? 10 : (parseInt(xasRepsRaw, 10) || 10),
-            xas_time: xasTimeRaw === '' ? 0.5 : (parseFloat(xasTimeRaw) || 0.5),
-            xas_filter: filterRaw === '' ? 0 : parseInt(filterRaw, 10) || 0,
-            xas_emiss_override: null,
-            i0_gain: '',
-            i0_offset: '',
-            i1_gain: '',
-            do_rixs: false,
-            rixs_time: 1.0,
-            rixs_start: null,
-            rixs_end: null,
-            rixs_step: -0.2,
-            rixs_filter: 0,
-            min_scans: minScansRaw === '' ? null : parseInt(minScansRaw, 10) || null,
+            xas_time: xasTimeRaw === '' ? null : (parseFloat(xasTimeRaw) || null),
+            xas_filter_suggested: filterRaw === '' ? null : (parseInt(filterRaw, 10) || 0),
+            min_scans: minScansRaw === '' ? null : (parseInt(minScansRaw, 10) || null),
         });
     });
 

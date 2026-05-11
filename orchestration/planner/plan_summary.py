@@ -38,6 +38,7 @@ from sqlmodel import select
 
 from orchestration.config import DATA_DIR
 from orchestration.plan_store.client import get_plan
+from orchestration.planner.planner import DEFAULT_MIN_REPS_PER_SAMPLE
 from orchestration.plan_store.models import (
     CollectionScan,
     Experiment,
@@ -140,6 +141,11 @@ def _build_summary(experiment_id: str) -> Optional[dict]:
                 n_scans = int(n_scans)
             except (TypeError, ValueError):
                 n_scans = int(s.xas_reps)
+            # xas_reps == 0 is the "planner decides" sentinel; project from
+            # the minimum-reps floor so the time estimate isn't visibly zero
+            # before the planner has filled in a budget.
+            if n_scans <= 0:
+                n_scans = DEFAULT_MIN_REPS_PER_SAMPLE
             if count_time is None:
                 count_time = float(s.xas_time)
 
@@ -148,7 +154,7 @@ def _build_summary(experiment_id: str) -> Optional[dict]:
                 "sample_id": s.id,
                 "sample_name": s.sample_name,
                 "element_symbol": s.element_symbol,
-                "n_filters": int(s.xas_filter),
+                "n_filters": int(s.xas_filter or s.xas_filter_suggested),
                 "counts_per_sec": s.survey_counts_per_sec,
                 "planned_n_scans": int(n_scans),
                 "scan_duration_s": float(count_time),
