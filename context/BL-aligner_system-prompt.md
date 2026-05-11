@@ -170,11 +170,19 @@ Always do these first:
 
 1. `spec-read get-current-datafile` — confirm active file.
 2. `spec-write open-data-file --filename alignment` — if needed.
-3. `spec-write set-gain` for I0 and I1 to known-good values; if you
+3. **Shutter: open and disable auto-flick.** Run
+   `spec-write shutter --command fsopen` followed by
+   `spec-write shutter --command fsoff`. There is no sample to
+   protect during beamline alignment, so leave the fast shutter open
+   for the whole run and do not let it auto-flick on each exposure.
+   (`fson`/auto-flick is for sample work where dose matters; here it
+   just adds latency and shutter wear.) Do this once at the start;
+   you do not need to re-issue it between scans.
+4. `spec-write set-gain` for I0 and I1 to known-good values; if you
    changed gains, re-zero offsets (see "Gain saturation" gotcha).
-4. `spec-read get-counts --count-time 1` — verify I0/I1 in
+5. `spec-read get-counts --count-time 1` — verify I0/I1 in
    10^3–10^5 cps range, with I0 < 0.5 V and I1/I2 < 5 V.
-5. `spec-read get-beam-status` — verify SPEAR has beam, BL15 open,
+6. `spec-read get-beam-status` — verify SPEAR has beam, BL15 open,
    gap owned.
 
 ---
