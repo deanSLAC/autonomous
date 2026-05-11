@@ -21,7 +21,10 @@ _PLOT_DIR = PROJECT_ROOT / "data" / "tool_plots"
 def _latest_png() -> Path | None:
     if not _PLOT_DIR.exists():
         return None
-    pngs = list(_PLOT_DIR.glob("*.png"))
+    # statistics_trend_*.png is surfaced by its own endpoint; exclude it here
+    # so the "Agent Plots" panel doesn't duplicate the "Statistics Trend" panel.
+    pngs = [p for p in _PLOT_DIR.glob("*.png")
+            if not p.name.startswith("statistics_trend_")]
     if not pngs:
         return None
     pngs.sort(key=lambda p: p.stat().st_mtime, reverse=True)
