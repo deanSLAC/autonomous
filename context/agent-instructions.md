@@ -68,6 +68,29 @@ conditions that have already changed. Examples:
 - "we're about to swap the cryostat" posted 40 minutes ago — the swap
   may already be complete.
 
+Just as importantly, reconstruct **what you were doing when the message
+was posted**. Operators write steering against the system state they
+can see at submission time; if you have since taken actions, the
+message may have been overtaken, already satisfied, or now mean
+something different than it did when posted. Before acting, walk back
+through your recent tool calls and DB writes since the timestamp.
+Examples:
+
+- "use 8 s per point instead of 4" posted while you were 3/10 scans
+  into a sample at 4 s — the operator meant "going forward." Apply
+  it to scans 4+, not retroactively to the three already complete.
+- "redo the mono calibration" posted 15 minutes ago — if you have
+  since re-run it for an unrelated reason, the request is already
+  satisfied. Ack, then `complete` with a note pointing to the run.
+- "skip S5" posted while you were aligning S5 — if alignment has
+  since finished and you've moved to S6, the operator's intent is
+  ambiguous (do they want S5 dropped from the dataset, or was this
+  meant to stop a now-completed action?). Ask via `post-status-update`
+  rather than guess.
+- "increase reps on Fe2O3 to 12" posted before the planner spawn
+  that already raised them to 15 — no-op; ack and complete with
+  the current value.
+
 When the guidance is **more than ~5 minutes old**, treat the factual
 claims in it as potentially stale:
 
