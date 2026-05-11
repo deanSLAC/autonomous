@@ -311,6 +311,49 @@ stop signals. **Data collection never self-terminates.**
 Procedure — run this on every spawn where the mandatory STATUS ASSESSMENT
 shows the contradiction "all samples done / time remaining":
 
+0. **Convergence-milestone status update (once per holder).** Before
+   reopening the queue, check whether the milestone — convergent
+   statistics across the whole queue AND `min_scans` satisfied for
+   every still-viable sample — actually holds, and notify staff if
+   so. This is a neutral milestone report, not a stop suggestion;
+   collection continues regardless.
+
+   a. **Milestone check.** Compute:
+      ```
+      milestone_holds = all(
+          s.reps_completed >= max(s.min_scans or 0,
+                                  plan.thresholds.min_reps_per_sample or 3)
+          for s in plan.sample_queue
+          if s.status not in ("skipped", "failed")
+      )
+      ```
+      If `milestone_holds` is false (i.e. at least one sample has
+      `status=done` with `reps_completed < min_scans` — the deficit
+      case acknowledged in step 3 below), **skip the milestone post**
+      and continue to step 1. The deficit pass will clean it up, and
+      a subsequent spawn will re-evaluate.
+
+   b. **Per-holder dedupe.** Read
+      `plan.convergence_milestone_holders_notified` (a list of holder
+      IDs; absent on first use — treat as empty). If the current
+      holder's ID is already in that list, **skip the milestone post**
+      and continue to step 1. Otherwise proceed to (c) and (d).
+
+   c. **Post the milestone.** Call:
+      ```
+      beamtimehero tool post-status-update --text "Convergence milestone — every non-skipped/non-failed sample on holder <holder_id> has achieved convergent statistics and met its minimum-scan requirement (<N> samples, <total_reps> scans collected). Continuing data collection with redistributed reps on remaining beamtime; will run until interrupted."
+      ```
+      Fill in `<holder_id>`, `<N>` (count of non-skipped/non-failed
+      samples on this holder), and `<total_reps>` (sum of
+      `reps_completed` across those samples) before posting.
+
+   d. **Persist the dedupe flag.** Append the current holder ID to
+      `convergence_milestone_holders_notified` (creating the list if
+      absent). Include the updated list in the `update-plan` call
+      you'll make at step 7 below — this guarantees the dedupe flag
+      is written atomically with the reopened queue, so a follow-up
+      spawn in the same holder won't repost.
+
 1. Let S = every sample with status NOT IN (skipped, failed).
 2. For each s in S, call `record-sample-progress --sample-id <s> --status in_progress`.
 3. **`min_scans` deficit pass.** For each s in S where `min_scans` is set
@@ -364,7 +407,10 @@ first. Never set `status=skipped` or `status=failed` to shrink the queue
 - **Do not proactively emit "we should stop", "budget exhausted", or
   "beamtime is over" messages.** The dashboard shows an "extra time"
   indicator so the operator knows the budget has been exceeded. Staff
-  will interrupt when beamtime is truly over.
+  will interrupt when beamtime is truly over. The "convergence
+  milestone" status update defined in Step 0 of the reopen procedure
+  above is a neutral milestone report (not a stop suggestion) and is
+  exempt from this rule.
 - If you exit with zero actionable samples anyway (e.g. by calling
   `record-sample-progress` without a follow-up `update-plan`), the
   orchestrator watchdog will respawn you within ~5 minutes with an
@@ -395,9 +441,10 @@ the chat verbatim, filled in:
 
 If line 2 shows every non-skipped/non-failed sample at `status=done`
 AND line 1 shows time remaining, that is a **contradiction**. You
-MUST resolve it in this spawn by reopening the queue per the
-"reopen the queue proportionally" procedure above (under "When all
-samples reach status=done") before exiting.
+MUST resolve it in this spawn by running the "reopen the queue
+proportionally" procedure above (under "When all samples reach
+status=done") — **starting with Step 0** (the convergence-milestone
+status update) — before exiting.
 
 **Expected magnitude of edits.** Most spawn-N runs result in a
 small edit or no edit. The overall beamtime plan is not expected
