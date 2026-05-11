@@ -67,6 +67,7 @@ def get_engine(db_path: str | None = None):
     os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
     SQLModel.metadata.create_all(_engine)
     _migrate_holder_pacing(_engine)
+    _migrate_sample_position(_engine)
 
     return _engine
 
@@ -93,6 +94,21 @@ def _migrate_holder_pacing(engine):
             UPDATE sampleholder SET completed_at = updated_at
             WHERE status = 'done' AND completed_at IS NULL
         """)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _migrate_sample_position(engine):
+    """Add min_scans column to sampleposition if missing."""
+    import sqlite3
+    conn = sqlite3.connect(_db_path())
+    try:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(sampleposition)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "min_scans" not in columns:
+            cursor.execute("ALTER TABLE sampleposition ADD COLUMN min_scans INTEGER")
         conn.commit()
     finally:
         conn.close()
