@@ -44,6 +44,28 @@ DEFAULT_SNR_TARGET = 8.0          # "efficiency_verdict >= marginal"
 DEFAULT_MIN_REPS_PER_SAMPLE = 3   # don't declare a sample done below this
 
 
+class PlanValidationError(ValueError):
+    """Raised when replace_plan is asked to write a plan that would
+    deadlock collection by leaving zero actionable samples."""
+
+
+_TERMINAL_SAMPLE_STATUSES = frozenset({"done", "skipped", "failed"})
+
+
+def _require_actionable_samples(experiment_id: str, new_plan: dict) -> None:
+    current = get_plan(experiment_id) or {}
+    if current.get("phase") != "collection":
+        return
+    samples = new_plan.get("sample_queue") or []
+    if any(s.get("status") not in _TERMINAL_SAMPLE_STATUSES for s in samples):
+        return
+    raise PlanValidationError(
+        "plan would leave zero actionable samples during collection — "
+        "reopen non-skipped/non-failed samples and extend reps "
+        "proportionally per the convergence-fallback procedure"
+    )
+
+
 def build_initial_plan(experiment_id: str,
                        beamtime_hours: Optional[float] = None) -> dict:
     """Compose the first-pass plan from the experiment config."""
@@ -449,6 +471,7 @@ def record_convergence_stats(
 
 
 def replace_plan(experiment_id: str, new_plan: dict) -> dict:
+    _require_actionable_samples(experiment_id, new_plan)
     new_plan["updated_at"] = datetime.now().isoformat()
     upsert_experiment_plan(experiment_id, plan=new_plan)
     return new_plan

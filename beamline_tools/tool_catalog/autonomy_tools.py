@@ -685,7 +685,10 @@ def t_update_plan(args: dict) -> tuple[str, list[str]]:
             return json.dumps({"ok": False, "error": f"plan is not valid JSON: {e}"}), []
     if not isinstance(new_plan, dict):
         return json.dumps({"ok": False, "error": "plan must be a JSON object"}), []
-    planner.replace_plan(experiment_id, new_plan)
+    try:
+        planner.replace_plan(experiment_id, new_plan)
+    except planner.PlanValidationError as e:
+        return json.dumps({"ok": False, "error": str(e)}), []
     # Best-effort plan summary: writes data/plan_summaries/<id>.json
     # and posts to Slack. Any failure here must not block the agent's
     # update — the call already succeeded above.
