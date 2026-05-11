@@ -1,7 +1,8 @@
 /**
  * BL15-2 Experiment Configuration Form
- * Two-tab layout: Experiment Setup (staff) and Sample Holder (user).
- * Handles dynamic element/sample rows, energy lookups, validation, and submission.
+ * Handles dynamic element rows, energy lookups, validation, and submission.
+ * Sample/holder helpers (addSample, buildElementOptions, gatherSampleHolderData)
+ * are shared with /sample_holders which loads this file.
  */
 
 // ---------------------------------------------------------------------------
@@ -10,7 +11,6 @@
 
 let elementCount = 0;
 let sampleCount = 0;
-let activeTab = 'experiment';
 
 // Populated from /api/defaults on page load; used to build the element dropdown
 // and (implicitly via the server) to filter edges/lines by accessible energy.
@@ -27,65 +27,6 @@ const CRYSTAL_CUTS = [
     { hkl: '9 1 1', type: 'Si', common_for: ['As', 'Pb'] },
     { hkl: '8 4 4', type: 'Si', common_for: ['Se'] },
 ];
-
-// Gain dropdown option HTML (reused in every sample card)
-const I0_GAIN_OPTIONS = `
-    <option value="">Default (auto)</option>
-    <option value="1 nA/V">1 nA/V</option>
-    <option value="2 nA/V">2 nA/V</option>
-    <option value="5 nA/V">5 nA/V</option>
-    <option value="10 nA/V">10 nA/V</option>
-    <option value="20 nA/V">20 nA/V</option>
-    <option value="50 nA/V">50 nA/V</option>
-    <option value="100 nA/V">100 nA/V</option>
-    <option value="200 nA/V">200 nA/V</option>
-    <option value="500 nA/V">500 nA/V</option>`;
-
-const I0_OFFSET_OPTIONS = `
-    <option value="">Default (auto)</option>
-    <option value="1 pA">1 pA</option>
-    <option value="2 pA">2 pA</option>
-    <option value="5 pA">5 pA</option>
-    <option value="10 pA">10 pA</option>
-    <option value="20 pA">20 pA</option>
-    <option value="50 pA">50 pA</option>
-    <option value="100 pA">100 pA</option>`;
-
-const I1_GAIN_OPTIONS = `
-    <option value="">Default (auto)</option>
-    <option value="100 uA/V">100 uA/V</option>
-    <option value="200 uA/V">200 uA/V</option>
-    <option value="500 uA/V">500 uA/V</option>
-    <option value="1 mA/V">1 mA/V</option>
-    <option value="2 mA/V">2 mA/V</option>
-    <option value="5 mA/V">5 mA/V</option>`;
-
-// ---------------------------------------------------------------------------
-// Tab Switching
-// ---------------------------------------------------------------------------
-
-function switchTab(tabName) {
-    activeTab = tabName;
-    clearMessages();
-
-    // Update tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        if ((tabName === 'experiment' && btn.textContent.includes('Experiment')) ||
-            (tabName === 'samples' && btn.textContent.includes('Sample'))) {
-            btn.classList.add('active');
-        }
-    });
-
-    // Show/hide tab content
-    document.getElementById('tab-experiment').classList.toggle('hidden', tabName !== 'experiment');
-    document.getElementById('tab-samples').classList.toggle('hidden', tabName !== 'samples');
-
-    // When switching to samples tab, refresh the experiment summary banner
-    if (tabName === 'samples') {
-        loadExperimentSummary();
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Element Management
@@ -430,11 +371,6 @@ function onEmissionLineChange(idx) {
 // Sample Management
 // ---------------------------------------------------------------------------
 
-function getSampleEnv() {
-    const envSel = document.getElementById('sample_env');
-    return envSel ? envSel.value : 'ambient';
-}
-
 function addSample(data) {
     sampleCount++;
     const idx = sampleCount;
@@ -584,7 +520,7 @@ function toggleAdvanced() {
 }
 
 // ---------------------------------------------------------------------------
-// Data Gathering (split by tab)
+// Data Gathering
 // ---------------------------------------------------------------------------
 
 function gatherExperimentData() {
@@ -685,13 +621,6 @@ function gatherSampleHolderData() {
     return data;
 }
 
-// Backwards-compatible combined gather
-function gatherFormData() {
-    const expData = gatherExperimentData();
-    const sampleData = gatherSampleHolderData();
-    return { ...expData, ...sampleData };
-}
-
 // ---------------------------------------------------------------------------
 // Form Submission
 // ---------------------------------------------------------------------------
@@ -741,145 +670,6 @@ function submitExperiment() {
     });
 }
 
-function submitSampleHolder() {
-    clearMessages();
-    clearFieldErrors();
-
-    const btn = document.getElementById('submit-samples-btn');
-    btn.disabled = true;
-    btn.textContent = 'Saving...';
-
-    const data = gatherSampleHolderData();
-
-    fetch('/api/submit_sample_holder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    })
-    .then(r => r.json())
-    .then(result => {
-        btn.disabled = false;
-        btn.textContent = 'Save Sample Holder';
-
-        if (result.success) {
-            showSuccess(
-                `Sample holder saved.`,
-                `${result.summary.holder}: ${result.summary.n_samples} samples. Configuration complete.`,
-                'The experiment is ready. Open the dashboard and click Run on each phase tile to drive the run.',
-                {
-                    text: 'Open Dashboard →',
-                    href: '/',
-                }
-            );
-        } else {
-            showErrors(result.errors || ['Unknown error']);
-        }
-    })
-    .catch(err => {
-        btn.disabled = false;
-        btn.textContent = 'Save Sample Holder';
-        showErrors([`Network error: ${err.message}`]);
-    });
-}
-
-// Backwards-compatible combined submit
-function submitForm() {
-    clearMessages();
-    clearFieldErrors();
-
-    const data = gatherFormData();
-
-    fetch('/api/submit_collection', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    })
-    .then(r => r.json())
-    .then(result => {
-        if (result.success) {
-            document.getElementById('experiment_id').value = result.experiment_id;
-            showSuccess(
-                `Configuration saved for "${result.summary.experiment}".`,
-                `Sample holder: ${result.summary.holder} (${result.summary.n_samples} samples, ${result.summary.elements})`,
-                'In SPEC, run: reload_experiment_config'
-            );
-        } else {
-            showErrors(result.errors || ['Unknown error']);
-        }
-    })
-    .catch(err => {
-        showErrors([`Network error: ${err.message}`]);
-    });
-}
-
-// ---------------------------------------------------------------------------
-// Experiment Summary Banner (Tab 2)
-// ---------------------------------------------------------------------------
-
-function loadExperimentSummary() {
-    const expId = document.getElementById('experiment_id').value;
-    const banner = document.getElementById('experiment-summary-banner');
-    const holderSection = document.getElementById('sample-holder-section');
-    const samplesSection = document.getElementById('samples-section');
-    const submitArea = document.getElementById('submit-samples-area');
-
-    if (!expId) {
-        banner.innerHTML = '<p class="banner-placeholder">No experiment configured yet. Save an experiment in the Experiment Setup tab first.</p>';
-        holderSection.style.display = 'none';
-        samplesSection.style.display = 'none';
-        submitArea.style.display = 'none';
-        return;
-    }
-
-    fetch(`/api/experiment_summary/${expId}`)
-    .then(r => r.json())
-    .then(result => {
-        if (result.success) {
-            const exp = result.experiment;
-            const elems = result.elements.map(e => {
-                const mode = e.measurement_mode || 'XES';
-                return mode === 'TFY' ? `${e.symbol} ${e.edge} (TFY)` : `${e.symbol} ${e.edge}`;
-            }).join(', ');
-
-            // Cache elements for sample dropdowns
-            _cachedElements = result.elements;
-
-            banner.innerHTML = `
-                <div class="banner-title">Active Experiment: ${esc(exp.name)}</div>
-                <div class="banner-details">
-                    <span>Crystal: ${esc(exp.mono_crystal)}</span>
-                    <span>Beam: ${exp.mirrors_out ? 'Mirrors out' : esc('H:' + (exp.beam_size_h || '?') + ' V:' + (exp.beam_size_v || '?'))}</span>
-                    <span>Env: ${esc(exp.sample_env)}</span>
-                    <span>Elements: ${esc(elems)}</span>
-                </div>
-            `;
-
-            // Show the sample holder form sections
-            holderSection.style.display = '';
-            samplesSection.style.display = '';
-            submitArea.style.display = '';
-
-            // Refresh element dropdowns in existing sample cards
-            updateSampleElementDropdowns();
-
-            // Add a default sample if none exist
-            if (document.querySelectorAll('.sample-card').length === 0) {
-                addSample();
-            }
-        } else {
-            banner.innerHTML = '<p class="banner-placeholder">Could not load experiment info.</p>';
-            holderSection.style.display = 'none';
-            samplesSection.style.display = 'none';
-            submitArea.style.display = 'none';
-        }
-    })
-    .catch(() => {
-        banner.innerHTML = '<p class="banner-placeholder">Could not load experiment info.</p>';
-        holderSection.style.display = 'none';
-        samplesSection.style.display = 'none';
-        submitArea.style.display = 'none';
-    });
-}
 
 // ---------------------------------------------------------------------------
 // Load Experiment
@@ -1029,20 +819,12 @@ function populateForm(data) {
     (data.elements || []).forEach(el => addElement(el));
     if (!data.elements || data.elements.length === 0) addElement();
 
-    // Cache elements for Tab 2
     _cachedElements = (data.elements || []).map(el => ({
         symbol: el.symbol,
         edge: el.edge,
         measurement_mode: el.measurement_mode || 'XES',
     }));
 
-    // Populate Tab 2 fields
-    document.getElementById('sample_holder_name').value = exp.sample_holder_name || '';
-
-    // Clear and re-add samples
-    document.getElementById('samples-container').innerHTML = '';
-    sampleCount = 0;
-    (data.samples || []).forEach(s => addSample(s));
 }
 
 // ---------------------------------------------------------------------------
@@ -1166,13 +948,6 @@ async function setupNewExperiment() {
     elementCount = 0;
     addElement();
 
-    const samplesContainer = document.getElementById('samples-container');
-    if (samplesContainer) samplesContainer.innerHTML = '';
-    sampleCount = 0;
-
-    const holderName = document.getElementById('sample_holder_name');
-    if (holderName) holderName.value = '';
-
     clearMessages();
 }
 
@@ -1199,18 +974,4 @@ document.addEventListener('DOMContentLoaded', function () {
             _updateMirrorsOutState(this.checked);
         });
     }
-    // Honor ?tab=samples (used by the dashboard's Sample Holder
-    // Configuration tile) so the page lands directly on the samples tab.
-    // We must wait for loadActiveExperiment() to populate experiment_id
-    // before switching, otherwise loadExperimentSummary() reads an empty
-    // experiment_id and renders "No experiment configured yet" even when
-    // an active experiment exists. loadActiveExperiment() is idempotent
-    // and returns the same promise the inline init handler kicked off.
-    try {
-        const params = new URLSearchParams(window.location.search);
-        const tab = params.get('tab');
-        if (tab === 'samples' || tab === 'experiment') {
-            loadActiveExperiment().then(() => switchTab(tab));
-        }
-    } catch { /* ignore */ }
 });
