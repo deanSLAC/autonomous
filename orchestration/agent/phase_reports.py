@@ -246,67 +246,88 @@ def _alignment_metadata(experiment_id: str) -> dict:
 # Sample survey report
 # ---------------------------------------------------------------------------
 
-def _pick_survey_inputs(experiment_id: str, window) -> tuple[Optional[str], Optional[int], list[dict]]:
-    """Return (spec_datafile, survey_scan_number, sample_positions[]).
-
-    The 'wide Sz survey' is heuristically the Sz scan in the window with
-    the largest motor range. Per-sample fine-alignment scans are not
-    currently attributable to specific samples — sample_scans is left
-    empty (the renderer handles this gracefully).
+def _resolve_spec_datafile(name: Optional[str]) -> Optional[str]:
+    """Map a CollectionScan.spec_datafile (basename) to the full path
+    in the local SPEC scan cache. Returns the input as-is if it's
+    already absolute, or None if no match.
     """
-    scans = _scans_in_window(window)
-    sz_scans: list[tuple[float, dict]] = []
-    for s in scans:
-        motor = (_motor_of(s) or "").lower()
-        if "sz" not in motor:
-            continue
-        cmd = (s.get("scan_command") or "").split()
-        try:
-            start = float(cmd[2])
-            end = float(cmd[3])
-            span = abs(end - start)
-        except (IndexError, ValueError):
-            span = 0.0
-        sz_scans.append((span, s))
-
-    if not sz_scans:
-        survey = None
-        spec_datafile = scans[-1]["file_path"] if scans else None
-    else:
-        sz_scans.sort(key=lambda t: t[0], reverse=True)
-        survey = sz_scans[0][1]
-        spec_datafile = survey.get("file_path")
-
-    positions = _sample_positions_for_experiment(experiment_id)
-
-    return spec_datafile, (int(survey["scan_number"]) if survey else None), positions
-
-
-def _sample_positions_for_experiment(experiment_id: str) -> list[dict]:
-    out: list[dict] = []
+    if not name:
+        return None
+    if name.startswith("/"):
+        return name
     try:
-        from sqlmodel import select
+        from beamline_tools.spec_data import local_data
+        for s in local_data._all_scans_sorted():
+            if s.get("file_name") == name and s.get("file_path"):
+                return s.get("file_path")
+    except Exception as e:  # noqa: BLE001
+        logger.warning("phase_reports: spec datafile resolve failed: %s", e)
+    return None
+
+
+def _pick_survey_inputs(
+    experiment_id: str,
+    window: tuple[datetime, datetime],
+) -> tuple[Optional[str], dict[str, list[int]], list[dict]]:
+    """Return (spec_datafile, sample_scans, sample_positions).
+
+    The surveyor runs `run_xas` per sample-spot and calls
+    `record_completed_scan` after each one, which writes a CollectionScan
+    row carrying (sample_id, scan_number, spec_datafile, timestamp). We
+    group those by sample_id for the per-sample XAS overlays, and pull
+    the matching SamplePosition rows (filtered to ones the surveyor
+    actually finished) for the results table.
+    """
+    from collections import Counter, defaultdict
+    from sqlmodel import select
+    from orchestration.plan_store.models import CollectionScan
+
+    start, end = window
+    sample_scans: dict[str, list[int]] = defaultdict(list)
+    files: Counter = Counter()
+    positions: list[dict] = []
+
+    try:
         with get_session() as session:
-            stmt = (
+            scan_stmt = (
+                select(CollectionScan)
+                .where(CollectionScan.experiment_id == experiment_id)
+                .where(CollectionScan.timestamp >= start)
+                .where(CollectionScan.timestamp <= end)
+                .order_by(CollectionScan.timestamp)  # type: ignore[union-attr]
+            )
+            for row in session.exec(scan_stmt).all():
+                sample_scans[row.sample_id].append(int(row.scan_number))
+                if row.spec_datafile:
+                    files[row.spec_datafile] += 1
+
+            pos_stmt = (
                 select(SamplePosition)
                 .where(SamplePosition.experiment_id == experiment_id)
                 .where(SamplePosition.enabled == True)  # noqa: E712
                 .order_by(SamplePosition.sample_number)  # type: ignore[union-attr]
             )
-            for sp in session.exec(stmt).all():
-                out.append({
+            for sp in session.exec(pos_stmt).all():
+                # Only include samples the surveyor finished (or that
+                # at least picked up scans in this window).
+                if sp.survey_completed_at is None and sp.id not in sample_scans:
+                    continue
+                positions.append({
+                    "sample_id": sp.id,
                     "sample_number": sp.sample_number,
                     "sample_name": sp.sample_name,
                     "element_symbol": sp.element_symbol,
-                    "sx_lo": sp.sx_lo, "sx_hi": sp.sx_hi,
-                    "sy_lo": sp.sy_lo, "sy_hi": sp.sy_hi,
-                    "sz_lo": sp.sz_lo, "sz_hi": sp.sz_hi,
-                    "total_spots": sp.total_spots,
-                    "emiss_energy_eV": sp.emiss_energy_eV,
+                    "xas_filter": sp.xas_filter,
+                    "survey_counts_per_sec": sp.survey_counts_per_sec,
+                    "survey_energy_ev": sp.survey_energy_ev,
+                    "survey_notes": sp.survey_notes,
                 })
     except Exception as e:  # noqa: BLE001
-        logger.warning("phase_reports: sample positions lookup failed: %s", e)
-    return out
+        logger.warning("phase_reports: survey lookup failed: %s", e)
+
+    raw_name = files.most_common(1)[0][0] if files else None
+    spec_datafile = _resolve_spec_datafile(raw_name)
+    return spec_datafile, dict(sample_scans), positions
 
 
 def _render_sample_survey(
@@ -314,23 +335,21 @@ def _render_sample_survey(
     phase_run_id: str,
     window: tuple[datetime, datetime],
 ) -> Optional[str]:
-    spec_datafile, survey_scan, positions = _pick_survey_inputs(experiment_id, window)
-    if not spec_datafile or survey_scan is None:
+    spec_datafile, sample_scans, positions = _pick_survey_inputs(experiment_id, window)
+    if not spec_datafile or not sample_scans:
         logger.info(
-            "phase_reports: no survey scan in window for %s (positions=%d)",
+            "phase_reports: no survey scans in window for %s (positions=%d)",
             phase_run_id, len(positions),
         )
-        # No Sz scan to draw — skip rather than emit an empty PNG.
         return None
 
     out_path = str(REPORTS_DIR / f"sample_survey_{phase_run_id}.png")
     out_dir = str(REPORTS_DIR)
 
     from orchestration.agent import reports
-    written = reports.sample_report(
+    written = reports.survey_report(
         spec_datafile=spec_datafile,
-        survey_scan=survey_scan,
-        sample_scans={},  # per-sample fine-align attribution unavailable
+        sample_scans=sample_scans,
         sample_positions=positions,
         output_dir=out_dir,
     )

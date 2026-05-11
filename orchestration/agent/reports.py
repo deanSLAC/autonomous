@@ -564,3 +564,147 @@ def sample_report(
     logger.info("Sample report saved to %s", filepath)
     return filepath
 
+
+def survey_report(
+    spec_datafile: str,
+    sample_scans: dict,
+    sample_positions: list,
+    output_dir: str = "/tmp/beamline_reports",
+) -> str:
+    """Generate the Sample-Surveyor summary image.
+
+    Top half: per-sample mini-axes, each overlaying the XAS scans the
+    surveyor took on that sample (typically a 2-scan damage-check pair,
+    more if fresh-spot moves happened). Bottom: results table with the
+    refined filter, count rate, survey energy, and notes per sample.
+
+    Args:
+        spec_datafile: Path to the SPEC data file the survey scans live in.
+        sample_scans: {sample_id: [scan_number, ...]} grouping CollectionScan
+            rows from the survey window. Iterated in the order of
+            ``sample_positions`` so panel layout matches the table.
+        sample_positions: List of dicts; each must contain
+            ``sample_id``, ``sample_name``, ``element_symbol`` and may
+            contain ``xas_filter``, ``survey_counts_per_sec``,
+            ``survey_energy_ev``, ``survey_notes``.
+        output_dir: Directory to save the PNG.
+
+    Returns:
+        Absolute path to the saved PNG file.
+    """
+    out_path = _ensure_output_dir(output_dir)
+    samples = list(sample_positions or [])
+    n_samples = max(1, len(samples))
+
+    cols = 3 if n_samples >= 3 else n_samples
+    n_panel_rows = max(1, (n_samples + cols - 1) // cols)
+
+    height_ratios = [0.9] * n_panel_rows + [0.45]
+    total_rows = n_panel_rows + 1
+    fig = plt.figure(figsize=(10, 2.6 * total_rows), dpi=150)
+    gs = gridspec.GridSpec(total_rows, cols, figure=fig,
+                           height_ratios=height_ratios,
+                           hspace=0.55, wspace=0.35)
+
+    overlay_colors = plt.cm.tab10(np.linspace(0, 1, 10))
+
+    for idx, sp in enumerate(samples):
+        row = idx // cols
+        col = idx % cols
+        ax = fig.add_subplot(gs[row, col])
+
+        sid = sp.get("sample_id")
+        name = sp.get("sample_name") or f"S{sp.get('sample_number', '?')}"
+        elem = sp.get("element_symbol") or ""
+        title = f"{name} ({elem})" if elem else name
+
+        scan_nums = list(sample_scans.get(sid, []))
+        if not scan_nums:
+            ax.text(0.5, 0.5, "No scans", transform=ax.transAxes,
+                    ha="center", va="center", fontsize=8, color="#999999")
+            ax.set_title(title, fontsize=8, fontweight="bold")
+            ax.tick_params(labelsize=6)
+            continue
+
+        motor_label = None
+        plotted_any = False
+        for k, sn in enumerate(scan_nums):
+            try:
+                x, y = get_scan_xy(spec_datafile, sn)
+            except Exception as exc:
+                logger.warning("survey_report: skip scan #%d for %s: %s",
+                               sn, name, exc)
+                continue
+            color = overlay_colors[k % len(overlay_colors)]
+            ax.plot(x, y, linewidth=0.9, alpha=0.85, color=color,
+                    label=f"#{sn}")
+            ax.scatter(x, y, s=3, alpha=0.5, color=color)
+            if motor_label is None:
+                try:
+                    sd = get_scan_data(spec_datafile, sn)
+                    parsed = parse_scan_command(sd.get("command", ""))
+                    motor_label = parsed.get("motor") or ""
+                except Exception:
+                    motor_label = ""
+            plotted_any = True
+
+        if not plotted_any:
+            ax.text(0.5, 0.5, "No data", transform=ax.transAxes,
+                    ha="center", va="center", fontsize=8, color="#999999")
+        else:
+            ax.legend(fontsize=5, loc="best", frameon=False)
+            ax.set_xlabel(motor_label or "energy", fontsize=6)
+            ax.set_ylabel("signal", fontsize=6)
+        ax.set_title(title, fontsize=8, fontweight="bold")
+        ax.tick_params(labelsize=6)
+
+    # Fill empty panel cells so the layout doesn't shift the table.
+    for idx in range(len(samples), n_panel_rows * cols):
+        row = idx // cols
+        col = idx % cols
+        ax = fig.add_subplot(gs[row, col])
+        ax.axis("off")
+
+    # Results table
+    ax_table = fig.add_subplot(gs[-1, :])
+    ax_table.axis("off")
+
+    if samples:
+        header = ["Sample", "Filter", "Counts/s", "Survey eV", "Notes"]
+        rows = []
+        for sp in samples:
+            name = sp.get("sample_name") or f"S{sp.get('sample_number', '?')}"
+            elem = sp.get("element_symbol") or ""
+            label = f"{name} ({elem})" if elem else name
+            filt = sp.get("xas_filter")
+            cps = sp.get("survey_counts_per_sec")
+            ev = sp.get("survey_energy_ev")
+            notes = sp.get("survey_notes") or ""
+            rows.append([
+                label,
+                str(filt) if filt is not None else "---",
+                f"{cps:,.0f}" if cps is not None else "---",
+                f"{ev:.1f}" if ev is not None else "---",
+                (notes[:60] + "…") if len(notes) > 60 else notes,
+            ])
+        table = ax_table.table(cellText=rows, colLabels=header,
+                               cellLoc="center", loc="center")
+        table.auto_set_font_size(False)
+        table.set_fontsize(6)
+        table.scale(1.0, 1.1)
+        for j in range(len(header)):
+            table[0, j].set_facecolor("#d0d0d0")
+            table[0, j].set_text_props(fontweight="bold")
+    else:
+        ax_table.text(0.5, 0.5, "No survey results recorded",
+                      transform=ax_table.transAxes, ha="center", va="center",
+                      fontsize=8, color="#999999")
+
+    filename = f"survey_report_{_timestamp_str()}.png"
+    filepath = str(out_path / filename)
+    fig.savefig(filepath, bbox_inches="tight", dpi=150)
+    plt.close(fig)
+
+    logger.info("Survey report saved to %s", filepath)
+    return filepath
+
