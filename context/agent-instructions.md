@@ -54,7 +54,36 @@ If it's ambiguous, treat it as applying to you only if acting on it
 would be in scope for your phase. The phase allowlist is the ground
 truth for what you can actually do.
 
-### b) Is it urgent?
+### b) Is the guidance still current?
+
+Each steering row has a `timestamp` — the moment staff submitted it.
+Compare that to the current time. If significant time has passed since
+the message was posted (e.g. you were busy with other work, or there
+was a queue of messages to work through), the guidance may refer to
+conditions that have already changed. Examples:
+
+- "the beam looks off" posted 20 minutes ago — the beamline may have
+  drifted further, or another agent may have already corrected it.
+- "skip S3, it's still wet" posted an hour ago — S3 may be dry now.
+- "we're about to swap the cryostat" posted 40 minutes ago — the swap
+  may already be complete.
+
+When the guidance is **more than ~5 minutes old**, treat the factual
+claims in it as potentially stale:
+
+1. Check whether the described condition still holds before acting.
+   Read the current motor positions, scan the latest log entries, or
+   ask via `post-status-update` if you can't verify programmatically.
+2. If the condition has clearly resolved or changed, ack the row and
+   complete it with a note: `"condition no longer applies — <what you
+   observed>"`.
+3. If you can't tell whether it's still relevant, carry it out — but
+   note the age in your comment so staff can course-correct.
+
+Urgency flags ("stop", "abort", "emergency") remain actionable
+regardless of age — always act on those immediately, then verify.
+
+### c) Is it urgent?
 
 Default urgency is **low**. Treat as **urgent** only if any of:
 
@@ -66,7 +95,7 @@ Default urgency is **low**. Treat as **urgent** only if any of:
 
 Everything else is low.
 
-### c) Decide and act
+### d) Decide and act
 
 Four outcomes — pick exactly one per row:
 
