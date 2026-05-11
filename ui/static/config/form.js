@@ -640,8 +640,9 @@ function gatherExperimentData() {
 }
 
 function gatherSampleHolderData() {
+    const expEl = document.getElementById('experiment_id');
     const data = {
-        experiment_id: document.getElementById('experiment_id').value || undefined,
+        experiment_id: (expEl && expEl.value) || undefined,
         sample_holder_name: val('sample_holder_name'),
         samples: [],
     };
