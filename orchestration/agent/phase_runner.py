@@ -27,6 +27,7 @@ Public API:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import signal
@@ -110,15 +111,83 @@ def _logs_dir() -> Path:
     return p
 
 
+# Per-field cap for JSONL records written by the child agent. Whole-line
+# pass-through threshold sits a bit above this so small lines never pay
+# the JSON parse cost. The matching consumer-side cap (`_TAIL_MAX_BYTES`)
+# in ui/server/routers/phase_runner_api.py is 64 KB; truncating at 32 KB
+# per field keeps post-parse re-serialized lines comfortably below it.
+_JSONL_MAX_FIELD_BYTES = 32 * 1024
+_LINE_PASSTHROUGH_BYTES = 48 * 1024
+
+
+def _truncate_large_strings(obj, max_bytes: int):
+    """Walk a parsed-JSON structure and replace any string value longer than
+    `max_bytes` with a `<TRUNCATED N bytes>` marker. Mutates dicts/lists
+    in-place where possible; returns the (possibly-replaced) value.
+    """
+    if isinstance(obj, dict):
+        for k in list(obj.keys()):
+            obj[k] = _truncate_large_strings(obj[k], max_bytes)
+        return obj
+    if isinstance(obj, list):
+        return [_truncate_large_strings(x, max_bytes) for x in obj]
+    if isinstance(obj, str) and len(obj) > max_bytes:
+        return f"<TRUNCATED {len(obj)} bytes>"
+    return obj
+
+
+def _truncate_jsonl_line(line: bytes) -> bytes:
+    """Pass small lines through unchanged; for oversized lines parse JSON
+    and truncate any string field that exceeds `_JSONL_MAX_FIELD_BYTES`.
+
+    The dominant source of oversized lines is matplotlib PNG base64 in
+    `tool_result.content[].image.source.data`; the recursive walk catches
+    them regardless of position. Falls back to raw passthrough if the
+    line isn't valid JSON (e.g. stderr noise merged via STDERR=STDOUT).
+    """
+    if len(line) <= _LINE_PASSTHROUGH_BYTES:
+        return line
+    stripped = line.rstrip(b"\r\n")
+    try:
+        obj = json.loads(stripped)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return line
+    truncated = _truncate_large_strings(obj, _JSONL_MAX_FIELD_BYTES)
+    return (json.dumps(truncated) + "\n").encode("utf-8")
+
+
+def _pump_log(proc: subprocess.Popen, log_file) -> None:
+    """Stream the child's merged stdout/stderr to `log_file`, applying
+    per-field JSONL truncation to oversized lines. Owns `log_file`
+    lifecycle — closes it on EOF.
+    """
+    try:
+        assert proc.stdout is not None
+        for line in iter(proc.stdout.readline, b""):
+            try:
+                log_file.write(_truncate_jsonl_line(line))
+            except Exception as e:  # noqa: BLE001
+                # On unexpected truncation failure fall back to raw write
+                # so we never lose log content.
+                try:
+                    log_file.write(line)
+                except Exception:
+                    pass
+                logger.warning("phase_runner: log-pump truncation error: %s", e)
+    finally:
+        try:
+            log_file.flush()
+            log_file.close()
+        except Exception:
+            pass
+
+
 def _watch_exit(slug: str, slot: _Slot) -> None:
     rc = slot.proc.wait()
     slot.exit_code = rc
     slot.finished_at = time.time()
-    try:
-        slot.log_file.flush()
-        slot.log_file.close()
-    except Exception:
-        pass
+    # log_file is owned by the _pump_log thread, which closes it on EOF
+    # after draining proc.stdout. Nothing to do here.
     # Mark the AgentRun row complete unless kill() already did.
     try:
         existing = agent_runs.get_run(slot.run_id)
@@ -248,10 +317,13 @@ def start(slug: str, *, seed_text: Optional[str] = None,
         log_path = _logs_dir() / f"phase_{slug}_{ts}.log"
         log_file = open(log_path, "ab", buffering=0)
         env = {**os.environ, "BEAMTIMEHERO_AGENT_RUN_ID": run_id}
+        # stdout=PIPE (not the raw log fd) so a pump thread can truncate
+        # oversized JSONL records before they hit disk. The fast-path in
+        # _truncate_jsonl_line keeps small-line overhead near zero.
         proc = subprocess.Popen(
             ["bash", str(script)],
             cwd=str(_project_root()),
-            stdout=log_file,
+            stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             stdin=subprocess.PIPE,
             env=env,
@@ -259,6 +331,9 @@ def start(slug: str, *, seed_text: Optional[str] = None,
         )
         # start_new_session=True → child becomes its own pg leader; pgid == pid.
         agent_runs.set_pid(run_id, pid=proc.pid, pgid=proc.pid)
+        threading.Thread(
+            target=_pump_log, args=(proc, log_file), daemon=True,
+        ).start()
         # Feed the kickoff user message and close stdin. claude -p reads
         # stream-json until EOF, then drives the agent loop on its own.
         try:
