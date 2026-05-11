@@ -440,6 +440,15 @@ input[type="number"] {
     padding: 14px 18px;
 }
 
+@keyframes flash-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.flash-in {
+    animation: flash-in 200ms ease-out;
+}
+
 .success-box h3 {
     color: var(--green);
     font-size: 0.95rem;

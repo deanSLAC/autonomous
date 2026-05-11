@@ -7,6 +7,8 @@
 let _shCurrentHolderId = null;
 let _shHolders = [];
 let _shElements = [];
+let _shMessageTimer = null;
+const SH_MESSAGE_TIMEOUT_MS = 10000;
 // Per-sample-name plan info (status / SNR / verdict) cached from /api/plan.
 // Keyed by sample_name because SamplePosition IDs are not exposed on the plan
 // queue entries; sample names are unique within a holder.
@@ -26,7 +28,19 @@ function shGetExpId() {
 
 function shMessage(html) {
     const el = document.getElementById("message-area");
-    if (el) el.innerHTML = html;
+    if (!el) return;
+    if (_shMessageTimer) { clearTimeout(_shMessageTimer); _shMessageTimer = null; }
+    el.innerHTML = "";
+    if (!html) return;
+    // Empty-then-fill on the next frame so the CSS flash-in animation replays
+    // every call, even when the second call writes identical HTML.
+    requestAnimationFrame(() => {
+        el.innerHTML = html;
+        _shMessageTimer = setTimeout(() => {
+            el.innerHTML = "";
+            _shMessageTimer = null;
+        }, SH_MESSAGE_TIMEOUT_MS);
+    });
 }
 
 async function shFetchJson(url, opts) {
@@ -280,7 +294,7 @@ async function shRegeneratePlan() {
         body: JSON.stringify(body),
     });
     if (j) {
-        shMessage(`<div class="success-box"><h3>Regenerated</h3><p>Plan rebuilt.</p></div>`);
+        shMessage(`<div class="success-box flash-in"><h3>Regenerated</h3><p>Plan rebuilt.</p></div>`);
         shLoadHolders();
     }
 }
@@ -329,7 +343,7 @@ async function shSaveHolder() {
         });
     }
     if (j && j.success) {
-        shMessage(`<div class="success-box"><h3>Saved</h3><p>Holder saved. Plan regenerated to match.</p></div>`);
+        shMessage(`<div class="success-box flash-in"><h3>Saved</h3><p>Holder saved. Plan regenerated to match.</p></div>`);
         _shCurrentHolderId = (j.holder && j.holder.id) || _shCurrentHolderId;
         shLoadHolders();
     }
