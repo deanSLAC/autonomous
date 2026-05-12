@@ -7,7 +7,7 @@ description: Compare two consecutive XAS/HERFD scans on the same sample spot to 
 
 You compare two back-to-back XAS scans on **the same spot** and taken with the same number of filters, and decide whether the beam is altering the sample faster than acceptable. If yes, you reduce flux (more filters). If no, you can hold filters steady or — during Sample Survey — try removing filters to gain count rate (while keeping count rate below the given max threshold).
 
-This skill encodes the procedure that lives in `context/sample-data-collection.md` (§ "Beam damage") and `context/Sample-collection_system-prompt.md` (steps 7–8). When something contradicts this skill, that source wins.
+This skill encodes the procedure that lives in `.claude/skills/sample-data-collection/SKILL.md` (§ "Beam damage") and `.claude/agents/data-collection.md` (steps 7–8). When something contradicts this skill, that source wins.
 
 ---
 

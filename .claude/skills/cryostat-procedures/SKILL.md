@@ -1,3 +1,8 @@
+---
+name: cryostat-procedures
+description: Liquid helium cryostat operating procedures, sample rod changes, and safety rules
+---
+
 Liquid Helium Cryostat 
 
 Rule #1: Never allow the temperature to rise above 70 K while the sample space valve is closed. Nitrogen will boil off and blow out the inner window (a minimum 4 hour down time).  If at any point it approaches 70 K, leave vacuum on with the sample valve open, further open the needle valve temporarily to increase cooling.

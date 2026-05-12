@@ -1,3 +1,8 @@
+---
+name: user-reference
+description: Quick reference guide for BL15-2 users — sample alignment, data collection, troubleshooting
+---
+
 # BL15-2 User Reference
 
 Quick reference for users collecting data at BL15-2.

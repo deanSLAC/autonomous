@@ -26,7 +26,7 @@ from typing import Any, Optional
 
 from orchestration.agent.opencode_client import OpenCodeResult, _extract_image_paths
 from orchestration.config import (
-    CONTEXT_DIR,
+    PROJECT_ROOT,
     LLM_GATEWAY,
     PROJECT_ROOT,
     gateway_config,
@@ -211,20 +211,9 @@ class ClaudeCodeClient:
         self._gateway_key = gw["key"]
         self._gateway_env: dict = dict(gw.get("env") or {})
         self._gateway_name = LLM_GATEWAY
-        self._system_prompt = self._load_system_prompt()
         self._initialized: bool = bool(session_id)
         self._proc: Optional[subprocess.Popen] = None
         self._proc_lock = threading.Lock()
-
-    @staticmethod
-    def _load_system_prompt() -> str:
-        fp = CONTEXT_DIR / "claude_code_system.md"
-        if fp.exists():
-            return fp.read_text()
-        # Fall back to the shared system prompt if the claude-specific one is
-        # missing.
-        legacy = CONTEXT_DIR / "system_prompt.txt"
-        return legacy.read_text() if legacy.exists() else ""
 
     # ---- Connectivity -------------------------------------------------
 
@@ -269,13 +258,14 @@ class ClaudeCodeClient:
     # ---- Send + read --------------------------------------------------
 
     def _build_argv(self, sid: str) -> list[str]:
+        base_layer = str(PROJECT_ROOT / ".claude" / "prompts" / "base-layer.md")
         args = [
-            CLAUDE_BIN, "-p",
+            CLAUDE_BIN, "--agent", "chat", "-p",
+            "--append-system-prompt-file", base_layer,
             "--output-format", "stream-json",
             "--input-format", "stream-json",
             "--include-partial-messages",  # ensures we see thinking + tool blocks
             "--verbose",                   # required for stream-json
-            "--permission-mode", "acceptEdits",
         ]
         if self._claude_model_alias:
             args.extend(["--model", self._claude_model_alias])
@@ -283,8 +273,6 @@ class ClaudeCodeClient:
             args.extend(["--resume", sid])
         else:
             args.extend(["--session-id", sid])
-        if self._system_prompt:
-            args.extend(["--append-system-prompt", self._system_prompt])
         return args
 
     def _stream_json_user_msg(self, text: str) -> str:

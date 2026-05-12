@@ -1,3 +1,8 @@
+---
+name: sample-data-collection
+description: Procedure for collecting HERFD spectra spot-by-spot, with beam-damage and statistics guidance
+---
+
 Sample Data Collection
 
 Here is a guide for how to collect HERFD spectrum. It should be considered flexible, and left to your turn-by-turn judgement of how things look. 

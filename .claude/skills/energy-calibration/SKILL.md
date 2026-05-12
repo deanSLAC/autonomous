@@ -1,3 +1,8 @@
+---
+name: energy-calibration
+description: Mono energy calibration via reference foil — edge scan, calibrate_mono, iterate, reset_gap
+---
+
 
 ---
 

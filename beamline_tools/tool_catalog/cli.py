@@ -20,41 +20,49 @@ from beamline_tools.tool_catalog.executor import execute_tool
 
 logger = logging.getLogger(__name__)
 
-# Context files that are available as CLI references instead of system prompt
-CONTEXT_DIR = Path(__file__).parent.parent.parent / "context"
+# Reference documents — resolved relative to project root
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 REFERENCE_DOCS = {
+    "agent-instructions": {
+        "file": ".claude/prompts/base-layer.md",
+        "description": "Mandatory base-layer instructions every autonomous agent must follow (steering queue, completion contract, escalation).",
+    },
     "cryostat-procedures": {
-        "file": "cryostat_procedures.txt",
+        "file": ".claude/skills/cryostat-procedures/SKILL.md",
         "description": "Liquid helium cryostat operating procedures and safety rules",
     },
     "changing-energy": {
-        "file": "changing-energy.md",
+        "file": ".claude/skills/changing-energy/SKILL.md",
         "description": "Minimal procedure for switching between absorption edges",
     },
     "energy-calibration": {
-        "file": "energy-calibration.md",
+        "file": ".claude/skills/energy-calibration/SKILL.md",
         "description": "Mono energy calibration via reference foil: edge scan, calibrate_mono, iterate, reset_gap",
     },
     "beamline-alignment": {
-        "file": "Beamline-alignment.md",
+        "file": ".claude/skills/beamline-alignment/SKILL.md",
         "description": "Beamline alignment session notes with lessons learned",
     },
     "spectrometer-alignment": {
-        "file": "spectrometer-alignment.md",
+        "file": ".claude/skills/spectrometer-alignment/SKILL.md",
         "description": "Procedure for aligning the 7-crystal HERFD spectrometer to a chosen emission line",
     },
     "sample-alignment": {
-        "file": "sample-alignment.md",
+        "file": ".claude/skills/sample-alignment/SKILL.md",
         "description": "Procedure for aligning the cryostat sample holder (per-sample Sx/Sy/Sz + emiss)",
     },
     "sample-data-collection": {
-        "file": "sample-data-collection.md",
+        "file": ".claude/skills/sample-data-collection/SKILL.md",
         "description": "Procedure for collecting HERFD spectra spot-by-spot, with beam-damage and statistics guidance",
     },
-    "agent-instructions": {
-        "file": "agent-instructions.md",
-        "description": "Mandatory base-layer instructions every autonomous agent must follow (steering queue, completion contract, escalation).",
+    "spec-reference": {
+        "file": ".claude/skills/spec-reference/SKILL.md",
+        "description": "SPEC protocol reference for BL15-2",
+    },
+    "user-reference": {
+        "file": ".claude/skills/user-reference/SKILL.md",
+        "description": "User guide for BL15-2",
     },
 }
 
@@ -248,7 +256,7 @@ def _run_reference(args: argparse.Namespace) -> str:
     if doc_name not in REFERENCE_DOCS:
         return f"Unknown reference: '{doc_name}'. Use 'beamtimehero reference --list' to see available documents."
 
-    doc_path = CONTEXT_DIR / REFERENCE_DOCS[doc_name]["file"]
+    doc_path = PROJECT_ROOT / REFERENCE_DOCS[doc_name]["file"]
     try:
         return doc_path.read_text()
     except FileNotFoundError:

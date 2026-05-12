@@ -1,3 +1,8 @@
+---
+name: spectrometer-alignment
+description: Procedure for aligning the 7-crystal HERFD spectrometer to a chosen emission line
+---
+
 Spectrometer alignment
 
 - Run xes_setup to configure the crystal cut we are using in the spectrometerd

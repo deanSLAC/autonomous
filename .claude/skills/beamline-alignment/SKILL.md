@@ -1,3 +1,8 @@
+---
+name: beamline-alignment
+description: Beamline alignment procedure for upstream optics (mono, KB mirrors, slits, B-stage)
+---
+
 # Beamline Alignment — Procedure
 
 This document is intended for the alignment of the upstream components of the beamline.

@@ -1,3 +1,8 @@
+---
+name: changing-energy
+description: Minimal procedure for switching between absorption edges without full beamline alignment
+---
+
 # Changing energy at BL15-2 — minimal subset of `align_the_beamline`
 
 When the beamline is already aligned and the new experiment only requires that you move from one

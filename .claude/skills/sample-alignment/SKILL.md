@@ -1,3 +1,8 @@
+---
+name: sample-alignment
+description: Procedure for aligning the cryostat sample holder (per-sample Sx/Sy/Sz + emiss)
+---
+
 Cryostat sample alignment
 
 ### Intro

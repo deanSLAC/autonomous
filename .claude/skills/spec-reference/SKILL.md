@@ -1,3 +1,8 @@
+---
+name: spec-reference
+description: SPEC protocol reference for BL15-2 — motors, scans, detectors, macros, data file format
+---
+
 # BL15-2 User Operations Reference
 
 ## Beamline Overview
