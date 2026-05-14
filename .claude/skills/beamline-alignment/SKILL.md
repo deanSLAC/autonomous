@@ -117,6 +117,6 @@ Pinhole zero before `set-anchor` matters — the anchor should be tied to a know
 ## Reference docs
 Consult reference docs BEFORE attempting unfamiliar procedures:
 
-- `beamtimehero ref --list` -- see all available docs
-- `beamtimehero ref changing-energy` -- full step-by-step energy switch procedure
-- `beamtimehero ref calibrate-energy` -- calibrate the monochromator with a foil
+- `beamtimehero blaligner ref --list` -- see all available docs
+- `beamtimehero blaligner ref changing-energy` -- full step-by-step energy switch procedure
+- `beamtimehero blaligner ref calibrate-energy` -- calibrate the monochromator with a foil
