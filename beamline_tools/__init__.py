@@ -26,7 +26,7 @@ Public API:
   * `spec_cmd.call/read` + context accessors (`get_phase`, `get_experiment_id`)
   * `phase_allowlist.is_allowed`
   * `action_log` writers and readers
-  * `tool_catalog.TOOL_DEFINITIONS` + `execute_tool` + `register`
+  * `tool_catalog.TOOL_DEFINITIONS` + `execute_tool`
   * `spec_data.local_data`, `config.set_scan_dir`, `spec_data.spec_reader`
 """
 
@@ -46,7 +46,6 @@ from beamline_tools.tool_catalog import (
     CLI_TOOL_DEFINITION,
     TOOL_DEFINITIONS,
     execute_tool,
-    register,
 )
 
 __all__ = [
@@ -62,7 +61,6 @@ __all__ = [
     "phase_allowlist",
     "recent_actions",
     "recent_queries",
-    "register",
     "spec_cmd",
     "start_action",
 ]

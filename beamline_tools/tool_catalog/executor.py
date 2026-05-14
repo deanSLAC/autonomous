@@ -19,15 +19,6 @@ from beamline_tools.spec_logs import log_reader
 logger = logging.getLogger(__name__)
 
 
-# External packages (orchestration) register their tool functions here
-# via `beamline_tools.tool_catalog.register(definition, fn)` at import time.
-_EXTRA_DISPATCH: dict[str, object] = {}
-
-
-def register_dispatch(name: str, fn) -> None:
-    _EXTRA_DISPATCH[name] = fn
-
-
 def _analyze_with(
     file_name,
     analyzer,
@@ -91,17 +82,15 @@ def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
     """
     images_b64: list[str] = []
 
-    # Base autonomy tools (CAT-0..CAT-7) + any externally registered ones.
+    # Base autonomy tools (CAT-0..CAT-7).
     try:
         from beamline_tools.tool_catalog.autonomy_tools import AUTONOMY_DISPATCH  # lazy to avoid cycles
     except Exception:
         AUTONOMY_DISPATCH = {}
 
-    dispatch = {**AUTONOMY_DISPATCH, **_EXTRA_DISPATCH}
-
-    if name in dispatch:
+    if name in AUTONOMY_DISPATCH:
         try:
-            text, imgs = dispatch[name](arguments or {})
+            text, imgs = AUTONOMY_DISPATCH[name](arguments or {})
             return text, list(imgs or [])
         except Exception as e:
             logger.error("Autonomy tool %s failed: %s", name, e, exc_info=True)
