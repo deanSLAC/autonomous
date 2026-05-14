@@ -72,9 +72,10 @@ class CliInvocationLog(SQLModel, table=True):
     id: str = Field(default_factory=generate_id, primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.now, index=True)
     argv_json: str                                                  # sys.argv[1:] verbatim
-    tree: Optional[str] = Field(default=None, index=True)           # ref/tool/db/spec-read/spec-write
+    tree: Optional[str] = Field(default=None, index=True)           # ref/tool/db/spec-read/spec-write/steering/<agent-role>
     leaf: Optional[str] = Field(default=None, index=True)           # kebab cli name
     tool_name: Optional[str] = Field(default=None, index=True)      # canonical snake_case
+    agent_role: Optional[str] = Field(default=None, index=True)     # set when invoked via an agent-scoped branch
     justification: Optional[str] = None                             # spec-write --justification, verbatim
     exit_code: int = Field(index=True)
     latency_ms: int

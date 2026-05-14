@@ -734,12 +734,21 @@ def main(argv: list[str] | None = None) -> int:
             tree = getattr(parsed, "tree", None) if parsed is not None else tree_hint
             leaf = getattr(parsed, "leaf", None) if parsed is not None else None
             tool_name = getattr(parsed, "_tool_name", None) if parsed is not None else None
+            # Agent role: from parsed namespace, with a fallback to argv[0]
+            # for the early-SystemExit paths (e.g. argparse parse error before
+            # the leaf's _agent_role default is applied).
+            agent_role = (
+                getattr(parsed, "_agent_role", None) if parsed is not None else None
+            )
+            if not agent_role and raw_argv and raw_argv[0] in AGENT_ROLES:
+                agent_role = raw_argv[0]
             justification = getattr(parsed, "justification", None) if parsed is not None else None
             record_cli_invocation(
                 argv=raw_argv,
                 tree=tree,
                 leaf=leaf,
                 tool_name=tool_name,
+                agent_role=agent_role,
                 justification=justification,
                 exit_code=rc,
                 latency_ms=latency_ms,

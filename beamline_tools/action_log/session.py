@@ -43,6 +43,26 @@ def get_engine():
 
     os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
     SQLModel.metadata.create_all(_engine)
+
+    # Inline schema migration: ensure additive columns exist on already-created
+    # tables. SQLModel.metadata.create_all only creates missing tables; it does
+    # NOT add columns. SQLite + this codebase has no migration framework, so we
+    # patch in additive columns by hand at startup. Idempotent.
+    with _engine.connect() as conn:
+        existing_cols = {
+            row[1] for row in conn.exec_driver_sql(
+                "PRAGMA table_info(cliinvocationlog)"
+            ).fetchall()
+        }
+        if existing_cols and "agent_role" not in existing_cols:
+            conn.exec_driver_sql(
+                "ALTER TABLE cliinvocationlog ADD COLUMN agent_role TEXT"
+            )
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS "
+                "ix_cliinvocationlog_agent_role ON cliinvocationlog (agent_role)"
+            )
+            conn.commit()
     return _engine
 
 
