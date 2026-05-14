@@ -17,10 +17,7 @@ from beamline_tools.tool_catalog.autonomy_definitions import (
     AUTONOMY_TOOL_CATEGORIES as _BASE_AUTONOMY_CATEGORIES,
     AUTONOMY_TOOL_DEFINITIONS as _BASE_AUTONOMY_TOOLS,
 )
-from beamline_tools.tool_catalog.definitions import (
-    CLI_TOOL_DEFINITION,
-    TOOL_DEFINITIONS as _BT_TOOLS,
-)
+from beamline_tools.tool_catalog.cli_tool import CLI_TOOL_DEFINITION
 from beamline_tools.tool_catalog.executor import execute_tool
 
 _logger = logging.getLogger(__name__)
@@ -50,7 +47,7 @@ def _filter(defs: list[dict]) -> list[dict]:
     return [d for d in defs if d["function"]["name"] in _enabled]
 
 
-TOOL_DEFINITIONS: list[dict] = _filter(_BT_TOOLS) + _filter(_BASE_AUTONOMY_TOOLS)
+TOOL_DEFINITIONS: list[dict] = _filter(_BASE_AUTONOMY_TOOLS)
 AUTONOMY_TOOL_DEFINITIONS: list[dict] = _filter(_BASE_AUTONOMY_TOOLS)
 AUTONOMY_TOOL_CATEGORIES = list(_BASE_AUTONOMY_CATEGORIES)
 
