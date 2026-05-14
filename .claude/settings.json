@@ -4,8 +4,14 @@
     "allow": [
       "Bash(beamtimehero ref:*)",
       "Bash(beamtimehero tool:*)",
+      "Bash(beamtimehero db:*)",
       "Bash(beamtimehero spec-read:*)",
       "Bash(beamtimehero spec-write:*)",
+      "Bash(beamtimehero steering:*)",
+      "Bash(beamtimehero blaligner:*)",
+      "Bash(beamtimehero samplealigner:*)",
+      "Bash(beamtimehero collector:*)",
+      "Bash(beamtimehero surveyor:*)",
       "Bash(beamtimehero --help)",
       "Bash(beamtimehero -h)",
       "Bash(awk:*)"
