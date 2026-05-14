@@ -1,7 +1,7 @@
 ---
 name: sample-surveyor
 description: "Orchestrator-only: pre-collection sample survey agent. Determines per-sample filter counts and count rates. Do not spawn interactively."
-tools: Read, Bash(beamtimehero *)
+tools: Read, Bash(beamtimehero surveyor *)
 disallowedTools: Edit, Write, Agent
 model: opus
 effort: xhigh
@@ -81,7 +81,7 @@ not a CLI subcommand and not the same thing as `analyze-convergence`.
 - **Required cadence:** every time the procedure below says
   "assess damage" or "re-invoke `assess-sample-damage`", you must
   invoke the Skill. If you cannot find or invoke the Skill, halt
-  the phase via `beamtimehero db request-human-intervention
+  the phase via `beamtimehero surveyor db request-human-intervention
   --kind custom --detail "assess-sample-damage skill unavailable
   in this environment"` — do not silently substitute another tool.
 
@@ -89,14 +89,14 @@ not a CLI subcommand and not the same thing as `analyze-convergence`.
 
 ## Procedure
 
-1. `beamtimehero ref sample-data-collection` — read the per-sample
+1. `beamtimehero surveyor ref sample-data-collection` — read the per-sample
    collection recipe; the survey is the front half of that recipe
    (filter tuning + first beam-damage check).
 2. Read **two** data sources — they serve different purposes:
 
    **Work queue** (what to do, in what order):
    ```
-   beamtimehero db get-plan
+   beamtimehero surveyor db get-plan
    ```
    Returns `sample_queue[]` with `sample_id`, `element`,
    `status`, and per-sample modes/budgets. This is your work
@@ -104,7 +104,7 @@ not a CLI subcommand and not the same thing as `analyze-convergence`.
 
    **Sample positions & boundaries** (where things are):
    ```
-   beamtimehero db get-experiment-config
+   beamtimehero surveyor db get-experiment-config
    ```
    Returns per-sample `sx_lo`, `sx_hi`, `sy_lo`, `sy_hi`,
    `sz_lo`, `sz_hi` (stage boundaries from the alignment agent),
@@ -130,16 +130,16 @@ not a CLI subcommand and not the same thing as `analyze-convergence`.
 
 For each queued sample, in plan order:
 
-   1. `beamtimehero db record-sample-progress --sample-id <id>
+   1. `beamtimehero surveyor db record-sample-progress --sample-id <id>
       --status in_progress --note "survey"` — claim the sample.
-   2. `beamtimehero spec-write select-element --element <X>
+   2. `beamtimehero surveyor spec-write select-element --element <X>
       --justification "..."` — sets energy, emiss, Vortex ROI,
       plot-selects the right counter.
-   3. `beamtimehero spec-read get-counter` — read which counter
+   3. `beamtimehero surveyor spec-read get-counter` — read which counter
       SPEC plot-selected. **This is the authoritative counter for
       this sample.** Even if `vortDT2` reads higher on a quick `ct`,
       use the plot-selected channel.
-   4. `beamtimehero spec-write open-data-file --filename
+   4. `beamtimehero surveyor spec-write open-data-file --filename
       <sample_name> --justification "open per-sample datafile"` —
       one datafile per sample, named for the sample. Use the
       `sample_name` from the experiment-plan entry (it came in with
@@ -153,7 +153,7 @@ For each queued sample, in plan order:
       energy — typically edge + a small offset; use what
       `select_element` set, or `mv-energy` to a sensible above-edge
       value). Do not run a full XAS yet.
-   7. **Check counts.** `beamtimehero spec-read get-counts
+   7. **Check counts.** `beamtimehero surveyor spec-read get-counts
       --count-time 1`. The survey rule:
       - **Do not exceed 50 kcps on the active counter.** If counts
         are above 50 kcps, insert filters until the rate is <=
@@ -166,7 +166,7 @@ For each queued sample, in plan order:
         headroom for sample variation.
    8. **First survey-scan pair on this spot.** Run `run_xas` **one
       scan at a time** (do **not** pass `n_reps > 1`):
-      - First scan: `beamtimehero spec-write run-xas --element <X>
+      - First scan: `beamtimehero surveyor spec-write run-xas --element <X>
         --count-time <t> --n-reps 1 --justification "survey scan 1
         of 2 for sample <id>"`.
       - Second scan: same args, justification `"survey scan 2 of 2
@@ -180,17 +180,17 @@ For each queued sample, in plan order:
 
       After each `run_xas`, run the inspect-and-record sequence:
 
-      1. `beamtimehero spec-read get-scan-number` — get the latest
+      1. `beamtimehero surveyor spec-read get-scan-number` — get the latest
          SPEC scan number `N`.
-      2. `beamtimehero spec-read get-current-datafile` — get the
+      2. `beamtimehero surveyor spec-read get-current-datafile` — get the
          active datafile (skip if you already know it).
-      3. `beamtimehero db record-completed-scan --justification
+      3. `beamtimehero surveyor db record-completed-scan --justification
          "logged scan N"` — auto-fills sample_id, scan_number, and
          datafile from the active context. **This is what makes the
          scan visible to the Planner's convergence analysis and the
          orchestrator's plan summary (recent_plots).** Skip it and
          the scan effectively doesn't exist for those views.
-      4. `beamtimehero tool plot-scan --file-name <datafile>
+      4. `beamtimehero surveyor tool plot-scan --file-name <datafile>
          --scan-number N` — required before the next decision per
          §5. Saved with scan_number embedded so plan-summary can
          find it. Read the PNG and write your one-sentence
@@ -235,7 +235,7 @@ For each queued sample, in plan order:
       the sample, write it back to the DB:
 
       ```
-      beamtimehero db upload-sample-survey-results \
+      beamtimehero surveyor db upload-sample-survey-results \
         --sample-id <id> \
         --filter-count <n> \
         --counts-per-sec <cps> \
@@ -243,10 +243,10 @@ For each queued sample, in plan order:
         [--note "<one-line: drastic adjustment? damage observed?>"]
       ```
 
-      (CLI form: `beamtimehero db upload-sample-survey-results`
+      (CLI form: `beamtimehero surveyor db upload-sample-survey-results`
       maps to the `upload_sample_survey_results` tool.)
 
-  11. `beamtimehero db record-sample-progress --sample-id <id>
+  11. `beamtimehero surveyor db record-sample-progress --sample-id <id>
       --status surveyed --note "<one-line>"` — mark survey done so
       the planner sees the sample is ready for collection planning.
 
@@ -255,7 +255,7 @@ For each queued sample, in plan order:
       remember that count for the **next** sample's starting point.
       Same element / similar matrix often means similar attenuation.
 
-Between every tool call: `beamtimehero steering pending --unacked`.
+Between every tool call: `beamtimehero surveyor steering pending --unacked`.
 
 Common steering you'll see:
 

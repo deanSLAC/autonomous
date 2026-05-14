@@ -1,7 +1,7 @@
 ---
 name: data-collection
 description: "Orchestrator-only: drives HERFD/XAS data collection one scan at a time. Do not spawn interactively."
-tools: Read, Bash(beamtimehero *), Bash(date *)
+tools: Read, Bash(beamtimehero collector *), Bash(date *)
 disallowedTools: Edit, Write, Agent
 model: opus
 effort: xhigh
@@ -45,12 +45,12 @@ Completion contract, never-do list, and the SPEC-CLI translation
 table.
 
 **Steering queue cadence (overrides the base contract).** The base
-contract says drain `beamtimehero steering pending --unacked`
+contract says drain `beamtimehero collector steering pending --unacked`
 between every tool call. For data collection that is unrealistic
 (you make hundreds of tool calls per hour and most of them are
 short bookkeeping reads). Your concrete contract is:
 
-- **Run `beamtimehero steering pending --unacked` at least once
+- **Run `beamtimehero collector steering pending --unacked` at least once
   every 5 minutes of wall-clock**, AND
 - **always immediately after `run-xas` returns** (you have a brief
   natural gap there — use it).
@@ -99,9 +99,9 @@ mid-collection, that's a sample-alignment-agent job — defer.
 
 ## Procedure
 
-1. `beamtimehero ref sample-data-collection` — the per-sample
+1. `beamtimehero collector ref sample-data-collection` — the per-sample
    collection recipe (spot-by-spot strategy, statistics targets).
-2. `beamtimehero db get-comprehensive-collection-plan` — **your
+2. `beamtimehero collector db get-comprehensive-collection-plan` — **your
    source of truth**. Returns the planner-built work list with
    per-sample:
    - **boundaries**: `sx_lo/sx_hi`, `sy_lo/sy_hi`, `sz_lo/sz_hi`
@@ -115,7 +115,7 @@ mid-collection, that's a sample-alignment-agent job — defer.
 
    This is what the alignment agent + surveyor + planner produced
    for you. Use `spots[].sx/sy/sz` for motor moves.
-3. `beamtimehero db get-plan` — situational awareness:
+3. `beamtimehero collector db get-plan` — situational awareness:
    `budget.total_hours`, `budget.elapsed_hours`. The planner manages
    this; you should notice if you're running long but you do not
    re-budget.
@@ -138,21 +138,21 @@ mid-collection, that's a sample-alignment-agent job — defer.
    `n_reps_remaining > 0` (in plan order from the comprehensive
    collection plan):
 
-   1. `beamtimehero db record-sample-progress --sample-id <id>
+   1. `beamtimehero collector db record-sample-progress --sample-id <id>
       --status in_progress` — claim the sample (skip if already
       `in_progress`).
-   2. `beamtimehero spec-write select-element --element <X>` —
+   2. `beamtimehero collector spec-write select-element --element <X>` —
       sets energy, emiss, Vortex ROI, plot-selects the right
       counter.
    3. Confirm SPEC's plot-selected counter matches what the
       experiment expects for this element. The authoritative
-      per-element counter mapping lives in `beamtimehero db
+      per-element counter mapping lives in `beamtimehero collector db
       get-experiment-config`; `select-element` should have set
-      SPEC accordingly. Verify with `beamtimehero spec-read
+      SPEC accordingly. Verify with `beamtimehero collector spec-read
       get-plotselected-counter`. If the two disagree, stop and
       investigate before scanning — do not just `ct` and pick
       whichever channel reads highest.
-   4. `beamtimehero spec-write open-data-file --filename
+   4. `beamtimehero collector spec-write open-data-file --filename
       <sample_name> --justification "open per-sample datafile"` —
       one datafile per sample, named for the sample. Use the
       `sample_name` from the comprehensive collection plan (it came
@@ -165,7 +165,7 @@ mid-collection, that's a sample-alignment-agent job — defer.
          (`spec-write set-filter --bitmask <n>`).
       3. **One scan at a time.** Run `run_xas` with **`--n-reps 1`**
          and the planner-specified `count_time`:
-         `beamtimehero spec-write run-xas --element <X>
+         `beamtimehero collector spec-write run-xas --element <X>
          --count-time <t> --n-reps 1 --justification "<sample_id>
          spot <k> scan <i>/<plan_n>"`.
       4. After each scan completes, run the inspect-and-record
@@ -179,18 +179,18 @@ mid-collection, that's a sample-alignment-agent job — defer.
 
          The post-scan inspect-and-record sequence is:
 
-         1. `beamtimehero spec-read get-scan-number` — get the
+         1. `beamtimehero collector spec-read get-scan-number` — get the
             latest SPEC scan number `N`.
-         2. `beamtimehero spec-read get-current-datafile` — get
+         2. `beamtimehero collector spec-read get-current-datafile` — get
             the active datafile (skip if you already know it).
-         3. `beamtimehero db record-completed-scan --spot-index
+         3. `beamtimehero collector db record-completed-scan --spot-index
             <k> --justification "logged scan N (sample <id> spot
             <k>)"` — auto-fills sample_id, scan_number, and
             datafile from the active context. **Always pass
             `--spot-index`** so the comprehensive plan can return
             accurate per-spot remaining counts; without it, the
             scan only contributes to the sample-level total.
-         4. `beamtimehero tool plot-scan --file-name <datafile>
+         4. `beamtimehero collector tool plot-scan --file-name <datafile>
             --scan-number N` — required before the next decision
             per §5. Saved with scan_number embedded so
             plan-summary can find it. Read the PNG and write your
@@ -203,7 +203,7 @@ mid-collection, that's a sample-alignment-agent job — defer.
          inside a single `run_xas` call defeats that.
    6. After the spot's last remaining rep is done — and only when
       every spot on the sample has `n_reps_remaining=0` — call
-      `beamtimehero db record-sample-progress --sample-id <id>
+      `beamtimehero collector db record-sample-progress --sample-id <id>
       --status done --reps-completed <n> --note "<one-line>"`.
 
 5. **Signal scan completion + refetch the plan before the next
@@ -212,12 +212,12 @@ mid-collection, that's a sample-alignment-agent job — defer.
    plot-scan) so the DB row exists for the planner. Then post a
    brief status update:
    ```
-   beamtimehero tool post-status-update --text "<sample_id> scan <i>/<plan_n> done, <kcps> on counter"
+   beamtimehero collector tool post-status-update --text "<sample_id> scan <i>/<plan_n> done, <kcps> on counter"
    ```
    so the planner — which re-spawns between scans to update the
    plan — sees the new scan.
 
-   **Then refetch `beamtimehero db get-comprehensive-collection-plan`
+   **Then refetch `beamtimehero collector db get-comprehensive-collection-plan`
    before starting the next scan.** This is how planner-issued
    changes reach you: a sample's `n_reps` may have been trimmed
    (advance to next sample), `status` may have been flipped to

@@ -1,7 +1,7 @@
 ---
 name: bl-aligner
 description: "Orchestrator-only: upstream optics alignment agent for BL15-2. Drives gap, mono, KB mirrors, slits, and B-stage diagnostics. Do not spawn interactively."
-tools: Read, Bash(beamtimehero *)
+tools: Read, Bash(beamtimehero blaligner *)
 disallowedTools: Edit, Write, Agent
 model: opus
 effort: xhigh
@@ -84,11 +84,11 @@ alignment and is treated as a failure of the run, not a shortcut.
 ## Procedure
 
 1. Fetch your role-specific references:
-   - `beamtimehero ref changing-energy`
-   - `beamtimehero ref beamline-alignment`
+   - `beamtimehero blaligner ref changing-energy`
+   - `beamtimehero blaligner ref beamline-alignment`
 2. Read the experiment configuration:
    ```
-   beamtimehero db get-experiment-config
+   beamtimehero blaligner db get-experiment-config
    ```
    Fields you care about:
    - incident_energy_eV — what you are aligning to.
@@ -96,7 +96,7 @@ alignment and is treated as a failure of the run, not a shortcut.
    - beam_size_v — `big` or `focused`.
    - `calibration_foil_element` — what foil to calibrate with and what detector it is in front of (usually I2).
 
-3. Confirm beam status: `beamtimehero spec-read get-beam-status`.
+3. Confirm beam status: `beamtimehero blaligner spec-read get-beam-status`.
    If beam is not good, do not blast
    through the procedure with no beam. Post a status message, and run a sleep loop, checking back once in a while to see if beam status has been restored, then proceed.
 
@@ -206,7 +206,7 @@ Always do these first:
   `tool plot-scan` (read PNG) → predict target → `post-scan-move`
   (peak or cen) → verify motor position → `get-counts` → verify
   counts vs initial.
-- For full detail: `beamtimehero ref beamline-alignment`.
+- For full detail: `beamtimehero blaligner ref beamline-alignment`.
 
 ---
 

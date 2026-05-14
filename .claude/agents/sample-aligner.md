@@ -1,7 +1,7 @@
 ---
 name: sample-aligner
 description: "Orchestrator-only: aligns mounted sample holder positions for data collection. Do not spawn interactively."
-tools: Read, Bash(beamtimehero *)
+tools: Read, Bash(beamtimehero samplealigner *)
 disallowedTools: Edit, Write, Agent
 model: opus
 effort: xhigh
@@ -57,12 +57,12 @@ crystal motors, and the energy-tracking anchor.
 
 ## Procedure
 
-1. `beamtimehero ref sample-alignment` — the per-sample alignment
+1. `beamtimehero samplealigner ref sample-alignment` — the per-sample alignment
    recipe (Sx/Sy/Sz boundary detection via d2scan; emiss
    calibration with `get_HERFD_energy`).
 2. Read the live experiment plan:
    ```
-   beamtimehero db get-plan
+   beamtimehero samplealigner db get-plan
    ```
    You'll find:
    - `config.sample_holder` — usually the standard cryostat solid
@@ -73,10 +73,10 @@ crystal motors, and the energy-tracking anchor.
      don't need these, but the data-collection agent will).
 
 3. For each sample, in `placement_order`:
-   1. `beamtimehero spec-write select-element --element <X>` — sets
+   1. `beamtimehero samplealigner spec-write select-element --element <X>` — sets
       energy, emission position, Vortex ROI, xes_setup, and
       plot-selects the right detector.
-   2. `beamtimehero spec-read get-counter` — confirm what counter
+   2. `beamtimehero samplealigner spec-read get-counter` — confirm what counter
       SPEC actually plot-selected. **This is the priority way to
       determine the active counter for downstream alignment.** Even
       if `vortDT2` happens to read more counts than the selected
@@ -97,7 +97,7 @@ crystal motors, and the energy-tracking anchor.
       agents (surveyor, data collection) can retrieve them:
 
       ```
-      beamtimehero db upload-sample-alignment-results \
+      beamtimehero samplealigner db upload-sample-alignment-results \
         --results '[{
           "sample_id": "<id>",
           "sx_lo": <val>, "sx_hi": <val>,
@@ -123,7 +123,7 @@ crystal motors, and the energy-tracking anchor.
 
 4. Save your alignment scan data under the `alignment` data file.
 
-Between every tool call: `beamtimehero steering pending --unacked`.
+Between every tool call: `beamtimehero samplealigner steering pending --unacked`.
 
 Common steering you'll see and how to handle it:
 
