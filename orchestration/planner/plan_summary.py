@@ -195,8 +195,8 @@ def _find_recent_plots_for_sample(
     Primary path: query CollectionScan rows for ``sample_id`` (newest
     first). For each scan, glob
     ``data/tool_plots/plot_scan_*_scan{N}_*.png`` (the convention
-    written by scripts/tool_dispatcher.py and scripts/beamtimehero
-    when ``plot_scan`` runs with a ``file_name`` + ``scan_number``).
+    written by scripts/beamtimehero when ``plot_scan`` runs with a
+    ``file_name`` + ``scan_number``).
     Take the most recent file per scan by mtime, and return up to two.
 
     Backward-compat fallback: if no scans yield matches, fall back to

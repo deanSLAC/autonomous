@@ -7,9 +7,10 @@ action logged to sqlite and a web UI that keeps users and staff informed.
 
 **LLM backend:** [opencode](https://opencode.ai) server bound to the SLAC AI
 Gateway (Claude Opus 4.6 by default). opencode runs the tool-calling loop
-and the ~60 autonomous-beamline tools are exposed to it via
-auto-generated `.opencode/tools/*.ts` wrappers that shell into
-`scripts/tool_dispatcher.py`.
+and the ~100 autonomous-beamline tools are exposed to it via
+auto-generated `.opencode/tools/*.ts` wrappers that shell into the
+`scripts/beamtimehero` CLI — the same entry point Claude Code subagents
+invoke via `Bash(beamtimehero …)`. One execution path; one audit log.
 
 This project merges three prior efforts:
 
