@@ -41,17 +41,15 @@ from beamline_tools.action_log import (
 )
 from beamline_tools.spec_control import phase_allowlist, spec_cmd
 from beamline_tools.tool_catalog import (
-    AUTONOMY_TOOL_CATEGORIES,
-    AUTONOMY_TOOL_DEFINITIONS,
     CLI_TOOL_DEFINITION,
+    TOOL_CATEGORIES,
     TOOL_DEFINITIONS,
     execute_tool,
 )
 
 __all__ = [
-    "AUTONOMY_TOOL_CATEGORIES",
-    "AUTONOMY_TOOL_DEFINITIONS",
     "CLI_TOOL_DEFINITION",
+    "TOOL_CATEGORIES",
     "TOOL_DEFINITIONS",
     "execute_tool",
     "finish_action",

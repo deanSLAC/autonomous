@@ -19,7 +19,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from orchestration.planner import planner  # noqa: E402
-from beamline_tools.tool_catalog import autonomy_tools  # noqa: E402
+from beamline_tools.tool_catalog import tools  # noqa: E402
 
 
 @pytest.fixture
@@ -97,7 +97,7 @@ def test_empty_sample_queue_during_collection_raises(stub_plan_store):
 
 
 def test_t_update_plan_returns_error_envelope(stub_plan_store, monkeypatch):
-    monkeypatch.setattr(autonomy_tools.spec_cmd, "get_experiment_id",
+    monkeypatch.setattr(tools.spec_cmd, "get_experiment_id",
                         lambda: "exp-1")
     # Suppress the best-effort plan_summary side-effect; not under test.
     import orchestration.planner.plan_summary as plan_summary_mod
@@ -105,20 +105,20 @@ def test_t_update_plan_returns_error_envelope(stub_plan_store, monkeypatch):
                         lambda _eid: None)
 
     plan = _plan_with_statuses("done", "skipped", "failed")
-    body_json, _ = autonomy_tools.t_update_plan({"plan": plan})
+    body_json, _ = tools.t_update_plan({"plan": plan})
     body = json.loads(body_json)
     assert body["ok"] is False
     assert "zero actionable samples" in body["error"]
 
 
 def test_t_update_plan_returns_ok_on_valid_plan(stub_plan_store, monkeypatch):
-    monkeypatch.setattr(autonomy_tools.spec_cmd, "get_experiment_id",
+    monkeypatch.setattr(tools.spec_cmd, "get_experiment_id",
                         lambda: "exp-1")
     import orchestration.planner.plan_summary as plan_summary_mod
     monkeypatch.setattr(plan_summary_mod, "generate_and_post",
                         lambda _eid: None)
 
     plan = _plan_with_statuses("in_progress", "queued")
-    body_json, _ = autonomy_tools.t_update_plan({"plan": plan})
+    body_json, _ = tools.t_update_plan({"plan": plan})
     body = json.loads(body_json)
     assert body["ok"] is True

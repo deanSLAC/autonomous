@@ -4,7 +4,6 @@ Returns (result_text, images_b64) for each tool invocation.
 """
 from __future__ import annotations
 
-import json  # noqa: F401 — retained for backwards-compatible re-exports
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,10 +12,10 @@ logger = logging.getLogger(__name__)
 def execute_tool(name: str, arguments: dict) -> tuple[str, list[str]]:
     """Execute a named tool with arguments. Returns (result_text, images_b64)."""
     try:
-        from beamline_tools.tool_catalog.autonomy_tools import AUTONOMY_DISPATCH
+        from beamline_tools.tool_catalog.tools import DISPATCH
     except Exception:
-        AUTONOMY_DISPATCH = {}
-    fn = AUTONOMY_DISPATCH.get(name)
+        DISPATCH = {}
+    fn = DISPATCH.get(name)
     if fn is None:
         return f"Unknown tool: {name}", []
     try:

@@ -2,7 +2,7 @@
 
 Exposed to the LLM in CLI mode as one `run_command` tool that runs
 `beamtimehero <command>` subcommands. The full schemas for individual
-tools live in `autonomy_definitions.py`.
+tools live in `definitions.py`.
 """
 
 CLI_TOOL_DEFINITION = [

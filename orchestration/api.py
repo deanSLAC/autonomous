@@ -407,7 +407,7 @@ async def lifespan(app):
 
     # 4. Autonomy callback wiring — intervention notifier + phase approval
     #    channel. These read back into orchestration via `coordinator`.
-    from beamline_tools.tool_catalog import autonomy_tools
+    from beamline_tools.tool_catalog import tools as _tools_module
 
     async def _notify_intervention(intervention_id: str, detail: str) -> None:
         _event_emitter({
@@ -423,8 +423,8 @@ async def lifespan(app):
             notify=_notify_intervention,
         )
 
-    autonomy_tools.set_intervention_notifier(_notify_intervention)
-    autonomy_tools.set_phase_approval_requester(_phase_approval_requester)
+    _tools_module.set_intervention_notifier(_notify_intervention)
+    _tools_module.set_phase_approval_requester(_phase_approval_requester)
 
     # 5. Orchestrator polling tick — auto-respawn the planner after each
     #    new CollectionScan, redispatch deferred steering rows that named

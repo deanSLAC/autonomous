@@ -34,8 +34,8 @@ except Exception as e:
 
 # Import raw (unfiltered) definitions — the generator must see ALL tools,
 # not just those currently enabled in tools_config.json.
-from beamline_tools.tool_catalog.autonomy_definitions import (
-    AUTONOMY_TOOL_DEFINITIONS as _AUTONOMY_TOOLS,
+from beamline_tools.tool_catalog.definitions import (
+    AUTONOMY_TOOL_DEFINITIONS as _ALL_TOOLS,
 )
 from beamline_tools.tool_catalog.cli import REFERENCE_DOCS
 from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE
@@ -43,10 +43,10 @@ from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE
 # Also grab any dynamically registered tools (CAT-8 from orchestration).
 from beamline_tools.tool_catalog import TOOL_DEFINITIONS as _FILTERED
 _REGISTERED_NAMES = {d["function"]["name"] for d in _FILTERED}
-_RAW_NAMES = {d["function"]["name"] for d in _AUTONOMY_TOOLS}
+_RAW_NAMES = {d["function"]["name"] for d in _ALL_TOOLS}
 _EXTRA = [d for d in _FILTERED if d["function"]["name"] not in _RAW_NAMES]
 
-TOOL_DEFINITIONS = list(_AUTONOMY_TOOLS) + _EXTRA
+TOOL_DEFINITIONS = list(_ALL_TOOLS) + _EXTRA
 
 CONFIG_PATH = ROOT / "beamline_tools" / "tools_config.json"
 

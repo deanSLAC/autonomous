@@ -3,7 +3,7 @@
 Public surface:
 
   * `TOOL_DEFINITIONS` — JSON-schema definitions for every tool the LLM can call.
-  * `AUTONOMY_TOOL_DEFINITIONS` / `AUTONOMY_TOOL_CATEGORIES` — grouped by CAT.
+  * `TOOL_CATEGORIES` — CAT-0..CAT-9 groupings for the UI sidebar.
   * `CLI_TOOL_DEFINITION` — progressive-discovery CLI tool (TOOLS_MODE=cli).
   * `execute_tool(name, args)` — dispatch to a tool's Python implementation.
 """
@@ -13,9 +13,9 @@ import json
 import logging
 from pathlib import Path
 
-from beamline_tools.tool_catalog.autonomy_definitions import (
-    AUTONOMY_TOOL_CATEGORIES as _BASE_AUTONOMY_CATEGORIES,
-    AUTONOMY_TOOL_DEFINITIONS as _BASE_AUTONOMY_TOOLS,
+from beamline_tools.tool_catalog.definitions import (
+    AUTONOMY_TOOL_CATEGORIES as _BASE_CATEGORIES,
+    AUTONOMY_TOOL_DEFINITIONS as _BASE_TOOLS,
 )
 from beamline_tools.tool_catalog.cli_tool import CLI_TOOL_DEFINITION
 from beamline_tools.tool_catalog.executor import execute_tool
@@ -47,15 +47,13 @@ def _filter(defs: list[dict]) -> list[dict]:
     return [d for d in defs if d["function"]["name"] in _enabled]
 
 
-TOOL_DEFINITIONS: list[dict] = _filter(_BASE_AUTONOMY_TOOLS)
-AUTONOMY_TOOL_DEFINITIONS: list[dict] = _filter(_BASE_AUTONOMY_TOOLS)
-AUTONOMY_TOOL_CATEGORIES = list(_BASE_AUTONOMY_CATEGORIES)
+TOOL_DEFINITIONS: list[dict] = _filter(_BASE_TOOLS)
+TOOL_CATEGORIES = list(_BASE_CATEGORIES)
 
 
 __all__ = [
-    "AUTONOMY_TOOL_CATEGORIES",
-    "AUTONOMY_TOOL_DEFINITIONS",
     "CLI_TOOL_DEFINITION",
+    "TOOL_CATEGORIES",
     "TOOL_DEFINITIONS",
     "execute_tool",
 ]

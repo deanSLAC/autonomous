@@ -1,7 +1,7 @@
 """Per-tool lineage metadata for the /tools catalog page.
 
-Every LLM-callable tool in :mod:`tools.definitions` and
-:mod:`tools.autonomy_definitions` has an entry here. The metadata is
+Every LLM-callable tool in :mod:`tool_catalog.definitions` has an entry
+here. The metadata is
 used by the ``/api/tools`` endpoint to render the "what the agent can
 do" page with expanded descriptions, input/output shape, data source,
 and cross-tool dependencies.

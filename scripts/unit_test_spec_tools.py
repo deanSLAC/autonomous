@@ -1,8 +1,8 @@
 """Tool-layer test for every SPEC-bound entry in the tool catalog.
 
 Invokes the actual tool Python functions the LLM would call (the
-`t_*` wrappers in `beamline_tools.tool_catalog.autonomy_tools`,
-registered in `AUTONOMY_DISPATCH`) with LLM-shaped `args` dicts, and
+`t_*` wrappers in `beamline_tools.tool_catalog.tools`,
+registered in `DISPATCH`) with LLM-shaped `args` dicts, and
 checks that each one produces the expected SPEC command on the wire.
 
 Scope: only tools whose `TOOL_LINEAGE` entry has a non-None
@@ -65,7 +65,7 @@ from orchestration.plan_store import init_db  # noqa: E402
 from orchestration.plan_store.session import create_experiment  # noqa: E402
 from beamline_tools.spec_control import phase_allowlist, spec_cmd  # noqa: E402
 from beamline_tools.spec_control.transport import _MockScreen  # noqa: E402
-from beamline_tools.tool_catalog.autonomy_tools import AUTONOMY_DISPATCH  # noqa: E402
+from beamline_tools.tool_catalog.tools import DISPATCH  # noqa: E402
 from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE  # noqa: E402
 
 
@@ -227,7 +227,7 @@ def _macro_status(token: str) -> tuple[str, str]:
 class Case:
     """One tool-level test.
 
-    * tool           — name in AUTONOMY_DISPATCH (i.e., the LLM-visible tool).
+    * tool           — name in DISPATCH (i.e., the LLM-visible tool).
     * args           — dict we'd build from tool_use input JSON.
     * expected_spec  — the SPEC strings we expect to see on the wire, in
                        order. One tool call can produce multiple SPEC
@@ -485,10 +485,10 @@ def _check_ok_json(result_text: str) -> tuple[bool, Any]:
 
 
 def run_case(case: Case) -> None:
-    fn: Callable[[dict], tuple[str, list[str]]] | None = AUTONOMY_DISPATCH.get(case.tool)
+    fn: Callable[[dict], tuple[str, list[str]]] | None = DISPATCH.get(case.tool)
     label = f"{case.tool}[{case.note}]"
     if fn is None:
-        _record(label, False, f"tool not in AUTONOMY_DISPATCH: {case.tool}")
+        _record(label, False, f"tool not in DISPATCH: {case.tool}")
         return
 
     if case.phase is not None:
@@ -596,7 +596,7 @@ def main() -> int:
     print(f"DB       : {os.environ['AUTONOMOUS_DB_PATH']}")
     print(f"SPEC_MOCK: {os.environ.get('SPEC_MOCK')}")
     print(f"EXP_ID   : {exp.id}")
-    print(f"Tools    : {len(AUTONOMY_DISPATCH)} registered in AUTONOMY_DISPATCH")
+    print(f"Tools    : {len(DISPATCH)} registered in DISPATCH")
 
     for group_name, cases in ALL_CASES:
         print(f"\n===== {group_name} =====")

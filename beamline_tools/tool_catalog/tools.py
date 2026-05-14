@@ -2315,7 +2315,7 @@ def t_evaluate_spec_macro(arguments: dict) -> tuple[str, list[str]]:
 # Dispatch table
 # ---------------------------------------------------------------------------
 
-AUTONOMY_DISPATCH: dict[str, callable] = {
+DISPATCH: dict[str, callable] = {
     # CAT-0
     "align_beamline": t_align_beamline,
     "align_xes_spectrometer": t_align_xes,

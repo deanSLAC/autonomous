@@ -77,7 +77,7 @@ def _page(path: Path) -> FileResponse:
     return FileResponse(path, media_type="text/html", headers=_NOCACHE)
 
 
-TOOL_CATEGORIES = [
+_UI_TOOL_CATEGORIES = [
     ("Scan Data & Analysis",
      ["get_latest_scan", "list_scans", "read_scan", "get_active_counter",
       "get_scan_deadtime", "normalize_scan", "average_scans",
@@ -306,7 +306,7 @@ def create_app() -> FastAPI:
         # Import orchestration first so its CAT-8 plan tools register.
         import orchestration  # noqa: F401
         from beamline_tools.tool_catalog import (
-            AUTONOMY_TOOL_CATEGORIES,
+            TOOL_CATEGORIES,
             TOOL_DEFINITIONS,
         )
         from beamline_tools.tool_catalog.cli import REFERENCE_DOCS
@@ -315,7 +315,7 @@ def create_app() -> FastAPI:
         by_def = {t["function"]["name"]: t for t in TOOL_DEFINITIONS}
         categorized: list[dict] = []
         seen: set[str] = set()
-        for category, names in TOOL_CATEGORIES + AUTONOMY_TOOL_CATEGORIES:
+        for category, names in _UI_TOOL_CATEGORIES + TOOL_CATEGORIES:
             items = [
                 build_detailed_tool(by_def[n], category)
                 for n in names if n in by_def
