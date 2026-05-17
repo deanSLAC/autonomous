@@ -30,6 +30,7 @@ router = APIRouter(prefix="/api/phase", tags=["phase"])
 
 
 _TAIL_MAX_BYTES = 64 * 1024  # cap each poll's payload
+_INITIAL_TAIL_BYTES = 32 * 1024  # tail-mode (offset<0) seek-back window
 _PROJ_BODY_MAX = 200          # truncate any single projected body to this many chars
 _DETAIL_BODY_MAX = 8 * 1024   # cap full body kept for the expandable detail view
 
@@ -454,7 +455,19 @@ def _tail_file(
             return {"path": path, "offset": 0, "events": [], "eof": 0}
         return {"path": path, "offset": 0, "content": "", "eof": 0}
     size = os.path.getsize(path)
-    if offset > size:
+    if offset < 0:
+        # Tail-mode: seek near EOF, advance to next newline so the first
+        # projected line is complete.
+        if size <= _INITIAL_TAIL_BYTES:
+            offset = 0
+        else:
+            seek_pos = size - _INITIAL_TAIL_BYTES
+            with open(path, "rb") as f:
+                f.seek(seek_pos)
+                head = f.read(_INITIAL_TAIL_BYTES)
+            nl = head.find(b"\n")
+            offset = seek_pos + (nl + 1) if nl >= 0 else seek_pos
+    elif offset > size:
         offset = 0
     end = min(size, offset + _TAIL_MAX_BYTES)
     with open(path, "rb") as f:

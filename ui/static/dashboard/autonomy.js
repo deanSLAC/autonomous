@@ -972,8 +972,8 @@ async function stopSpec() {
 // ---------------------------------------------------------------------------
 
 const _tailState = {
-    agent:   { path: null, offset: 0, cards: new Map() },
-    planner: { path: null, offset: 0, cards: new Map() },
+    agent:   { path: null, offset: -1, cards: new Map() },
+    planner: { path: null, offset: -1, cards: new Map() },
     spec:    { path: null, offset: -1, started: false },
 };
 
@@ -1194,19 +1194,11 @@ async function refreshAgentOutput() {
         if (!j) return;
         const sub = document.getElementById("agent-output-sub");
         if (sub) sub.textContent = j.slug ? `${j.slug}` : "idle";
-        // Reset on path change (new run started, log rotated).
+        // Reset on path change (first load, new run started, log rotated).
+        // The initial fetch used offset=-1, so j.events is already the tail.
         if (j.path !== st.path) {
             st.path = j.path;
-            st.offset = 0;
             _agentResetPanel("agent");
-            if (j.path) {
-                const j2 = await _fetchAgentEvents(j.slug, 0);
-                if (j2) {
-                    _renderAgentEvents(j2.events || [], "agent");
-                    st.offset = j2.offset;
-                }
-            }
-            return;
         }
         _renderAgentEvents(j.events || [], "agent");
         st.offset = j.offset;
@@ -1222,16 +1214,7 @@ async function refreshPlannerOutput() {
         if (sub) sub.textContent = j.path ? "planner" : "idle";
         if (j.path !== st.path) {
             st.path = j.path;
-            st.offset = 0;
             _agentResetPanel("planner");
-            if (j.path) {
-                const j2 = await _fetchAgentEvents("planner", 0);
-                if (j2) {
-                    _renderAgentEvents(j2.events || [], "planner");
-                    st.offset = j2.offset;
-                }
-            }
-            return;
         }
         _renderAgentEvents(j.events || [], "planner");
         st.offset = j.offset;
