@@ -6,6 +6,13 @@ This guide is the recipe for landing a new tool in the autonomous-beamline tool 
 2. **Non-SPEC tools** — anything that doesn't talk to SPEC or the orchestration DB (file I/O, analysis). Five files.
 3. **DB tools** — tools with `source: "autonomy_db"` in lineage that read/write the orchestration SQLite DB (experiment plan, budget, sample progress, guidance, interventions). Auto-route to `beamtimehero db`. Same five files as non-SPEC tools; the only difference is the lineage `source` field.
 
+## First: decide where the tool lives
+
+Since the `beamline_tools/` package migrated to consuming `beamtimehero_cli` (editable local install at `../beamtimehero_cli`), there are now **two places** a tool can live, and the choice determines which file paths apply below:
+
+- **Generic, reusable tools** (SPEC primitives, scan/log/data readers, motor moves) → land them upstream in `../beamtimehero_cli/src/beamtimehero_cli/tool_catalog/{tools_core,definitions,lineage}.py`. Other projects consuming beamtimehero_cli benefit too.
+- **Autonomy-only tools** (CAT-8 orchestration: plan edits, intervention requests, sample budgets, anything that imports `orchestration.*`) → land them in `beamline_tools/tool_catalog/{tools,definitions,lineage}.py`. They'll merge into the catalog via `{**upstream, **autonomy}` at runtime.
+
 The architecture has many layers because each layer enforces a different invariant — phase gating, action logging, schema validation, mock outputs. Adding a tool means making a small append in each of those places, not editing one big switch statement.
 
 After patching the files, you regenerate `tools_config.json` and the new tool auto-appears in `scripts/beamtimehero` (the LLM-facing CLI) and in `tool-tester` (the operator UI). You don't wire those manually.
@@ -32,7 +39,9 @@ Read the macro itself. You need to know:
 
 If the macro doesn't exist yet, write it first. Adding a CLI surface to a phantom macro just produces a runtime error.
 
-### File 1 — `beamline_tools/spec_control/spec_cmd.py`
+### File 1 — `../beamtimehero_cli/src/beamtimehero_cli/spec_control/spec_cmd.py`
+
+(Generic SPEC primitives live upstream. The autonomy wrapper at `beamline_tools/spec_control/spec_cmd.py` is for write-throughs into the autonomy DB only — don't add new CommandSpec entries there.)
 
 Append a `CommandSpec` to the `_ACTION` dict (or `_READ` for read-only commands). The key is the command name used by `spec_cmd.call("<key>", ...)`. Conventionally this matches the SPEC macro token verbatim (`mvpinhole`, `peak_mono_pitch`, `safely_remove_filters`).
 
@@ -58,7 +67,9 @@ For commands with structured args, the renderer formats them and the parser conv
 
 For motor-bearing commands (`umv`, `mv`, `dscan`, ...), set `needs_motor_allow=True` and `motor_arg_index=0` so the dispatcher checks the motor against the phase's motor allowlist.
 
-### File 2 — `beamline_tools/spec_control/phases.py`
+### File 2 — agent-role allowlist (autonomy)
+
+If the new command is a write-tool an agent role should be allowed to invoke, add it to that role's `spec_write_tools` frozenset in `beamline_tools/agent_roles.py`. Phase constants themselves come from `beamtimehero_cli.spec_control.phases` (upstream) and need no change.
 
 Add the SPEC command name to `PROCEDURAL_PHASE` with the set of phases where it's allowed:
 

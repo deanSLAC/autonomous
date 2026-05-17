@@ -87,7 +87,7 @@ Fixed sequence. Agent advances via `transition_phase(target, justification)`. Ba
 setup → beamline_alignment → [xes_alignment] → sample_alignment → collection → complete
 ```
 
-Motor allowlist gate per phase (full table in spec). Enforced in `spec/phases.py`, consulted by `spec_cmd` before dispatch.
+Motor allowlist enforced per-agent-role at the CLI argparse layer (`scripts/beamtimehero`), driven by `beamline_tools/agent_roles.py`. Phase constants come from `beamtimehero_cli.spec_control.phases`.
 
 ## Agent tool surface
 

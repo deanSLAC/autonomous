@@ -1,49 +1,32 @@
-"""beamline_tools — SPEC tools, action/query log, scan data.
+"""beamline_tools — autonomy-side extensions on top of beamtimehero_cli.
 
-This package is the lift-and-drop layer: it has no dependencies on the
-orchestration or UI packages and can be vendored into a future project
-with only the requirements in `requirements.txt` that cover SPEC +
-sqlite + numpy/silx.
+Most of what used to live in this package now comes from `beamtimehero_cli`
+(installed as an editable local dependency). This namespace retains only
+the autonomy-specific layer:
 
-Layout (grouped by source):
+  * `agent_roles` — per-agent-role motor + spec-write allowlists used by
+    `scripts/beamtimehero`.
+  * `audited_call` — thin re-export of upstream `beamtimehero_cli.audited_call`
+    (kept for import-compatibility).
+  * `config` — re-exports upstream config + adds autonomy-only paths
+    (CONTEXT_DIR, PLANS_DIR, OPENCODE_DIR, OPENCODE_TOOLS_DIR).
+  * `spec_control` — re-exports upstream transport/clients/phases; the
+    `spec_cmd` wrapper here adds a plan_store DB write-through for
+    `measure_beam_size`.
+  * `tool_catalog` — autonomy-side tool surface (CAT-8+ orchestration tools)
+    plus the per-experiment tools_config.json enable/disable filter; sources
+    upstream's tools_core for the generic catalog.
+  * `steering` — autonomy-only intervention queue surface.
 
-  * `spec_control/`       — SPEC direct interaction (screen / TCP transports,
-                            phase constants + agent-role allowlists,
-                            dispatcher, action_log writer)
-  * `spec_logs/`          — SPEC session log files: list, tail, search,
-                            parse, error-detect
-  * `spec_data/`          — Raw SPEC data files (silx-readable): reader,
-                            metadata cache, scan ops, plotting, on-disk
-                            SPEC config parser
-  * `generic_data/`       — Pure-math tools that operate on numpy arrays:
-                            fitting, cosine similarity
-  * `experiment_planning/` — Higher-level domain logic: scan→motor decisions,
-                            motor strategies, scan efficiency / recommendations
-  * `tool_catalog/`       — Agent-facing tool surface: schemas, executor,
-                            CLI mode, lineage
-
-Public API:
-
-  * `audited_call` — phase/experiment/audit-aware SPEC dispatch (what tool
-    handlers normally use)
-  * `spec_cmd.call` — primitive SPEC dispatch (no audit, no phase)
-  * `phases` — phase vocabulary + agent-role motor/spec-write allowlists
-  * `action_log` writers and readers
-  * `tool_catalog.TOOL_DEFINITIONS` + `execute_tool`
-  * `spec_data.local_data`, `config.set_scan_dir`, `spec_data.spec_reader`
+Existing consumers using `from beamline_tools.* import ...` keep working for
+the modules above. For the generic CLI surface (action_log, spec_data,
+spec_logs, generic_data, experiment_planning, spec_eval, transport clients),
+import directly from `beamtimehero_cli.*`.
 """
 
-from beamline_tools.action_log import (
-    finish_action,
-    invalidate_for_experiment,
-    log_query,
-    mark_action_started,
-    recent_actions,
-    recent_queries,
-    start_action,
-)
 from beamline_tools.audited_call import audited_call
-from beamline_tools.spec_control import phases, spec_cmd
+from beamline_tools.spec_control import spec_cmd
+from beamtimehero_cli.spec_control import phases
 from beamline_tools.tool_catalog import (
     CLI_TOOL_DEFINITION,
     TOOL_CATEGORIES,
@@ -57,13 +40,6 @@ __all__ = [
     "TOOL_DEFINITIONS",
     "audited_call",
     "execute_tool",
-    "finish_action",
-    "invalidate_for_experiment",
-    "log_query",
-    "mark_action_started",
     "phases",
-    "recent_actions",
-    "recent_queries",
     "spec_cmd",
-    "start_action",
 ]

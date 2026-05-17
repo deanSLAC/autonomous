@@ -172,7 +172,7 @@ def files(
 
 
 def _list_scans_in_file(path: str) -> list[dict]:
-    from beamline_tools.spec_data.spec_reader import list_scans
+    from beamtimehero_cli.spec_data.spec_reader import list_scans
     rows = list_scans(path)
     return rows
 
@@ -190,7 +190,7 @@ def scans(path: str):
 
 @router.get("/scan_data")
 def scan_data(path: str, scan: int):
-    from beamline_tools.spec_data.spec_reader import get_scan_data, parse_scan_command
+    from beamtimehero_cli.spec_data.spec_reader import get_scan_data, parse_scan_command
     p = Path(path)
     if not p.exists():
         raise HTTPException(404, "file not found")

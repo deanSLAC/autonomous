@@ -21,7 +21,7 @@ from orchestration.plan_store.session import (
     get_experiment,
     set_spectrometer_aligned,
 )
-from beamline_tools.spec_control import phases
+from beamtimehero_cli.spec_control import phases
 from orchestration import runtime_state
 
 logger = logging.getLogger(__name__)

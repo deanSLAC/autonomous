@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 from sqlmodel import select
 
-from beamline_tools.action_log.db import recent_actions, recent_queries
+from beamtimehero_cli.action_log.db import recent_actions, recent_queries
 from orchestration.plan_store.client import (
     get_plan,
     list_open_interventions,
@@ -112,7 +112,7 @@ def status(experiment_id: str = Query(...)):
     ]
     if needs_spec_count:
         try:
-            from beamline_tools.spec_data import local_data
+            from beamtimehero_cli.spec_data import local_data
             all_scans = local_data._all_scans_sorted()
         except Exception:
             all_scans = []
@@ -223,7 +223,7 @@ def phase(phase_run_id: str):
     # concepts not present in the SPEC datafile.
     if not scan_dicts and run.started_at:
         try:
-            from beamline_tools.spec_data import local_data
+            from beamtimehero_cli.spec_data import local_data
             all_scans = local_data._all_scans_sorted()
         except Exception:
             all_scans = []

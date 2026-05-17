@@ -6,11 +6,12 @@ the DB (see `scripts/beamtimehero` `main()`); within a single process,
 this module is the in-memory source of truth.
 
 `set_phase` is the single canonical writer. It validates the slug against
-`phases.VALID_PHASES`, updates the in-memory dict, AND writes
-through to `ExperimentPlan.phase` so the next subprocess can pick the
-phase back up. There is no separate gating, precondition, or approval
-layer — the operator (or whatever pre-spawn step decided the phase) is
-trusted.
+`phases.VALID_PHASES`, updates the in-memory dict, mirrors the value to
+`beamtimehero_cli.runtime_state` (which upstream's `audited_call` reads),
+AND writes through to `ExperimentPlan.phase` so the next subprocess can
+pick the phase back up. There is no separate gating, precondition, or
+approval layer — the operator (or whatever pre-spawn step decided the
+phase) is trusted.
 """
 
 from __future__ import annotations
@@ -18,7 +19,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from beamline_tools.spec_control import phases
+from beamtimehero_cli import runtime_state as _upstream_rs
+from beamtimehero_cli.spec_control import phases
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,9 @@ def set_phase(phase: str, experiment_id: str | None = None) -> None:
     if experiment_id:
         _STATE["experiment_id"] = experiment_id
 
+    # Mirror to upstream so beamtimehero_cli.audited_call sees the same phase.
+    _upstream_rs.set_phase(phase, experiment_id=_STATE.get("experiment_id"))
+
     xid = experiment_id or _STATE.get("experiment_id")
     if xid:
         try:
@@ -63,3 +68,4 @@ def set_experiment_id(experiment_id: str | None) -> None:
     """Update the active experiment without changing phase. Used by the
     CLI bootstrap when seeding state from the DB."""
     _STATE["experiment_id"] = experiment_id
+    _upstream_rs.set_experiment_id(experiment_id)

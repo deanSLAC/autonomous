@@ -105,7 +105,7 @@ def generate_and_post(slug: str, phase_run_id: str) -> Optional[str]:
 def _scans_in_window(window: tuple[datetime, datetime]) -> list[dict]:
     """Return SPEC scan dicts whose date_time falls inside the window."""
     try:
-        from beamline_tools.spec_data import local_data
+        from beamtimehero_cli.spec_data import local_data
         scans = local_data._all_scans_sorted()
     except Exception as e:  # noqa: BLE001
         logger.warning("phase_reports: spec cache unavailable: %s", e)
@@ -257,7 +257,7 @@ def _resolve_spec_datafile(name: Optional[str]) -> Optional[str]:
     if name.startswith("/"):
         return name
     try:
-        from beamline_tools.spec_data import local_data
+        from beamtimehero_cli.spec_data import local_data
         for s in local_data._all_scans_sorted():
             if s.get("file_name") == name and s.get("file_path"):
                 return s.get("file_path")

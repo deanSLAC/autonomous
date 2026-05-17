@@ -53,18 +53,14 @@ autonomous/
 │   ├── spec_reader.py         silx-based SPEC data reader
 │   ├── reports.py             Per-phase report PNGs
 │   ├── slack_notify.py        (compat) legacy slack/notify helper
-│   ├── tools/
-│   │   ├── definitions.py         beamtimehero read-only tool schemas
-│   │   ├── autonomy_definitions.py CAT-0..CAT-8 tool schemas
-│   │   ├── autonomy_tools.py       CAT-0..CAT-8 implementations
-│   │   ├── executor.py             merged dispatcher
-│   │   └── cli.py                  CLI-mode progressive discovery
-│   ├── spec/
-│   │   ├── phases.py              phase constants + agent-role motor allowlists
-│   │   ├── screen_client.py       GNU-screen SPEC injection + prompt-poll + mock
-│   │   └── spec_cmd.py            whitelisted dispatcher with action_log
-│   ├── action_log/
-│   │   └── db.py                  writer / reader for action_log + query_log
+│   ├── tools/                     (the generic surface lives in beamtimehero_cli)
+│   │   ├── definitions.py         autonomy CAT-8 orchestration tool schemas only
+│   │   ├── tools.py               autonomy CAT-8 implementations + merged DISPATCH
+│   │   ├── executor.py            merged dispatcher
+│   │   └── lineage.py             autonomy lineage entries + upstream merge
+│   ├── spec/                      autonomy-side spec_cmd wrapper only
+│   │   └── spec_cmd.py            measure_beam_size DB write-through hook
+│   ├── agent_roles.py             per-agent-role motor + spec-write allowlists
 │   ├── orchestrator/
 │   │   ├── loop.py                outer agent loop
 │   │   ├── planner.py             experiment plan + beamtime budget

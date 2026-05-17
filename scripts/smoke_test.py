@@ -72,8 +72,8 @@ from orchestration.plan_store.client import (  # noqa: E402
 from orchestration.planner import planner  # noqa: E402
 from orchestration.planner.staff_guidance import coordinator  # noqa: E402
 from beamline_tools.audited_call import audited_call  # noqa: E402
-from beamline_tools.spec_control import phases  # noqa: E402
-from beamline_tools.action_log.db import recent_actions  # noqa: E402
+from beamtimehero_cli.spec_control import phases  # noqa: E402
+from beamtimehero_cli.action_log.db import recent_actions  # noqa: E402
 
 
 def banner(label: str) -> None:

@@ -21,7 +21,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from beamline_tools.spec_data.spec_reader import get_scan_data, get_scan_xy, parse_scan_command
+from beamtimehero_cli.spec_data.spec_reader import get_scan_data, get_scan_xy, parse_scan_command
 
 logger = logging.getLogger(__name__)
 

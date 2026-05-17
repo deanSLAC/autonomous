@@ -1,148 +1,64 @@
-"""Configuration for the beamline_tools package.
+"""Autonomy-side configuration: re-exports upstream + adds autonomy-only paths.
 
-Owns: SPEC transport, tools-layer SQLite path, reference data paths,
-EPICS PV names, beamline scan/log directories, timezone. Does not know
-about the LLM, orchestration, or the web UI — those packages have their
-own config modules.
+Upstream `beamtimehero_cli.config` owns SPEC transport vars, scan/log
+directories, sqlite paths, CLI logging knobs, and timezone helpers — values
+that are not autonomy-specific. We re-export them verbatim so existing
+`from beamline_tools.config import ...` imports continue to work.
+
+Autonomy-only additions:
+  * `CONTEXT_DIR`, `PLANS_DIR`, `OPENCODE_DIR`, `OPENCODE_TOOLS_DIR` — paths
+    rooted in the autonomous repo (not in `beamtimehero_cli`).
+  * `PROJECT_ROOT` is overridden to point at the autonomous repo root.
+
+The autonomous repo's `data/` dir is wired in via `BEAMTIMEHERO_DATA_DIR`
+*before* importing upstream config, so upstream's `DATA_DIR` and the
+action_log/CLI-log sqlite live next to autonomy's other databases.
 """
 
 from __future__ import annotations
 
-import logging
 import os
-import re
-from datetime import datetime
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
-logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
+# Resolve the autonomous repo root and force upstream config to use its data/
+# dir before upstream's `config.py` runs `Path(os.environ.get(...))`.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+os.environ.setdefault("BEAMTIMEHERO_DATA_DIR", str(PROJECT_ROOT / "data"))
+
+# Re-export upstream symbols. This must come after the env var override.
+from beamtimehero_cli.config import (  # noqa: E402,F401
+    BL_LOGS_DIR,
+    BL_SCAN_DIR,
+    BL_TIMEZONE,
+    CLI_LOG_ENABLED,
+    CLI_LOG_MAX_RESULT_BYTES,
+    DATA_DIR,
+    DB_PATH,
+    EPICS_PV_BL_STATE,
+    EPICS_PV_GAP_OWNER,
+    EPICS_PV_SPEAR_CURRENT,
+    LOG_FILE_PATTERN,
+    MAX_FILE_SIZE_BYTES,
+    MAX_LOG_LINES,
+    SPEC_EVAL_URL,
+    SPEC_HOST,
+    SPEC_MOCK,
+    SPEC_NAME,
+    SPEC_POLL_INTERVAL_S,
+    SPEC_PORT,
+    SPEC_PROMPT_REGEX,
+    SPEC_SCREEN_NAME,
+    SPEC_TRANSPORT,
+    TOOLS_MODE,
+    now_pacific,
+    set_scan_dir,
+)
+
+# ---------------------------------------------------------------------------
+# Autonomy-only paths
+# ---------------------------------------------------------------------------
 CONTEXT_DIR = PROJECT_ROOT / "context"
-DATA_DIR = PROJECT_ROOT / "data"
 PLANS_DIR = PROJECT_ROOT / "logs" / "plans"
 OPENCODE_DIR = PROJECT_ROOT / ".opencode"
 OPENCODE_TOOLS_DIR = OPENCODE_DIR / "tools"
-DATA_DIR.mkdir(exist_ok=True)
-PLANS_DIR.mkdir(exist_ok=True)
-
-# ---------------------------------------------------------------------------
-# SPEC dispatcher — defaults to mock so the app boots out-of-box on a
-# laptop. Set SPEC_MOCK=0 in .env on the beamline machine.
-# ---------------------------------------------------------------------------
-SPEC_SCREEN_NAME = "spec"
-SPEC_POLL_INTERVAL_S = 2.0
-SPEC_PROMPT_REGEX = r"^\d+\.SPEC> ?$"
-SPEC_MOCK = os.getenv("SPEC_MOCK", "1") == "1"
-
-# Transport for SPEC commands. "tcp" talks the spec server-mode binary
-# protocol directly. "screen" falls back to stuffing keystrokes into a
-# GNU screen session running spec interactively.
-SPEC_TRANSPORT = os.getenv("SPEC_TRANSPORT", "tcp")
-SPEC_HOST = os.getenv("SPEC_HOST", "localhost")
-SPEC_PORT = int(os.getenv("SPEC_PORT", "2033"))
-SPEC_NAME = os.getenv("SPEC_NAME", "spec")
-
-# Sandbox API for evaluate_spec_macro (Docker container running sim-mode SPEC).
-# Also used as transport when SPEC_MOCK=1 (with _MockScreen fallback) or
-# when SPEC_TRANSPORT=sandbox.
-SPEC_EVAL_URL = os.getenv("SPEC_EVAL_URL", "http://127.0.0.1:5006")
-
-# ---------------------------------------------------------------------------
-# Database — action_log + query_log live in their own sqlite file so the
-# tools layer carries no schema from the orchestration layer.
-# ---------------------------------------------------------------------------
-DB_PATH = os.environ.get("BEAMLINE_TOOLS_DB_PATH", str(DATA_DIR / "beamline_tools.db"))
-os.environ.setdefault("BEAMLINE_TOOLS_DB_PATH", DB_PATH)
-
-# ---------------------------------------------------------------------------
-# beamtimehero CLI invocation log — one row per `beamtimehero` call.
-# Shares the action_log DB. Disable with BEAMTIMEHERO_CLI_LOG=0.
-# ---------------------------------------------------------------------------
-CLI_LOG_ENABLED = os.getenv("BEAMTIMEHERO_CLI_LOG", "1") == "1"
-CLI_LOG_MAX_RESULT_BYTES = int(os.getenv("BEAMTIMEHERO_CLI_LOG_MAX_BYTES", "65536"))
-
-# TOOLS_MODE: 'cli' (progressive discovery via beamtimehero --help) or
-# 'mcp' (full tool surface in every LLM request). Read by the agent.
-TOOLS_MODE = os.getenv("TOOLS_MODE", "cli")
-
-# ---------------------------------------------------------------------------
-# EPICS PVs (reference only — not yet wired)
-# ---------------------------------------------------------------------------
-EPICS_PV_SPEAR_CURRENT = "SPEAR:BeamCurrAvg"
-EPICS_PV_BL_STATE = "BL15:State"
-EPICS_PV_GAP_OWNER = "BL15:GapOwnerNode"
-
-# ---------------------------------------------------------------------------
-# Beamline data directories (scan files, control logs) and timezone
-# ---------------------------------------------------------------------------
-BL_TIMEZONE = ZoneInfo("America/Los_Angeles")
-
-
-def now_pacific() -> datetime:
-    """Return current time in Pacific, as a naive datetime for comparison."""
-    return datetime.now(BL_TIMEZONE).replace(tzinfo=None)
-
-
-BL_LOGS_DIR = Path(os.getenv("BL_LOGS_DIR", "/usr/local/lib/spec.log/logfiles"))
-if not BL_LOGS_DIR.exists():
-    BL_LOGS_DIR = Path(__file__).parent / "sample_data"
-
-_DATA_ROOT = Path(os.getenv("BL_SCAN_DIR", "/data/fifteen"))
-
-
-def _resolve_scan_dir(root: Path) -> Path:
-    """Pick the most recently modified YYYY-mm_* subdirectory, or fall back."""
-    if root.is_dir():
-        if re.match(r"\d{4}-\d{2}_", root.name):
-            return root
-        subdirs = [d for d in root.iterdir()
-                    if d.is_dir() and re.match(r"\d{4}-\d{2}_", d.name)]
-        if subdirs:
-            return max(subdirs, key=lambda d: d.stat().st_mtime)
-    return Path(__file__).parent / "sample_data"
-
-
-BL_SCAN_DIR = _resolve_scan_dir(_DATA_ROOT)
-
-
-def set_scan_dir(name: str) -> Path:
-    """Set BL_SCAN_DIR to a subdirectory of _DATA_ROOT.
-
-    Args:
-        name: Either a directory name (e.g. '2026-04_Username') or 'auto'
-              to re-run auto-detect.
-
-    Returns:
-        The new BL_SCAN_DIR path.
-
-    Raises:
-        ValueError: If the directory doesn't exist.
-    """
-    global BL_SCAN_DIR
-
-    if name == "auto":
-        BL_SCAN_DIR = _resolve_scan_dir(_DATA_ROOT)
-        logger.info("Scan directory auto-detected: %s", BL_SCAN_DIR)
-        return BL_SCAN_DIR
-
-    target = _DATA_ROOT / name
-    if not target.is_dir():
-        raise ValueError(f"Directory does not exist: {target}")
-
-    BL_SCAN_DIR = target
-    logger.info("Scan directory set to: %s", BL_SCAN_DIR)
-    return BL_SCAN_DIR
-
-
-LOG_FILE_PATTERN = "log__*"
-
-MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
-MAX_LOG_LINES = 1000
+PLANS_DIR.mkdir(parents=True, exist_ok=True)

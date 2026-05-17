@@ -295,7 +295,7 @@ def _generate_statistics_trend() -> None:
     try:
         import matplotlib
         matplotlib.use("Agg")
-        from beamline_tools.spec_data.plotting import plot_statistics_trend, fig_to_base64
+        from beamtimehero_cli.spec_data.plotting import plot_statistics_trend, fig_to_base64
         import base64
         from datetime import datetime
 

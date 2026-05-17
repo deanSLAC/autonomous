@@ -1,59 +1,26 @@
-"""Phase identifiers and per-agent-role allowlists.
+"""Per-agent-role allowlists for the autonomous beamtimehero CLI.
 
-The workflow has six labelled phases. The current phase is a simple
-property of the experiment, persisted in `ExperimentPlan.phase` and
-cached in `orchestration.runtime_state`. There is no precondition gate,
-no forward/backward direction logic, no Slack-approved backward
-transitions — those layers were removed. The operator (or whatever
-spawned the phase agent) is trusted; agents enforce their own readiness
-checks.
+Permission enforcement for SPEC tool calls is *not* in `spec_cmd`. It is
+handled at the CLI layer in `scripts/beamtimehero`: each agent role has its
+own argparse branch that filters spec-write tools (via `spec_write_tools`)
+and validates motor arguments (via `agent_motor_allowed`). The agent's
+Claude permission line restricts its Bash invocations to that branch, so
+there is no global state it can flip to escape its scope.
 
-Permission enforcement for SPEC tool calls does *not* live here. It is
-handled at the CLI layer in `scripts/beamtimehero`: each agent role has
-its own argparse branch that filters spec-write tools (via
-`spec_write_tools`) and validates motor arguments (via
-`agent_motor_allowed`). The agent's Claude permission line restricts
-its Bash invocations to that branch, so there is no global state it
-can flip to escape its scope.
-
-What lives here:
-  * Phase constants + ordering (display + validation), consumed by the
-    UI, the CLI, and the plan store.
-  * `AGENT_ROLES`: the per-role motor allowlist and spec-write tool
-    allowlist consulted by the CLI's argparse build and per-leaf motor
-    check.
+Phase constants are imported from `beamtimehero_cli.spec_control.phases`
+(upstream); only the autonomy-specific *role policy* — which motors and
+which spec-write tools each role may invoke — lives here.
 """
 
 from __future__ import annotations
 
 from typing import Set
 
-# ---------------------------------------------------------------------------
-# Phases
-# ---------------------------------------------------------------------------
-
-PHASE_SETUP = "setup"
-PHASE_BL_ALIGN = "beamline_alignment"
-PHASE_XES_ALIGN = "xes_alignment"
-PHASE_SAMPLE_ALIGN = "sample_alignment"
-PHASE_COLLECTION = "collection"
-PHASE_COMPLETE = "complete"
-
-ALL_PHASES = [
-    PHASE_SETUP,
+from beamtimehero_cli.spec_control.phases import (
     PHASE_BL_ALIGN,
-    PHASE_XES_ALIGN,
-    PHASE_SAMPLE_ALIGN,
     PHASE_COLLECTION,
-    PHASE_COMPLETE,
-]
-
-# All phase identifiers accepted by `set_phase`.
-VALID_PHASES = set(ALL_PHASES)
-
-# Forward sequence used to judge forward vs. backward transitions.
-PHASE_ORDER = {name: i for i, name in enumerate(ALL_PHASES)}
-
+    PHASE_SAMPLE_ALIGN,
+)
 
 # ---------------------------------------------------------------------------
 # Motor sets — referenced by AGENT_ROLES below.
@@ -83,9 +50,9 @@ _COLLECTION_MOTORS: Set[str] = _SAMPLE_ALIGN_MOTORS
 # Each role maps to (a) the phase it is associated with (recorded on
 # action-log rows; not used for gating), (b) the motor allowlist the
 # agent may target, (c) the spec-write tools the agent may invoke. The
-# CLI's `_run_tool_leaf` checks the motor allowlist before dispatch; the
-# agent branch's argparse `choices` enforces the spec-write tool list at
-# parse time.
+# CLI's `run_tool_leaf` (upstream) is wrapped with the motor allowlist
+# check before dispatch; the agent branch's argparse `choices` enforces
+# the spec-write tool list at parse time.
 # ---------------------------------------------------------------------------
 
 AGENT_ROLES: dict[str, dict] = {
@@ -167,5 +134,3 @@ def agent_tool_allowed(role: str, tool_name: str) -> bool:
     if role_def is None:
         return False
     return tool_name in role_def["spec_write_tools"]
-
-

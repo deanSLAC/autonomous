@@ -309,7 +309,7 @@ def create_app() -> FastAPI:
             TOOL_CATEGORIES,
             TOOL_DEFINITIONS,
         )
-        from beamline_tools.tool_catalog.cli import REFERENCE_DOCS
+        from beamtimehero_cli.tool_catalog.cli import REFERENCE_DOCS
         from beamline_tools.tool_catalog.lineage import build_detailed_tool
 
         by_def = {t["function"]["name"]: t for t in TOOL_DEFINITIONS}

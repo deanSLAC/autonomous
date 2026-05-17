@@ -37,7 +37,7 @@ except Exception as e:
 from beamline_tools.tool_catalog.definitions import (
     AUTONOMY_TOOL_DEFINITIONS as _ALL_TOOLS,
 )
-from beamline_tools.tool_catalog.cli import REFERENCE_DOCS
+from beamtimehero_cli.tool_catalog.cli import REFERENCE_DOCS
 from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE
 
 # Also grab any dynamically registered tools (CAT-8 from orchestration).

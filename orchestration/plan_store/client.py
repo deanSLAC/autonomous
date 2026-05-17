@@ -285,7 +285,7 @@ def reset_run_state(experiment_id: str) -> dict:
     Returns a small summary for the UI.
     """
     # ActionLog lives in the beamline_tools DB — invalidate via that package.
-    from beamline_tools.action_log.db import invalidate_for_experiment
+    from beamtimehero_cli.action_log.db import invalidate_for_experiment
 
     invalidated_actions = invalidate_for_experiment(experiment_id)
 

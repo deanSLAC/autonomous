@@ -70,25 +70,23 @@ only through the `orchestration.api` facade (plus tool catalog for `/api/tools`)
 
 ### beamline_tools/
 
+This package is now thin: most of what used to live here comes from
+`beamtimehero_cli` (installed as an editable local dependency at
+`../beamtimehero_cli`). What remains is the autonomy-specific layer.
+
 | Module | Depends on | Purpose |
 |---|---|---|
-| `spec_control/spec_cmd.py` | action_log/db, transport, phases, config | Command dispatcher: allowlist, phase gate, action_log write, dispatch |
-| `spec_control/transport.py` | (none) | DispatchResult, _MockScreen (in-memory SPEC simulator) |
-| `spec_control/tcp_client.py` | transport | TCP socket transport to live SPEC |
-| `spec_control/screen_client.py` | transport | GNU Screen transport (legacy) |
-| `spec_control/sandbox_client.py` | transport | HTTP sandbox API transport |
-| `spec_control/phases.py` | (none) | Phase vocabulary + agent-role motor/spec-write allowlists |
-| `tool_catalog/executor.py` | spec_data, spec_logs, plotting | Tool dispatch: name → handler → JSON + images |
-| `tool_catalog/autonomy_tools.py` | spec_cmd, plan_store (via CLI), spec_data | CAT-0..8 tool implementations (~50 tools) |
-| `tool_catalog/autonomy_definitions.py` | (none) | Tool JSON schemas for MCP/OpenCode |
-| `tool_catalog/definitions.py` | (none) | Base tool JSON schemas |
-| `tool_catalog/cli.py` | definitions, autonomy_definitions | CLI tree generation (beamtimehero subcommands) |
-| `tool_catalog/lineage.py` | definitions | Tool dependency tracking |
-| `action_log/models.py` | (none) | ActionLog, QueryLog, CliInvocationLog (3 tables) |
-| `action_log/db.py` | action_log/session, action_log/models | Action/query writers (commit-with-retry at start_action) |
-| `action_log/session.py` | action_log/models | Engine singleton for beamline_tools.db |
-| `spec_data/scans.py` | spec_data/spec_reader | Scan data access (read arrays, metadata) |
-| `spec_data/plotting.py` | spec_data/scans | Matplotlib scan plots, statistics trends |
+| `agent_roles.py` | upstream `beamtimehero_cli.spec_control.phases` | Per-agent-role motor + spec-write allowlists (autonomy policy) |
+| `audited_call.py` (wrapper) | upstream `beamtimehero_cli.audited_call` | Thin re-export; phase/exp state mirrored via `orchestration.runtime_state` |
+| `config.py` (wrapper) | upstream `beamtimehero_cli.config` | Re-exports upstream config + adds CONTEXT_DIR, PLANS_DIR, OPENCODE_DIR, OPENCODE_TOOLS_DIR |
+| `spec_control/__init__.py` | upstream spec_control + autonomy spec_cmd | Re-exports upstream transport/clients/phases + autonomy `spec_cmd` |
+| `spec_control/spec_cmd.py` (wrapper) | upstream `spec_cmd`, plan_store.session | Adds measure_beam_size → plan_store DB write-through hook |
+| `tool_catalog/__init__.py` | upstream `tool_catalog`, autonomy CAT-8 | Merged TOOL_DEFINITIONS + tools_config.json filter |
+| `tool_catalog/tools.py` | upstream `tools_core`, audited_call, runtime_state | 22 CAT-8 orchestration handlers + merged DISPATCH |
+| `tool_catalog/definitions.py` | (none) | CAT-8 tool JSON schemas |
+| `tool_catalog/lineage.py` | upstream lineage | CAT-8 lineage entries + merged TOOL_LINEAGE |
+| `tool_catalog/executor.py` | autonomy DISPATCH | Tool dispatch (autonomy or upstream handler) |
+| `steering/cli.py` | plan_store.client | Staff-guidance lifecycle commands |
 
 ### ui/server/
 

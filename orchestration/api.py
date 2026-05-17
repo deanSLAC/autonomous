@@ -292,7 +292,7 @@ def on_chat_message(
 def on_setdir(dir_name: str) -> str:
     """Operator ran `!setdir` in Slack — rewire bl_config + reset conversation."""
     from beamline_tools import config as bl_config
-    from beamline_tools.spec_data.local_data import clear_cache
+    from beamtimehero_cli.spec_data.local_data import clear_cache
 
     bl_config.set_scan_dir(dir_name)
     clear_cache()

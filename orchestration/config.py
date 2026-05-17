@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 from enum import Enum
 from pathlib import Path
+from dotenv import load_dotenv
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -25,6 +26,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONTEXT_DIR = PROJECT_ROOT / "context"
 DATA_DIR = PROJECT_ROOT / "data"
 DATA_DIR.mkdir(exist_ok=True)
+
+# Load autonomous's .env into os.environ. pydantic_settings reads its own copy
+# into the Settings model, but the model_validator below also consults
+# `os.environ.get("SLAC_BASE_URL")` / `STANFORD_BASE_URL` directly — so the
+# env vars need to be in the process environment, not just the model. Run
+# this here (early in the orchestration import chain) so the load happens
+# regardless of which beamline_tools / beamtimehero_cli paths run later.
+load_dotenv(PROJECT_ROOT / ".env")
 
 
 # ---------------------------------------------------------------------------

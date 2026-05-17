@@ -84,8 +84,9 @@ if _ORIG_SAFETY is not None:
 
 from orchestration.plan_store import init_db  # noqa: E402
 from orchestration.plan_store.session import create_experiment  # noqa: E402
-from beamline_tools.spec_control import phases, spec_cmd  # noqa: E402
-from beamline_tools.spec_control.transport import _MockScreen  # noqa: E402
+from beamtimehero_cli.spec_control import phases  # noqa: E402
+from beamline_tools.spec_control import spec_cmd  # noqa: E402
+from beamtimehero_cli.spec_control.transport import _MockScreen  # noqa: E402
 from beamline_tools.tool_catalog.tools import DISPATCH  # noqa: E402
 from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE  # noqa: E402
 from orchestration import runtime_state  # noqa: E402

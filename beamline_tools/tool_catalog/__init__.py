@@ -1,5 +1,8 @@
 """Autonomous Beamline Agent tool system.
 
+Concatenates upstream's `beamtimehero_cli.tool_catalog` (CAT-0..CAT-7,
+CAT-9) with autonomy's CAT-8 orchestration overlay.
+
 Public surface:
 
   * `TOOL_DEFINITIONS` — JSON-schema definitions for every tool the LLM can call.
@@ -13,11 +16,16 @@ import json
 import logging
 from pathlib import Path
 
-from beamline_tools.tool_catalog.definitions import (
-    AUTONOMY_TOOL_CATEGORIES as _BASE_CATEGORIES,
-    AUTONOMY_TOOL_DEFINITIONS as _BASE_TOOLS,
+from beamtimehero_cli.tool_catalog.cli_tool import CLI_TOOL_DEFINITION
+from beamtimehero_cli.tool_catalog.definitions import (
+    AUTONOMY_TOOL_CATEGORIES as _UPSTREAM_CATEGORIES,
+    AUTONOMY_TOOL_DEFINITIONS as _UPSTREAM_TOOLS,
 )
-from beamline_tools.tool_catalog.cli_tool import CLI_TOOL_DEFINITION
+
+from beamline_tools.tool_catalog.definitions import (
+    AUTONOMY_TOOL_CATEGORIES as _AUTONOMY_CATEGORIES,
+    AUTONOMY_TOOL_DEFINITIONS as _AUTONOMY_TOOLS,
+)
 from beamline_tools.tool_catalog.executor import execute_tool
 
 _logger = logging.getLogger(__name__)
@@ -45,6 +53,15 @@ def _filter(defs: list[dict]) -> list[dict]:
     if _enabled is None:
         return list(defs)
     return [d for d in defs if d["function"]["name"] in _enabled]
+
+
+# Concatenate upstream (CAT-0..CAT-7, CAT-9) and autonomy (CAT-8) tool defs.
+_BASE_TOOLS: list[dict] = list(_UPSTREAM_TOOLS) + list(_AUTONOMY_TOOLS)
+# Concatenate category groupings the same way, but let autonomy own CAT-8
+# (upstream ships a stale CAT-8 stub that references tools it does not define).
+_BASE_CATEGORIES = [
+    c for c in _UPSTREAM_CATEGORIES if not c[0].startswith("CAT-8")
+] + list(_AUTONOMY_CATEGORIES)
 
 
 TOOL_DEFINITIONS: list[dict] = _filter(_BASE_TOOLS)

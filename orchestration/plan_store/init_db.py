@@ -120,7 +120,7 @@ def _backfill_vortex_counter(engine) -> None:
 
 def init_db() -> None:
     """Create tables for both beamline_tools and orchestration DBs."""
-    from beamline_tools.action_log.session import get_engine as get_tools_engine
+    from beamtimehero_cli.action_log.session import get_engine as get_tools_engine
 
     orch_engine = get_orch_engine()
     _apply_column_migrations(orch_engine, _PENDING_COLUMNS)
