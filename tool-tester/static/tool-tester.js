@@ -55,12 +55,10 @@ async function updateTool(name, fields) {
 }
 
 async function testTool(name, args) {
-    const body = { args };
-    if (currentPhase) body.phase_override = currentPhase;
     return fetch(`/api/test/${name}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ args }),
     }).then(r => r.json());
 }
 

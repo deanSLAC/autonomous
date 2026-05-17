@@ -87,7 +87,6 @@ async def mock_status():
 
 class TestRequest(BaseModel):
     args: dict = {}
-    phase_override: str | None = None
 
 
 @app.post("/api/test/{tool_name}")
@@ -132,15 +131,10 @@ async def test_tool(tool_name: str, req: TestRequest):
             else:
                 cmd += [flag, str(value)]
 
-    env = None
-    if req.phase_override and req.phase_override in ALL_PHASES:
-        env = {**os.environ, "SPEC_PHASE_OVERRIDE": req.phase_override}
-
     t0 = time.monotonic()
     try:
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=120, cwd=str(ROOT),
-            env=env,
         )
         duration_ms = int((time.monotonic() - t0) * 1000)
         return {
