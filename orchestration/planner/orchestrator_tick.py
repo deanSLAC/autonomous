@@ -31,6 +31,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections import deque
 from datetime import datetime
 from typing import Optional
 
@@ -45,6 +46,19 @@ from orchestration.plan_store.client import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Replan request queue — API endpoints append reasons here; the tick
+# drains the queue and spawns the planner on the next cycle.
+_replan_requests: deque[str] = deque(maxlen=8)
+
+
+def request_replan(reason: str) -> None:
+    """Signal the orchestrator tick to spawn the planner on its next cycle.
+
+    Safe to call from any thread (API endpoints, etc.). Append is atomic
+    in CPython so no lock is needed.
+    """
+    _replan_requests.append(reason)
 
 
 _TICK_SECONDS = 3.0
@@ -132,6 +146,11 @@ async def _step_planner_respawn(state: TickState, experiment_id: str) -> None:
     if not state._initialized:
         state.last_seen_scan_id = latest
         state._initialized = True
+        now = time.time()
+        if latest is not None:
+            state.last_scan_time = now
+        if not _is_running("planner"):
+            state.last_planner_finish_time = now
         return
 
     if latest is None or latest == state.last_seen_scan_id:
@@ -160,6 +179,58 @@ async def _step_planner_respawn(state: TickState, experiment_id: str) -> None:
         logger.info("orchestrator_tick: planner spawn skipped: %s", e)
     except Exception as e:  # noqa: BLE001
         logger.exception("orchestrator_tick: planner spawn failed: %s", e)
+
+
+async def _step_requested_replan(state: TickState, experiment_id: str) -> None:
+    """Spawn the planner when an API endpoint signals a config change.
+
+    The sample_holders_api calls `request_replan()` after rebuilding the
+    plan; this step drains the queue and spawns the planner so the new
+    budget/sample configuration is evaluated promptly instead of waiting
+    for the next scan or the 5-minute heartbeat.
+    """
+    if not _replan_requests:
+        return
+    reason = None
+    while _replan_requests:
+        try:
+            reason = _replan_requests.popleft()
+        except IndexError:
+            break
+    if reason is None:
+        return
+
+    try:
+        plan = await asyncio.to_thread(get_plan, experiment_id)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("orchestrator_tick: replan plan lookup failed: %s", e)
+        return
+    if not plan or plan.get("phase") != "collection":
+        return
+    if _is_running("planner"):
+        return
+
+    seed = (
+        f"[orchestrator: config change] {reason}. "
+        f"The experiment plan was just rebuilt with updated parameters. "
+        f"Run the mandatory status assessment and adjust the collection "
+        f"plan for the new budget/sample configuration."
+    )
+    try:
+        info = await asyncio.to_thread(
+            phase_runner.start, "planner",
+            seed_text=seed,
+            spawned_by="orchestrator:config-change",
+        )
+        state.last_heartbeat_spawn_time = time.time()
+        logger.info(
+            "orchestrator_tick: config-change spawned planner (run_id=%s) -- %s",
+            info.get("run_id"), reason,
+        )
+    except ValueError as e:
+        logger.info("orchestrator_tick: config-change spawn skipped: %s", e)
+    except Exception as e:  # noqa: BLE001
+        logger.exception("orchestrator_tick: config-change spawn failed: %s", e)
 
 
 async def _step_dispatch_deferred_steering(experiment_id: str) -> None:
@@ -453,6 +524,7 @@ async def run_forever() -> None:
                 await _step_stop_rows(experiment_id)
                 await _step_dispatch_deferred_steering(experiment_id)
                 await _step_planner_respawn(state, experiment_id)
+                await _step_requested_replan(state, experiment_id)
                 await _step_collection_heartbeat(state, experiment_id)
                 await _step_statistics_trend(state)
             except asyncio.CancelledError:

@@ -34,6 +34,7 @@ from orchestration.plan_store.session import (
 )
 from orchestration.plan_store.models import SampleHolder, SamplePosition
 from orchestration.planner import planner
+from orchestration.planner.orchestrator_tick import request_replan
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sample_holders", tags=["sample_holders"])
@@ -282,6 +283,7 @@ async def create(body: HolderCreateIn):
         # Regenerate the plan if one exists so new holder samples show up.
         try:
             planner.rebuild_plan_preserving_progress(body.experiment_id)
+            request_replan("holder created")
         except Exception as e:
             logger.info("plan rebuild skipped: %s", e)
 
@@ -361,6 +363,7 @@ async def update(body: HolderUpdateIn):
 
         try:
             planner.rebuild_plan_preserving_progress(experiment_id)
+            request_replan("holder updated")
         except Exception as e:
             logger.info("plan rebuild skipped: %s", e)
 
@@ -390,6 +393,7 @@ async def delete(body: dict):
         raise HTTPException(500, "delete failed")
     try:
         planner.rebuild_plan_preserving_progress(experiment_id)
+        request_replan("holder deleted")
     except Exception as e:
         logger.info("plan rebuild skipped: %s", e)
     return {"success": True}
@@ -406,6 +410,7 @@ async def reorder(body: dict):
     reorder_sample_holders(experiment_id, order)
     try:
         planner.rebuild_plan_preserving_progress(experiment_id)
+        request_replan("holder order changed")
     except Exception as e:
         logger.info("plan rebuild skipped: %s", e)
     return {"success": True}
