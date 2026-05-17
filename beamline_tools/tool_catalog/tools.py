@@ -33,11 +33,13 @@ try:
         list_guidance,
         list_open_interventions,
     )
+    from orchestration.plan_store.timeutils import parse_iso_to_local_naive
     from orchestration.planner import planner
     from orchestration.planner.staff_guidance import coordinator
     _ORCHESTRATION_AVAILABLE = True
 except Exception:  # pragma: no cover — ImportError when vendored without orchestration, ValidationError when .env missing
     get_plan = list_guidance = list_open_interventions = None  # type: ignore
+    parse_iso_to_local_naive = None  # type: ignore
     planner = coordinator = None  # type: ignore
     _ORCHESTRATION_AVAILABLE = False
 
@@ -433,7 +435,7 @@ def t_set_experiment_end_time(args: dict) -> tuple[str, list[str]]:
 
     if iso is not None:
         try:
-            new_end = _dt.fromisoformat(iso)
+            new_end = parse_iso_to_local_naive(iso)
         except ValueError as e:
             return json.dumps({
                 "ok": False,
@@ -548,7 +550,7 @@ def t_set_holder_time_budget(args: dict) -> tuple[str, list[str]]:
             }), []
         if stop_time_iso is not None:
             try:
-                new_stop = _dt.fromisoformat(stop_time_iso)
+                new_stop = parse_iso_to_local_naive(stop_time_iso)
             except ValueError as e:
                 return json.dumps({
                     "ok": False,

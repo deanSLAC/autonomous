@@ -184,6 +184,7 @@ async def set_end_time(body: dict):
     """
     from datetime import datetime as _dt, timedelta as _td
     from orchestration.plan_store.session import set_experiment_end_time
+    from orchestration.plan_store.timeutils import parse_iso_to_local_naive
 
     xid = _require_experiment(body.get("experiment_id"))
     iso = (body.get("end_time") or "").strip() or None
@@ -192,7 +193,7 @@ async def set_end_time(body: dict):
         raise HTTPException(400, "provide exactly one of end_time or hours_from_now")
     if iso is not None:
         try:
-            new_end = _dt.fromisoformat(iso)
+            new_end = parse_iso_to_local_naive(iso)
         except ValueError as e:
             raise HTTPException(400, f"end_time must be ISO-8601: {e}")
     else:
