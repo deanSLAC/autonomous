@@ -651,11 +651,11 @@ def _dispatch(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     # Each beamtimehero call is a fresh subprocess (claude code spawns one
     # per tool call), so _PHASE_STATE starts empty. Pull the active
-    # experiment + phase from the DB so phase-gated tools and tools that
-    # call spec_cmd.get_experiment_id() (e.g. get_experiment_config) work.
-    # Mirrors scripts/tool_dispatcher.py.
+    # experiment + phase from the DB so action-log entries record the
+    # right context and tools that call spec_cmd.get_experiment_id()
+    # (e.g. get_experiment_config) work. Mirrors scripts/tool_dispatcher.py.
     try:
-        from beamline_tools.spec_control import spec_cmd as _spec_cmd_bootstrap
+        from orchestration import runtime_state as _runtime_state_bootstrap
         from orchestration.plan_store.session import get_active_experiment
         from orchestration.plan_store.client import get_plan
 
@@ -663,26 +663,12 @@ def main(argv: list[str] | None = None) -> int:
         if _exp is not None:
             _plan = get_plan(_exp.id) or {}
             _phase = _plan.get("phase") or "setup"
-            _spec_cmd_bootstrap.set_phase(_phase, experiment_id=_exp.id)
+            _runtime_state_bootstrap.set_phase(_phase, experiment_id=_exp.id)
     except Exception:
         # Best-effort — do not block --help or non-experiment paths.
         pass
 
-    phase_override = os.environ.get("SPEC_PHASE_OVERRIDE")
-    if phase_override:
-        from beamline_tools.spec_control import spec_cmd
-        spec_cmd.set_phase(phase_override)
-
     raw_argv = list(sys.argv[1:]) if argv is None else list(argv)
-
-    # Agent-branch auto phase override: if `sys.argv[1]` names an agent
-    # role and there is no explicit env-var override, apply the role's
-    # declared phase. This keeps phase-gated tools working without the
-    # caller needing to set SPEC_PHASE_OVERRIDE separately, and gives the
-    # server-side phase_allowlist defense layer the right context.
-    if raw_argv and not phase_override and raw_argv[0] in AGENT_ROLES:
-        from beamline_tools.spec_control import spec_cmd as _spec_cmd_role
-        _spec_cmd_role.set_phase(AGENT_ROLES[raw_argv[0]]["phase"])
 
     # Lazy-import to avoid pulling SQLModel into --help paths if logging
     # is disabled (and to keep the failure mode local).

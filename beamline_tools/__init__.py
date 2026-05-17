@@ -23,8 +23,10 @@ Layout (grouped by source):
 
 Public API:
 
-  * `spec_cmd.call/read` + context accessors (`get_phase`, `get_experiment_id`)
-  * `phase_allowlist.is_allowed`
+  * `audited_call` — phase/experiment/audit-aware SPEC dispatch (what tool
+    handlers normally use)
+  * `spec_cmd.call` — primitive SPEC dispatch (no audit, no phase)
+  * `phase_allowlist` — agent-role motor + spec-write allowlists
   * `action_log` writers and readers
   * `tool_catalog.TOOL_DEFINITIONS` + `execute_tool`
   * `spec_data.local_data`, `config.set_scan_dir`, `spec_data.spec_reader`
@@ -39,6 +41,7 @@ from beamline_tools.action_log import (
     recent_queries,
     start_action,
 )
+from beamline_tools.audited_call import audited_call
 from beamline_tools.spec_control import phase_allowlist, spec_cmd
 from beamline_tools.tool_catalog import (
     CLI_TOOL_DEFINITION,
@@ -51,6 +54,7 @@ __all__ = [
     "CLI_TOOL_DEFINITION",
     "TOOL_CATEGORIES",
     "TOOL_DEFINITIONS",
+    "audited_call",
     "execute_tool",
     "finish_action",
     "invalidate_for_experiment",

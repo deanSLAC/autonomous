@@ -10,8 +10,8 @@ Everything the UI or Slack adapter needs goes through this module:
     subprocesses per session and posts replies back via Slack + WS.
   * passthroughs for the plan store and staff guidance.
 
-This module also owns the spec_cmd experiment-id setter so the tools
-layer never needs to write to its own context.
+This module also owns the experiment-id setter (`runtime_state`) so the
+tools layer never needs to write to its own context.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any, Callable, Optional
 
-from beamline_tools.spec_control import spec_cmd
+from orchestration import runtime_state
 from orchestration.agent.conversation import ConversationService
 from orchestration.agent.claude_code_client import ClaudeCodeClient
 from orchestration.agent.opencode_client import OpenCodeClient
@@ -87,13 +87,13 @@ def agent_reachable() -> bool:
 
 
 def current_experiment_id() -> Optional[str]:
-    """Convenience for UI callers that don't want to import beamline_tools.spec_control."""
-    return spec_cmd.get_experiment_id()
+    """Convenience for UI callers that don't want to import orchestration.runtime_state."""
+    return runtime_state.get_experiment_id()
 
 
 def set_active_experiment(experiment_id: str, phase: str = "setup") -> None:
     """Orchestration writes context that the tools layer reads."""
-    spec_cmd.set_phase(phase, experiment_id=experiment_id)
+    runtime_state.set_phase(phase, experiment_id=experiment_id)
 
 
 def get_conversation() -> Optional[ConversationService]:
@@ -145,7 +145,7 @@ def _build_chat_context_prefix(
     page: str | None = None,
     page_context: dict | None = None,
 ) -> str:
-    phase = spec_cmd.get_phase()
+    phase = runtime_state.get_phase()
     lines: list[str] = []
     if experiment_id:
         try:
@@ -176,10 +176,6 @@ def _build_chat_context_prefix(
             "fetch data relevant to this page when they ask about it."
         )
         lines.append("\n".join(ctx_lines))
-    lines.append(
-        "Forward phase moves go through the `transition_phase` tool; "
-        "preconditions gate every transition."
-    )
     return "\n\n".join(lines)
 
 
@@ -213,7 +209,7 @@ def orchestrator_snapshot() -> dict:
 
 def record_slack_guidance(text: str, staff_name: str, *, source: str = "slack") -> None:
     coordinator.record_guidance(
-        experiment_id=spec_cmd.get_experiment_id(),
+        experiment_id=runtime_state.get_experiment_id(),
         source=source, author=staff_name, text=text,
     )
 
@@ -245,7 +241,7 @@ def on_steering_message(
         "is_stop": is_stop,
     })
     add_steering(
-        experiment_id=spec_cmd.get_experiment_id(),
+        experiment_id=runtime_state.get_experiment_id(),
         source="slack-steering",
         author=author,
         text=text,
@@ -405,8 +401,11 @@ async def lifespan(app):
     set_orchestrator(orch)
     logger.info("Orchestrator initialized")
 
-    # 4. Autonomy callback wiring — intervention notifier + phase approval
-    #    channel. These read back into orchestration via `coordinator`.
+    # 4. Autonomy callback wiring — intervention notifier. The
+    #    phase-transition approval channel was removed along with the
+    #    backward-transition Slack flow; intervention notifications for
+    #    physical actions (crystal install, sample mount, etc.) still
+    #    flow through here.
     from beamline_tools.tool_catalog import tools as _tools_module
 
     async def _notify_intervention(intervention_id: str, detail: str) -> None:
@@ -416,15 +415,7 @@ async def lifespan(app):
             "detail": detail,
         })
 
-    async def _phase_approval_requester(kind: str, detail: str) -> dict:
-        return await coordinator.request_approval(
-            kind=kind, detail=detail,
-            experiment_id=spec_cmd.get_experiment_id(),
-            notify=_notify_intervention,
-        )
-
     _tools_module.set_intervention_notifier(_notify_intervention)
-    _tools_module.set_phase_approval_requester(_phase_approval_requester)
 
     # 5. Orchestrator polling tick — auto-respawn the planner after each
     #    new CollectionScan, redispatch deferred steering rows that named

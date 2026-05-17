@@ -1,18 +1,25 @@
-"""`spec_cmd` — whitelisted command dispatcher for SPEC.
+"""`spec_cmd` — primitive whitelisted command dispatcher for SPEC.
 
-Single entry point for *every* SPEC interaction the agent can perform.
-Implements the design from
-`design_handoff_autonomous_beamline_agent/needed-tools-for-autonomy.md`:
+Renders a registered command + args to its SPEC wire string, reserves
+the transport, dispatches, parses, releases. That's it. Knows nothing
+about phases, experiments, or the action_log.
 
-  * A hard allowlist of commands (no free-form strings).
-  * A phase gate (see spec/phase_allowlist.py).
-  * `action_log` write *before* SPEC injection; result written after.
-  * Read-only calls routed to `query_log` instead.
+The phase / experiment / audit-log concerns are layered on top by
+`beamline_tools.audited_call.audited_call`, which is what tool handlers
+normally use. Use `spec_cmd.call` directly only when you genuinely want
+the primitive (e.g. a transport-level health check that should not
+appear in the action_log).
+
+  * Hard allowlist of commands (no free-form strings).
+  * Read-only and action commands share a single `call()` entry point;
+    `command_kind()` reports the registered kind.
+
+Permission enforcement (which commands and motors each agent role may
+invoke) lives at the CLI layer in `scripts/beamtimehero` — see
+`AGENT_ROLES`, `agent_motor_allowed`, and the per-role argparse branch.
 
 The dispatcher is synchronous: each call blocks until the SPEC prompt
-returns (or the timeout fires). The FastAPI layer exposes a non-blocking
-submit + poll variant on top of this, but internal callers (orchestrator,
-smoke tests) can use this directly.
+returns (or the timeout fires).
 """
 
 from __future__ import annotations
@@ -25,15 +32,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from beamline_tools.action_log.db import (
-    finish_action,
-    log_query,
-    mark_action_started,
-    start_action,
-)
 from beamline_tools.config import SPEC_MOCK, SPEC_TRANSPORT
 from beamline_tools.spec_control import (
-    phase_allowlist,
     sandbox_client,
     screen_client,
     tcp_client,
@@ -169,8 +169,6 @@ class CommandSpec:
     result_parser: Callable[[str, list[str]], Any] = field(
         default=lambda out, args: {"raw": out}
     )
-    needs_motor_allow: bool = False
-    motor_arg_index: int = 0
     timeout_s: float = 1800.0
 
 
@@ -359,7 +357,8 @@ def _parse_wbeamsize(out: str, _a) -> dict:
     # Best-effort: a missing experiment / DB error must not break the read.
     if h_mm is not None or v_mm is not None:
         try:
-            xid = get_experiment_id()
+            from orchestration.runtime_state import get_experiment_id as _xid
+            xid = _xid()
             if xid:
                 from orchestration.plan_store.session import record_measured_beam_size
                 record_measured_beam_size(
@@ -471,19 +470,19 @@ _ACTION: dict[str, CommandSpec] = {
         "umv", "action",
         lambda a: f"umv {a[0]} {a[1]}",
         lambda o, a: {"motor": a[0], "target": float(a[1]), "raw": o},
-        needs_motor_allow=True, motor_arg_index=0, timeout_s=60,
+        timeout_s=60,
     ),
     "umvr": CommandSpec(
         "umvr", "action",
         lambda a: f"umvr {a[0]} {a[1]}",
         lambda o, a: {"motor": a[0], "delta": float(a[1]), "raw": o},
-        needs_motor_allow=True, motor_arg_index=0, timeout_s=60,
+        timeout_s=60,
     ),
     "mv": CommandSpec(
         "mv", "action",
         lambda a: f"mv {a[0]} {a[1]}",
         lambda o, a: {"motor": a[0], "target": a[1], "raw": o},
-        needs_motor_allow=True, motor_arg_index=0, timeout_s=30,
+        timeout_s=30,
     ),
     "ascan": CommandSpec(
         "ascan", "action",
@@ -492,7 +491,7 @@ _ACTION: dict[str, CommandSpec] = {
             "motor": a[0], "start": float(a[1]), "end": float(a[2]),
             "npoints": int(a[3]), "count_time": float(a[4]), "raw": o,
         },
-        needs_motor_allow=True, motor_arg_index=0, timeout_s=1800,
+        timeout_s=1800,
     ),
     "dscan": CommandSpec(
         "dscan", "action",
@@ -501,7 +500,7 @@ _ACTION: dict[str, CommandSpec] = {
             "motor": a[0], "delta_start": float(a[1]), "delta_end": float(a[2]),
             "npoints": int(a[3]), "count_time": float(a[4]), "raw": o,
         },
-        needs_motor_allow=True, motor_arg_index=0, timeout_s=1800,
+        timeout_s=1800,
     ),
     "d2scan": CommandSpec(
         "d2scan", "action",
@@ -511,7 +510,7 @@ _ACTION: dict[str, CommandSpec] = {
             "motor2": a[3], "delta_lo2": float(a[4]), "delta_hi2": float(a[5]),
             "npoints": int(a[6]), "count_time": float(a[7]), "raw": o,
         },
-        needs_motor_allow=True, motor_arg_index=0, timeout_s=1800,
+        timeout_s=1800,
     ),
     "cen": CommandSpec("cen", "action", lambda a: "cen", lambda o, a: {"raw": o}, timeout_s=30),
     "peak": CommandSpec("peak", "action", lambda a: "peak", lambda o, a: {"raw": o}, timeout_s=30),
@@ -775,23 +774,26 @@ def _render_align_xes(a: list[str]) -> str:
 # Dispatch
 # ---------------------------------------------------------------------------
 
-_PHASE_STATE: dict[str, Any] = {"phase": phase_allowlist.PHASE_SETUP, "experiment_id": None}
+def command_kind(command: str) -> Optional[str]:
+    """Return 'read'|'action' for a registered command, or None if unknown."""
+    if command in _READ:
+        return "read"
+    if command in _ACTION:
+        return "action"
+    return None
 
 
-def set_phase(phase: str, experiment_id: str | None = None) -> None:
-    if phase not in phase_allowlist.VALID_PHASES:
-        raise ValueError(f"unknown phase: {phase}")
-    _PHASE_STATE["phase"] = phase
-    if experiment_id:
-        _PHASE_STATE["experiment_id"] = experiment_id
+def render(command: str, args: list[str] | tuple[str, ...] | None) -> str:
+    """Render a registered command + args to its SPEC wire string.
 
-
-def get_phase() -> str:
-    return _PHASE_STATE["phase"]
-
-
-def get_experiment_id() -> Optional[str]:
-    return _PHASE_STATE.get("experiment_id")
+    Raises KeyError for unknown commands; the spec-side renderer may
+    raise other exceptions for bad argument shapes (e.g. shutter without
+    a subcommand).
+    """
+    spec = _READ.get(command) or _ACTION.get(command)
+    if spec is None:
+        raise KeyError(f"unknown command: {command}")
+    return spec.to_spec(list(args or []))
 
 
 def call(
@@ -799,17 +801,30 @@ def call(
     args: list[str] | tuple[str, ...] | None,
     justification: str = "",
     *,
-    agent: str = "llm",
-    experiment_id: str | None = None,
-    phase_override: str | None = None,
+    action_id: str | None = None,
 ) -> dict:
-    """Synchronously dispatch a spec_cmd call.
+    """Primitive SPEC dispatch — no audit, no phase, no experiment context.
 
-    Returns a dict: {"ok": bool, "action_id"?: str, "result"?: ..., "error"?: str, "kind": "read"|"action"}.
+    Renders the command, checks the SPEC-level safety switch, reserves
+    the transport, dispatches, parses, releases. The audit-log /
+    phase / experiment concerns are layered on by
+    `beamline_tools.audited_call.audited_call`, which is what tool
+    handlers normally use.
+
+    `justification` is forwarded as a SPEC-side `print` prefix so a
+    human watching the SPEC console sees why the command ran; this is
+    purely informational and not validated here. Action handlers
+    requiring a justification enforce that at the wrapper layer.
+
+    `action_id` is passed to `transport.reserve` for busy-state
+    tracking; supply a stable id (e.g. the action_log row id) when
+    available, otherwise a 'primitive' sentinel is used.
+
+    Returns: {"ok": bool, "kind": "read"|"action"|"unknown",
+              "result"?: dict, "output"?: str, "elapsed_s"?: float,
+              "error"?: str}
     """
     args_list = list(args or [])
-    phase = phase_override or get_phase()
-    exp_id = experiment_id or get_experiment_id()
 
     spec = _READ.get(command) or _ACTION.get(command)
     if spec is None:
@@ -823,73 +838,40 @@ def call(
         if safety_err:
             return {"ok": False, "kind": spec.kind, "error": safety_err}
 
-    # Phase gate
-    allowed, reason = phase_allowlist.command_allowed(phase, command)
-    if not allowed:
-        return {"ok": False, "kind": spec.kind, "error": reason}
-
-    # Motor allow
-    if spec.needs_motor_allow and len(args_list) > spec.motor_arg_index:
-        motor = args_list[spec.motor_arg_index]
-        if not phase_allowlist.motor_allowed(phase, motor):
-            return {
-                "ok": False, "kind": spec.kind,
-                "error": f"motor '{motor}' not on allowlist for phase '{phase}'",
-            }
-
-    # Render the SPEC string *before* logging (so we log exactly what we'll send).
+    # Render the SPEC string before reserving so a render failure
+    # doesn't leave the transport marked busy.
     try:
         spec_string = spec.to_spec(args_list)
     except Exception as e:
         return {"ok": False, "kind": spec.kind, "error": f"failed to render command: {e}"}
 
-    # ----- READ path: query_log only, no busy check ---------------------
+    reserve_id = action_id or "primitive"
+
+    # ----- READ path -----
     if spec.kind == "read":
-        t0 = time.time()
-        if not transport.reserve(action_id="query", command=command):
-            log_query(command, args_list, None, phase=phase, experiment_id=exp_id,
-                      error_message="SPEC busy")
+        if not transport.reserve(action_id=reserve_id, command=command):
             return {"ok": False, "kind": "read", "error": "SPEC is busy"}
         try:
             dr = dispatch(spec_string, timeout_s=spec.timeout_s)
         finally:
             transport.release(output=None, errored=False)
-        latency_ms = int((time.time() - t0) * 1000)
         if not dr.ok:
-            log_query(command, args_list, None, phase=phase, experiment_id=exp_id,
-                      error_message=dr.error, latency_ms=latency_ms)
-            return {"ok": False, "kind": "read", "error": dr.error}
+            return {"ok": False, "kind": "read", "error": dr.error, "output": dr.output}
         parsed = spec.result_parser(dr.output, args_list)
-        log_query(command, args_list, parsed, phase=phase, experiment_id=exp_id,
-                  latency_ms=latency_ms)
-        return {"ok": True, "kind": "read", "result": parsed}
+        return {"ok": True, "kind": "read", "result": parsed, "output": dr.output}
 
-    # ----- ACTION path: action_log BEFORE dispatch ----------------------
-    if not justification.strip():
-        return {"ok": False, "kind": "action", "error": "justification is required for action commands"}
-
-    row = start_action(
-        command=command,
-        args=args_list,
-        justification=justification,
-        phase=phase,
-        spec_string=spec_string,
-        experiment_id=exp_id,
-        agent=agent,
-    )
-
+    # ----- ACTION path -----
     # Special-case abort — send Ctrl-C instead of injecting a literal string.
     if command == "abort":
-        mark_action_started(row.id)
         ok = abort_current()
-        finish_action(row.id, success=ok, result={"aborted": ok})
-        return {"ok": ok, "kind": "action", "action_id": row.id}
+        return {
+            "ok": ok, "kind": "action",
+            "result": {"aborted": ok},
+        }
 
-    if not transport.reserve(action_id=row.id, command=command):
-        finish_action(row.id, success=False, error_message="SPEC is busy")
-        return {"ok": False, "kind": "action", "action_id": row.id, "error": "SPEC is busy"}
+    if not transport.reserve(action_id=reserve_id, command=command):
+        return {"ok": False, "kind": "action", "error": "SPEC is busy"}
 
-    mark_action_started(row.id)
     wire_string = _spec_print_prefix(justification) + spec_string
     try:
         dr: DispatchResult = dispatch(wire_string, timeout_s=spec.timeout_s)
@@ -897,36 +879,25 @@ def call(
         transport.release(output=None, errored=False)
 
     if not dr.ok:
-        finish_action(row.id, success=False, error_message=dr.error,
-                      screen_output=dr.output or "")
-        return {"ok": False, "kind": "action", "action_id": row.id, "error": dr.error}
+        return {
+            "ok": False, "kind": "action",
+            "error": dr.error, "output": dr.output or "",
+        }
 
     try:
         parsed = spec.result_parser(dr.output, args_list)
     except Exception as e:
         parsed = {"raw": dr.output, "parse_error": str(e)}
 
-    scan_number = None
-    if command in ("ascan", "dscan", "run_xas", "emiss_scan", "run_shortcut"):
-        # Best-effort scan-number capture
-        m = re.search(r"(?:scan[_ ]?n|scan)\s*=?\s*#?(\d+)", dr.output, re.IGNORECASE)
-        if m:
-            try:
-                scan_number = int(m.group(1))
-            except ValueError:
-                pass
     parsed["elapsed_s"] = dr.elapsed_s
     if dr.reply is not None:
         parsed["_reply"] = dr.reply
     if dr.transport:
         parsed["_transport"] = dr.transport
-    finish_action(
-        row.id, success=True, result=parsed,
-        screen_output=dr.output, scan_number=scan_number,
-    )
     return {
-        "ok": True, "kind": "action", "action_id": row.id,
-        "result": parsed, "elapsed_s": dr.elapsed_s,
+        "ok": True, "kind": "action",
+        "result": parsed, "output": dr.output,
+        "elapsed_s": dr.elapsed_s,
     }
 
 

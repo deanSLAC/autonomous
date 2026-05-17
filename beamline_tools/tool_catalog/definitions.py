@@ -874,30 +874,6 @@ AUTONOMY_TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
-            "name": "transition_phase",
-            "description": (
-                "Advance (or request to revert) the experiment phase. Preconditions "
-                "gate forward moves; backward moves go through Slack approval."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    **_J,
-                    "target_phase": {
-                        "type": "string",
-                        "enum": [
-                            "setup", "beamline_alignment", "xes_alignment",
-                            "sample_alignment", "collection", "complete",
-                        ],
-                    },
-                },
-                "required": ["justification", "target_phase"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "request_human_intervention",
             "description": (
                 "Pause the agent and ask a human to complete a physical action "
@@ -2199,7 +2175,7 @@ AUTONOMY_TOOL_CATEGORIES = [
     ("CAT-6 Beam", ["get_beam_size", "get_beam_status", "get_counts", "get_counter", "request_gap_ownership"]),
     ("CAT-7 State", ["get_element", "get_scan_number", "get_current_datafile", "get_plotselected_counter", "abort_current_scan"]),
     ("CAT-8 Orchestration", [
-        "transition_phase", "request_human_intervention", "post_status_update",
+        "request_human_intervention", "post_status_update",
         "log_status_assessment",
         "update_plan", "record_sample_progress", "get_plan",
         "get_experiment_config",

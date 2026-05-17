@@ -352,7 +352,7 @@ TOOL_LINEAGE: dict[str, dict] = {
         "output": "JSON: {ok, kind, action_id, result: {raw, elapsed_s}, elapsed_s}",
         "source": "spec_session",
         "source_detail": "Writes action_log row before SPEC dispatch; blocks until SPEC prompt returns.",
-        "depends_on": ["transition_phase"],
+        "depends_on": [],
     },
     "align_xes_spectrometer": {
         "long_description": (
@@ -365,7 +365,7 @@ TOOL_LINEAGE: dict[str, dict] = {
         "output": "JSON: {ok, kind, action_id, result: {crystals, raw, elapsed_s}, elapsed_s}",
         "source": "spec_session",
         "source_detail": "Gated to phase xes_alignment by the phase allow-list.",
-        "depends_on": ["align_beamline", "transition_phase"],
+        "depends_on": ["align_beamline"],
     },
     "run_sample_alignment": {
         "long_description": (
@@ -1089,19 +1089,6 @@ TOOL_LINEAGE: dict[str, dict] = {
 
     # ---------- Autonomy tools — CAT-8: orchestration (no SPEC) -------------
 
-    "transition_phase": {
-        "long_description": (
-            "Advance the experiment phase, or request a revert. "
-            "Forward moves are gated by machine-checked preconditions; "
-            "backward moves require a human approval posted to Slack."
-        ),
-        "python_func": "orchestrator.phase.transition_phase(experiment_id, target_phase, ...)",
-        "spec_command": None,
-        "output": "JSON: {allowed, previous_phase, current_phase, preconditions, reason}",
-        "source": "autonomy_db",
-        "source_detail": "Reads preconditions via action_log + planner snapshot; writes the new phase row.",
-        "depends_on": ["get_plan", "recent_actions"],
-    },
     "request_human_intervention": {
         "long_description": (
             "Pause the agent and ask a human to perform a physical "
@@ -1273,7 +1260,7 @@ TOOL_LINEAGE: dict[str, dict] = {
         "spec_command": None,
         "output": "JSON array: [{id, timestamp, phase, command, justification, success}, ...]",
         "source": "autonomy_db",
-        "source_detail": "Every spec_cmd.call() writes an action_log row.",
+        "source_detail": "Every audited_call() writes an action_log row.",
         "depends_on": [],
     },
     "set_sample_time_budget": {

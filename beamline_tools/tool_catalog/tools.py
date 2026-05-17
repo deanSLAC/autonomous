@@ -1,13 +1,14 @@
-"""Autonomy tool surface — wraps spec_cmd + planner + orchestration for the LLM.
+"""Autonomy tool surface — wraps audited_call + planner + orchestration for the LLM.
 
 Every tool here is exposed to the LLM via tools/definitions.py. Tools
-that invoke SPEC delegate to `spec.spec_cmd.call()` — which writes to
-`action_log` *before* dispatch. Tools that only touch the local DB / web
-state have no SPEC footprint.
+that invoke SPEC delegate to `audited_call()` — which looks up phase +
+experiment from `orchestration.runtime_state`, writes to `action_log`
+before dispatch, then calls into the `spec_cmd` primitive. Tools that
+only touch the local DB / web state have no SPEC footprint.
 
 A note on the `justification` argument: every SPEC-action tool (not
-read-only ones) requires a non-empty justification. The dispatcher
-refuses to run without it.
+read-only ones) requires a non-empty justification. The wrapper refuses
+to run without it.
 """
 
 from __future__ import annotations
@@ -22,11 +23,12 @@ matplotlib.use("Agg")
 import numpy as np
 
 from beamline_tools.action_log.db import recent_actions
-from beamline_tools.spec_control import phase_allowlist, spec_cmd
+from beamline_tools.audited_call import audited_call
 from beamline_tools.spec_data import scans as scan_data
 from beamline_tools.spec_data import plotting
 from beamline_tools.spec_data.plotting import fig_to_base64
 from beamline_tools.spec_logs import log_reader
+from orchestration import runtime_state
 
 # CAT-8 tools need the orchestration package. Import lazily so this
 # module still imports when `orchestration/` is absent (e.g. when
@@ -49,22 +51,16 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Injection point for the phase-transition approval channel.
+# Injection point for the intervention notifier (Slack/UI fanout).
 # Set by app.py at startup so this module has no direct Slack dependency.
 # ---------------------------------------------------------------------------
 
 _intervention_notifier = None
-_phase_approval_requester = None
 
 
 def set_intervention_notifier(fn) -> None:
     global _intervention_notifier
     _intervention_notifier = fn
-
-
-def set_phase_approval_requester(fn) -> None:
-    global _phase_approval_requester
-    _phase_approval_requester = fn
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +88,7 @@ def _refuse_rerun_if_already_done(command: str, human_name: str) -> Optional[str
         from beamline_tools.action_log.db import recent_actions
     except Exception:
         return None
-    experiment_id = spec_cmd.get_experiment_id()
+    experiment_id = runtime_state.get_experiment_id()
     if not experiment_id:
         return None
     try:
@@ -111,9 +107,8 @@ def _refuse_rerun_if_already_done(command: str, human_name: str) -> Optional[str
         "prior_action_id": prior.get("id"),
         "error": (
             f"{human_name} already succeeded for this experiment "
-            f"(action {prior.get('id')}). This macro is one-shot — "
-            "call transition_phase to move on. The operator can force "
-            "a re-run via the dashboard Reset button."
+            f"(action {prior.get('id')}). This macro is one-shot. "
+            "The operator can force a re-run via the dashboard Reset button."
         ),
     })
 
@@ -133,7 +128,7 @@ def t_align_beamline(args: dict) -> tuple[str, list[str]]:
         str(args.get("fine_x", 0)),
         str(args.get("fine_z", 0)),
     ]
-    res = spec_cmd.call("align_beamline", a, justification=justification)
+    res = audited_call("align_beamline", a, justification=justification)
     return _as_json(res), []
 
 
@@ -144,7 +139,7 @@ def t_align_xes(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
     crystals = str(args.get("crystals", "1234567"))
     a = [crystals, str(args.get("en_xes", 0)), str(args.get("en_mono", 0))]
-    res = spec_cmd.call("align_xes", a, justification=j)
+    res = audited_call("align_xes", a, justification=j)
     return _as_json(res), []
 
 
@@ -153,31 +148,31 @@ def t_auto_sample_align(args: dict) -> tuple[str, list[str]]:
     if refusal is not None:
         return refusal, []
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("auto_sample_align", [], justification=j)
+    res = audited_call("auto_sample_align", [], justification=j)
     return _as_json(res), []
 
 
 def t_run_collection(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("run_collection", [], justification=j)
+    res = audited_call("run_collection", [], justification=j)
     return _as_json(res), []
 
 
 def t_select_element(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("select_element", [str(args["element"])], justification=j)
+    res = audited_call("select_element", [str(args["element"])], justification=j)
     return _as_json(res), []
 
 
 def t_peak_mono_pitch(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("peak_mono_pitch", [], justification=j)
+    res = audited_call("peak_mono_pitch", [], justification=j)
     return _as_json(res), []
 
 
 def t_calibrate_mono(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("calibrate_mono", [str(args["tabulated_edge_ev"])], justification=j)
+    res = audited_call("calibrate_mono", [str(args["tabulated_edge_ev"])], justification=j)
     return _as_json(res), []
 
 
@@ -187,23 +182,23 @@ def t_calibrate_mono(args: dict) -> tuple[str, list[str]]:
 
 def t_move_motor(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("umv", [str(args["motor"]), str(args["position"])], justification=j)
+    res = audited_call("umv", [str(args["motor"]), str(args["position"])], justification=j)
     return _as_json(res), []
 
 
 def t_move_motor_relative(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("umvr", [str(args["motor"]), str(args["delta"])], justification=j)
+    res = audited_call("umvr", [str(args["motor"]), str(args["delta"])], justification=j)
     return _as_json(res), []
 
 
 def t_read_motor_position(args: dict) -> tuple[str, list[str]]:
-    res = spec_cmd.call("p_motor", [str(args["motor"])], justification="")
+    res = audited_call("p_motor", [str(args["motor"])], justification="")
     return _as_json(res), []
 
 
 def t_wa(args: dict) -> tuple[str, list[str]]:
-    res = spec_cmd.call("wa", [], justification="")
+    res = audited_call("wa", [], justification="")
     return _as_json(res), []
 
 
@@ -220,7 +215,7 @@ def t_run_motor_scan(args: dict) -> tuple[str, list[str]]:
         str(args["npoints"]),
         str(args["count_time"]),
     ]
-    res = spec_cmd.call("ascan", a, justification=j)
+    res = audited_call("ascan", a, justification=j)
     return _as_json(res), []
 
 
@@ -233,7 +228,7 @@ def t_run_motor_scan_relative(args: dict) -> tuple[str, list[str]]:
         str(args["npoints"]),
         str(args["count_time"]),
     ]
-    res = spec_cmd.call("dscan", a, justification=j)
+    res = audited_call("dscan", a, justification=j)
     return _as_json(res), []
 
 
@@ -241,16 +236,6 @@ def t_run_diagonal_scan(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
     motor1 = str(args["motor1"])
     motor2 = str(args["motor2"])
-    # Pre-validate motor2: the dispatcher's motor allow-check only sees
-    # args[motor_arg_index=0] (motor1). motor2 lives at args[3] in the
-    # rendered list, so we have to gate it here.
-    phase = spec_cmd.get_phase()
-    if phase != phase_allowlist.PHASE_UNRESTRICTED and \
-            not phase_allowlist.motor_allowed(phase, motor2):
-        return json.dumps({
-            "ok": False,
-            "error": f"motor '{motor2}' not on allowlist for phase '{phase}'",
-        }), []
     delta = args.get("delta")
     delta_lo_explicit = "delta_lo" in args
     delta_hi_explicit = "delta_hi" in args
@@ -270,7 +255,7 @@ def t_run_diagonal_scan(args: dict) -> tuple[str, list[str]]:
         motor2, str(delta_lo), str(delta_hi),
         str(args["npoints"]), str(args["count_time"]),
     ]
-    res = spec_cmd.call("d2scan", a, justification=j)
+    res = audited_call("d2scan", a, justification=j)
     return _as_json(res), []
 
 
@@ -280,7 +265,7 @@ def t_fit_emission_peak(args: dict) -> tuple[str, list[str]]:
     sn = args.get("scan_number")
     if sn is not None:
         a.append(str(int(sn)))
-    res = spec_cmd.call("get_HERFD_energy", a, justification=j)
+    res = audited_call("get_HERFD_energy", a, justification=j)
     return _as_json(res), []
 
 
@@ -288,7 +273,7 @@ def t_run_xas(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
     element = args.get("element")
     if element:
-        sel_res = spec_cmd.call("select_element", [str(element)], justification=j)
+        sel_res = audited_call("select_element", [str(element)], justification=j)
         if not sel_res.get("ok", True):
             return _as_json(sel_res), []
     cnt_sec = args.get("count_time")
@@ -301,7 +286,7 @@ def t_run_xas(args: dict) -> tuple[str, list[str]]:
         str(0 if emission is None else emission),
         str(-1 if nbr_filter is None else nbr_filter),
     ]
-    res = spec_cmd.call("run_xas", a, justification=j)
+    res = audited_call("run_xas", a, justification=j)
     return _as_json(res), []
 
 
@@ -314,7 +299,7 @@ def t_run_emiss_scan(args: dict) -> tuple[str, list[str]]:
         str(args["emission_ev"]),
         str(args.get("filter", 0)),
     ]
-    res = spec_cmd.call("emiss_scan", a, justification=j)
+    res = audited_call("emiss_scan", a, justification=j)
     return _as_json(res), []
 
 
@@ -324,7 +309,7 @@ def t_run_emiss_scan(args: dict) -> tuple[str, list[str]]:
 
 def t_mv_energy(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("mv_energy", [str(args["energy_ev"])], justification=j)
+    res = audited_call("mv_energy", [str(args["energy_ev"])], justification=j)
     return _as_json(res), []
 
 
@@ -333,19 +318,19 @@ def t_shutter(args: dict) -> tuple[str, list[str]]:
     a = [str(args["command"])]
     if "delay_s" in args:
         a.append(str(args["delay_s"]))
-    res = spec_cmd.call("shutter", a, justification=j)
+    res = audited_call("shutter", a, justification=j)
     return _as_json(res), []
 
 
 def t_set_filter(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("mv", ["filter", str(args["bitmask"])], justification=j)
+    res = audited_call("mv", ["filter", str(args["bitmask"])], justification=j)
     return _as_json(res), []
 
 
 def t_safely_remove_filters(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("safely_remove_filters", [], justification=j)
+    res = audited_call("safely_remove_filters", [], justification=j)
     return _as_json(res), []
 
 
@@ -355,7 +340,7 @@ def t_set_gain(args: dict) -> tuple[str, list[str]]:
     cmd = {"i0": "set_i0_gain", "i1": "set_i1_gain", "i2": "set_i2_gain"}.get(which)
     if not cmd:
         return json.dumps({"ok": False, "error": f"invalid gain channel: {which}"}), []
-    res = spec_cmd.call(cmd, [str(args["gain_setting"])], justification=j)
+    res = audited_call(cmd, [str(args["gain_setting"])], justification=j)
     return _as_json(res), []
 
 
@@ -366,19 +351,19 @@ def t_set_vortex_roi(args: dict) -> tuple[str, list[str]]:
         a = ["auto", str(args.get("channel", 1))]
     else:
         a = [str(args["channel"]), str(args["lo_ev"]), str(args["hi_ev"])]
-    res = spec_cmd.call("set_vortex_roi", a, justification=j)
+    res = audited_call("set_vortex_roi", a, justification=j)
     return _as_json(res), []
 
 
 def t_open_data_file(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("newfile", [str(args["filename"])], justification=j)
+    res = audited_call("newfile", [str(args["filename"])], justification=j)
     return _as_json(res), []
 
 
 def t_plotselect(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("plotselect", [str(args["counter"])], justification=j)
+    res = audited_call("plotselect", [str(args["counter"])], justification=j)
     return _as_json(res), []
 
 
@@ -395,7 +380,7 @@ def t_run_align_shortcut(args: dict) -> tuple[str, list[str]]:
     }
     if name not in allowed:
         return json.dumps({"ok": False, "error": f"shortcut '{name}' not allowed"}), []
-    res = spec_cmd.call("run_shortcut", [name], justification=j)
+    res = audited_call("run_shortcut", [name], justification=j)
     return _as_json(res), []
 
 
@@ -404,7 +389,7 @@ def t_post_scan_move(args: dict) -> tuple[str, list[str]]:
     mode = args["mode"]
     if mode not in ("cen", "peak"):
         return json.dumps({"ok": False, "error": "mode must be 'cen' or 'peak'"}), []
-    res = spec_cmd.call(mode, [], justification=j)
+    res = audited_call(mode, [], justification=j)
     return _as_json(res), []
 
 
@@ -414,25 +399,25 @@ def t_post_scan_move(args: dict) -> tuple[str, list[str]]:
 
 def t_mv_pinhole(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("mvpinhole", [], justification=j)
+    res = audited_call("mvpinhole", [], justification=j)
     return _as_json(res), []
 
 
 def t_mv_plastic(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("mvplastic", [], justification=j)
+    res = audited_call("mvplastic", [], justification=j)
     return _as_json(res), []
 
 
 def t_mv_knife_clear(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("mvknifeclear", [], justification=j)
+    res = audited_call("mvknifeclear", [], justification=j)
     return _as_json(res), []
 
 
 def t_mv_knife_out(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("mvknifewayout", [], justification=j)
+    res = audited_call("mvknifewayout", [], justification=j)
     return _as_json(res), []
 
 
@@ -440,37 +425,37 @@ def t_measure_beam_size(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
     mode_x = "1" if bool(args.get("small_x", False)) else "0"
     mode_z = "1" if bool(args.get("small_z", False)) else "0"
-    res = spec_cmd.call("measure_beam_size", [mode_x, mode_z], justification=j)
+    res = audited_call("measure_beam_size", [mode_x, mode_z], justification=j)
     return _as_json(res), []
 
 
 def t_zero_pinhole(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("zero_pinhole", [], justification=j)
+    res = audited_call("zero_pinhole", [], justification=j)
     return _as_json(res), []
 
 
 def t_small_beam(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("smallbeam", [], justification=j)
+    res = audited_call("smallbeam", [], justification=j)
     return _as_json(res), []
 
 
 def t_big_beam(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("bigbeam", [], justification=j)
+    res = audited_call("bigbeam", [], justification=j)
     return _as_json(res), []
 
 
 def t_xtal_align(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("xtalalign", [], justification=j)
+    res = audited_call("xtalalign", [], justification=j)
     return _as_json(res), []
 
 
 def t_reset_gap(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("reset_gap", [], justification=j)
+    res = audited_call("reset_gap", [], justification=j)
     return _as_json(res), []
 
 
@@ -478,18 +463,18 @@ def t_set_m2_stripe(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
     if "energy_ev" not in args:
         return json.dumps({"ok": False, "error": "'energy_ev' (number) is required"}), []
-    res = spec_cmd.call("m2_stripe", [str(args["energy_ev"])], justification=j)
+    res = audited_call("m2_stripe", [str(args["energy_ev"])], justification=j)
     return _as_json(res), []
 
 
 def t_get_anchor(args: dict) -> tuple[str, list[str]]:
-    res = spec_cmd.call("get_anchor", [], justification="")
+    res = audited_call("get_anchor", [], justification="")
     return _as_json(res), []
 
 
 def t_set_anchor(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("set_anchor", [], justification=j)
+    res = audited_call("set_anchor", [], justification=j)
     return _as_json(res), []
 
 
@@ -498,7 +483,7 @@ def t_tracking(args: dict) -> tuple[str, list[str]]:
     if "enabled" not in args:
         return json.dumps({"ok": False, "error": "'enabled' (boolean) is required"}), []
     flag = "1" if bool(args["enabled"]) else "0"
-    res = spec_cmd.call("tracking", [flag], justification=j)
+    res = audited_call("tracking", [flag], justification=j)
     return _as_json(res), []
 
 
@@ -507,24 +492,24 @@ def t_tracking(args: dict) -> tuple[str, list[str]]:
 # ===========================================================================
 
 def t_get_beam_size(args: dict) -> tuple[str, list[str]]:
-    res = spec_cmd.call("wbeamsize", [], justification="")
+    res = audited_call("wbeamsize", [], justification="")
     return _as_json(res), []
 
 
 def t_get_beam_status(args: dict) -> tuple[str, list[str]]:
-    res = spec_cmd.call("beam_status", [], justification="")
+    res = audited_call("beam_status", [], justification="")
     return _as_json(res), []
 
 
 def t_get_counts(args: dict) -> tuple[str, list[str]]:
     t = args.get("count_time", 1)
-    res = spec_cmd.call("ct", [str(t)], justification="")
+    res = audited_call("ct", [str(t)], justification="")
     return _as_json(res), []
 
 
 def t_get_counter(args: dict) -> tuple[str, list[str]]:
     t = args.get("count_time", 1)
-    res = spec_cmd.call("ct", [str(t)], justification="")
+    res = audited_call("ct", [str(t)], justification="")
     if res.get("ok") and "counters" in res.get("result", {}):
         name = args["counter"]
         counters = res["result"]["counters"]
@@ -538,7 +523,7 @@ def t_get_counter(args: dict) -> tuple[str, list[str]]:
 
 def t_request_gap_ownership(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("gaprequest", [], justification=j)
+    res = audited_call("gaprequest", [], justification=j)
     return _as_json(res), []
 
 
@@ -547,28 +532,28 @@ def t_request_gap_ownership(args: dict) -> tuple[str, list[str]]:
 # ===========================================================================
 
 def t_get_element(args: dict) -> tuple[str, list[str]]:
-    res = spec_cmd.call("p_element", [], justification="")
+    res = audited_call("p_element", [], justification="")
     return _as_json(res), []
 
 
 def t_get_scan_number(args: dict) -> tuple[str, list[str]]:
-    res = spec_cmd.call("scan_n", [], justification="")
+    res = audited_call("scan_n", [], justification="")
     return _as_json(res), []
 
 
 def t_get_current_datafile(args: dict) -> tuple[str, list[str]]:
-    res = spec_cmd.call("p_datafile", [], justification="")
+    res = audited_call("p_datafile", [], justification="")
     return _as_json(res), []
 
 
 def t_get_plotselected_counter(args: dict) -> tuple[str, list[str]]:
-    res = spec_cmd.call("plotselected", [], justification="")
+    res = audited_call("plotselected", [], justification="")
     return _as_json(res), []
 
 
 def t_abort_current_scan(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("abort", [], justification=j)
+    res = audited_call("abort", [], justification=j)
     return _as_json(res), []
 
 
@@ -576,80 +561,10 @@ def t_abort_current_scan(args: dict) -> tuple[str, list[str]]:
 # CAT-8 · Orchestration (no SPEC)
 # ===========================================================================
 
-def t_transition_phase(args: dict) -> tuple[str, list[str]]:
-    """Async tool — run on event loop if available, else new one."""
-    from orchestration.planner.loop import get_orchestrator
-    from orchestration.planner import phase as phase_mod
-
-    experiment_id = spec_cmd.get_experiment_id()
-    if not experiment_id:
-        return json.dumps({"allowed": False, "reason": "no active experiment"}), []
-
-    target = args["target_phase"]
-    j = (args.get("justification") or "").strip()
-    if not j:
-        return json.dumps({"allowed": False, "reason": "justification required"}), []
-
-    orch = get_orchestrator()
-    if orch is not None:
-        checker = orch.checker
-    else:
-        # Tool dispatch runs in a *subprocess* spawned by opencode; the
-        # Orchestrator singleton lives in the FastAPI parent and isn't
-        # reachable here. The PreconditionChecker's facts are
-        # in-memory, so the fresh subprocess starts blank.
-        checker = phase_mod.PreconditionChecker()
-        checker.record("experiment_id", experiment_id)
-        checker.record("beam_good", True)  # safe default; mock SPEC returns True anyway
-        try:
-            from orchestration.planner import planner as _planner
-            snap = _planner.snapshot(experiment_id)
-            checker.record("n_samples_configured", snap.samples_total)
-            checker.record("beamtime_remaining_hours", snap.beamtime_remaining_hours)
-        except Exception:
-            pass
-
-    # Always re-derive phase-completion facts from the action_log before
-    # checking. Even on the FastAPI-parent path, the successful
-    # align_beamline ran in a subprocess that couldn't touch `orch.checker`,
-    # so the in-memory flag is stale.
-    try:
-        phase_mod.seed_from_action_log(checker, experiment_id)
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("seed_from_action_log failed: %s", e)
-
-    async def _go():
-        return await phase_mod.transition_phase(
-            experiment_id=experiment_id,
-            target_phase=target,
-            justification=j,
-            checker=checker,
-            approval_requester=_phase_approval_requester,
-        )
-
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = None
-    if loop and loop.is_running():
-        result = asyncio.run_coroutine_threadsafe(_go(), loop).result(timeout=120)
-    else:
-        result = asyncio.run(_go())
-    return json.dumps({
-        "allowed": result.allowed,
-        "previous_phase": result.previous_phase,
-        "current_phase": result.current_phase,
-        "preconditions": result.preconditions,
-        "human_approval_required": result.human_approval_required,
-        "reason": result.reason,
-    }, indent=2), []
-
-
 def t_request_human_intervention(args: dict) -> tuple[str, list[str]]:
     kind = args["kind"]
     detail = args["detail"]
-    experiment_id = spec_cmd.get_experiment_id()
+    experiment_id = runtime_state.get_experiment_id()
 
     notify = _intervention_notifier or (lambda i, d: asyncio.sleep(0))
 
@@ -708,7 +623,7 @@ def t_log_status_assessment(args: dict) -> tuple[str, list[str]]:
     if not text:
         return json.dumps({"logged": False, "error": "text required"}), []
 
-    experiment_id = spec_cmd.get_experiment_id() or "unknown"
+    experiment_id = runtime_state.get_experiment_id() or "unknown"
     spawn: Optional[int] = None
     m = _re.search(r"\[STATUS ASSESSMENT\s*[—-]\s*spawn\s+(\d+)\]", text)
     if m:
@@ -727,7 +642,7 @@ def t_log_status_assessment(args: dict) -> tuple[str, list[str]]:
 
 
 def t_update_plan(args: dict) -> tuple[str, list[str]]:
-    experiment_id = spec_cmd.get_experiment_id()
+    experiment_id = runtime_state.get_experiment_id()
     if not experiment_id:
         return json.dumps({"ok": False, "error": "no active experiment"}), []
     new_plan = args.get("plan")
@@ -755,7 +670,7 @@ def t_update_plan(args: dict) -> tuple[str, list[str]]:
 
 
 def t_record_sample_progress(args: dict) -> tuple[str, list[str]]:
-    experiment_id = spec_cmd.get_experiment_id()
+    experiment_id = runtime_state.get_experiment_id()
     if not experiment_id:
         return json.dumps({"ok": False, "error": "no active experiment"}), []
     planner.record_sample_progress(
@@ -771,7 +686,7 @@ def t_record_sample_progress(args: dict) -> tuple[str, list[str]]:
 
 
 def t_record_convergence_stats(args: dict) -> tuple[str, list[str]]:
-    experiment_id = spec_cmd.get_experiment_id()
+    experiment_id = runtime_state.get_experiment_id()
     if not experiment_id:
         return json.dumps({"ok": False, "error": "no active experiment"}), []
     stats = args.get("stats")
@@ -789,7 +704,7 @@ def t_record_convergence_stats(args: dict) -> tuple[str, list[str]]:
 
 
 def t_get_plan(args: dict) -> tuple[str, list[str]]:
-    experiment_id = spec_cmd.get_experiment_id()
+    experiment_id = runtime_state.get_experiment_id()
     if not experiment_id:
         return json.dumps({"error": "no active experiment"}), []
     plan = get_plan(experiment_id)
@@ -809,7 +724,7 @@ def t_get_experiment_config(args: dict) -> tuple[str, list[str]]:
     )
     from orchestration.plan_store.session import get_session
 
-    experiment_id = spec_cmd.get_experiment_id()
+    experiment_id = runtime_state.get_experiment_id()
     if not experiment_id:
         return json.dumps({"error": "no active experiment"}), []
 
@@ -925,7 +840,7 @@ def t_get_remaining_beamtime(args: dict) -> tuple[str, list[str]]:
     """Hours from now until Experiment.end_time. Returns
     `{remaining_hours, end_time}` — or `{remaining_hours: null,
     end_time: null}` if the operator hasn't set an end time yet."""
-    experiment_id = spec_cmd.get_experiment_id()
+    experiment_id = runtime_state.get_experiment_id()
     if not experiment_id:
         return json.dumps({"error": "no active experiment"}), []
     snap = planner.snapshot(experiment_id)
@@ -995,24 +910,24 @@ def t_set_experiment_end_time(args: dict) -> tuple[str, list[str]]:
 
 
 def t_get_staff_guidance(args: dict) -> tuple[str, list[str]]:
-    experiment_id = spec_cmd.get_experiment_id()
+    experiment_id = runtime_state.get_experiment_id()
     rows = list_guidance(experiment_id, limit=int(args.get("limit", 20)))
     return _as_json(rows), []
 
 
 def t_list_open_interventions(args: dict) -> tuple[str, list[str]]:
-    experiment_id = spec_cmd.get_experiment_id()
+    experiment_id = runtime_state.get_experiment_id()
     return _as_json(list_open_interventions(experiment_id)), []
 
 
 def t_recent_actions(args: dict) -> tuple[str, list[str]]:
-    experiment_id = spec_cmd.get_experiment_id()
+    experiment_id = runtime_state.get_experiment_id()
     return _as_json(recent_actions(limit=int(args.get("limit", 20)),
                                    experiment_id=experiment_id)), []
 
 
 def _require_xid() -> str | None:
-    return spec_cmd.get_experiment_id() or None
+    return runtime_state.get_experiment_id() or None
 
 
 def _log_plan_edit_from_agent(experiment_id: str, action: str, *,
@@ -1226,7 +1141,7 @@ def t_get_scans_since_last_plan_update(args: dict) -> tuple[str, list[str]]:
     from orchestration.plan_store.client import get_plan as _gep
     from orchestration.plan_store.models import SamplePosition
 
-    experiment_id = (args.get("experiment_id") or spec_cmd.get_experiment_id() or "").strip()
+    experiment_id = (args.get("experiment_id") or runtime_state.get_experiment_id() or "").strip()
     if not experiment_id:
         return json.dumps({"ok": False, "error": "no active experiment"}), []
 
@@ -1279,7 +1194,7 @@ def t_get_scans_for_active_sample(args: dict) -> tuple[str, list[str]]:
     from orchestration.plan_store import session as _ps
     from orchestration.plan_store.models import SamplePosition
 
-    experiment_id = spec_cmd.get_experiment_id()
+    experiment_id = runtime_state.get_experiment_id()
     if not experiment_id:
         return json.dumps({"ok": False, "error": "no active experiment"}), []
 
@@ -1416,7 +1331,7 @@ def t_get_comprehensive_collection_plan(args: dict) -> tuple[str, list[str]]:
     from orchestration.plan_store.client import get_plan as _gep
     from orchestration.plan_store.models import SampleHolder, SamplePosition
 
-    experiment_id = spec_cmd.get_experiment_id()
+    experiment_id = runtime_state.get_experiment_id()
     if not experiment_id:
         return json.dumps({"ok": False, "error": "no active experiment"}), []
 
@@ -1603,9 +1518,9 @@ def t_record_completed_scan(args: dict) -> tuple[str, list[str]]:
     Resolves any unspecified args from the active context:
       * sample_id  → `_resolve_active_sample_id` (plan_json.active_sample_id
         or the lowest-queue-order non-done/skipped sample).
-      * scan_number → SPEC `p SCAN_N` via `spec_cmd.call("scan_n", ...)`.
+      * scan_number → SPEC `p SCAN_N` via `audited_call("scan_n", ...)`.
       * spec_datafile → SPEC `p DATAFILE` via
-        `spec_cmd.call("p_datafile", ...)`.
+        `audited_call("p_datafile", ...)`.
 
     The row is what makes the scan visible to plan_summary's recent_plots
     lookup and the Planner's convergence analysis. justification is
@@ -1621,7 +1536,7 @@ def t_record_completed_scan(args: dict) -> tuple[str, list[str]]:
     if not j:
         return json.dumps({"ok": False, "error": "justification required"}), []
 
-    experiment_id = spec_cmd.get_experiment_id()
+    experiment_id = runtime_state.get_experiment_id()
     if not experiment_id:
         return json.dumps({"ok": False, "error": "no active experiment"}), []
 
@@ -1636,7 +1551,7 @@ def t_record_completed_scan(args: dict) -> tuple[str, list[str]]:
 
     scan_number = args.get("scan_number")
     if scan_number is None:
-        res = spec_cmd.call("scan_n", [], justification="")
+        res = audited_call("scan_n", [], justification="")
         if isinstance(res, dict) and res.get("ok") and isinstance(res.get("result"), dict):
             sn_val = res["result"].get("value")
             if sn_val is not None:
@@ -1656,7 +1571,7 @@ def t_record_completed_scan(args: dict) -> tuple[str, list[str]]:
 
     spec_datafile = (args.get("spec_datafile") or "").strip() or None
     if not spec_datafile:
-        res = spec_cmd.call("p_datafile", [], justification="")
+        res = audited_call("p_datafile", [], justification="")
         if isinstance(res, dict) and res.get("ok") and isinstance(res.get("result"), dict):
             df = res["result"].get("datafile") or res["result"].get("raw")
             if df:
@@ -2376,7 +2291,6 @@ DISPATCH: dict[str, callable] = {
     "get_plotselected_counter": t_get_plotselected_counter,
     "abort_current_scan": t_abort_current_scan,
     # CAT-8
-    "transition_phase": t_transition_phase,
     "request_human_intervention": t_request_human_intervention,
     "post_status_update": t_post_status_update,
     "log_status_assessment": t_log_status_assessment,

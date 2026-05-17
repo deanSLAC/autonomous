@@ -4,16 +4,16 @@ The autonomous outer-loop ("Orchestrator drives the whole run") was retired
 when the dashboard switched to per-phase tile launchers — every phase now
 spawns its own Claude-CLI subprocess and there is no master cadence to run
 turns from. The Orchestrator *singleton* still exists, however, because
-several tools reach back into it from a subprocess context:
+a couple of tools reach back into it from a subprocess context:
 
-  * `transition_phase` reads/writes `orch.checker` (PreconditionChecker)
   * `post_status_update` calls `orch.slack_status_post(text)`
   * the chat router resolves the active experiment via
     `orch.state.experiment_id`
 
 So we keep a pared-down container with `state` (current experiment,
-last-summary cache for the dashboard pill), a checker, and the Slack
-status callback. start/pause/resume/stop/_run_forever are gone.
+last-summary cache for the dashboard pill) and the Slack status
+callback. start/pause/resume/stop/_run_forever are gone, and the
+precondition gating layer that used to live here is gone too.
 """
 
 from __future__ import annotations
@@ -23,10 +23,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
+from orchestration import runtime_state
 from orchestration.agent.conversation import ConversationService
 from orchestration.planner import planner
-from orchestration.planner.phase import PreconditionChecker
-from beamline_tools.spec_control import spec_cmd
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +69,6 @@ class Orchestrator:
             slack_post_steering_reply or (lambda c, t, s: None)
         )
         self.state = OrchestratorState()
-        self.checker = PreconditionChecker()
 
     def snapshot(self) -> dict:
         snap = None
@@ -90,7 +88,7 @@ class Orchestrator:
             "experiment_id": self.state.experiment_id,
             "turn_count": self.state.turn_count,
             "last_turn_at": self.state.last_turn_at,
-            "phase": spec_cmd.get_phase(),
+            "phase": runtime_state.get_phase(),
             "last_summary": self.state.last_summary,
             "plan_snapshot": snap,
             "obs_status": obs_status,

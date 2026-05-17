@@ -1425,14 +1425,6 @@ const INTERVENTION_KINDS = {
             "Take gap ownership for this hutch, then click “Done " +
             "— continue”.",
     },
-    backward_transition: {
-        level: "warning",
-        icon: "↶",
-        title: "Agent wants to redo a previous phase",
-        instruction:
-            "The agent is asking to go back a phase. Approve only if " +
-            "you agree with the reason given below.",
-    },
     system_issue: {
         level: "warning",
         icon: "⚠",

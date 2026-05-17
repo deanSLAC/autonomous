@@ -1,9 +1,9 @@
 """End-to-end smoke test for the autonomous beamline agent.
 
-Runs in SPEC_MOCK mode (no real SPEC required). Walks through the phase
-state machine exercising: spec_cmd dispatch, action_log writes, phase
-transitions with preconditions, pause-for-human intervention resolution,
-and plan/budget tracking.
+Runs in SPEC_MOCK mode (no real SPEC required). Walks through: phase
+state (runtime_state + ExperimentPlan write-through), audited_call
+dispatch with action_log writes, staff guidance + intervention
+resolution, plan/budget tracking.
 
 Run from the repo root:
 
@@ -14,10 +14,8 @@ Run from the repo root:
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import sys
-import tempfile
 from pathlib import Path
 
 os.environ.setdefault("SPEC_MOCK", "1")
@@ -39,6 +37,28 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(ROOT))
 
+# Flip the SPEC-write safety switch on for the duration of this run, then
+# restore. The committed default is `spec_write_enabled: false` (deploy
+# safety); the smoke test needs writes for its mock round-trip.
+import atexit  # noqa: E402
+import json  # noqa: E402
+_SAFETY = ROOT / "beamline_tools" / "safety_switches.json"
+_ORIG_SAFETY = _SAFETY.read_text() if _SAFETY.exists() else None
+if _ORIG_SAFETY is not None:
+    _SAFETY.write_text(json.dumps(
+        {"spec_read_enabled": True, "spec_write_enabled": True},
+        indent=2,
+    ) + "\n")
+
+    def _restore_safety_switches() -> None:
+        try:
+            _SAFETY.write_text(_ORIG_SAFETY)
+        except Exception:
+            pass
+
+    atexit.register(_restore_safety_switches)
+
+from orchestration import runtime_state  # noqa: E402
 from orchestration.plan_store import init_db  # noqa: E402
 from orchestration.plan_store.session import (  # noqa: E402
     create_experiment,
@@ -50,9 +70,9 @@ from orchestration.plan_store.client import (  # noqa: E402
     get_plan,
 )
 from orchestration.planner import planner  # noqa: E402
-from orchestration.planner.phase import PreconditionChecker, transition_phase  # noqa: E402
 from orchestration.planner.staff_guidance import coordinator  # noqa: E402
-from beamline_tools.spec_control import phase_allowlist, spec_cmd  # noqa: E402
+from beamline_tools.audited_call import audited_call  # noqa: E402
+from beamline_tools.spec_control import phase_allowlist  # noqa: E402
 from beamline_tools.action_log.db import recent_actions  # noqa: E402
 
 
@@ -96,11 +116,11 @@ async def run() -> None:
             sx_del=0.1, sy_del=0.1, sz_del=0.05,
             total_spots=1, enabled=True, do_xas=True, xas_reps=3,
         )
-    spec_cmd.set_phase(phase_allowlist.PHASE_SETUP, experiment_id=exp.id)
-    assert_true(spec_cmd.get_experiment_id() == exp.id, "spec_cmd tracks experiment id")
+    runtime_state.set_phase(phase_allowlist.PHASE_SETUP, experiment_id=exp.id)
+    assert_true(runtime_state.get_experiment_id() == exp.id, "runtime_state tracks experiment id")
 
     banner("build plan")
-    plan = planner.build_initial_plan(exp.id, beamtime_hours=6.0)
+    planner.build_initial_plan(exp.id, beamtime_hours=6.0)
     # End-time is now the budget source-of-truth: set 6h from now and
     # confirm the snapshot derives ~6 remaining.
     from datetime import datetime as _dt, timedelta as _td
@@ -113,46 +133,49 @@ async def run() -> None:
         f"end_time-driven remaining ≈ 6h (got {snap.beamtime_remaining_hours:.3f})",
     )
 
-    banner("phase: setup -> beamline_alignment")
-    checker = PreconditionChecker()
-    checker.record("experiment_id", exp.id)
-    checker.record("beam_good", True)
-    checker.record("n_samples_configured", snap.samples_total)
-    r = await transition_phase(exp.id, phase_allowlist.PHASE_BL_ALIGN,
-                               "beginning alignment", checker)
-    assert_true(r.allowed, "setup -> beamline_alignment allowed")
-    assert_true(spec_cmd.get_phase() == phase_allowlist.PHASE_BL_ALIGN, "phase updated")
+    banner("phase: set_phase writes through to ExperimentPlan.phase")
+    runtime_state.set_phase(phase_allowlist.PHASE_BL_ALIGN, experiment_id=exp.id)
+    assert_true(
+        runtime_state.get_phase() == phase_allowlist.PHASE_BL_ALIGN,
+        "in-memory phase updated",
+    )
+    persisted = get_plan(exp.id) or {}
+    assert_true(
+        persisted.get("phase") == phase_allowlist.PHASE_BL_ALIGN,
+        "ExperimentPlan.phase write-through",
+    )
 
-    banner("spec_cmd: read (wa) — allowed any phase")
-    w = spec_cmd.call("wa", [], justification="")
+    banner("audited_call: read (wa)")
+    w = audited_call("wa", [], justification="")
     assert_true(w.get("ok") and "positions" in w["result"], "wa returned parsed positions")
 
-    banner("spec_cmd: action without justification rejected")
-    bad = spec_cmd.call("umv", ["m1vert", "1.93"], justification="")
+    banner("audited_call: action without justification rejected")
+    bad = audited_call("umv", ["m1vert", "1.93"], justification="")
     assert_true(not bad.get("ok"), "missing justification rejected")
 
-    banner("spec_cmd: action with justification, allowed motor, action_log written")
-    ok = spec_cmd.call(
+    banner("audited_call: action with justification, action_log written")
+    ok = audited_call(
         "umv", ["m1vert", "1.93"],
         justification="smoke test moving m1vert to mocked nominal",
     )
     assert_true(ok.get("ok") and ok.get("action_id"), "umv m1vert dispatched and logged")
 
-    banner("spec_cmd: action with motor off-allowlist rejected")
-    bad2 = spec_cmd.call("umv", ["Ax1", "0"], justification="try illegal")
-    assert_true(not bad2.get("ok"), "Ax1 rejected in beamline_alignment phase (XES-only motor)")
+    # Motor/role allowlist enforcement lives at the CLI layer
+    # (scripts/beamtimehero per-role argparse branch), not in audited_call.
+    # See scripts/unit_test_spec_tools.py or the CLI integration tests
+    # for per-role motor rejection coverage.
 
     banner("procedural: align_beamline succeeds in mock")
-    res = spec_cmd.call("align_beamline", ["0", "0", "0", "0"],
+    res = audited_call("align_beamline", ["0", "0", "0", "0"],
                        justification="run full alignment")
     assert_true(res.get("ok"), "align_beamline ran in mock")
-    checker.record("align_beamline_ok", True)
-    checker.record("calibrate_mono_residual_ev", 0.05)
 
-    banner("phase gate: sample_alignment requires samples aligned")
-    r2 = await transition_phase(exp.id, phase_allowlist.PHASE_SAMPLE_ALIGN,
-                                "move to sample alignment", checker)
-    assert_true(r2.allowed, "bl_align -> sample_alignment allowed after preconds")
+    banner("phase: advance to sample_alignment (plain setter, no gating)")
+    runtime_state.set_phase(phase_allowlist.PHASE_SAMPLE_ALIGN, experiment_id=exp.id)
+    assert_true(
+        runtime_state.get_phase() == phase_allowlist.PHASE_SAMPLE_ALIGN,
+        "phase advanced",
+    )
 
     banner("staff guidance + intervention pause")
     coordinator.record_guidance(
@@ -176,21 +199,13 @@ async def run() -> None:
     assert_true(notify_flag["fired"], "intervention notifier fired")
     assert_true(outcome["status"] == "resolved", "intervention resolved")
 
-    banner("backward transition denied without approver")
-    r_back = await transition_phase(
-        exp.id, phase_allowlist.PHASE_BL_ALIGN,
-        "try to go back", checker, approval_requester=None,
-    )
-    assert_true(not r_back.allowed, "backward without channel is denied")
-
-    banner("backward transition approved via stub requester")
-    async def approver(kind, detail):
-        return {"status": "approved", "resolver": "stub"}
-    r_back2 = await transition_phase(
-        exp.id, phase_allowlist.PHASE_BL_ALIGN,
-        "retry with approver", checker, approval_requester=approver,
-    )
-    assert_true(r_back2.allowed, "backward with approver succeeds")
+    banner("phase: unknown slug is rejected")
+    try:
+        runtime_state.set_phase("not-a-real-phase", experiment_id=exp.id)
+        rejected = False
+    except ValueError:
+        rejected = True
+    assert_true(rejected, "set_phase('not-a-real-phase') raises ValueError")
 
     banner("plan update + sample progress")
     plan_dict = get_plan(exp.id) or {}

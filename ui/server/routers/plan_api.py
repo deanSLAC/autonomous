@@ -20,9 +20,9 @@ from orchestration.plan_store.client import (
     get_plan,
     log_plan_edit,
 )
+from orchestration import runtime_state
 from orchestration.plan_store.session import get_experiment
 from orchestration.planner import planner
-from beamline_tools.spec_control import spec_cmd
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/plan", tags=["plan"])
@@ -34,7 +34,7 @@ def _pick_author(body: dict) -> str:
 
 
 def _require_experiment(experiment_id: str | None) -> str:
-    xid = experiment_id or spec_cmd.get_experiment_id()
+    xid = experiment_id or runtime_state.get_experiment_id()
     if not xid:
         raise HTTPException(400, "experiment_id required (or start an experiment first)")
     if get_experiment(xid) is None:

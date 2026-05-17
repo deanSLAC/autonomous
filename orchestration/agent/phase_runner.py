@@ -277,16 +277,37 @@ def start(slug: str, *, seed_text: Optional[str] = None,
     # scoped. Lazy import — phase_runner is loaded at orchestration startup
     # before spec_cmd is wired in some test contexts.
     try:
-        from beamline_tools.spec_control import spec_cmd
-        experiment_id = spec_cmd.get_experiment_id()
+        from orchestration import runtime_state
+        experiment_id = runtime_state.get_experiment_id()
     except Exception:  # noqa: BLE001
         experiment_id = None
 
     kickoff = seed_text or _default_seed(slug)
 
     with _lock:
-        if slug in _slots and _slots[slug].proc.poll() is None:
-            raise ValueError(f"phase agent for {slug!r} already running")
+        # One phase agent at a time among the SPEC-touching phase tiles.
+        # The planner runs continuously alongside whichever phase agent
+        # is active (it reads plan_store + nudges the queue, never sends
+        # SPEC commands), so it is excluded from this mutual-exclusion
+        # check on both sides: starting the planner doesn't care what
+        # else is running, and starting another phase doesn't care if
+        # the planner is up.
+        if slug != "planner":
+            for other_slug, other_slot in _slots.items():
+                if other_slug == "planner":
+                    continue
+                if other_slot.proc.poll() is None:
+                    if other_slug == slug:
+                        raise ValueError(f"phase agent for {slug!r} already running")
+                    raise ValueError(
+                        f"another phase agent is already running ({other_slug!r}); "
+                        f"kill it before starting {slug!r}"
+                    )
+        else:
+            # Planner: only refuse if the planner itself is already up.
+            existing = _slots.get("planner")
+            if existing is not None and existing.proc.poll() is None:
+                raise ValueError("phase agent for 'planner' already running")
 
         # Pre-create the AgentRun so we can pass run_id into env before Popen.
         row = agent_runs.create_run(

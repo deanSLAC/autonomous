@@ -17,6 +17,7 @@ from orchestration.plan_store.client import (
     list_guidance,
     list_phase_transitions,
 )
+from orchestration import runtime_state
 from orchestration.plan_store.session import get_session, get_experiment, get_phase_runs_for_experiment
 from orchestration.plan_store.models import (
     Experiment,
@@ -26,7 +27,6 @@ from orchestration.plan_store.models import (
     SampleHolder,
     SamplePosition,
 )
-from beamline_tools.spec_control import spec_cmd
 
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -133,7 +133,7 @@ def status(experiment_id: str = Query(...)):
             scan_aggs[r.id]["scan_count"] = count
 
     plan = get_plan(experiment_id) or {}
-    current_phase = spec_cmd.get_phase()
+    current_phase = runtime_state.get_phase()
     return {
         "experiment": {
             "id": exp.id, "name": exp.name, "experimenter": exp.experimenter,

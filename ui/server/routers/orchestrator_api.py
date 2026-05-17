@@ -19,7 +19,8 @@ from orchestration.plan_store.client import get_intervention
 from orchestration.agent.opencode_client import OpenCodeClient
 from orchestration.planner.loop import get_orchestrator
 from orchestration.planner.staff_guidance import coordinator
-from beamline_tools.spec_control import spec_cmd
+from beamline_tools.audited_call import audited_call
+from orchestration import runtime_state
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/orchestrator", tags=["orchestrator"])
@@ -49,9 +50,9 @@ def status():
     """Read-only snapshot for the dashboard.
 
     The Orchestrator class is still wired up at startup so tools that
-    look up `get_orchestrator()` (e.g. transition_phase preconditions,
-    post_status_update) keep working — but it no longer drives a
-    multi-phase loop, so `running`/`paused` are advisory.
+    look up `get_orchestrator()` (e.g. post_status_update) keep working
+    — but it no longer drives a multi-phase loop, so `running`/`paused`
+    are advisory.
     """
     reachable = _agent_reachable()
     orch = get_orchestrator()
@@ -76,7 +77,7 @@ async def submit_guidance(payload: dict):
     if not text:
         raise HTTPException(400, "text required")
     author = (payload.get("author") or "web-user").strip()
-    experiment_id = payload.get("experiment_id") or spec_cmd.get_experiment_id()
+    experiment_id = payload.get("experiment_id") or runtime_state.get_experiment_id()
     coordinator.record_guidance(
         experiment_id=experiment_id, source="web", author=author, text=text,
     )
@@ -97,24 +98,13 @@ async def resolve_intervention(intervention_id: str, payload: dict):
     return {"ok": True, "status": status}
 
 
-@router.post("/phase")
-async def force_phase(payload: dict):
-    """Operator override — set the active phase directly (no agent loop involved)."""
-    target = payload.get("phase")
-    if not target:
-        raise HTTPException(400, "phase required")
-    experiment_id = payload.get("experiment_id") or spec_cmd.get_experiment_id()
-    spec_cmd.set_phase(target, experiment_id=experiment_id)
-    return {"ok": True, "phase": spec_cmd.get_phase()}
-
-
 @router.post("/abort_spec")
 def abort_spec():
     """Issue a ctrl-C to SPEC — equivalent to the agent's
     `abort_current_scan` tool. Useful regardless of which phase agent
     (if any) is currently running."""
     try:
-        res = spec_cmd.call("abort", [], justification="ui:stop-spec-button")
+        res = audited_call("abort", [], justification="ui:stop-spec-button")
     except Exception as e:
         raise HTTPException(500, f"abort failed: {e}")
     return {"ok": True, "result": res}

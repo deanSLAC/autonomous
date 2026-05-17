@@ -506,7 +506,7 @@ class InterventionRequest(SQLModel, table=True):
     experiment_id: Optional[str] = Field(default=None, foreign_key="experiment.id", index=True)
     created_at: datetime = Field(default_factory=datetime.now, index=True)
     resolved_at: Optional[datetime] = None
-    kind: str = Field(index=True)  # "crystal_install" | "sample_mount" | "foil_insert" | "backward_transition" | "gap_ownership" | "custom"
+    kind: str = Field(index=True)  # "crystal_install" | "sample_mount" | "foil_insert" | "gap_ownership" | "custom"
     detail: str
     status: str = Field(default="waiting", index=True)  # waiting | resolved | denied | timed_out
     resolver: Optional[str] = None

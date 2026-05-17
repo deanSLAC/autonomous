@@ -7,7 +7,7 @@ checks that each one produces the expected SPEC command on the wire.
 
 Scope: only tools whose `TOOL_LINEAGE` entry has a non-None
 `spec_command` — i.e., tools that actually send a SPEC command. Pure
-orchestration tools (transition_phase, recent_actions, etc.) are
+orchestration tools (recent_actions, update_plan, etc.) are
 deliberately out of scope; the user asked us not to touch that layer.
 
 For each tool we:
@@ -61,12 +61,34 @@ os.environ.setdefault("ORCHESTRATION_DB_PATH", str(_DB))
 
 sys.path.insert(0, str(ROOT))
 
+# Flip the SPEC-write safety switch on for the duration of this run, then
+# restore. Committed default is `spec_write_enabled: false` (deploy safety);
+# unit tests need writes for their mock round-trip.
+import atexit  # noqa: E402
+import json as _json  # noqa: E402
+_SAFETY = ROOT / "beamline_tools" / "safety_switches.json"
+_ORIG_SAFETY = _SAFETY.read_text() if _SAFETY.exists() else None
+if _ORIG_SAFETY is not None:
+    _SAFETY.write_text(_json.dumps(
+        {"spec_read_enabled": True, "spec_write_enabled": True},
+        indent=2,
+    ) + "\n")
+
+    def _restore_safety_switches() -> None:
+        try:
+            _SAFETY.write_text(_ORIG_SAFETY)
+        except Exception:
+            pass
+
+    atexit.register(_restore_safety_switches)
+
 from orchestration.plan_store import init_db  # noqa: E402
 from orchestration.plan_store.session import create_experiment  # noqa: E402
 from beamline_tools.spec_control import phase_allowlist, spec_cmd  # noqa: E402
 from beamline_tools.spec_control.transport import _MockScreen  # noqa: E402
 from beamline_tools.tool_catalog.tools import DISPATCH  # noqa: E402
 from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE  # noqa: E402
+from orchestration import runtime_state  # noqa: E402
 
 
 # ---- Dispatch recorder -----------------------------------------------------
@@ -492,7 +514,7 @@ def run_case(case: Case) -> None:
         return
 
     if case.phase is not None:
-        spec_cmd.set_phase(case.phase)
+        runtime_state.set_phase(case.phase)
 
     _reset_recorder()
     try:
@@ -591,7 +613,7 @@ def main() -> int:
         mono_crystal="A", beam_size_h="focused", beam_size_v="focused",
         sample_env="ambient",
     )
-    spec_cmd.set_phase(phase_allowlist.PHASE_BL_ALIGN, experiment_id=exp.id)
+    runtime_state.set_phase(phase_allowlist.PHASE_BL_ALIGN, experiment_id=exp.id)
 
     print(f"DB       : {os.environ['AUTONOMOUS_DB_PATH']}")
     print(f"SPEC_MOCK: {os.environ.get('SPEC_MOCK')}")
