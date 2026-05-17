@@ -51,7 +51,7 @@ autonomous/
 │   ├── spec/                     # NEW — spec_cmd endpoint + screen client
 │   │   ├── spec_cmd.py           # whitelist dispatch + phase gate
 │   │   ├── screen_client.py      # screen inject + prompt-detect poll
-│   │   └── phase_allowlist.py    # motor allowlists per phase
+│   │   └── phases.py             # phase constants + agent-role allowlists
 │   ├── action_log/               # NEW — sqlite action logging
 │   │   ├── db.py                 # sqlite schema + writer
 │   │   └── models.py             # pydantic shapes
@@ -87,7 +87,7 @@ Fixed sequence. Agent advances via `transition_phase(target, justification)`. Ba
 setup → beamline_alignment → [xes_alignment] → sample_alignment → collection → complete
 ```
 
-Motor allowlist gate per phase (full table in spec). Enforced in `spec/phase_allowlist.py`, consulted by `spec_cmd` before dispatch.
+Motor allowlist gate per phase (full table in spec). Enforced in `spec/phases.py`, consulted by `spec_cmd` before dispatch.
 
 ## Agent tool surface
 

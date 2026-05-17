@@ -60,7 +60,7 @@ autonomous/
 │   │   ├── executor.py             merged dispatcher
 │   │   └── cli.py                  CLI-mode progressive discovery
 │   ├── spec/
-│   │   ├── phase_allowlist.py     per-phase motor allowlists
+│   │   ├── phases.py              phase constants + agent-role motor allowlists
 │   │   ├── screen_client.py       GNU-screen SPEC injection + prompt-poll + mock
 │   │   └── spec_cmd.py            whitelisted dispatcher with action_log
 │   ├── action_log/

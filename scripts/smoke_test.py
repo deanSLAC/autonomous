@@ -72,7 +72,7 @@ from orchestration.plan_store.client import (  # noqa: E402
 from orchestration.planner import planner  # noqa: E402
 from orchestration.planner.staff_guidance import coordinator  # noqa: E402
 from beamline_tools.audited_call import audited_call  # noqa: E402
-from beamline_tools.spec_control import phase_allowlist  # noqa: E402
+from beamline_tools.spec_control import phases  # noqa: E402
 from beamline_tools.action_log.db import recent_actions  # noqa: E402
 
 
@@ -116,7 +116,7 @@ async def run() -> None:
             sx_del=0.1, sy_del=0.1, sz_del=0.05,
             total_spots=1, enabled=True, do_xas=True, xas_reps=3,
         )
-    runtime_state.set_phase(phase_allowlist.PHASE_SETUP, experiment_id=exp.id)
+    runtime_state.set_phase(phases.PHASE_SETUP, experiment_id=exp.id)
     assert_true(runtime_state.get_experiment_id() == exp.id, "runtime_state tracks experiment id")
 
     banner("build plan")
@@ -134,14 +134,14 @@ async def run() -> None:
     )
 
     banner("phase: set_phase writes through to ExperimentPlan.phase")
-    runtime_state.set_phase(phase_allowlist.PHASE_BL_ALIGN, experiment_id=exp.id)
+    runtime_state.set_phase(phases.PHASE_BL_ALIGN, experiment_id=exp.id)
     assert_true(
-        runtime_state.get_phase() == phase_allowlist.PHASE_BL_ALIGN,
+        runtime_state.get_phase() == phases.PHASE_BL_ALIGN,
         "in-memory phase updated",
     )
     persisted = get_plan(exp.id) or {}
     assert_true(
-        persisted.get("phase") == phase_allowlist.PHASE_BL_ALIGN,
+        persisted.get("phase") == phases.PHASE_BL_ALIGN,
         "ExperimentPlan.phase write-through",
     )
 
@@ -171,9 +171,9 @@ async def run() -> None:
     assert_true(res.get("ok"), "align_beamline ran in mock")
 
     banner("phase: advance to sample_alignment (plain setter, no gating)")
-    runtime_state.set_phase(phase_allowlist.PHASE_SAMPLE_ALIGN, experiment_id=exp.id)
+    runtime_state.set_phase(phases.PHASE_SAMPLE_ALIGN, experiment_id=exp.id)
     assert_true(
-        runtime_state.get_phase() == phase_allowlist.PHASE_SAMPLE_ALIGN,
+        runtime_state.get_phase() == phases.PHASE_SAMPLE_ALIGN,
         "phase advanced",
     )
 

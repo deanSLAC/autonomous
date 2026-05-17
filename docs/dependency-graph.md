@@ -72,12 +72,12 @@ only through the `orchestration.api` facade (plus tool catalog for `/api/tools`)
 
 | Module | Depends on | Purpose |
 |---|---|---|
-| `spec_control/spec_cmd.py` | action_log/db, transport, phase_allowlist, config | Command dispatcher: allowlist, phase gate, action_log write, dispatch |
+| `spec_control/spec_cmd.py` | action_log/db, transport, phases, config | Command dispatcher: allowlist, phase gate, action_log write, dispatch |
 | `spec_control/transport.py` | (none) | DispatchResult, _MockScreen (in-memory SPEC simulator) |
 | `spec_control/tcp_client.py` | transport | TCP socket transport to live SPEC |
 | `spec_control/screen_client.py` | transport | GNU Screen transport (legacy) |
 | `spec_control/sandbox_client.py` | transport | HTTP sandbox API transport |
-| `spec_control/phase_allowlist.py` | (none) | Per-phase motor/macro whitelists |
+| `spec_control/phases.py` | (none) | Phase vocabulary + agent-role motor/spec-write allowlists |
 | `tool_catalog/executor.py` | spec_data, spec_logs, plotting | Tool dispatch: name → handler → JSON + images |
 | `tool_catalog/autonomy_tools.py` | spec_cmd, plan_store (via CLI), spec_data | CAT-0..8 tool implementations (~50 tools) |
 | `tool_catalog/autonomy_definitions.py` | (none) | Tool JSON schemas for MCP/OpenCode |

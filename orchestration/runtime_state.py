@@ -6,7 +6,7 @@ the DB (see `scripts/beamtimehero` `main()`); within a single process,
 this module is the in-memory source of truth.
 
 `set_phase` is the single canonical writer. It validates the slug against
-`phase_allowlist.VALID_PHASES`, updates the in-memory dict, AND writes
+`phases.VALID_PHASES`, updates the in-memory dict, AND writes
 through to `ExperimentPlan.phase` so the next subprocess can pick the
 phase back up. There is no separate gating, precondition, or approval
 layer — the operator (or whatever pre-spawn step decided the phase) is
@@ -18,12 +18,12 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from beamline_tools.spec_control import phase_allowlist
+from beamline_tools.spec_control import phases
 
 logger = logging.getLogger(__name__)
 
 _STATE: dict[str, Any] = {
-    "phase": phase_allowlist.PHASE_SETUP,
+    "phase": phases.PHASE_SETUP,
     "experiment_id": None,
 }
 
@@ -44,7 +44,7 @@ def set_phase(phase: str, experiment_id: str | None = None) -> None:
     the in-memory state update. The CLI bootstrap re-seeds from the DB on
     the next subprocess start regardless.
     """
-    if phase not in phase_allowlist.VALID_PHASES:
+    if phase not in phases.VALID_PHASES:
         raise ValueError(f"unknown phase: {phase}")
     _STATE["phase"] = phase
     if experiment_id:

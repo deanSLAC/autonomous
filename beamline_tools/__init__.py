@@ -8,7 +8,8 @@ sqlite + numpy/silx.
 Layout (grouped by source):
 
   * `spec_control/`       — SPEC direct interaction (screen / TCP transports,
-                            phase allowlist, dispatcher, action_log writer)
+                            phase constants + agent-role allowlists,
+                            dispatcher, action_log writer)
   * `spec_logs/`          — SPEC session log files: list, tail, search,
                             parse, error-detect
   * `spec_data/`          — Raw SPEC data files (silx-readable): reader,
@@ -26,7 +27,7 @@ Public API:
   * `audited_call` — phase/experiment/audit-aware SPEC dispatch (what tool
     handlers normally use)
   * `spec_cmd.call` — primitive SPEC dispatch (no audit, no phase)
-  * `phase_allowlist` — agent-role motor + spec-write allowlists
+  * `phases` — phase vocabulary + agent-role motor/spec-write allowlists
   * `action_log` writers and readers
   * `tool_catalog.TOOL_DEFINITIONS` + `execute_tool`
   * `spec_data.local_data`, `config.set_scan_dir`, `spec_data.spec_reader`
@@ -42,7 +43,7 @@ from beamline_tools.action_log import (
     start_action,
 )
 from beamline_tools.audited_call import audited_call
-from beamline_tools.spec_control import phase_allowlist, spec_cmd
+from beamline_tools.spec_control import phases, spec_cmd
 from beamline_tools.tool_catalog import (
     CLI_TOOL_DEFINITION,
     TOOL_CATEGORIES,
@@ -60,7 +61,7 @@ __all__ = [
     "invalidate_for_experiment",
     "log_query",
     "mark_action_started",
-    "phase_allowlist",
+    "phases",
     "recent_actions",
     "recent_queries",
     "spec_cmd",

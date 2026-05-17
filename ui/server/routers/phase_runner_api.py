@@ -21,7 +21,7 @@ from orchestration.plan_store.session import (
     get_experiment,
     set_spectrometer_aligned,
 )
-from beamline_tools.spec_control import phase_allowlist
+from beamline_tools.spec_control import phases
 from orchestration import runtime_state
 
 logger = logging.getLogger(__name__)
@@ -524,7 +524,7 @@ async def run_phase(slug: str):
     exp = get_active_experiment()
     if exp is not None:
         new_phase = (
-            slug if slug in phase_allowlist.VALID_PHASES else runtime_state.get_phase()
+            slug if slug in phases.VALID_PHASES else runtime_state.get_phase()
         )
         try:
             runtime_state.set_phase(new_phase, experiment_id=exp.id)

@@ -84,7 +84,7 @@ if _ORIG_SAFETY is not None:
 
 from orchestration.plan_store import init_db  # noqa: E402
 from orchestration.plan_store.session import create_experiment  # noqa: E402
-from beamline_tools.spec_control import phase_allowlist, spec_cmd  # noqa: E402
+from beamline_tools.spec_control import phases, spec_cmd  # noqa: E402
 from beamline_tools.spec_control.transport import _MockScreen  # noqa: E402
 from beamline_tools.tool_catalog.tools import DISPATCH  # noqa: E402
 from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE  # noqa: E402
@@ -274,7 +274,7 @@ CASES_BL_ALIGN: list[Case] = [
     Case("align_beamline",
          {"energy": 0, "xtal_chg": 0, "fine_x": 0, "fine_z": 0, "justification": "test"},
          ["align_the_beamline(0, 0, 0, 0, 0)"],
-         phase=phase_allowlist.PHASE_BL_ALIGN,
+         phase=phases.PHASE_BL_ALIGN,
          note="full beamline alignment"),
     Case("peak_mono_pitch",
          {"justification": "test"}, ["peak_mono_pitch"],
@@ -416,20 +416,20 @@ CASES_XES_ALIGN: list[Case] = [
     Case("align_xes_spectrometer",
          {"crystals": "1234567", "en_xes": 0, "en_mono": 0, "justification": "test"},
          ['run_spec_align("1234567", 0, 0)'],
-         phase=phase_allowlist.PHASE_XES_ALIGN,
+         phase=phases.PHASE_XES_ALIGN,
          note="7-crystal XES alignment"),
 ]
 
 CASES_SAMPLE_ALIGN: list[Case] = [
     Case("run_sample_alignment", {"justification": "test"},
          ["auto_sample_align"],
-         phase=phase_allowlist.PHASE_SAMPLE_ALIGN,
+         phase=phases.PHASE_SAMPLE_ALIGN,
          note="per-sample centering"),
     Case("run_diagonal_scan",
          {"motor1": "Sx", "motor2": "Sy", "npoints": 40, "count_time": 0.5,
           "justification": "test"},
          ["d2scan Sx -8 8 Sy -8 8 40 0.5"],
-         phase=phase_allowlist.PHASE_SAMPLE_ALIGN,
+         phase=phases.PHASE_SAMPLE_ALIGN,
          note="d2scan default ±8 range"),
     Case("run_diagonal_scan",
          {"motor1": "Sx", "motor2": "Sy",
@@ -437,23 +437,23 @@ CASES_SAMPLE_ALIGN: list[Case] = [
           "npoints": 20, "count_time": 0.2,
           "justification": "test"},
          ["d2scan Sx -5 5 Sy -5 5 20 0.2"],
-         phase=phase_allowlist.PHASE_SAMPLE_ALIGN,
+         phase=phases.PHASE_SAMPLE_ALIGN,
          note="d2scan explicit range"),
     Case("fit_emission_peak", {"justification": "test"},
          ["get_HERFD_energy"],
-         phase=phase_allowlist.PHASE_SAMPLE_ALIGN,
+         phase=phases.PHASE_SAMPLE_ALIGN,
          note="HERFD energy fit (latest scan)"),
     Case("fit_emission_peak",
          {"scan_number": 42, "justification": "test"},
          ["get_HERFD_energy 42"],
-         phase=phase_allowlist.PHASE_SAMPLE_ALIGN,
+         phase=phases.PHASE_SAMPLE_ALIGN,
          note="HERFD energy fit (specific scan)"),
 ]
 
 CASES_COLLECTION: list[Case] = [
     Case("select_element", {"element": "Fe", "justification": "test"},
          ['select_element("Fe")'],
-         phase=phase_allowlist.PHASE_COLLECTION,
+         phase=phases.PHASE_COLLECTION,
          note="switch to Fe geometry"),
     Case("open_data_file", {"filename": "smoke_test", "justification": "test"},
          ["newfile smoke_test"], note="start new SPEC file"),
@@ -613,7 +613,7 @@ def main() -> int:
         mono_crystal="A", beam_size_h="focused", beam_size_v="focused",
         sample_env="ambient",
     )
-    runtime_state.set_phase(phase_allowlist.PHASE_BL_ALIGN, experiment_id=exp.id)
+    runtime_state.set_phase(phases.PHASE_BL_ALIGN, experiment_id=exp.id)
 
     print(f"DB       : {os.environ['AUTONOMOUS_DB_PATH']}")
     print(f"SPEC_MOCK: {os.environ.get('SPEC_MOCK')}")

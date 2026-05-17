@@ -58,7 +58,7 @@ For commands with structured args, the renderer formats them and the parser conv
 
 For motor-bearing commands (`umv`, `mv`, `dscan`, ...), set `needs_motor_allow=True` and `motor_arg_index=0` so the dispatcher checks the motor against the phase's motor allowlist.
 
-### File 2 — `beamline_tools/spec_control/phase_allowlist.py`
+### File 2 — `beamline_tools/spec_control/phases.py`
 
 Add the SPEC command name to `PROCEDURAL_PHASE` with the set of phases where it's allowed:
 
@@ -381,7 +381,7 @@ For a new SPEC-bound tool:
 
 - [ ] Read the SPEC macro under `/usr/local/lib/spec.d/`
 - [ ] `spec_cmd.py`: `CommandSpec` in `_ACTION` (or `_READ`)
-- [ ] `phase_allowlist.py`: entry in `PROCEDURAL_PHASE` (or `PROCEDURAL_ANY_PHASE`)
+- [ ] `phases.py`: entry in `PROCEDURAL_PHASE` (or `PROCEDURAL_ANY_PHASE`)
 - [ ] `autonomy_definitions.py`: schema + category list entry
 - [ ] `autonomy_tools.py`: `t_*` function + `AUTONOMY_DISPATCH` entry
 - [ ] `lineage.py`: metadata entry with non-None `spec_command`

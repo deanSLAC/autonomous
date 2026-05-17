@@ -1,16 +1,16 @@
-"""beamline_tools.spec_control — SPEC dispatcher, allowlist, transports.
+"""beamline_tools.spec_control — SPEC dispatcher, phase vocab, transports.
 
 Layering:
-  spec_cmd        — high-level command dispatcher (allowlist + transport router)
+  spec_cmd        — high-level command dispatcher (transport router)
   transport       — DispatchResult, _MockScreen, busy-state (transport-agnostic)
   sandbox_client  — spec-eval Docker API transport
   screen_client   — pure GNU-screen transport
   tcp_client      — pure TCP server-mode transport
-  phase_allowlist — per-phase command/motor allowlist
+  phases          — phase constants + agent-role motor/spec-write allowlists
 """
 
 from beamline_tools.spec_control import (
-    phase_allowlist,
+    phases,
     sandbox_client,
     screen_client,
     spec_cmd,
@@ -19,7 +19,7 @@ from beamline_tools.spec_control import (
 )
 
 __all__ = [
-    "phase_allowlist",
+    "phases",
     "sandbox_client",
     "screen_client",
     "spec_cmd",
