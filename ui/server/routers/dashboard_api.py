@@ -17,7 +17,6 @@ from orchestration.plan_store.client import (
     list_guidance,
     list_phase_transitions,
 )
-from orchestration import runtime_state
 from orchestration.plan_store.session import get_session, get_experiment, get_phase_runs_for_experiment
 from orchestration.plan_store.models import (
     Experiment,
@@ -133,7 +132,7 @@ def status(experiment_id: str = Query(...)):
             scan_aggs[r.id]["scan_count"] = count
 
     plan = get_plan(experiment_id) or {}
-    current_phase = runtime_state.get_phase()
+    current_phase = plan.get("phase", "setup") if plan else "setup"
     return {
         "experiment": {
             "id": exp.id, "name": exp.name, "experimenter": exp.experimenter,
