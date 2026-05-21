@@ -9,11 +9,10 @@ from __future__ import annotations
 import logging
 import traceback
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import yaml
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from sqlmodel import select
 
@@ -550,17 +549,3 @@ async def lookup_energy(data: dict):
     }
 
 
-@router.get("/experiments")
-def list_experiments(limit: int = 20):
-    """List recent experiments (for the dashboard experiment selector)."""
-    with get_session() as session:
-        stmt = select(Experiment).order_by(Experiment.created_at.desc()).limit(limit)
-        return [
-            {
-                "id": e.id, "name": e.name, "experimenter": e.experimenter,
-                "status": e.status,
-                "created_at": e.created_at.isoformat() if e.created_at else None,
-                "sample_env": e.sample_env,
-            }
-            for e in session.exec(stmt)
-        ]

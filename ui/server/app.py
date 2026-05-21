@@ -27,9 +27,8 @@ from orchestration.chat import (
     get_active_session_by_key,
     set_chat_router_singleton,
 )
-from orchestration.config import OPENCODE_URL, llm_enabled
 from ui.adapters.slack_bridge import SlackBridge
-from ui.config import BASE_PATH, PORT, PROJECT_ROOT, STATIC_DIR
+from ui.config import BASE_PATH, PROJECT_ROOT, STATIC_DIR
 from ui.server.routers import (
     agents_api,
     config_api,

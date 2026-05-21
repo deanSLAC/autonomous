@@ -19,7 +19,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 
 from sqlmodel import select
 
@@ -516,11 +516,6 @@ def replace_plan(experiment_id: str, new_plan: dict) -> dict:
                 raise
     return new_plan
 
-
-def bump_elapsed(experiment_id: str, hours: float) -> None:
-    """Legacy hook — no-op now that elapsed is derived from
-    Experiment.created_at vs now. Kept so callers don't break."""
-    return None
 
 
 # ---------------------------------------------------------------------------

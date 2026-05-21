@@ -17,9 +17,7 @@ tools layer never needs to write to its own context.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-import time
 from contextlib import asynccontextmanager
 from typing import Any, Callable, Optional
 
@@ -28,10 +26,8 @@ from orchestration.agent.conversation import ConversationService
 from orchestration.agent.claude_code_client import ClaudeCodeClient
 from orchestration.agent.opencode_client import OpenCodeClient
 from orchestration.config import AGENT_BACKEND, OPENCODE_URL, llm_enabled
-from orchestration.planner import planner as _planner
 from orchestration.planner.loop import Orchestrator, get_orchestrator, set_orchestrator
 from orchestration.planner.staff_guidance import coordinator
-from orchestration.plan_store.session import get_session
 
 logger = logging.getLogger(__name__)
 
@@ -91,101 +87,12 @@ def current_experiment_id() -> Optional[str]:
     return runtime_state.get_experiment_id()
 
 
-def set_active_experiment(experiment_id: str, phase: str = "setup") -> None:
-    """Orchestration writes context that the tools layer reads."""
-    runtime_state.set_phase(phase, experiment_id=experiment_id)
-
-
-def get_conversation() -> Optional[ConversationService]:
-    return _conversation
-
-
-def _ensure_conversation() -> Optional[ConversationService]:
-    global _conversation
-    if _conversation is not None:
-        return _conversation
-    if not llm_enabled():
-        return None
-    client = _make_agent_client()
-    if not client.health_check():
-        return None
-    _conversation = ConversationService(client)
-    return _conversation
-
-
 def reset_conversation() -> None:
     global _conversation
     if llm_enabled():
         _conversation = ConversationService(_make_agent_client())
     else:
         _conversation = None
-
-
-def _resolve_chat_experiment_id(requested: str | None) -> Optional[str]:
-    if requested:
-        return requested
-    orch = get_orchestrator()
-    if orch and orch.state.experiment_id:
-        return orch.state.experiment_id
-    try:
-        from orchestration.plan_store.models import Experiment
-        from sqlmodel import select
-        with get_session() as session:
-            row = session.exec(
-                select(Experiment).order_by(Experiment.created_at.desc()).limit(1)
-            ).first()
-            return row.id if row else None
-    except Exception as e:
-        logger.warning("chat: latest-experiment lookup failed: %s", e)
-        return None
-
-
-def _build_chat_context_prefix(
-    experiment_id: str | None,
-    page: str | None = None,
-    page_context: dict | None = None,
-) -> str:
-    phase = runtime_state.get_phase()
-    lines: list[str] = []
-    if experiment_id:
-        try:
-            snap = _planner.snapshot(experiment_id)
-            lines.append(snap.to_system_context())
-        except Exception as e:
-            logger.warning("chat: planner snapshot failed for %s: %s", experiment_id, e)
-            lines.append(f"[PLANNER STATE]\n  phase: {phase}\n  (snapshot unavailable)")
-    else:
-        lines.append(
-            f"[PLANNER STATE]\n  phase: {phase}\n"
-            "  (no experiment configured yet — suggest the user open /config)"
-        )
-    if page or page_context:
-        ctx_lines = ["[PAGE CONTEXT]"]
-        if page:
-            ctx_lines.append(f"  page: {page}")
-        if isinstance(page_context, dict):
-            for k, v in page_context.items():
-                try:
-                    rendered = json.dumps(v, default=str) if not isinstance(v, str) else v
-                except Exception:
-                    rendered = str(v)
-                ctx_lines.append(f"  {k}: {rendered}")
-        ctx_lines.append(
-            "  The user is viewing the page above. Use the beamline tools "
-            "(get_latest_scan, list_scans, read_scan, plot_scan, etc.) to "
-            "fetch data relevant to this page when they ask about it."
-        )
-        lines.append("\n".join(ctx_lines))
-    return "\n\n".join(lines)
-
-
-# `handle_chat()` was the legacy synchronous chat path that ran a
-# ConversationService turn inline. It's been replaced by the chat router
-# in `orchestration.chat.handler`, which spawns chat-claude.sh agents
-# per ChatSession and pushes replies back via Slack + WebSocket.
-# `_build_chat_context_prefix` / `_resolve_chat_experiment_id` are kept
-# above — they may still be useful for any callers that want to build a
-# planner-state prefix (and removing them would be a separate cleanup).
 
 
 # ---------------------------------------------------------------------------
@@ -201,21 +108,6 @@ def orchestrator_snapshot() -> dict:
     snap = orch.snapshot()
     snap["initialized"] = True
     return snap
-
-
-# ---------------------------------------------------------------------------
-# Staff guidance / interventions (passthroughs)
-# ---------------------------------------------------------------------------
-
-def record_slack_guidance(text: str, staff_name: str, *, source: str = "slack") -> None:
-    coordinator.record_guidance(
-        experiment_id=runtime_state.get_experiment_id(),
-        source=source, author=staff_name, text=text,
-    )
-
-
-async def resolve_intervention_async(intervention_id: str, status: str, resolver: str) -> None:
-    await coordinator.resolve(intervention_id, status=status, resolver=resolver)
 
 
 # ---------------------------------------------------------------------------

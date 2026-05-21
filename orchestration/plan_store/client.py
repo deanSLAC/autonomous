@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Any, Iterable, Optional
+from typing import Optional
 
 from sqlmodel import select
 

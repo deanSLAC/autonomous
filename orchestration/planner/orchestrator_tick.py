@@ -338,7 +338,6 @@ async def _step_stop_rows(experiment_id: str) -> None:
 def _generate_statistics_trend() -> None:
     """Read the active sample's convergence_stats from the plan and render
     a statistics trend PNG to data/tool_plots/."""
-    from pathlib import Path
     from orchestration.config import PROJECT_ROOT
     from orchestration.plan_store.client import get_plan as _get_plan
     from orchestration.plan_store.session import get_active_experiment

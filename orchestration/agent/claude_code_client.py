@@ -21,7 +21,6 @@ import subprocess
 import threading
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Optional
 
 from orchestration.agent.opencode_client import OpenCodeResult, _extract_image_paths

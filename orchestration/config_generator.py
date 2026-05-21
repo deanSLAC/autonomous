@@ -13,8 +13,6 @@ import re
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
-
 import sys
 import yaml
 
@@ -357,20 +355,6 @@ def validate_sample_holder_data(data: dict, element_names: set[str] | None = Non
     if not any_enabled and samples:
         errors.append("At least one sample must be enabled")
 
-    return errors
-
-
-def validate_form_data(data: dict) -> list[str]:
-    """Validate combined form submission (backwards compatibility).
-    Returns list of error strings (empty = valid).
-    """
-    errors = validate_experiment_data(data)
-    element_names = {
-        (el.get("symbol") or "").strip()
-        for el in data.get("elements", [])
-        if (el.get("symbol") or "").strip()
-    }
-    errors += validate_sample_holder_data(data, element_names)
     return errors
 
 

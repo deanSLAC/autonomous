@@ -854,13 +854,6 @@ function val(id) {
     return el ? el.value : '';
 }
 
-function numVal(id) {
-    const v = val(id);
-    if (v === '' || v === null || v === undefined) return '';
-    const n = parseFloat(v);
-    return isNaN(n) ? '' : n;
-}
-
 function esc(str) {
     if (!str) return '';
     const div = document.createElement('div');

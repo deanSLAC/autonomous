@@ -124,13 +124,3 @@ def agent_motor_allowed(role: str, motor: str) -> bool:
     return motor in role_def["motors"]
 
 
-def agent_tool_allowed(role: str, tool_name: str) -> bool:
-    """Return True if `tool_name` is in `role`'s spec-write allowlist.
-
-    Only consulted for spec-write tools. ref/tool/db/spec-read/steering
-    subtrees are unfiltered at the agent-branch level.
-    """
-    role_def = AGENT_ROLES.get(role)
-    if role_def is None:
-        return False
-    return tool_name in role_def["spec_write_tools"]
