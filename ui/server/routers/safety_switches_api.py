@@ -1,7 +1,7 @@
 """Safety-switches API.
 
 Reads/writes `beamline_tools/safety_switches.json`. The file gates every
-spec_cmd call (see beamline_tools/spec_control/spec_cmd.py:_safety_check),
+spec_cmd call (see beamtimehero_cli/spec_control/spec_cmd.py:_safety_check),
 re-read on every call, so a flip here takes effect immediately without
 restarting any process.
 """

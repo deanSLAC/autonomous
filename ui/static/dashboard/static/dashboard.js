@@ -169,7 +169,6 @@ async function refreshDashboard() {
 
 // Beam-size display: prefer measured FWHM (in µm) once beamline_alignment
 // has run, fall back to the operator-configured big/focused mode pair.
-// The measured fields are not persisted yet — see TODO in autonomy.js.
 function formatBeamSize(exp) {
     if (!exp) return "--";
     if (exp.mirrors_out) return "Mirrors out";

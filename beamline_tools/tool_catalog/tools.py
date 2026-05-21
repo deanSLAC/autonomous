@@ -117,6 +117,37 @@ def _resolve_active_sample_id(experiment_id: str) -> Optional[str]:
 # CAT-8 · Orchestration (no SPEC)
 # ===========================================================================
 
+def _record_measured_beam_size(result: dict) -> None:
+    """Best-effort write-through of measured beam FWHM (mm → µm) to plan_store."""
+    parsed = result.get("result") or {}
+    h_mm = parsed.get("h_mm")
+    v_mm = parsed.get("v_mm")
+    if h_mm is None and v_mm is None:
+        return
+    try:
+        xid = runtime_state.get_experiment_id()
+        if not xid:
+            return
+        from orchestration.plan_store.session import record_measured_beam_size
+        record_measured_beam_size(
+            xid,
+            h_mm * 1000.0 if h_mm is not None else None,
+            v_mm * 1000.0 if v_mm is not None else None,
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning("measure_beam_size write-through failed: %s", e)
+
+
+def t_measure_beam_size(args: dict) -> tuple[str, list[str]]:
+    j = (args.get("justification") or "").strip()
+    mode_x = "1" if bool(args.get("small_x", False)) else "0"
+    mode_z = "1" if bool(args.get("small_z", False)) else "0"
+    res = audited_call("measure_beam_size", [mode_x, mode_z], justification=j)
+    if isinstance(res, dict) and res.get("ok"):
+        _record_measured_beam_size(res)
+    return _as_json(res), []
+
+
 def t_request_human_intervention(args: dict) -> tuple[str, list[str]]:
     kind = args["kind"]
     detail = args["detail"]
@@ -1174,6 +1205,7 @@ def t_regenerate_plan(args: dict) -> tuple[str, list[str]]:
 # ---------------------------------------------------------------------------
 
 _AUTONOMY_DISPATCH: dict[str, callable] = {
+    "measure_beam_size": t_measure_beam_size,
     "request_human_intervention": t_request_human_intervention,
     "post_status_update": t_post_status_update,
     "log_status_assessment": t_log_status_assessment,
