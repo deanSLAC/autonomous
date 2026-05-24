@@ -21,8 +21,14 @@ import logging
 from typing import Any, Optional
 
 from beamline_tools.audited_call import audited_call
-from beamtimehero_cli.tool_catalog.tools_core import DISPATCH as _UPSTREAM_DISPATCH
+# Phase 2+: the CLI's DISPATCH is keyed by ``(tree, ..., name)``. The
+# autonomy executor and tests use name-keyed lookups, so flatten here.
+from beamtimehero_cli.tool_catalog.tools_core import DISPATCH as _UPSTREAM_DISPATCH_TREE
 from orchestration import runtime_state
+
+_UPSTREAM_DISPATCH: dict[str, callable] = {
+    key[-1]: handler for key, handler in _UPSTREAM_DISPATCH_TREE.items()
+}
 
 # CAT-8 tools need the orchestration package. Import lazily so this
 # module still imports when `orchestration/` is absent (e.g. when
