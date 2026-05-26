@@ -160,191 +160,41 @@
     </div>
   </section>
 
-  <!-- 02 WHAT THE AI ACHIEVES -->
-  <section class="slide">
-    <div class="eyebrow">Overview</div>
-    <h1 class="title">An AI Beamtime</h1>
-    <div class="rule"></div>
-    <ul class="bullets" style="max-width: 1500px;">
-      <li>Staff complete a form for the upcoming experiment
-        <ul class="sub">
-          <li>Edge(s) of interest</li>
-          <li>Beam size</li>
-          <li>Sample environment</li>
-          <li>Duration</li>
-        </ul>
-      </li>
-      <li>AI aligns the beamline according to configuration</li>
-      <li>User completes a form detailing their samples
-        <ul class="sub">
-          <li>Sample names</li>
-          <li>Elements</li>
-          <li>Measurement technique</li>
-          <li>Collection time or min. scans per sample</li>
-        </ul>
-      </li>
-      <li>AI aligns the sample holder, takes an initial measurement survey, then formulates a data collection plan</li>
-      <li>AI takes data, tracks evolution of statistics, maintains an experiment plan</li>
-      <li>Users steer the plan on the fly based on incoming results or changing factors</li>
-    </ul>
-    <div class="foot"><span>Overview</span><span class="pg">02</span></div>
-  </section>
-
-  <!-- 03 VIDEO DEMO PLACEHOLDER -->
-  <section class="slide" style="justify-content: center; align-items: center;">
-    <div style="width: 1200px; height: 675px; border: 2px dashed var(--border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff;">
-      <div style="font-size: 64px; color: var(--border); margin-bottom: 16px;">&#9654;</div>
-      <div style="font-size: 28px; font-weight: 600; color: var(--muted);">Recorded demo</div>
-      <div style="font-size: 18px; color: var(--muted); margin-top: 8px;">Video placeholder</div>
-    </div>
-    <div class="foot">
-      <span>Demo</span>
-      <span class="pg">03</span>
-    </div>
-  </section>
-
-  <!-- 04 WHY LLM -->
+  <!-- 02 A PERFECT ENDSTATION -->
   <section class="slide">
     <div class="eyebrow">Motivation</div>
-    <h1 class="title">Why LLM?</h1>
-    <p class="lead" style="margin-top: 8px; margin-bottom: 8px;">(my horse works fine)</p>
+    <h1 class="title">The perfect endstation?</h1>
     <div class="rule"></div>
     <ul class="bullets" style="max-width: 1400px;">
-      <li>Natural language experiment plan steering</li>
-      <li>Multimodal capability: send it images of plots or of the sample, and it can incorporate that data into its reasoning</li>
-      <li>Dynamic adaptability — the agent reasons about what it sees, and can troubleshoot issues as they arise.</li>
-      <li>Accelerate through the long tail of automation completeness, handling edge cases that would each require bespoke logic</li>
-      <li>Build ahead of the next model</li>
+      <li>Plan A: Make the staff expert sit there all day</li>
+      <li>Plan B: How close can we get to that?
+        <ul class="sub">
+          <li>100% attention</li>
+          <li>Identifying and reacting to issues in real time</li>
+          <li>Adapting and executing the beamtime strategy</li>
+          <li>Able to leverage a wealth of expertise</li>
+        </ul>
+      </li>
     </ul>
-    <div class="foot"><span>Motivation</span><span class="pg">04</span></div>
+    <div class="foot"><span>Motivation</span><span class="pg">02</span></div>
   </section>
 
-  <!-- 05 HOW CAN WE LET AI RUN THE BEAMLINE -->
-  <section class="slide">
-    <div class="eyebrow">Premise</div>
-    <h1 class="title">How can we let AI run the beamline?</h1>
-    <div class="rule"></div>
-    <ul class="bullets" style="max-width: 1400px;">
-      <li>An LLM is a next-word-predictor — On its own, it cannot <em>do</em> anything</li>
-      <li><em>Tools</em> are written to execute real actions based on what the LLM writes, and are fully configurable.</li>
-      <li style="font-weight: 600;">We have full granular control over what the LLM is allowed to "do" through choosing which tools to equip it with.</li>
-    </ul>
-    <div class="foot"><span>Premise</span><span class="pg">05</span></div>
-  </section>
-
-  <!-- 06 SIMPLEST CASE -->
-  <section class="slide">
-    <div class="eyebrow">Starting point</div>
-    <h1 class="title">Simplest case</h1>
-    <div class="rule"></div>
-    <div style="max-width: 1500px;">
-      <ul class="bullets" style="margin-bottom: 28px;">
-        <li>Give Claude Code full and direct access to SPEC, and to the SPEC macro definitions</li>
-        <li>Tell it to "follow this recipe to align the beamline"</li>
-        <li style="font-weight: 600; color: var(--green-dk);">It works — the frontier LLMs and harnesses available today are extremely capable</li>
-      </ul>
-
-      <h2 class="sec" style="font-size: 34px; margin-top: 36px;">Downsides</h2>
-      <div style="display: flex; flex-direction: column; gap: 14px;">
-        <div class="card dense" style="border-left: 4px solid var(--danger);">
-          <div style="font-size: 28px; font-weight: 600;">Inefficient</div>
-          <div style="color: var(--muted); font-size: 24px; margin-top: 4px;">In a poorly constrained system, the agent may wander through unproductive loops</div>
-        </div>
-        <div class="card dense" style="border-left: 4px solid var(--danger);">
-          <div style="font-size: 28px; font-weight: 600;">Unconstrained capability</div>
-          <div style="color: var(--muted); font-size: 24px; margin-top: 4px;">Agent has the capability to do anything — move upstream components, disable motor limits, etc</div>
-        </div>
-      </div>
-
-      <h2 class="sec" style="font-size: 34px; margin-top: 36px;">Takeaway</h2>
-      <p style="font-size: 28px; line-height: 1.45; color: var(--ink);">LLMs are capable. The accompanying software architecture does not need to be a hugely elaborate system of "making them good enough" — it's about setting up appropriate guardrails for efficiency and safety.</p>
-    </div>
-    <div class="foot"><span>Starting point</span><span class="pg">06</span></div>
-  </section>
-
-  <!-- 07 GUARDRAILS -->
+  <!-- 03 THE SOLUTION -->
   <section class="slide">
     <div class="eyebrow">Approach</div>
-    <h1 class="title">Guardrails — Equip an agent with specific tools</h1>
+    <h1 class="title">The solution is an AI beamline</h1>
     <div class="rule"></div>
-    <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 48px; align-items: center;">
-
-      <svg viewBox="0 0 560 500" style="width: 100%; display: block;">
-        <ellipse cx="280" cy="250" rx="270" ry="230" fill="none" stroke="#6b6b6b" stroke-width="2" stroke-dasharray="6 3"/>
-        <ellipse cx="280" cy="250" rx="270" ry="230" fill="#f5f5f5" opacity="0.2"/>
-        <text x="280" y="40" text-anchor="middle" font-family="ui-monospace, monospace" font-size="14" fill="#6b6b6b" font-weight="600" letter-spacing="0.06em">SYSTEM PROMPT</text>
-
-        <ellipse cx="280" cy="250" rx="220" ry="186" fill="none" stroke="#e0dbd2" stroke-width="2"/>
-        <ellipse cx="280" cy="250" rx="220" ry="186" fill="#fbf7ee" opacity="0.3"/>
-        <text x="280" y="86" text-anchor="middle" font-family="ui-monospace, monospace" font-size="14" fill="#8B1538" font-weight="600" letter-spacing="0.06em">AGENT --ALLOWED-TOOLS</text>
-
-        <ellipse cx="280" cy="250" rx="165" ry="138" fill="none" stroke="#0072B5" stroke-width="1.5"/>
-        <ellipse cx="280" cy="250" rx="165" ry="138" fill="#eaf3fa" opacity="0.3"/>
-        <text x="280" y="132" text-anchor="middle" font-family="ui-monospace, monospace" font-size="14" fill="#0072B5" font-weight="600" letter-spacing="0.06em">BEAMTIMEHERO CLI</text>
-
-        <ellipse cx="280" cy="250" rx="105" ry="84" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
-        <ellipse cx="280" cy="250" rx="105" ry="84" fill="#fff" opacity="0.5"/>
-        <text x="280" y="190" text-anchor="middle" font-family="ui-monospace, monospace" font-size="14" fill="#1a1a1a" font-weight="600" letter-spacing="0.06em">PYTHON 1:1</text>
-        <text x="280" y="208" text-anchor="middle" font-family="ui-monospace, monospace" font-size="14" fill="#1a1a1a" font-weight="600" letter-spacing="0.06em">WRAPPER</text>
-
-        <rect x="240" y="240" width="80" height="36" rx="4" fill="#1a1a1a"/>
-        <text x="280" y="264" text-anchor="middle" font-family="ui-monospace, monospace" font-size="18" fill="#7cd992" font-weight="600">SPEC</text>
-      </svg>
-
-      <ul class="bullets">
-        <li>A tool here is a Python function that calls one SPEC command over TCP</li>
-        <li>Wrap all tools together into one CLI bash command: <span style="font-family: var(--mono); font-weight: 600;">beamtimehero</span></li>
-        <li>No arbitrary code execution — the agent is given access to this one single command</li>
-        <li>Individual agents (beamline aligner, sample aligner, data collector) are given access to a relevant subset of the tool catalog</li>
-        <li style="font-weight: 600;">Construct a clear set of abilities and tasks — empower the agent to be adaptive and flexible within controlled constraints</li>
-      </ul>
-
-    </div>
-    <div class="foot"><span>Guardrails</span><span class="pg">07</span></div>
+    <ul class="bullets" style="max-width: 1400px;">
+      <li>LLM-Based Multi-Agent framework</li>
+      <li>Each Agent equipped with specific restricted capabilities and scope</li>
+      <li>Shares results</li>
+      <li>Pauses when it hits a roadblock</li>
+      <li>Responsive to expert input in real time</li>
+    </ul>
+    <div class="foot"><span>Approach</span><span class="pg">03</span></div>
   </section>
 
-  <!-- 08 BEAMTIMEHERO CLI -->
-  <section class="slide">
-    <div class="eyebrow">Implementation</div>
-    <h1 class="title">beamtimehero CLI</h1>
-    <div class="rule"></div>
-    <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px; align-items: start;">
-      <div class="log" style="font-size: 20px;">
-        <div><span class="t">$ </span><span class="hl">beamtimehero --help</span></div>
-        <div><span class="t">  </span>tool       Data queries, analysis, plots</div>
-        <div><span class="t">  </span>db         Plan, progress, steering queue</div>
-        <div><span class="t">  </span>spec-read  Motor positions, beam status</div>
-        <div><span class="t">  </span>spec-write Motor moves, scans, energy</div>
-        <div><span class="t">  </span>ref        Procedure documents</div>
-        <div><span class="t">  </span>steering   Staff guidance queue</div>
-        <div>&nbsp;</div>
-        <div><span class="t">$ </span><span class="hl">beamtimehero spec-write run-xas --help</span></div>
-        <div><span class="t">  </span>--edge       Absorption edge (e.g. Fe_K)</div>
-        <div><span class="t">  </span>--count-time Seconds per point</div>
-        <div><span class="t">  </span>--filters    Number of Al filters</div>
-        <div><span class="t">  </span><span class="warn">--justification  (required)</span></div>
-        <div>&nbsp;</div>
-        <div><span class="t">$ </span><span class="hl">beamtimehero spec-write run-xas \</span></div>
-        <div><span class="t">    </span>--edge Fe_K --count-time 2 --filters 3 \</div>
-        <div><span class="t">    </span>--justification <span class="acc">"Rep 4 on S-A2, SNR 198"</span></div>
-        <div>&nbsp;</div>
-        <div><span class="t">[action_log] </span><span class="ok">logged → id=1847</span></div>
-        <div><span class="t">[spec]       </span>run_xas Fe_K ct=2 filt=3</div>
-        <div><span class="t">[spec]       </span><span class="ok">scan #412 complete, 287 points</span></div>
-      </div>
-      <div>
-        <ul class="bullets">
-          <li>The agent gets access to one bash command: <span style="font-family: var(--mono); font-weight: 600;">beamtimehero</span></li>
-          <li>Progressive discovery — agents call <span style="font-family: var(--mono); font-size: 28px; background: #f3efe7; padding: 1px 5px; border-radius: 3px;">--help</span> to learn what's available, then traverse the tree and drill in as needed.</li>
-          <li>100+ subcommands — the entire beamline interface funnels through this single tool</li>
-          <li>Context-efficient, no 100-tool schema dump per request</li>
-        </ul>
-      </div>
-    </div>
-    <div class="foot"><span>beamtimehero CLI</span><span class="pg">08</span></div>
-  </section>
-
-  <!-- 09 AGENT ROSTER -->
+  <!-- 04 SPECIALIST AGENTS -->
   <section class="slide">
     <div class="eyebrow">Agents</div>
     <h1 class="title">Specialist agents</h1>
@@ -402,68 +252,220 @@
     <p class="lead" style="font-size: 28px; margin-top: 24px;">
       Each agent is a Claude Code process with a role-specific system prompt and tool allowlist
     </p>
-    <div class="foot"><span>Agent roster</span><span class="pg">09</span></div>
+    <div class="foot"><span>Agent roster</span><span class="pg">04</span></div>
   </section>
 
-  <!-- 10 HUMAN OVERSIGHT -->
+  <!-- 05 VIDEO DEMO PLACEHOLDER -->
+  <section class="slide" style="justify-content: center; align-items: center;">
+    <div style="width: 1200px; height: 675px; border: 2px dashed var(--border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff;">
+      <div style="font-size: 64px; color: var(--border); margin-bottom: 16px;">&#9654;</div>
+      <div style="font-size: 28px; font-weight: 600; color: var(--muted);">Recorded demo</div>
+      <div style="font-size: 18px; color: var(--muted); margin-top: 8px;">Video placeholder</div>
+    </div>
+    <div class="foot">
+      <span>Demo</span>
+      <span class="pg">05</span>
+    </div>
+  </section>
+
+  <!-- 06 AN AI BEAMTIME -->
   <section class="slide">
-    <div class="eyebrow">Oversight</div>
-    <h1 class="title">Human-in-the-loop</h1>
+    <div class="eyebrow">Overview</div>
+    <h1 class="title">An AI Beamtime</h1>
     <div class="rule"></div>
-    <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 36px; align-items: start;">
+    <ul class="bullets" style="max-width: 1500px;">
+      <li>Staff complete a form for the upcoming experiment
+        <ul class="sub">
+          <li>Edge(s) of interest</li>
+          <li>Beam size</li>
+          <li>Sample environment</li>
+          <li>Duration</li>
+        </ul>
+      </li>
+      <li>AI aligns the beamline according to configuration</li>
+      <li>User completes a form detailing their samples
+        <ul class="sub">
+          <li>Sample names</li>
+          <li>Elements</li>
+          <li>Measurement technique</li>
+          <li>Collection time or min. scans per sample</li>
+        </ul>
+      </li>
+      <li>AI aligns the sample holder, takes an initial measurement survey, then formulates a data collection plan</li>
+      <li>AI takes data, tracks evolution of statistics, maintains an experiment plan</li>
+      <li>Users steer the plan on the fly based on incoming results or changing factors</li>
+    </ul>
+    <div class="foot"><span>Overview</span><span class="pg">06</span></div>
+  </section>
 
-      <div class="slack">
-        <div class="slack-hdr">
-          <span class="hash">#</span><span class="name">bl15-2-steering</span>
+  <!-- 07 WHY LLM -->
+  <section class="slide">
+    <div class="eyebrow">Motivation</div>
+    <h1 class="title">Why LLM?</h1>
+    <p class="lead" style="margin-top: 8px; margin-bottom: 8px;">(my horse works fine)</p>
+    <div class="rule"></div>
+    <ul class="bullets" style="max-width: 1400px;">
+      <li>Steer the experiment plan with natural language</li>
+      <li>Multimodal capability: send it images of plots or of the sample, and it can incorporate that data into its reasoning</li>
+      <li>Dynamic adaptability — the agent reasons about what it sees, and can troubleshoot issues as they arise.</li>
+      <li>Accelerate through the long tail of automation completeness, handling edge cases that would each require bespoke logic</li>
+      <li>Build ahead of the next model</li>
+    </ul>
+    <div class="foot"><span>Motivation</span><span class="pg">07</span></div>
+  </section>
+
+  <!-- 08 HOW CAN WE LET AI RUN THE BEAMLINE -->
+  <section class="slide">
+    <div class="eyebrow">Premise</div>
+    <h1 class="title">How can we let AI run the beamline?</h1>
+    <div class="rule"></div>
+    <ul class="bullets" style="max-width: 1400px;">
+      <li>An LLM is a next-word-predictor — On its own, it cannot do anything</li>
+      <li><strong>Tools</strong> are written to execute real actions based on what the LLM writes, and are fully configurable.</li>
+      <li style="font-weight: 600;">We have full granular control over what the LLM is allowed to do through choosing which tools to equip it with.</li>
+    </ul>
+    <div class="foot"><span>Premise</span><span class="pg">08</span></div>
+  </section>
+
+  <!-- 09 SIMPLEST CASE -->
+  <section class="slide">
+    <div class="eyebrow">Starting point</div>
+    <h1 class="title">Simplest case</h1>
+    <div class="rule"></div>
+    <div style="max-width: 1500px;">
+      <ul class="bullets" style="margin-bottom: 28px;">
+        <li>Give Claude Code full and direct access to SPEC, and to the SPEC macro definitions</li>
+        <li>Tell it to "follow this recipe to align the beamline"</li>
+        <li style="font-weight: 600; color: var(--green-dk);">It works — the frontier LLMs and harnesses available today are extremely capable</li>
+      </ul>
+
+      <h2 class="sec" style="font-size: 34px; margin-top: 36px;">Downsides</h2>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="card dense" style="border-left: 4px solid var(--danger);">
+          <div style="font-size: 28px; font-weight: 600;">Inefficient</div>
+          <div style="color: var(--muted); font-size: 24px; margin-top: 4px;">In a poorly constrained system, the agent may wander through unproductive loops</div>
         </div>
-        <div class="slack-msg">
-          <div class="slack-ava" style="background: var(--blue);">EX</div>
-          <div>
-            <div><span class="slack-who">Experimenter</span></div>
-            <div class="slack-body" style="font-size: 24px;">
-              <p>We have only 30 minutes left, lets focus on sample 2</p>
-            </div>
-          </div>
-          <div class="slack-time">05:28</div>
-        </div>
-        <div class="slack-msg" style="background: #fbf7ee;">
-          <div class="slack-ava">BL</div>
-          <div>
-            <div><span class="slack-who">data-collector</span><span class="slack-bot">AGENT</span></div>
-            <div class="slack-body" style="font-size: 24px;">
-              <p><strong>Steering acknowledged.</strong> Will run 7 scans on Sample 2 with the time remaining.</p>
-            </div>
-          </div>
-          <div class="slack-time">05:28</div>
-        </div>
-        <div class="slack-msg">
-          <div class="slack-ava" style="background: var(--danger);">BL</div>
-          <div>
-            <div><span class="slack-who">data-collector</span><span class="slack-bot">AGENT</span> <span style="color: var(--danger); font-size: 14px; font-weight: 600; margin-left: 6px;">intervention</span></div>
-            <div class="slack-body" style="font-size: 24px;">
-              <p>Unable to locate sample 2. Pausing for further input.</p>
-            </div>
-          </div>
-          <div class="slack-time">05:30</div>
+        <div class="card dense" style="border-left: 4px solid var(--danger);">
+          <div style="font-size: 28px; font-weight: 600;">Unconstrained capability</div>
+          <div style="color: var(--muted); font-size: 24px; margin-top: 4px;">Agent has the capability to do anything — move upstream components, disable motor limits, etc</div>
         </div>
       </div>
 
-      <div>
-        <div class="card" style="margin-bottom: 18px;">
-          <div style="font-weight: 600; font-size: 28px;">Experimenter steering</div>
-          <div style="color: var(--muted); font-size: 24px; margin-top: 8px;">The experimenter can send commands and guidance to the agent while it operates — skip samples, reorder the queue, adjust scan counts, extend time budgets. The agent acknowledges and re-plans around the change.</div>
-        </div>
-        <div class="card">
-          <div style="font-weight: 600; font-size: 28px;">Roadblock escalation</div>
-          <div style="color: var(--muted); font-size: 24px; margin-top: 8px;">If the agent hits a condition it can't resolve — hardware fault, unexpected cryostat behavior, ambiguous data — it pauses and messages staff on Slack. Collection resumes once staff responds.</div>
-        </div>
-      </div>
+      <h2 class="sec" style="font-size: 34px; margin-top: 36px;">Takeaway</h2>
+      <p style="font-size: 28px; line-height: 1.45; color: var(--ink);">LLMs are capable. The accompanying software architecture does not need to be a hugely elaborate system of "making them good enough" — it's about setting up appropriate guardrails for efficiency and safety.</p>
+    </div>
+    <div class="foot"><span>Starting point</span><span class="pg">09</span></div>
+  </section>
+
+  <!-- 10 GUARDRAILS -->
+  <section class="slide">
+    <div class="eyebrow">Approach</div>
+    <h1 class="title">Guardrails — Equip an agent with specific tools</h1>
+    <div class="rule"></div>
+    <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 48px; align-items: center;">
+
+      <svg viewBox="0 0 560 500" style="width: 100%; display: block;">
+        <ellipse cx="280" cy="250" rx="270" ry="230" fill="none" stroke="#6b6b6b" stroke-width="2" stroke-dasharray="6 3"/>
+        <ellipse cx="280" cy="250" rx="270" ry="230" fill="#f5f5f5" opacity="0.2"/>
+        <text x="280" y="40" text-anchor="middle" font-family="ui-monospace, monospace" font-size="14" fill="#6b6b6b" font-weight="600" letter-spacing="0.06em">SYSTEM PROMPT</text>
+
+        <ellipse cx="280" cy="250" rx="220" ry="186" fill="none" stroke="#e0dbd2" stroke-width="2"/>
+        <ellipse cx="280" cy="250" rx="220" ry="186" fill="#fbf7ee" opacity="0.3"/>
+        <text x="280" y="86" text-anchor="middle" font-family="ui-monospace, monospace" font-size="14" fill="#8B1538" font-weight="600" letter-spacing="0.06em">AGENT --ALLOWED-TOOLS</text>
+
+        <ellipse cx="280" cy="250" rx="165" ry="138" fill="none" stroke="#0072B5" stroke-width="1.5"/>
+        <ellipse cx="280" cy="250" rx="165" ry="138" fill="#eaf3fa" opacity="0.3"/>
+        <text x="280" y="132" text-anchor="middle" font-family="ui-monospace, monospace" font-size="14" fill="#0072B5" font-weight="600" letter-spacing="0.06em">BEAMTIMEHERO CLI</text>
+
+        <ellipse cx="280" cy="250" rx="105" ry="84" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+        <ellipse cx="280" cy="250" rx="105" ry="84" fill="#fff" opacity="0.5"/>
+        <text x="280" y="190" text-anchor="middle" font-family="ui-monospace, monospace" font-size="14" fill="#1a1a1a" font-weight="600" letter-spacing="0.06em">PYTHON 1:1</text>
+        <text x="280" y="208" text-anchor="middle" font-family="ui-monospace, monospace" font-size="14" fill="#1a1a1a" font-weight="600" letter-spacing="0.06em">WRAPPER</text>
+
+        <rect x="240" y="240" width="80" height="36" rx="4" fill="#1a1a1a"/>
+        <text x="280" y="264" text-anchor="middle" font-family="ui-monospace, monospace" font-size="18" fill="#7cd992" font-weight="600">SPEC</text>
+      </svg>
+
+      <ul class="bullets">
+        <li>A tool here is a Python function that calls one SPEC command over TCP</li>
+        <li>Wrap all tools together into one CLI bash command: <span style="font-family: var(--mono); font-weight: 600;">beamtimehero</span></li>
+        <li>No arbitrary code execution — the agent is given access to this one single command</li>
+        <li>Individual agents (beamline aligner, sample aligner, data collector) are given access to a relevant subset of the tool catalog</li>
+        <li style="font-weight: 600;">Construct a clear set of abilities and tasks — empower the agent to be adaptive and flexible within controlled constraints</li>
+      </ul>
 
     </div>
-    <div class="foot"><span>Human oversight</span><span class="pg">10</span></div>
+    <div class="foot"><span>Guardrails</span><span class="pg">10</span></div>
   </section>
 
-  <!-- 11 ARCHITECTURE -->
+  <!-- 11 TOOLS -->
+  <section class="slide">
+    <div class="eyebrow">Implementation</div>
+    <h1 class="title">Tools</h1>
+    <div class="rule"></div>
+    <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 48px; align-items: start;">
+
+      <ul class="bullets">
+        <li>Example tools:
+          <ul class="sub">
+            <li>Move a motor</li>
+            <li>Get data from the latest scan</li>
+            <li>See a picture of the sample (verify what's mounted)</li>
+          </ul>
+        </li>
+        <li>Each tool can be individually validated</li>
+        <li>Containerized SPEC environment</li>
+        <li>Agent does not have to wing it — leverages all the great work done by BL staff already</li>
+      </ul>
+
+      <img src="assets/tool-tester.png" alt="Tool Tester interface" style="width: 100%; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+
+    </div>
+    <div class="foot"><span>Tools</span><span class="pg">11</span></div>
+  </section>
+
+  <!-- 12 BEAMTIMEHERO CLI -->
+  <section class="slide">
+    <div class="eyebrow">Implementation</div>
+    <h1 class="title">beamtimehero CLI</h1>
+    <div class="rule"></div>
+    <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px; align-items: start;">
+      <div class="log" style="font-size: 20px;">
+        <div><span class="t">$ </span><span class="hl">beamtimehero --help</span></div>
+        <div><span class="t">  </span>tool       Data queries, analysis, plots</div>
+        <div><span class="t">  </span>db         Plan, progress, steering queue</div>
+        <div><span class="t">  </span>spec-read  Motor positions, beam status</div>
+        <div><span class="t">  </span>spec-write Motor moves, scans, energy</div>
+        <div><span class="t">  </span>ref        Procedure documents</div>
+        <div><span class="t">  </span>steering   Staff guidance queue</div>
+        <div>&nbsp;</div>
+        <div><span class="t">$ </span><span class="hl">beamtimehero spec-write run-xas --help</span></div>
+        <div><span class="t">  </span>--edge       Absorption edge (e.g. Fe_K)</div>
+        <div><span class="t">  </span>--count-time Seconds per point</div>
+        <div><span class="t">  </span>--filters    Number of Al filters</div>
+        <div><span class="t">  </span><span class="warn">--justification  (required)</span></div>
+        <div>&nbsp;</div>
+        <div><span class="t">$ </span><span class="hl">beamtimehero spec-write run-xas \</span></div>
+        <div><span class="t">    </span>--edge Fe_K --count-time 2 --filters 3 \</div>
+        <div><span class="t">    </span>--justification <span class="acc">"Rep 4 on S-A2, SNR 198"</span></div>
+        <div>&nbsp;</div>
+        <div><span class="t">[action_log] </span><span class="ok">logged → id=1847</span></div>
+        <div><span class="t">[spec]       </span>run_xas Fe_K ct=2 filt=3</div>
+        <div><span class="t">[spec]       </span><span class="ok">scan #412 complete, 287 points</span></div>
+      </div>
+      <div>
+        <ul class="bullets">
+          <li>The agent gets access to one bash command: <span style="font-family: var(--mono); font-weight: 600;">beamtimehero</span></li>
+          <li>Progressive discovery — agents call <span style="font-family: var(--mono); font-size: 28px; background: #f3efe7; padding: 1px 5px; border-radius: 3px;">--help</span> to learn what's available, then traverse the tree and drill in as needed.</li>
+          <li>100+ subcommands — the entire beamline interface funnels through this single tool</li>
+          <li>Context-efficient, no 100-tool schema dump per request</li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot"><span>beamtimehero CLI</span><span class="pg">12</span></div>
+  </section>
+
+  <!-- 13 ARCHITECTURE -->
   <section class="slide">
     <div class="eyebrow">Architecture</div>
     <h1 class="title">System architecture</h1>
@@ -529,21 +531,102 @@
       </defs>
     </svg>
 
-    <div class="foot"><span>Architecture</span><span class="pg">11</span></div>
+    <div class="foot"><span>Architecture</span><span class="pg">13</span></div>
   </section>
 
-  <!-- 12 WHATS NEXT -->
+  <!-- 14 HUMAN OVERSIGHT -->
+  <section class="slide">
+    <div class="eyebrow">Oversight</div>
+    <h1 class="title">Human-in-the-loop</h1>
+    <div class="rule"></div>
+    <div style="display: grid; grid-template-columns: 1.1fr 1fr; gap: 36px; align-items: start;">
+
+      <div class="slack">
+        <div class="slack-hdr">
+          <span class="hash">#</span><span class="name">bl15-2-steering</span>
+        </div>
+        <div class="slack-msg">
+          <div class="slack-ava" style="background: var(--blue);">EX</div>
+          <div>
+            <div><span class="slack-who">Experimenter</span></div>
+            <div class="slack-body" style="font-size: 24px;">
+              <p>We have only 30 minutes left, lets focus on sample 2</p>
+            </div>
+          </div>
+          <div class="slack-time">05:28</div>
+        </div>
+        <div class="slack-msg" style="background: #fbf7ee;">
+          <div class="slack-ava">BL</div>
+          <div>
+            <div><span class="slack-who">data-collector</span><span class="slack-bot">AGENT</span></div>
+            <div class="slack-body" style="font-size: 24px;">
+              <p><strong>Steering acknowledged.</strong> Will run 7 scans on Sample 2 with the time remaining.</p>
+            </div>
+          </div>
+          <div class="slack-time">05:28</div>
+        </div>
+        <div class="slack-msg">
+          <div class="slack-ava" style="background: var(--danger);">BL</div>
+          <div>
+            <div><span class="slack-who">data-collector</span><span class="slack-bot">AGENT</span> <span style="color: var(--danger); font-size: 14px; font-weight: 600; margin-left: 6px;">intervention</span></div>
+            <div class="slack-body" style="font-size: 24px;">
+              <p>Unable to locate sample 2. Pausing for further input.</p>
+            </div>
+          </div>
+          <div class="slack-time">05:30</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="margin-bottom: 18px;">
+          <div style="font-weight: 600; font-size: 28px;">Experimenter steering</div>
+          <div style="color: var(--muted); font-size: 24px; margin-top: 8px;">The experimenter can send commands and guidance to the agent while it operates — skip samples, reorder the queue, adjust scan counts, extend time budgets. The agent acknowledges and re-plans around the change.</div>
+        </div>
+        <div class="card">
+          <div style="font-weight: 600; font-size: 28px;">Roadblock escalation</div>
+          <div style="color: var(--muted); font-size: 24px; margin-top: 8px;">If the agent hits a condition it can't resolve — hardware fault, unexpected cryostat behavior, ambiguous data — it pauses and messages staff on Slack. Collection resumes once staff responds.</div>
+        </div>
+      </div>
+
+    </div>
+    <div class="foot"><span>Human oversight</span><span class="pg">14</span></div>
+  </section>
+
+  <!-- 15 WHATS NEXT -->
   <section class="slide">
     <div class="eyebrow">Future</div>
     <h1 class="title">What's next</h1>
     <div class="rule"></div>
-    <div style="max-width: 1400px;">
+    <div style="max-width: 1400px; display: flex; flex-direction: column; gap: 20px;">
+      <div class="card" style="border-color: var(--oxblood);">
+        <div style="font-size: 28px; font-weight: 600;">More tools!</div>
+        <div style="color: var(--muted); font-size: 28px; margin-top: 12px;">The more custom prepared actions we offer the Agents, the more useful and efficient they become.</div>
+      </div>
+      <div class="card" style="border-color: var(--oxblood);">
+        <div style="font-size: 28px; font-weight: 600;">Embodied AI</div>
+        <div style="color: var(--muted); font-size: 28px; margin-top: 12px;">Advance the visual intelligence, coupled with generic robotics</div>
+      </div>
       <div class="card" style="border-color: var(--oxblood);">
         <div style="font-size: 28px; font-weight: 600;">Self-driving experiments</div>
         <div style="color: var(--muted); font-size: 28px; margin-top: 12px;">Embed data analysis into the system as a new agent. Update the experiment plan based on the distilled results, suggesting new sample conditions.</div>
       </div>
     </div>
-    <div class="foot"><span>What's next</span><span class="pg">12</span></div>
+    <div class="foot"><span>What's next</span><span class="pg">15</span></div>
+  </section>
+
+  <!-- 16 SUMMARY -->
+  <section class="slide" style="justify-content: center;">
+    <div class="eyebrow">Summary</div>
+    <h1 class="title">Summary</h1>
+    <div class="rule"></div>
+    <ul class="bullets" style="max-width: 1400px;">
+      <li>LLMs are ready for deep integration at the beamlines. Today.</li>
+      <li>Full functionality demonstrated end to end. Expert level data collection driving will take some further field testing and tuning.</li>
+      <li>The architecture of CLI, tool belt, Slack integration has been flexible and effective</li>
+      <li>Even as the AI improves, there are preparations to make — Tools, documentation, prompts</li>
+      <li>Easily increases the number of personnel able to run a beamline</li>
+    </ul>
+    <div class="foot"><span>Summary</span><span class="pg">16</span></div>
   </section>
 
 </deck-stage>
