@@ -57,6 +57,24 @@ from beamtimehero_cli.cli.__main__ import (  # noqa: E402
 from beamline_tools.agent_roles import AGENT_ROLES, agent_motor_allowed  # noqa: E402
 from beamline_tools.tool_catalog import TOOL_DEFINITIONS  # noqa: E402
 
+# ---------------------------------------------------------------------------
+# Patch upstream's categorize + executor to see autonomy's orchestration tools.
+# Upstream's categorize() imports TOOL_LINEAGE from its own package, missing
+# autonomy's "autonomy_db" entries — so orchestration tools land under ("tool",)
+# instead of ("db",).  Upstream's executor dispatches through a tree-keyed
+# DISPATCH that has no orchestration handlers.  These two patches bridge the
+# gap without modifying the upstream package.
+# ---------------------------------------------------------------------------
+import beamtimehero_cli.tool_catalog.categorize as _cat_mod          # noqa: E402
+_cat_mod.TOOL_LINEAGE = __import__(                                   # noqa: E402
+    "beamline_tools.tool_catalog.lineage", fromlist=["TOOL_LINEAGE"]
+).TOOL_LINEAGE
+
+import beamtimehero_cli.cli.__main__ as _cli_mod                     # noqa: E402
+_cli_mod.execute_tool = __import__(                                   # noqa: E402
+    "beamline_tools.tool_catalog.executor", fromlist=["execute_tool"]
+).execute_tool
+
 CONTEXT_DIR = ROOT / "context"
 
 
