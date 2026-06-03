@@ -57,10 +57,19 @@ crystal motors, and the energy-tracking anchor.
 
 ## Procedure
 
-1. `beamtimehero samplealigner ref sample-alignment` — the per-sample alignment
+1. **Visual inspection — see what's mounted.**
+   Capture a live image of the sample stage before starting:
+   ```
+   beamtimehero samplealigner tool capture-sample-image
+   ```
+   Confirm the sample holder is mounted (not the diagnostic tool or
+   an empty stage). If something unexpected is in place, halt and
+   request a human intervention.
+
+2. `beamtimehero samplealigner ref sample-alignment` — the per-sample alignment
    recipe (Sx/Sy/Sz boundary detection via d2scan; emiss
    calibration with `get_HERFD_energy`).
-2. Read the live experiment plan:
+3. Read the live experiment plan:
    ```
    beamtimehero samplealigner db get-plan
    ```
@@ -72,7 +81,7 @@ crystal motors, and the energy-tracking anchor.
    - `holder_budgets[]` — initial per-sample reps/count_time (you
      don't need these, but the data-collection agent will).
 
-3. For each sample, in `placement_order`:
+4. For each sample, in `placement_order`:
    1. `beamtimehero samplealigner spec-write select-element --element <X>` — sets
       energy, emission position, Vortex ROI, xes_setup, and
       plot-selects the right detector.
