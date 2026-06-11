@@ -249,12 +249,6 @@ def t_update_plan(args: dict) -> tuple[str, list[str]]:
     if not experiment_id:
         return json.dumps({"ok": False, "error": "no active experiment"}), []
     new_plan = args.get("plan")
-    # opencode wraps object args as JSON-encoded strings; accept either.
-    if isinstance(new_plan, str):
-        try:
-            new_plan = json.loads(new_plan)
-        except json.JSONDecodeError as e:
-            return json.dumps({"ok": False, "error": f"plan is not valid JSON: {e}"}), []
     if not isinstance(new_plan, dict):
         return json.dumps({"ok": False, "error": "plan must be a JSON object"}), []
     try:
@@ -293,11 +287,6 @@ def t_record_convergence_stats(args: dict) -> tuple[str, list[str]]:
     if not experiment_id:
         return json.dumps({"ok": False, "error": "no active experiment"}), []
     stats = args.get("stats")
-    if isinstance(stats, str):
-        try:
-            stats = json.loads(stats)
-        except json.JSONDecodeError as e:
-            return json.dumps({"ok": False, "error": f"stats is not valid JSON: {e}"}), []
     if not isinstance(stats, dict):
         return json.dumps({"ok": False, "error": "stats must be a JSON object"}), []
     planner.record_convergence_stats(
@@ -793,11 +782,6 @@ def t_upload_sample_alignment_results(args: dict) -> tuple[str, list[str]]:
     if not j:
         return json.dumps({"ok": False, "error": "justification required"}), []
     raw = args.get("results")
-    if isinstance(raw, str):
-        try:
-            raw = json.loads(raw)
-        except json.JSONDecodeError as e:
-            return json.dumps({"ok": False, "error": f"results is not valid JSON: {e}"}), []
     if not isinstance(raw, list) or not raw:
         return json.dumps({"ok": False, "error": "results must be a non-empty list"}), []
 
@@ -839,12 +823,6 @@ def t_upload_sample_survey_results(args: dict) -> tuple[str, list[str]]:
     if not j:
         return json.dumps({"ok": False, "error": "justification required"}), []
     raw = args.get("results")
-    if isinstance(raw, str):
-        # opencode wraps array args as JSON-encoded strings; accept either.
-        try:
-            raw = json.loads(raw)
-        except json.JSONDecodeError as e:
-            return json.dumps({"ok": False, "error": f"results is not valid JSON: {e}"}), []
     if not isinstance(raw, list) or not raw:
         return json.dumps({"ok": False, "error": "results must be a non-empty list"}), []
 

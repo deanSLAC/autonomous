@@ -19,6 +19,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from orchestration.messages import ToolCallRecord
 from orchestration.config import (
     PROJECT_ROOT,
     LLM_GATEWAY,
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class OpenCodeResult:
+class AgentResult:
     """Assistant reply from one agent turn."""
     text: str
     images: list[str] = field(default_factory=list)
@@ -38,18 +39,19 @@ class OpenCodeResult:
     messages: list[dict] = field(default_factory=list)
     session_id: Optional[str] = None
     thoughts: list[str] = field(default_factory=list)
+    usage: Optional[dict] = None       # claude stream-json result.usage
+    cost_usd: Optional[float] = None   # claude stream-json result.total_cost_usd
 
 
 _IMAGE_PATH_RE = re.compile(r'(?:plot_path|image_path|png_path)"\s*:\s*"([^"]+)"')
 
 
-def _extract_image_paths(messages: list[dict]) -> list[str]:
-    """Scan tool-result payloads for generated plot paths."""
+def _extract_image_paths(texts: list[str]) -> list[str]:
+    """Scan tool-result payload strings for generated plot paths."""
     paths: list[str] = []
-    for m in messages or []:
-        content = m.get("content") or ""
-        if isinstance(content, str):
-            for mo in _IMAGE_PATH_RE.finditer(content):
+    for t in texts or []:
+        if isinstance(t, str):
+            for mo in _IMAGE_PATH_RE.finditer(t):
                 paths.append(mo.group(1))
     return paths
 
@@ -67,22 +69,17 @@ _NO_TIMEOUT = None
 
 @dataclass
 class _Accumulator:
-    """Build an OpenCodeResult while streaming claude code's stream-json."""
+    """Build an AgentResult while streaming claude code's stream-json."""
 
     session_id: Optional[str] = None
     final_text: str = ""
-    assistant_chunks: list[str] = None  # type: ignore[assignment]
-    thoughts: list[str] = None  # type: ignore[assignment]
-    tool_calls_by_id: dict[str, dict] = None  # type: ignore[assignment]
-    tool_calls_order: list[str] = None  # type: ignore[assignment]
-    raw_events: list[dict] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        self.assistant_chunks = []
-        self.thoughts = []
-        self.tool_calls_by_id = {}
-        self.tool_calls_order = []
-        self.raw_events = []
+    assistant_chunks: list[str] = field(default_factory=list)
+    thoughts: list[str] = field(default_factory=list)
+    tool_calls_by_id: dict[str, dict] = field(default_factory=dict)
+    tool_calls_order: list[str] = field(default_factory=list)
+    raw_events: list[dict] = field(default_factory=list)
+    usage: Optional[dict] = None
+    cost_usd: Optional[float] = None
 
 
 def _truncate(s: str, limit: int = 4000) -> str:
@@ -188,18 +185,12 @@ def _ingest_event(acc: _Accumulator, event: dict) -> None:
         result_text = event.get("result")
         if isinstance(result_text, str) and result_text:
             acc.final_text = result_text
-
-
-def _events_to_messages_for_image_scan(acc: _Accumulator) -> list[dict]:
-    """Recast tool outputs into the same shape opencode_client expects so we
-    can reuse `_extract_image_paths` regex without a second copy."""
-    msgs: list[dict] = []
-    for tid in acc.tool_calls_order:
-        entry = acc.tool_calls_by_id.get(tid) or {}
-        out = entry.get("output") or ""
-        if isinstance(out, str) and out:
-            msgs.append({"role": "tool", "content": out})
-    return msgs
+        usage = event.get("usage")
+        if isinstance(usage, dict):
+            acc.usage = usage
+        cost = event.get("total_cost_usd")
+        if isinstance(cost, (int, float)):
+            acc.cost_usd = float(cost)
 
 
 # ---------------------------------------------------------------------------
@@ -209,13 +200,8 @@ def _events_to_messages_for_image_scan(acc: _Accumulator) -> list[dict]:
 class ClaudeCodeClient:
     """Subprocess-based adapter for the `claude -p` headless CLI."""
 
-    def __init__(
-        self,
-        base_url: str | None = None,  # accepted for signature parity; unused
-        session_id: str | None = None,
-    ) -> None:
+    def __init__(self, session_id: str | None = None) -> None:
         gw = gateway_config()
-        self.base_url = gw["url"]  # informational; subprocess env carries it
         self.session_id: Optional[str] = session_id
         self.model = gw["model_alias"] or LLM_GATEWAY
         # CLAUDE_MODEL env overrides the gateway's --model alias if set.
@@ -300,7 +286,7 @@ class ClaudeCodeClient:
             },
         }) + "\n"
 
-    def send(self, text: str) -> OpenCodeResult:
+    def send(self, text: str) -> AgentResult:
         sid = self.ensure_session()
         argv = self._build_argv(sid)
         env = dict(os.environ)
@@ -385,14 +371,21 @@ class ClaudeCodeClient:
         if not final_text and rc != 0:
             final_text = f"Error: claude -p exited with rc={rc}: {stderr_tail[:300]}"
 
-        tool_calls = [acc.tool_calls_by_id[tid] for tid in acc.tool_calls_order]
-        images = _extract_image_paths(_events_to_messages_for_image_scan(acc))
+        # Validate/normalize each record against the shared contract so
+        # MLflow logs and viewers never see a drifted shape.
+        tool_calls = [
+            ToolCallRecord.model_validate(acc.tool_calls_by_id[tid]).model_dump()
+            for tid in acc.tool_calls_order
+        ]
+        images = _extract_image_paths([tc.get("output") or "" for tc in tool_calls])
 
-        return OpenCodeResult(
+        return AgentResult(
             text=final_text,
             images=images,
             tool_calls=tool_calls,
             messages=acc.raw_events,
             session_id=self.session_id,
             thoughts=acc.thoughts,
+            usage=acc.usage,
+            cost_usd=acc.cost_usd,
         )

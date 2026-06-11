@@ -13,7 +13,30 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
 
-__all__ = ["ChatErrorEvent", "ChatReplyEvent", "InboundSlackMessage"]
+__all__ = [
+    "ChatErrorEvent",
+    "ChatReplyEvent",
+    "InboundSlackMessage",
+    "ToolCallRecord",
+]
+
+
+class ToolCallRecord(BaseModel):
+    """One tool invocation from a claude stream-json transcript.
+
+    Single producer since the opencode removal:
+    `claude_code_client._ingest_event`. MLflow logging
+    (`conversation._log_run_success` → tool_calls.json) and the agent
+    output viewers consume this shape.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    name: str = "?"
+    input: dict = {}
+    output: str = ""
+    status: Literal["running", "completed", "error"] = "running"
 
 
 class InboundSlackMessage(BaseModel):

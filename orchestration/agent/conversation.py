@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 import mlflow
 
-from orchestration.agent.claude_code_client import ClaudeCodeClient, OpenCodeResult
+from orchestration.agent.claude_code_client import AgentResult, ClaudeCodeClient
 from orchestration.observability import mlflow_logging
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class ConversationResult:
 
 def _log_run_success(
     run, *, client: ClaudeCodeClient, source: str, prompt: str,
-    out: OpenCodeResult, latency_seconds: float,
+    out: AgentResult, latency_seconds: float,
     experiment_id: str | None, staff_name: str | None, turn: int | None,
 ) -> None:
     """Best-effort: write all per-turn artifacts to the active run.
@@ -52,7 +52,7 @@ def _log_run_success(
             "experiment_id": experiment_id,
             "staff_name": staff_name,
             "turn": turn,
-            "opencode_session_id": out.session_id,
+            "session_id": out.session_id,
         }
         for k, v in params.items():
             if v is not None:
@@ -80,9 +80,15 @@ def _log_run_success(
             except Exception as e:
                 logger.warning("mlflow log_artifact(%s) failed: %s", img_path, e)
 
-        # TODO: token metrics (prompt/completion) are intentionally omitted —
-        # opencode's REST surface does not expose them. Revisit if/when
-        # opencode adds usage to its message responses.
+        # Token/cost metrics from claude's stream-json result event.
+        usage = out.usage or {}
+        for key in ("input_tokens", "output_tokens",
+                    "cache_read_input_tokens", "cache_creation_input_tokens"):
+            val = usage.get(key)
+            if isinstance(val, (int, float)):
+                mlflow.log_metric(key, val)
+        if out.cost_usd is not None:
+            mlflow.log_metric("cost_usd", out.cost_usd)
     except Exception as e:
         mlflow_logging._mark_degraded(  # type: ignore[attr-defined]
             f"log_run_success: {e}",
