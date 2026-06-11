@@ -2,16 +2,15 @@
 from fastapi import APIRouter, HTTPException
 
 from orchestration.planner.loop import get_orchestrator
+from ui.server.schemas import SlackStatusIn
 
 router = APIRouter(prefix="/api/slack", tags=["slack"])
 
 
 @router.post("/status")
-async def post_status(payload: dict):
-    text = (payload.get("text") or "").strip()
-    if not text:
-        raise HTTPException(400, "text required")
-    thread_ts = payload.get("thread_ts")
+async def post_status(payload: SlackStatusIn):
+    text = payload.text
+    thread_ts = payload.thread_ts
     orch = get_orchestrator()
     if orch is None:
         # No orchestrator running — fall back to the slack bridge that

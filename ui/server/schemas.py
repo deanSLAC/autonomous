@@ -180,6 +180,115 @@ class ExperimentIn(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Small request bodies (chat, guidance, interventions, switches, misc)
+# ---------------------------------------------------------------------------
+
+class ChatIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    message: str = Field(min_length=1)
+    ui_session_id: Optional[str] = None
+    author: str = "ui-user"
+
+    @field_validator("message", mode="before")
+    @classmethod
+    def _strip(cls, v: Any) -> Any:
+        return v.strip() if isinstance(v, str) else v
+
+    @field_validator("author", "ui_session_id", mode="before")
+    @classmethod
+    def _blank(cls, v: Any, info) -> Any:
+        v = _blank_to_none(v)
+        if v is None and info.field_name == "author":
+            return "ui-user"
+        return v
+
+
+class ChatClearIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ui_session_id: Optional[str] = None
+
+    @field_validator("ui_session_id", mode="before")
+    @classmethod
+    def _blank(cls, v: Any) -> Any:
+        return _blank_to_none(v)
+
+
+class GuidanceIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1)
+    author: str = "web-user"
+    experiment_id: Optional[str] = None
+
+    @field_validator("text", "author", mode="before")
+    @classmethod
+    def _strip(cls, v: Any, info) -> Any:
+        v = _blank_to_none(v.strip() if isinstance(v, str) else v)
+        if v is None and info.field_name == "author":
+            return "web-user"
+        return v
+
+
+class ResolveInterventionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["resolved", "denied"] = "resolved"
+    resolver: str = "web-user"
+    note: Optional[str] = None
+
+    @field_validator("status", "resolver", mode="before")
+    @classmethod
+    def _blank(cls, v: Any, info) -> Any:
+        v = _blank_to_none(v.strip() if isinstance(v, str) else v)
+        if v is None:
+            return cls.model_fields[info.field_name].get_default()
+        return v
+
+
+class SafetySwitchesIn(BaseModel):
+    """Partial update — only the fields present in the request change."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    spec_read_enabled: Optional[bool] = None
+    spec_write_enabled: Optional[bool] = None
+
+
+class HolderRefIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    holder_id: str = Field(min_length=1)
+
+
+class HolderReorderIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    experiment_id: str = Field(min_length=1)
+    order: list[str] = Field(min_length=1)
+
+
+class SpectrometerAlignedIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    experiment_id: Optional[str] = None
+    aligned: bool = True
+
+
+class SlackStatusIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1)
+    thread_ts: Optional[str] = None
+
+    @field_validator("text", mode="before")
+    @classmethod
+    def _strip(cls, v: Any) -> Any:
+        return v.strip() if isinstance(v, str) else v
+
+
+# ---------------------------------------------------------------------------
 # Sample holder submission (config form variant)
 # ---------------------------------------------------------------------------
 
@@ -268,6 +377,107 @@ class HolderSampleIn(BaseModel):
             if self.rixs_step >= 0:
                 raise ValueError("RIXS step must be negative (scanning downward)")
         return self
+
+
+# ---------------------------------------------------------------------------
+# Plan-steering endpoints (plan_api)
+# ---------------------------------------------------------------------------
+
+class PlanEditIn(BaseModel):
+    """Common fields on every plan-steering request."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    experiment_id: Optional[str] = None
+    author: str = "web-user"
+    reason: Optional[str] = None
+
+    @field_validator("author", mode="before")
+    @classmethod
+    def _author_default(cls, v: Any) -> Any:
+        v = _blank_to_none(v)
+        return "web-user" if v is None else str(v).strip()
+
+
+class AddSampleIn(PlanEditIn):
+    sample_name: str = Field(min_length=1)
+    element_symbol: str = Field(min_length=1)
+    sample_id: Optional[str] = None
+    holder_id: Optional[str] = None
+    modes: Optional[list[dict]] = None
+    position: Optional[int] = None
+
+    @field_validator("sample_name", "element_symbol", mode="before")
+    @classmethod
+    def _strip(cls, v: Any) -> Any:
+        return v.strip() if isinstance(v, str) else v
+
+
+class SampleRefIn(PlanEditIn):
+    sample_id: str = Field(min_length=1)
+    note: Optional[str] = None
+
+
+class ReorderIn(PlanEditIn):
+    order: list[str] = Field(min_length=1)
+
+
+class UpdateSampleIn(SampleRefIn):
+    modes: Optional[list[dict]] = None
+    status: Optional[str] = None
+    snr_target: Optional[float] = None
+
+
+class SetEndTimeIn(PlanEditIn):
+    end_time: Optional[str] = None
+    hours_from_now: Optional[float] = None
+
+    @field_validator("end_time", mode="before")
+    @classmethod
+    def _blank(cls, v: Any) -> Any:
+        return _blank_to_none(v)
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> "SetEndTimeIn":
+        if (self.end_time is None) == (self.hours_from_now is None):
+            raise ValueError("provide exactly one of end_time or hours_from_now")
+        return self
+
+
+class UpdateThresholdsIn(PlanEditIn):
+    snr_target: Optional[float] = Field(default=None, gt=0)
+    min_reps_per_sample: Optional[int] = Field(default=None, ge=0)
+    max_drift_ev: Optional[float] = None
+
+
+class SampleTimeBudgetIn(SampleRefIn):
+    count_time_s: Optional[float] = Field(default=None, gt=0)
+    reps: Optional[int] = Field(default=None, ge=0)
+    mode: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _at_least_one(self) -> "SampleTimeBudgetIn":
+        if self.count_time_s is None and self.reps is None:
+            raise ValueError("at least one of count_time_s or reps is required")
+        return self
+
+
+class HolderTimeBudgetIn(PlanEditIn):
+    holder_id: Optional[str] = None
+    count_time_s: Optional[float] = Field(default=None, gt=0)
+    reps: Optional[int] = Field(default=None, ge=0)
+    mode: Optional[str] = None
+    apply_to_existing: bool = True
+
+    @model_validator(mode="after")
+    def _at_least_one(self) -> "HolderTimeBudgetIn":
+        if self.count_time_s is None and self.reps is None:
+            raise ValueError("at least one of count_time_s or reps is required")
+        return self
+
+
+class RegenerateIn(PlanEditIn):
+    beamtime_hours: Optional[float] = Field(default=None, gt=0)
 
 
 class SampleHolderIn(BaseModel):

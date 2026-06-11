@@ -15,6 +15,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
+from ui.server.schemas import SafetySwitchesIn
+
 router = APIRouter(prefix="/api/safety_switches", tags=["safety"])
 
 _PATH = (
@@ -55,12 +57,13 @@ def get_switches():
 
 
 @router.post("")
-def set_switches(payload: dict):
-    """Update one or both switches. Unrecognized keys are ignored."""
+def set_switches(payload: SafetySwitchesIn):
+    """Update one or both switches; only fields present in the request change."""
     state = _read()
     for k in _KEYS:
-        if k in payload:
-            state[k] = bool(payload[k])
+        v = getattr(payload, k)
+        if k in payload.model_fields_set and v is not None:
+            state[k] = v
     try:
         _write_atomic(state)
     except OSError as e:

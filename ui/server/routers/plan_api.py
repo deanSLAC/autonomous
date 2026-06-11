@@ -5,6 +5,10 @@ deck: users can add, remove, reorder, and skip samples, adjust scan
 counts, extend the beamtime budget, and tune quality thresholds. Every
 edit is attributed to its author and persisted in the PlanEdit audit
 log, so staff and remote users share a single history of changes.
+
+Request bodies are validated by the pydantic models in
+ui/server/schemas.py — a misspelled key or wrong type is a field-named
+422 instead of a silently-ignored key.
 """
 
 from __future__ import annotations
@@ -21,14 +25,21 @@ from orchestration.plan_store.client import (
 from orchestration import runtime_state
 from orchestration.plan_store.session import get_experiment
 from orchestration.planner import planner
+from ui.server.schemas import (
+    AddSampleIn,
+    HolderTimeBudgetIn,
+    PlanEditIn,
+    RegenerateIn,
+    ReorderIn,
+    SampleRefIn,
+    SampleTimeBudgetIn,
+    SetEndTimeIn,
+    UpdateSampleIn,
+    UpdateThresholdsIn,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/plan", tags=["plan"])
-
-
-def _pick_author(body: dict) -> str:
-    author = (body.get("author") or "").strip()
-    return author or "web-user"
 
 
 def _require_experiment(experiment_id: str | None) -> str:
@@ -65,106 +76,81 @@ def get_edits(experiment_id: str, limit: int = 100):
 # ---------------------------------------------------------------------------
 
 @router.post("/add_sample")
-async def add_sample(body: dict):
-    xid = _require_experiment(body.get("experiment_id"))
-    author = _pick_author(body)
-    sample_name = (body.get("sample_name") or "").strip()
-    element = (body.get("element_symbol") or "").strip()
-    holder_id = body.get("holder_id")
-    modes = body.get("modes")
-    position = body.get("position")
-    if not sample_name or not element:
-        raise HTTPException(400, "sample_name and element_symbol are required")
-
-    sample_id = body.get("sample_id") or f"user-{uuid.uuid4().hex[:10]}"
+async def add_sample(body: AddSampleIn):
+    xid = _require_experiment(body.experiment_id)
+    sample_id = body.sample_id or f"user-{uuid.uuid4().hex[:10]}"
     entry = planner.add_sample_to_plan(
         xid,
         sample_id=sample_id,
-        sample_name=sample_name,
-        element_symbol=element,
-        holder_id=holder_id,
-        modes=modes,
-        position=position,
+        sample_name=body.sample_name,
+        element_symbol=body.element_symbol,
+        holder_id=body.holder_id,
+        modes=body.modes,
+        position=body.position,
     )
     log_plan_edit(
-        xid, author=author, action="add_sample",
+        xid, author=body.author, action="add_sample",
         target_id=sample_id,
-        payload={"sample": entry, "position": position},
-        reason=body.get("reason"),
+        payload={"sample": entry, "position": body.position},
+        reason=body.reason,
     )
     return {"ok": True, "sample": entry}
 
 
 @router.post("/remove_sample")
-async def remove_sample(body: dict):
-    xid = _require_experiment(body.get("experiment_id"))
-    sample_id = body.get("sample_id")
-    if not sample_id:
-        raise HTTPException(400, "sample_id required")
-    ok = planner.remove_sample_from_plan(xid, sample_id)
+async def remove_sample(body: SampleRefIn):
+    xid = _require_experiment(body.experiment_id)
+    ok = planner.remove_sample_from_plan(xid, body.sample_id)
     if not ok:
-        raise HTTPException(404, f"sample {sample_id} not in plan")
-    author = _pick_author(body)
+        raise HTTPException(404, f"sample {body.sample_id} not in plan")
     log_plan_edit(
-        xid, author=author, action="remove_sample", target_id=sample_id,
-        payload={}, reason=body.get("reason"),
+        xid, author=body.author, action="remove_sample", target_id=body.sample_id,
+        payload={}, reason=body.reason,
     )
     return {"ok": True}
 
 
 @router.post("/skip_sample")
-async def skip_sample(body: dict):
-    xid = _require_experiment(body.get("experiment_id"))
-    sample_id = body.get("sample_id")
-    if not sample_id:
-        raise HTTPException(400, "sample_id required")
-    note = body.get("note")
-    ok = planner.skip_sample(xid, sample_id, note=note)
+async def skip_sample(body: SampleRefIn):
+    xid = _require_experiment(body.experiment_id)
+    ok = planner.skip_sample(xid, body.sample_id, note=body.note)
     if not ok:
-        raise HTTPException(404, f"sample {sample_id} not in plan")
-    author = _pick_author(body)
+        raise HTTPException(404, f"sample {body.sample_id} not in plan")
     log_plan_edit(
-        xid, author=author, action="skip", target_id=sample_id,
-        payload={"note": note}, reason=body.get("reason"),
+        xid, author=body.author, action="skip", target_id=body.sample_id,
+        payload={"note": body.note}, reason=body.reason,
     )
     return {"ok": True}
 
 
 @router.post("/reorder")
-async def reorder(body: dict):
-    xid = _require_experiment(body.get("experiment_id"))
-    order = body.get("order")
-    if not isinstance(order, list) or not all(isinstance(x, str) for x in order):
-        raise HTTPException(400, "order must be a list of sample_ids")
-    planner.reorder_plan(xid, order)
-    author = _pick_author(body)
+async def reorder(body: ReorderIn):
+    xid = _require_experiment(body.experiment_id)
+    planner.reorder_plan(xid, body.order)
     log_plan_edit(
-        xid, author=author, action="reorder", payload={"order": order},
-        reason=body.get("reason"),
+        xid, author=body.author, action="reorder", payload={"order": body.order},
+        reason=body.reason,
     )
     return {"ok": True}
 
 
 @router.post("/update_sample")
-async def update_sample(body: dict):
-    xid = _require_experiment(body.get("experiment_id"))
-    sample_id = body.get("sample_id")
-    if not sample_id:
-        raise HTTPException(400, "sample_id required")
+async def update_sample(body: UpdateSampleIn):
+    xid = _require_experiment(body.experiment_id)
     ok = planner.update_sample_params(
-        xid, sample_id,
-        modes=body.get("modes"),
-        status=body.get("status"),
-        snr_target=body.get("snr_target"),
-        note=body.get("note"),
+        xid, body.sample_id,
+        modes=body.modes,
+        status=body.status,
+        snr_target=body.snr_target,
+        note=body.note,
     )
     if not ok:
-        raise HTTPException(404, f"sample {sample_id} not in plan")
-    author = _pick_author(body)
+        raise HTTPException(404, f"sample {body.sample_id} not in plan")
     log_plan_edit(
-        xid, author=author, action="update_params", target_id=sample_id,
-        payload={k: body.get(k) for k in ("modes", "status", "snr_target", "note")},
-        reason=body.get("reason"),
+        xid, author=body.author, action="update_params", target_id=body.sample_id,
+        payload={"modes": body.modes, "status": body.status,
+                 "snr_target": body.snr_target, "note": body.note},
+        reason=body.reason,
     )
     return {"ok": True}
 
@@ -174,42 +160,30 @@ async def update_sample(body: dict):
 # ---------------------------------------------------------------------------
 
 @router.post("/set_end_time")
-async def set_end_time(body: dict):
+async def set_end_time(body: SetEndTimeIn):
     """Set the absolute end-of-beamtime timestamp (replaces the old
-    extend_budget / set_budget endpoints).
-
-    Body: {experiment_id, end_time?: ISO-8601, hours_from_now?: number, reason?}
-    """
+    extend_budget / set_budget endpoints)."""
     from datetime import datetime as _dt, timedelta as _td
     from orchestration.plan_store.session import set_experiment_end_time
     from orchestration.plan_store.timeutils import parse_iso_to_local_naive
 
-    xid = _require_experiment(body.get("experiment_id"))
-    iso = (body.get("end_time") or "").strip() or None
-    hours_from_now = body.get("hours_from_now")
-    if (iso is None) == (hours_from_now is None):
-        raise HTTPException(400, "provide exactly one of end_time or hours_from_now")
-    if iso is not None:
+    xid = _require_experiment(body.experiment_id)
+    if body.end_time is not None:
         try:
-            new_end = parse_iso_to_local_naive(iso)
+            new_end = parse_iso_to_local_naive(body.end_time)
         except ValueError as e:
             raise HTTPException(400, f"end_time must be ISO-8601: {e}")
     else:
-        try:
-            hrs = float(hours_from_now)
-        except (TypeError, ValueError):
-            raise HTTPException(400, "hours_from_now must be a number")
-        new_end = _dt.now() + _td(hours=hrs)
+        new_end = _dt.now() + _td(hours=body.hours_from_now)
 
     row = set_experiment_end_time(xid, new_end)
     if row is None:
         raise HTTPException(404, f"experiment {xid} not found")
 
-    author = _pick_author(body)
     log_plan_edit(
-        xid, author=author, action="set_end_time",
+        xid, author=body.author, action="set_end_time",
         payload={"end_time": new_end.isoformat()},
-        reason=body.get("reason"),
+        reason=body.reason,
     )
     return {
         "ok": True,
@@ -219,19 +193,18 @@ async def set_end_time(body: dict):
 
 
 @router.post("/update_thresholds")
-async def update_thresholds(body: dict):
-    xid = _require_experiment(body.get("experiment_id"))
+async def update_thresholds(body: UpdateThresholdsIn):
+    xid = _require_experiment(body.experiment_id)
     thresholds = planner.update_thresholds(
         xid,
-        snr_target=body.get("snr_target"),
-        min_reps_per_sample=body.get("min_reps_per_sample"),
-        max_drift_ev=body.get("max_drift_ev"),
+        snr_target=body.snr_target,
+        min_reps_per_sample=body.min_reps_per_sample,
+        max_drift_ev=body.max_drift_ev,
     )
-    author = _pick_author(body)
     log_plan_edit(
-        xid, author=author, action="update_thresholds",
+        xid, author=body.author, action="update_thresholds",
         payload={"thresholds": thresholds},
-        reason=body.get("reason"),
+        reason=body.reason,
     )
     return {"ok": True, "thresholds": thresholds}
 
@@ -241,70 +214,57 @@ async def update_thresholds(body: dict):
 # ---------------------------------------------------------------------------
 
 @router.post("/set_sample_time_budget")
-async def set_sample_time_budget(body: dict):
-    xid = _require_experiment(body.get("experiment_id"))
-    sample_id = body.get("sample_id")
-    if not sample_id:
-        raise HTTPException(400, "sample_id required")
-    count_time_s = body.get("count_time_s")
-    reps = body.get("reps")
-    if count_time_s is None and reps is None:
-        raise HTTPException(400, "at least one of count_time_s or reps is required")
+async def set_sample_time_budget(body: SampleTimeBudgetIn):
+    xid = _require_experiment(body.experiment_id)
     ok = planner.set_sample_time_budget(
         xid,
-        sample_id,
-        count_time_s=count_time_s,
-        reps=reps,
-        mode=body.get("mode"),
+        body.sample_id,
+        count_time_s=body.count_time_s,
+        reps=body.reps,
+        mode=body.mode,
     )
     if not ok:
-        raise HTTPException(404, f"sample {sample_id} not in plan")
-    author = _pick_author(body)
+        raise HTTPException(404, f"sample {body.sample_id} not in plan")
     log_plan_edit(
-        xid, author=author, action="set_sample_time_budget",
-        target_id=sample_id,
-        payload={"count_time_s": count_time_s, "reps": reps, "mode": body.get("mode")},
-        reason=body.get("reason"),
+        xid, author=body.author, action="set_sample_time_budget",
+        target_id=body.sample_id,
+        payload={"count_time_s": body.count_time_s, "reps": body.reps,
+                 "mode": body.mode},
+        reason=body.reason,
     )
     return {"ok": True}
 
 
 @router.post("/set_holder_time_budget")
-async def set_holder_time_budget(body: dict):
-    xid = _require_experiment(body.get("experiment_id"))
-    count_time_s = body.get("count_time_s")
-    reps = body.get("reps")
-    if count_time_s is None and reps is None:
-        raise HTTPException(400, "at least one of count_time_s or reps is required")
+async def set_holder_time_budget(body: HolderTimeBudgetIn):
+    xid = _require_experiment(body.experiment_id)
     summary = planner.set_holder_time_budget(
         xid,
-        body.get("holder_id"),
-        count_time_s=count_time_s,
-        reps=reps,
-        mode=body.get("mode"),
-        apply_to_existing=bool(body.get("apply_to_existing", True)),
+        body.holder_id,
+        count_time_s=body.count_time_s,
+        reps=body.reps,
+        mode=body.mode,
+        apply_to_existing=body.apply_to_existing,
     )
-    author = _pick_author(body)
     log_plan_edit(
-        xid, author=author, action="set_holder_time_budget",
-        target_id=body.get("holder_id"),
+        xid, author=body.author, action="set_holder_time_budget",
+        target_id=body.holder_id,
         payload=summary,
-        reason=body.get("reason"),
+        reason=body.reason,
     )
     return {"ok": True, "summary": summary}
 
 
 @router.post("/regenerate")
-async def regenerate(body: dict):
-    xid = _require_experiment(body.get("experiment_id"))
+async def regenerate(body: RegenerateIn):
+    xid = _require_experiment(body.experiment_id)
     new_plan = planner.rebuild_plan_preserving_progress(
         xid,
-        beamtime_hours=body.get("beamtime_hours"),
+        beamtime_hours=body.beamtime_hours,
     )
-    author = _pick_author(body)
     log_plan_edit(
-        xid, author=author, action="regenerate",
+        xid, author=body.author, action="regenerate",
         payload={"sample_count": len(new_plan.get("sample_queue", []))},
-        reason=body.get("reason"),
+        reason=body.reason,
     )
     return {"ok": True, "sample_count": len(new_plan.get("sample_queue", []))}

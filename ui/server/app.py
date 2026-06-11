@@ -29,6 +29,7 @@ from orchestration.chat import (
 )
 from ui.adapters.slack_bridge import SlackBridge
 from ui.config import BASE_PATH, PROJECT_ROOT, STATIC_DIR
+from ui.server.schemas import ChatClearIn, ChatIn
 from ui.server.routers import (
     agents_api,
     config_api,
@@ -245,16 +246,10 @@ def create_app() -> FastAPI:
     # status immediately.
 
     @app.post(f"{BASE_PATH}/api/chat")
-    async def chat(payload: dict):
-        user_text = (payload.get("message") or "").strip()
-        if not user_text:
-            return JSONResponse({"error": "Empty message"}, status_code=400)
-
-        ui_session_id = payload.get("ui_session_id")
-        if not ui_session_id:
-            # Mint one for the client and tell it to remember (the
-            # frontend can persist this in localStorage and re-send).
-            ui_session_id = uuid.uuid4().hex[:12]
+    async def chat(payload: ChatIn):
+        # Mint a session id for the client if it didn't send one (the
+        # frontend persists this in localStorage and re-sends).
+        ui_session_id = payload.ui_session_id or uuid.uuid4().hex[:12]
 
         from orchestration.chat import chat_router_singleton
         router = chat_router_singleton()
@@ -266,8 +261,8 @@ def create_app() -> FastAPI:
         # Run on a worker thread — handle_inbound does sync DB + spawn().
         result = await asyncio.to_thread(
             router.handle_inbound,
-            text=user_text,
-            author=payload.get("author") or "ui-user",
+            text=payload.message,
+            author=payload.author,
             channel=None,
             thread_ts=None,
             source="ui",
@@ -281,15 +276,14 @@ def create_app() -> FastAPI:
         }
 
     @app.post(f"{BASE_PATH}/api/chat/clear")
-    async def chat_clear(payload: dict):
+    async def chat_clear(payload: ChatClearIn):
         """Archive the current UI chat session and return a fresh ui_session_id.
 
         The client is expected to replace its stored ui_session_id with
         the returned value — subsequent messages start a brand-new session.
         """
-        ui_session_id = (payload.get("ui_session_id") or "").strip()
-        if ui_session_id:
-            thread_key = f"ui:{ui_session_id}"
+        if payload.ui_session_id:
+            thread_key = f"ui:{payload.ui_session_id}"
             existing = await asyncio.to_thread(get_active_session_by_key, thread_key)
             if existing is not None:
                 await asyncio.to_thread(archive_session, existing["id"])

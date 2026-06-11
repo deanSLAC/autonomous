@@ -21,6 +21,7 @@ from orchestration.plan_store.session import (
 )
 from beamtimehero_cli.spec_control import phases
 from orchestration import runtime_state
+from ui.server.schemas import SpectrometerAlignedIn
 
 logger = logging.getLogger(__name__)
 
@@ -579,15 +580,12 @@ async def run_status():
 
 
 @router.post("/spectrometer_aligned")
-async def post_spectrometer_aligned(payload: dict):
+async def post_spectrometer_aligned(payload: SpectrometerAlignedIn):
     """Set/clear the operator-confirmed spectrometer-alignment flag."""
-    experiment_id = (
-        (payload or {}).get("experiment_id")
-        or runtime_state.get_experiment_id()
-    )
+    experiment_id = payload.experiment_id or runtime_state.get_experiment_id()
     if not experiment_id:
         raise HTTPException(400, "experiment_id required")
-    aligned = bool((payload or {}).get("aligned", True))
+    aligned = payload.aligned
     exp = set_spectrometer_aligned(experiment_id, aligned)
     if exp is None:
         raise HTTPException(404, "experiment not found")

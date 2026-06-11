@@ -21,6 +21,7 @@ from orchestration.planner.loop import get_orchestrator
 from orchestration.planner.staff_guidance import coordinator
 from beamline_tools.audited_call import audited_call
 from orchestration import runtime_state
+from ui.server.schemas import GuidanceIn, ResolveInterventionIn
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/orchestrator", tags=["orchestrator"])
@@ -71,31 +72,26 @@ def status():
 
 
 @router.post("/guidance")
-async def submit_guidance(payload: dict):
+async def submit_guidance(payload: GuidanceIn):
     """Users / staff submit steering text via web UI — joins the staff-guidance queue."""
-    text = (payload.get("text") or "").strip()
-    if not text:
-        raise HTTPException(400, "text required")
-    author = (payload.get("author") or "web-user").strip()
-    experiment_id = payload.get("experiment_id") or runtime_state.get_experiment_id()
+    experiment_id = payload.experiment_id or runtime_state.get_experiment_id()
     coordinator.record_guidance(
-        experiment_id=experiment_id, source="web", author=author, text=text,
+        experiment_id=experiment_id, source="web", author=payload.author,
+        text=payload.text,
     )
     return {"ok": True}
 
 
 @router.post("/intervention/{intervention_id}/resolve")
-async def resolve_intervention(intervention_id: str, payload: dict):
-    status = (payload.get("status") or "resolved").strip()
-    if status not in ("resolved", "denied"):
-        raise HTTPException(400, "status must be 'resolved' or 'denied'")
+async def resolve_intervention(intervention_id: str, payload: ResolveInterventionIn):
     row = get_intervention(intervention_id)
     if row is None:
         raise HTTPException(404, "intervention not found")
-    resolver = (payload.get("resolver") or "web-user").strip()
-    note = payload.get("note")
-    await coordinator.resolve(intervention_id, status=status, resolver=resolver, note=note)
-    return {"ok": True, "status": status}
+    await coordinator.resolve(
+        intervention_id, status=payload.status, resolver=payload.resolver,
+        note=payload.note,
+    )
+    return {"ok": True, "status": payload.status}
 
 
 @router.post("/abort_spec")

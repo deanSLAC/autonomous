@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 
 from orchestration.config_generator import validate_sample_holder_data
+from ui.server.schemas import HolderRefIn, HolderReorderIn
 from orchestration.plan_store.session import (
     _SENTINEL,
     create_sample_holder,
@@ -379,10 +380,8 @@ async def update(body: HolderUpdateIn):
 
 
 @router.post("/delete")
-async def delete(body: dict):
-    holder_id = body.get("holder_id")
-    if not holder_id:
-        raise HTTPException(400, "holder_id required")
+async def delete(body: HolderRefIn):
+    holder_id = body.holder_id
     with get_session() as session:
         h = session.get(SampleHolder, holder_id)
     if h is None:
@@ -400,14 +399,9 @@ async def delete(body: dict):
 
 
 @router.post("/reorder")
-async def reorder(body: dict):
-    experiment_id = body.get("experiment_id")
-    order = body.get("order")
-    if not experiment_id:
-        raise HTTPException(400, "experiment_id required")
-    if not isinstance(order, list) or not all(isinstance(x, str) for x in order):
-        raise HTTPException(400, "order must be a list of holder_ids")
-    reorder_sample_holders(experiment_id, order)
+async def reorder(body: HolderReorderIn):
+    experiment_id = body.experiment_id
+    reorder_sample_holders(experiment_id, body.order)
     try:
         planner.rebuild_plan_preserving_progress(experiment_id)
         request_replan("holder order changed")
