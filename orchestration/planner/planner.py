@@ -26,6 +26,7 @@ from sqlmodel import select
 from typing import Callable
 
 from orchestration.config import DEFAULT_BEAMTIME_HOURS
+from orchestration.planner.plan_schema import PlanSchemaError, validate_plan_doc
 from orchestration.plan_store.client import (
     StaleVersionError,
     get_plan,
@@ -168,6 +169,7 @@ def build_initial_plan(experiment_id: str,
         "updated_at": datetime.now().isoformat(),
     }
 
+    plan = validate_plan_doc(plan)
     upsert_experiment_plan(
         experiment_id,
         beamtime_total_hours=plan["budget"]["beamtime_total_hours"],
@@ -446,6 +448,12 @@ def _mutate_plan(
         body = wrapper.get("plan") or {}
         queue = body.setdefault("sample_queue", [])
         fn(body, queue)
+        # In-process mutators are trusted, but validate anyway so a buggy
+        # closure can't persist a malformed document the agent then reads.
+        try:
+            body = validate_plan_doc(body)
+        except PlanSchemaError as e:
+            raise PlanValidationError(f"plan mutation produced an invalid document: {e}") from e
         body["updated_at"] = datetime.now().isoformat()
         try:
             upsert_experiment_plan(
@@ -501,6 +509,12 @@ def record_convergence_stats(
 
 
 def replace_plan(experiment_id: str, new_plan: dict) -> dict:
+    # Schema first (shape errors are more actionable than deadlock
+    # errors), then the zero-actionable-samples deadlock guard.
+    try:
+        new_plan = validate_plan_doc(new_plan)
+    except PlanSchemaError as e:
+        raise PlanValidationError(str(e)) from e
     _require_actionable_samples(experiment_id, new_plan)
     for attempt in range(_MAX_PLAN_RETRIES):
         wrapper = get_plan(experiment_id) or {}

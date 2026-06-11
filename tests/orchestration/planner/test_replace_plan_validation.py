@@ -122,3 +122,73 @@ def test_t_update_plan_returns_ok_on_valid_plan(stub_plan_store, monkeypatch):
     body_json, _ = tools.t_update_plan({"plan": plan})
     body = json.loads(body_json)
     assert body["ok"] is True
+
+
+# ---------------------------------------------------------------------------
+# Schema validation (plan_schema.validate_plan_doc via replace_plan)
+# ---------------------------------------------------------------------------
+
+def test_replace_plan_normalizes_status_case(stub_plan_store):
+    stub_plan_store["current_phase"] = "setup"
+    plan = {"sample_queue": [
+        {"sample_id": "s1", "status": "Done"},
+        {"sample_id": "s2", "status": "IN_PROGRESS"},
+    ]}
+    planner.replace_plan("exp-1", plan)
+    written = stub_plan_store["last_write"]
+    assert [s["status"] for s in written["sample_queue"]] == ["done", "in_progress"]
+
+
+def test_replace_plan_rejects_unknown_status(stub_plan_store):
+    plan = {"sample_queue": [{"sample_id": "s1", "status": "paused"}]}
+    with pytest.raises(planner.PlanValidationError) as exc:
+        planner.replace_plan("exp-1", plan)
+    assert "status" in str(exc.value)
+    assert stub_plan_store["last_write"] is None
+
+
+def test_replace_plan_rejects_missing_sample_id(stub_plan_store):
+    plan = {"sample_queue": [{"status": "queued"}]}
+    with pytest.raises(planner.PlanValidationError) as exc:
+        planner.replace_plan("exp-1", plan)
+    assert "sample_id" in str(exc.value)
+
+
+def test_replace_plan_rejects_negative_reps(stub_plan_store):
+    plan = {"sample_queue": [{"sample_id": "s1", "status": "queued",
+                              "reps_completed": -2}]}
+    with pytest.raises(planner.PlanValidationError):
+        planner.replace_plan("exp-1", plan)
+
+
+def test_replace_plan_preserves_agent_extra_fields(stub_plan_store):
+    stub_plan_store["current_phase"] = "setup"
+    plan = {
+        "sample_queue": [{"sample_id": "s1", "status": "queued",
+                          "agent_note": "watch for damage"}],
+        "agent_strategy": "fresh spots every 2 reps",
+    }
+    planner.replace_plan("exp-1", plan)
+    written = stub_plan_store["last_write"]
+    assert written["agent_strategy"] == "fresh spots every 2 reps"
+    assert written["sample_queue"][0]["agent_note"] == "watch for damage"
+
+
+def test_replace_plan_fills_entry_defaults(stub_plan_store):
+    stub_plan_store["current_phase"] = "setup"
+    plan = {"sample_queue": [{"sample_id": "s1"}]}
+    planner.replace_plan("exp-1", plan)
+    entry = stub_plan_store["last_write"]["sample_queue"][0]
+    assert entry["status"] == "queued"
+    assert entry["reps_completed"] == 0
+    assert entry["modes"] == []
+
+
+def test_t_update_plan_surfaces_schema_error_to_agent(stub_plan_store, monkeypatch):
+    monkeypatch.setattr(tools.runtime_state, "get_experiment_id",
+                        lambda: "exp-1")
+    plan = {"sample_queue": [{"sample_id": "s1", "status": "completed"}]}
+    body_json, _ = tools.t_update_plan({"plan": plan})
+    body = json.loads(body_json)
+    assert body["ok"] is False
+    assert "queued" in body["error"]  # lists the valid statuses
