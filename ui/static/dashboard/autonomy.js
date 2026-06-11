@@ -8,7 +8,6 @@
 const API = "";
 const POLL_MS = 3000;
 
-let autonomyPollTimer = null;
 // Cache the spectrometer-aligned flag so the gating check is synchronous
 // in renderTileActions(). Refreshed in refreshAutonomy().
 let __spectrometerAligned = false;
@@ -488,13 +487,6 @@ function renderAutonomy(orc, dash) {
         const el = document.getElementById(id);
         if (el) el.textContent = val;
     };
-    setText("orc-total", snap.beamtime_total_hours != null ? snap.beamtime_total_hours.toFixed(1) : "–");
-    setText("orc-elapsed", snap.beamtime_elapsed_hours != null ? snap.beamtime_elapsed_hours.toFixed(2) : "–");
-    if (orc && orc.turn_count != null) setText("orc-turn", orc.turn_count);
-
-    if (orc && orc.phase) {
-        setText("cur-phase", orc.phase);
-    }
 
     // Extra-time indicator: shown when beamtime_remaining_hours < 0
     // (past the configured end_time) and we're in the collection phase.
@@ -523,8 +515,6 @@ function renderAutonomy(orc, dash) {
     // Plan table
     const tbody = document.getElementById("plan-tbody");
     const queue = (dash.plan && dash.plan.plan && dash.plan.plan.sample_queue) || [];
-    const expSel = document.getElementById("experiment-select");
-    const expId = expSel ? expSel.value : "";
     if (tbody) {
         if (queue.length) {
             tbody.innerHTML = queue.map((s, i) => {
@@ -599,9 +589,6 @@ function renderAutonomy(orc, dash) {
             pacingEl.style.display = "none";
         }
     }
-
-    window.__planQueue = queue;
-    window.__planExpId = expId;
 
     // Action tape
     const actionsEl = document.getElementById("action-tape");
@@ -883,99 +870,6 @@ function applyGatingToTiles() {
             if (actions) actions.hidden = true;
         }
     });
-}
-
-// ---------------------------------------------------------------------------
-// Plan helpers (unchanged from previous version)
-// ---------------------------------------------------------------------------
-
-function currentAuthor() {
-    return localStorage.getItem("plan-author") || "web-user";
-}
-
-async function planPost(path, body) {
-    const expId = window.__planExpId || (document.getElementById("experiment-select")?.value || "");
-    if (!expId) { alert("Start an experiment first."); return null; }
-    const full = { ...body, experiment_id: expId, author: currentAuthor() };
-    try {
-        const r = await fetch(`/api/plan/${path}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(full),
-        });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok) { alert(j.detail || j.error || `error ${r.status}`); return null; }
-        return j;
-    } catch (e) {
-        alert(`Request failed: ${e}`); return null;
-    } finally {
-        refreshAutonomy();
-    }
-}
-
-async function skipSample(sampleId) {
-    const note = prompt("Skip reason (optional):", "") || undefined;
-    await planPost("skip_sample", { sample_id: sampleId, note });
-}
-
-async function removeSample(sampleId) {
-    if (!confirm("Remove this sample from the plan? This does not delete the record, just takes it out of the queue.")) return;
-    const reason = prompt("Why remove it? (optional)", "") || undefined;
-    await planPost("remove_sample", { sample_id: sampleId, reason });
-}
-
-async function moveSample(sampleId, delta) {
-    const queue = window.__planQueue || [];
-    const ids = queue.map(s => s.sample_id);
-    const idx = ids.indexOf(sampleId);
-    if (idx < 0) return;
-    const newIdx = Math.max(0, Math.min(ids.length - 1, idx + delta));
-    if (newIdx === idx) return;
-    ids.splice(idx, 1);
-    ids.splice(newIdx, 0, sampleId);
-    await planPost("reorder", { order: ids });
-}
-
-async function extendEndTime(hours) {
-    const reason = hours < 0
-        ? prompt(`Pull end-time in by ${Math.abs(hours)}h. Reason? (optional)`, "")
-        : prompt(`Push end-time out by ${hours}h. Reason? (optional)`, "");
-    if (reason === null) return;
-    await planPost("set_end_time", { hours_from_now: hours, reason: reason || undefined });
-}
-
-function openAddSample() {
-    document.getElementById("add-sample-inline").style.display = "flex";
-    document.getElementById("add-sample-name").focus();
-}
-function closeAddSample() {
-    document.getElementById("add-sample-inline").style.display = "none";
-}
-
-async function submitAddSample() {
-    const name = document.getElementById("add-sample-name").value.trim();
-    const elem = document.getElementById("add-sample-element").value.trim();
-    if (!name || !elem) { alert("Sample name + element are required."); return; }
-    const reps = parseInt(document.getElementById("add-sample-reps").value || "6", 10);
-    const ct = parseFloat(document.getElementById("add-sample-time").value || "0.5");
-    const posRaw = document.getElementById("add-sample-pos").value.trim();
-    const position = posRaw === "" ? null : Math.max(0, parseInt(posRaw, 10) - 1);
-    const reason = document.getElementById("add-sample-reason").value.trim();
-    const modes = [{ mode: "xas", reps, count_time_s: ct }];
-    const ok = await planPost("add_sample", {
-        sample_name: name,
-        element_symbol: elem,
-        modes,
-        position,
-        reason: reason || undefined,
-    });
-    if (ok) {
-        document.getElementById("add-sample-name").value = "";
-        document.getElementById("add-sample-element").value = "";
-        document.getElementById("add-sample-pos").value = "";
-        document.getElementById("add-sample-reason").value = "";
-        closeAddSample();
-    }
 }
 
 async function resolveIntervention(id, status) {
@@ -1464,23 +1358,7 @@ function interventionPresentation(kind) {
     };
 }
 
-function wirePlanAuthor() {
-    const el = document.getElementById("plan-author");
-    if (!el) return;
-    const label = () => `as ${currentAuthor()}`;
-    el.textContent = label();
-    el.style.cursor = "pointer";
-    el.addEventListener("click", () => {
-        const name = prompt("Attribute plan edits to:", currentAuthor());
-        if (name) {
-            localStorage.setItem("plan-author", name.trim());
-            el.textContent = label();
-        }
-    });
-}
-
 document.addEventListener("DOMContentLoaded", () => {
-    wirePlanAuthor();
     refreshAutonomy();
     refreshSafetySwitches();
     setInterval(refreshSafetySwitches, 5000);
@@ -1494,7 +1372,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(refreshSpecOutput, 1500);
     setInterval(refreshAgentPlot, 3000);
     setInterval(refreshStatsTrend, 3000);
-    autonomyPollTimer = setInterval(refreshAutonomy, POLL_MS);
+    setInterval(refreshAutonomy, POLL_MS);
     // Server health + SIM pill are handled by dashboard.js's checkServer()
     // — a second checker here used to fight it over the status dot.
 });

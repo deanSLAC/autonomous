@@ -40,59 +40,6 @@ const POLL_INTERVAL = 5000;
 let currentExperimentId = null;
 let pollTimer = null;
 
-// ---- Phase display names ----
-
-const PHASE_NAMES = {
-    bl_align: "Beamline Alignment",
-    xes_align: "Spectrometer Alignment",
-    spec_align: "Spectrometer Alignment",
-    sample_align: "Sample Alignment",
-    collection: "Data Collection",
-};
-
-const PHASE_ORDER = ["bl_align", "xes_align", "sample_align", "collection"];
-
-// ---- Utility ----
-
-function formatTime(isoStr) {
-    if (!isoStr) return "--";
-    const d = new Date(isoStr);
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function formatDate(isoStr) {
-    if (!isoStr) return "--";
-    const d = new Date(isoStr);
-    return d.toLocaleDateString([], { month: "short", day: "numeric" }) +
-        " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function formatDuration(startIso, endIso) {
-    if (!startIso) return "--";
-    const start = new Date(startIso);
-    const end = endIso ? new Date(endIso) : new Date();
-    const diffMs = end - start;
-    const mins = Math.floor(diffMs / 60000);
-    const secs = Math.floor((diffMs % 60000) / 1000);
-    if (mins > 60) {
-        const hrs = Math.floor(mins / 60);
-        return `${hrs}h ${mins % 60}m`;
-    }
-    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-}
-
-function confidenceClass(conf) {
-    if (conf === null || conf === undefined) return "";
-    if (conf >= 0.7) return "confidence-high";
-    if (conf >= 0.4) return "confidence-mid";
-    return "confidence-low";
-}
-
-function fmt(val, decimals) {
-    if (val === null || val === undefined) return "--";
-    return Number(val).toFixed(decimals !== undefined ? decimals : 2);
-}
-
 // ---- Server health check ----
 
 async function checkServer() {
@@ -163,7 +110,6 @@ async function refreshDashboard() {
         if (!resp.ok) return;
         const data = await resp.json();
         renderExperimentInfo(data.experiment);
-        renderPhases(data.phases);
     } catch { /* ignore */ }
 }
 
@@ -215,63 +161,6 @@ function renderExperimentInfo(exp) {
     set("exp-crystal", formatCrystal(exp.mono_crystal));
     set("exp-beam", formatBeamSize(exp));
     set("exp-env", exp.sample_env || "ambient");
-}
-
-function renderPhases(phases) {
-    // Build a map of phase -> latest run
-    const phaseMap = {};
-    (phases || []).forEach((p) => {
-        const key = p.phase === "spec_align" ? "xes_align" : p.phase;
-        // Keep the latest run per phase
-        if (!phaseMap[key] || new Date(p.started_at) > new Date(phaseMap[key].started_at)) {
-            phaseMap[key] = p;
-        }
-    });
-
-    PHASE_ORDER.forEach((phaseKey) => {
-        const tile = document.querySelector(`.phase-tile[data-phase="${phaseKey}"]`);
-        if (!tile) return;
-
-        const run = phaseMap[phaseKey];
-        const status = run ? run.status : "pending";
-
-        // Update status
-        tile.dataset.status = status;
-        tile.dataset.phaseRunId = run ? run.id : "";
-
-        // Badge
-        const badge = tile.querySelector(".tile-status-badge");
-        badge.className = "tile-status-badge badge-" + status;
-        badge.textContent = status;
-
-        // Metrics
-        const setField = (field, val) => {
-            const el = tile.querySelector(`[data-field="${field}"]`);
-            if (el) el.textContent = val !== undefined && val !== null ? val : "--";
-        };
-
-        if (run) {
-            setField("scan_count", run.scan_count || 0);
-            setField("iterations", run.max_iteration || "--");
-            setField("llm_count", run.llm_count || 0);
-            setField("anomaly_count", run.anomaly_count || 0);
-            setField("crystal_count", run.crystal_count || "--");
-            setField("sample_count", run.sample_count || "--");
-            setField("technique_count", run.technique_count || "--");
-
-            // Time
-            if (status === "running") {
-                setField("time", "started " + formatTime(run.started_at));
-            } else if (status === "completed") {
-                setField("time", formatDuration(run.started_at, run.completed_at));
-            } else {
-                setField("time", formatTime(run.started_at));
-            }
-        } else {
-            setField("scan_count", "--");
-            setField("time", "--");
-        }
-    });
 }
 
 // ---- Initialization ----
