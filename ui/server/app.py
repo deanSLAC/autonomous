@@ -187,12 +187,18 @@ def create_app() -> FastAPI:
             scan_dir = str(bl_config.BL_SCAN_DIR)
         except Exception:
             scan_dir = None
+        try:
+            import simulation as _sim
+            sim_active = _sim.is_enabled()
+        except Exception:
+            sim_active = False
         return {
             "status": "ok",
             "phase": orch_api.current_experiment_id() and orch_api.orchestrator_snapshot().get("phase"),
             "opencode_reachable": orch_api.agent_reachable(),
             "orchestrator_initialized": orch_api.orchestrator_snapshot().get("initialized", False),
             "bl_scan_dir": scan_dir,
+            "simulation": sim_active,
         }
 
     # -- page routes ----------------------------------------------------

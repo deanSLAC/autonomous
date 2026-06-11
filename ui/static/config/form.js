@@ -78,7 +78,7 @@ function addElement(data) {
             </div>
             <div class="form-group narrow" id="elem_${idx}_other_wrap" style="${otherSel ? '' : 'display:none'}">
                 <label>Symbol</label>
-                <input type="text" id="elem_${idx}_other" maxlength="3" value="${otherSel ? sym : ''}"
+                <input type="text" id="elem_${idx}_other" maxlength="3" value="${otherSel ? esc(sym) : ''}"
                        placeholder="e.g. Ti" onblur="onOtherSymbolBlur(${idx})">
             </div>
             <div class="form-group narrow">
@@ -96,7 +96,7 @@ function addElement(data) {
             </div>
             <div class="form-group">
                 <label>Incident Energy (eV) <span class="required">*</span></label>
-                <input type="number" id="elem_${idx}_incident" step="0.1" value="${incE}"
+                <input type="number" id="elem_${idx}_incident" step="0.1" value="${esc(incE)}"
                        placeholder="Auto-filled from edge" oninput="this.dataset.userEdited=1">
             </div>
         </div>
@@ -110,7 +110,7 @@ function addElement(data) {
                 </div>
                 <div class="form-group">
                     <label>Emission Energy (eV) <span class="required">*</span></label>
-                    <input type="number" id="elem_${idx}_emission" step="0.1" value="${emE}"
+                    <input type="number" id="elem_${idx}_emission" step="0.1" value="${esc(emE)}"
                            placeholder="Auto-filled from line" oninput="this.dataset.userEdited=1">
                 </div>
                 <div class="form-group narrow">
@@ -122,15 +122,15 @@ function addElement(data) {
                 </div>
                 <div class="form-group medium">
                     <label>Crystal hkl <span class="required">*</span></label>
-                    <input type="text" id="elem_${idx}_hkl" value="${hkl}" placeholder="e.g. 6 4 2">
+                    <input type="text" id="elem_${idx}_hkl" value="${esc(hkl)}" placeholder="e.g. 6 4 2">
                 </div>
                 <div class="form-group narrow">
                     <label>Row Radius</label>
-                    <input type="number" id="elem_${idx}_row_radius" value="${rowR}">
+                    <input type="number" id="elem_${idx}_row_radius" value="${esc(rowR)}">
                 </div>
                 <div class="form-group narrow">
                     <label>Crystals (1-7)</label>
-                    <input type="number" id="elem_${idx}_n_crystals" value="${nC}" min="1" max="7">
+                    <input type="number" id="elem_${idx}_n_crystals" value="${esc(nC)}" min="1" max="7">
                 </div>
                 <div class="form-group narrow">
                     <label>Vortex Counter</label>
@@ -463,7 +463,7 @@ function buildElementOptions(selected) {
     let opts = (single && !selected) ? '' : '<option value="">-- Select --</option>';
     symbols.forEach(sym => {
         const sel = (sym === effective) ? ' selected' : '';
-        opts += `<option value="${sym}"${sel}>${sym}</option>`;
+        opts += `<option value="${esc(sym)}"${sel}>${esc(sym)}</option>`;
     });
     return opts;
 }
@@ -855,10 +855,15 @@ function val(id) {
 }
 
 function esc(str) {
-    if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    // Attribute-safe: the DOM textContent trick does not escape quotes,
+    // and most call sites interpolate into value="..." attributes.
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 // ---------------------------------------------------------------------------

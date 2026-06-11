@@ -27,8 +27,17 @@ from beamtimehero_cli.tool_catalog.tools_core import DISPATCH as _UPSTREAM_DISPA
 from orchestration import runtime_state
 
 _UPSTREAM_DISPATCH: dict[str, callable] = {
-    key[-1]: handler for key, handler in _UPSTREAM_DISPATCH_TREE.items()
+    key[-1]: handler
+    for key, handler in _UPSTREAM_DISPATCH_TREE.items()
+    if key[0] != "s3df"
 }
+# s3df duplicates six spec-file leaf names (list_scans, read_scan, ...).
+# On the beamline the spec-file handlers must win the name-keyed flatten;
+# s3df-only leaves (psql etc.) still register.
+for _key, _handler in _UPSTREAM_DISPATCH_TREE.items():
+    if _key[0] == "s3df":
+        _UPSTREAM_DISPATCH.setdefault(_key[-1], _handler)
+del _key, _handler
 
 # CAT-8 tools need the orchestration package. Import lazily so this
 # module still imports when `orchestration/` is absent (e.g. when

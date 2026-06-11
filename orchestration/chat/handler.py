@@ -352,6 +352,29 @@ class ChatRouter:
             self._maybe_dispatch_next(session_id)
         except Exception:  # noqa: BLE001
             logger.exception("chat watcher crashed for run %s", run_id)
+            self._emit_chat_error(session_id, "agent run failed unexpectedly")
+
+    def _emit_chat_error(self, session_id: str, error: str) -> None:
+        """Best-effort `chat_error` WS event so the UI stops its typing
+        indicator instead of spinning forever."""
+        thread_key = None
+        try:
+            from orchestration.chat.sessions import get_session_by_id
+
+            session = get_session_by_id(session_id)
+            if session:
+                thread_key = session.get("thread_key")
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            self._ws_emit({
+                "type": "chat_error",
+                "session_id": session_id,
+                "thread_key": thread_key,
+                "error": error,
+            })
+        except Exception as e:  # noqa: BLE001
+            logger.warning("chat: chat_error emit failed: %s", e)
 
     def _maybe_dispatch_next(self, session_id: str) -> None:
         """Pop the next queued message for this session and spawn for it."""

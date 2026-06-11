@@ -89,3 +89,25 @@ def test_update_plan_rejects_non_object_plan(monkeypatch):
     text, _ = tools.t_update_plan({"plan": 42})
     body = json.loads(text)
     assert body["ok"] is False
+
+
+def test_spec_file_handlers_win_name_flatten():
+    """s3df duplicates six spec-file leaf names; the spec-file handler must
+    win the name-keyed flatten or beamline tool calls silently hit Postgres."""
+    from beamtimehero_cli.tool_catalog.tools_core import (
+        DISPATCH as TREE_DISPATCH,
+    )
+    for name in ("list_scans", "get_latest_scan", "read_scan",
+                 "get_active_counter", "get_scan_deadtime", "plot_scan"):
+        assert tools.DISPATCH[name] is TREE_DISPATCH[("spec-file", name)], name
+
+
+def test_s3df_only_leaves_still_registered():
+    from beamtimehero_cli.tool_catalog.tools_core import (
+        DISPATCH as TREE_DISPATCH,
+    )
+    s3df_only = {k[-1] for k in TREE_DISPATCH if k[0] == "s3df"} - {
+        k[-1] for k in TREE_DISPATCH if k[0] != "s3df"
+    }
+    for name in s3df_only:
+        assert name in tools.DISPATCH, name

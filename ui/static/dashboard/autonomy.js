@@ -257,15 +257,23 @@ async function submitGuidance() {
     if (!text) return;
     input.value = "";
     const expSel = document.getElementById("experiment-select");
-    await fetch(API + "/api/orchestrator/guidance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            text,
-            author: "web-user",
-            experiment_id: expSel ? expSel.value : null,
-        }),
-    });
+    try {
+        const r = await fetch(API + "/api/orchestrator/guidance", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                text,
+                author: "web-user",
+                experiment_id: expSel ? expSel.value : null,
+            }),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    } catch (e) {
+        // Don't lose the operator's steering text on a failed POST.
+        input.value = text;
+        alert("Failed to send guidance (" + e + ") — your text was restored.");
+        return;
+    }
     refreshAutonomy();
 }
 
@@ -297,9 +305,16 @@ function _ensureChatWS() {
     _chatWS.onmessage = (ev) => {
         let m;
         try { m = JSON.parse(ev.data); } catch { return; }
+        // Only render events addressed to this tab's UI session — the
+        // broadcast also carries replies for Slack threads / other sessions.
+        const mine = "ui:" + _chatUiSessionId();
+        if (m.thread_key && m.thread_key !== mine) return;
         if (m.type === "chat_reply" && m.text) {
             showTyping(false);
             appendChat("assistant", m.text);
+        } else if (m.type === "chat_error") {
+            showTyping(false);
+            appendChat("assistant", "Error: " + (m.error || "agent run failed"));
         }
     };
     _chatWS.onclose = () => { setTimeout(_ensureChatWS, 4000); };
@@ -366,19 +381,36 @@ async function clearChat() {
 function appendChat(role, text) {
     const log = document.getElementById("chat-log");
     if (!log) return;
+    const stick = _isNearBottom(log);
     const placeholder = log.querySelector(".muted");
     if (placeholder && log.children.length === 1) placeholder.remove();
     const el = document.createElement("div");
     el.className = "chat-msg " + role;
     el.textContent = text;
     log.appendChild(el);
-    log.scrollTop = log.scrollHeight;
+    // Don't yank the view down if the user has scrolled up to read.
+    if (stick || role === "user") log.scrollTop = log.scrollHeight;
 }
+
+let _typingWatchdog = null;
+const _TYPING_TIMEOUT_MS = 10 * 60 * 1000;
 
 function showTyping(on) {
     const log = document.getElementById("chat-log");
     const status = document.getElementById("chat-status");
     if (status) status.textContent = on ? "agent thinking…" : "";
+    if (_typingWatchdog) { clearTimeout(_typingWatchdog); _typingWatchdog = null; }
+    if (on) {
+        // Don't spin forever if the reply never arrives (agent crash,
+        // dropped WebSocket): surface a timeout instead.
+        _typingWatchdog = setTimeout(() => {
+            _typingWatchdog = null;
+            showTyping(false);
+            appendChat("assistant",
+                "No reply after 10 minutes — the agent may have failed. "
+                + "Check the Agent Output panel or try again.");
+        }, _TYPING_TIMEOUT_MS);
+    }
     if (!log) return;
     let t = log.querySelector(".typing-indicator");
     if (on) {
@@ -1463,23 +1495,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(refreshAgentPlot, 3000);
     setInterval(refreshStatsTrend, 3000);
     autonomyPollTimer = setInterval(refreshAutonomy, POLL_MS);
-    // Server health signal
-    const srvDot = document.getElementById("server-dot");
-    const srvTxt = document.getElementById("server-status");
-    setInterval(async () => {
-        try {
-            const r = await fetch(API + "/health", { signal: AbortSignal.timeout(3000) });
-            if (r.ok) {
-                srvDot.className = "status-dot dot-good"; srvTxt.textContent = "connected";
-                try {
-                    const j = await r.json();
-                    const pill = document.getElementById("sim-pill");
-                    if (pill) pill.style.display = j.simulation ? "inline-block" : "none";
-                } catch {}
-            }
-            else { srvDot.className = "status-dot dot-bad"; srvTxt.textContent = "error"; }
-        } catch {
-            srvDot.className = "status-dot dot-bad"; srvTxt.textContent = "offline";
-        }
-    }, 5000);
+    // Server health + SIM pill are handled by dashboard.js's checkServer()
+    // — a second checker here used to fight it over the status dot.
 });

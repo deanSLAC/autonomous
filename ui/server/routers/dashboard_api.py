@@ -276,7 +276,17 @@ def phase(phase_run_id: str):
 
 @router.get("/image")
 def image(path: str):
-    p = Path(path)
+    # Only serve files from the runtime data tree (phase reports, tool
+    # plots) — this endpoint must not be an arbitrary-file-read.
+    from orchestration.config import DATA_DIR
+
+    try:
+        p = Path(path).resolve()
+        allowed = p.is_relative_to(DATA_DIR.resolve())
+    except (OSError, ValueError):
+        allowed = False
+    if not allowed:
+        raise HTTPException(403, "path outside the data directory")
     if not p.exists() or not p.is_file():
         raise HTTPException(404, "image not found")
     return FileResponse(str(p))
