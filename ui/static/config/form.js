@@ -854,17 +854,10 @@ function val(id) {
     return el ? el.value : '';
 }
 
-function esc(str) {
-    // Attribute-safe: the DOM textContent trick does not escape quotes,
-    // and most call sites interpolate into value="..." attributes.
-    if (str === null || str === undefined) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
+// Attribute-safe escaper (most call sites interpolate into value="..."
+// attributes). BL.escapeHtml is byte-identical to the old local esc():
+// null/undefined -> '', 0 -> '0', apostrophe -> &#39;.
+const esc = BL.escapeHtml;
 
 // ---------------------------------------------------------------------------
 // Setup New Experiment

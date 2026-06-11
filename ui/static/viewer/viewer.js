@@ -15,12 +15,7 @@ const V = {
     ],
 };
 
-function vEsc(s) {
-    if (s == null) return "";
-    return String(s)
-        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
+const vEsc = BL.escapeHtml;
 
 function vGetExpId() {
     const sel = document.getElementById("experiment-select");
@@ -483,11 +478,16 @@ function vWireControls() {
     }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     const q = vParseQuery();
     if (q.holder_id) V.holderId = q.holder_id;
     if (q.experiment_id) V.experimentId = q.experiment_id;
     vWireControls();
-    // Let dashboard.js populate the experiment selector first
-    setTimeout(vLoadFiles, 400);
+    // Let dashboard.js populate the experiment selector first.
+    if (window.experimentsLoaded) {
+        try { await window.experimentsLoaded; } catch (_) {}
+    } else {
+        await new Promise(r => setTimeout(r, 400));
+    }
+    vLoadFiles();
 });

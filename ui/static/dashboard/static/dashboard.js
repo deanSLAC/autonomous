@@ -173,7 +173,11 @@ async function init() {
     checkServer();
 
     if (isMainDashboard()) {
-        await loadExperiments();
+        // Expose the load promise so page scripts that depend on
+        // #experiment-select being populated (viewer.js,
+        // sample_holders.js) can await it instead of sleeping.
+        window.experimentsLoaded = loadExperiments();
+        await window.experimentsLoaded;
         refreshDashboard();
 
         const sel = document.getElementById("experiment-select");

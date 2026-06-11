@@ -14,12 +14,7 @@ const SH_MESSAGE_TIMEOUT_MS = 10000;
 // queue entries; sample names are unique within a holder.
 let _shPlanByName = {};
 
-function shEsc(s) {
-    if (s == null) return "";
-    return String(s)
-        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
+const shEsc = BL.escapeHtml;
 
 function shGetExpId() {
     const sel = document.getElementById("experiment-select");
@@ -417,9 +412,15 @@ function shOnExperimentChange() {
         });
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     if (typeof loadFormDefaults === "function") loadFormDefaults();
     const sel = document.getElementById("experiment-select");
     if (sel) sel.addEventListener("change", shOnExperimentChange);
-    setTimeout(shOnExperimentChange, 400);
+    // Let dashboard.js populate the experiment selector first.
+    if (window.experimentsLoaded) {
+        try { await window.experimentsLoaded; } catch (_) {}
+    } else {
+        await new Promise(r => setTimeout(r, 400));
+    }
+    shOnExperimentChange();
 });

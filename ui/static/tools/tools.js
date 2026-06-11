@@ -12,14 +12,7 @@ const SOURCE_LABEL = {
     slack: "Slack",
 };
 
-function escapeHtml(s) {
-    return String(s == null ? "" : s)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-}
+const escapeHtml = BL.escapeHtml;
 
 function sourceBadge(source) {
     if (!source) return "";

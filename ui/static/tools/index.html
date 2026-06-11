@@ -86,19 +86,29 @@
 </div>
 
 <script>
-// theme toggle — mirror dashboard behavior.
+// theme toggle — same key + semantics as dashboard.js (default light,
+// dark = data-theme attribute set).
 (function () {
-    const key = "bl15-theme";
+    const key = "bl15-dashboard-theme";
     const btn = document.getElementById("theme-toggle");
-    const apply = t => document.documentElement.setAttribute("data-theme", t);
-    apply(localStorage.getItem(key) || "dark");
+    const apply = (t) => {
+        if (t === "dark") {
+            document.documentElement.setAttribute("data-theme", "dark");
+        } else {
+            document.documentElement.removeAttribute("data-theme");
+        }
+        if (btn) btn.textContent = t === "dark" ? "☀" : "☾";
+    };
+    apply(localStorage.getItem(key) === "dark" ? "dark" : "light");
     if (btn) btn.addEventListener("click", () => {
-        const cur = document.documentElement.getAttribute("data-theme") || "dark";
-        const nxt = cur === "dark" ? "light" : "dark";
-        localStorage.setItem(key, nxt); apply(nxt);
+        const next = document.documentElement.getAttribute("data-theme") === "dark"
+            ? "light" : "dark";
+        localStorage.setItem(key, next);
+        apply(next);
     });
 })();
 </script>
-<script src="/static/tools/tools.js?v=1"></script>
+<script src="/static/shared/util.js?v=1"></script>
+<script src="/static/tools/tools.js?v=2"></script>
 </body>
 </html>

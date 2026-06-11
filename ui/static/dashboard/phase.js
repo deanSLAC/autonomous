@@ -113,13 +113,7 @@
         el.innerHTML = items.map(t => `<li>${escapeHtml(t)}</li>`).join("");
     }
 
-    function escapeHtml(s) {
-        if (s == null) return "";
-        return String(s)
-            .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
+    const escapeHtml = BL.escapeHtml;
 
     function formatTime(iso) {
         if (!iso) return "--";

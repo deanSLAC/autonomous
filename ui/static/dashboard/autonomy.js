@@ -1290,15 +1290,7 @@ async function stopAgents() {
 }
 
 
-function escapeHtml(s) {
-    if (s == null) return "";
-    return String(s)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
+const escapeHtml = BL.escapeHtml;
 
 const INTERVENTION_KINDS = {
     crystal_install: {
