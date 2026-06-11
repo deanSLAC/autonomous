@@ -9,19 +9,22 @@ from __future__ import annotations
 import logging
 import traceback
 from datetime import datetime
-from typing import Any
 
 import yaml
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 from sqlmodel import select
 
 from ui.config import CONFIG_DIR
+from ui.server.schemas import (
+    ExperimentIn,
+    SampleHolderIn,
+    validation_error_strings,
+)
 from orchestration.config_generator import (
     generate_config,
     sanitize_spec_string,
-    validate_experiment_data,
-    validate_sample_holder_data,
 )
 from orchestration.plan_store.session import (
     create_experiment,
@@ -63,20 +66,6 @@ def _delete_experiment_elements(experiment_id: str) -> None:
         session.commit()
 
 
-def _float_or_none(val: Any) -> float | None:
-    try:
-        if val in (None, "", "None"):
-            return None
-        return float(val)
-    except (ValueError, TypeError):
-        return None
-
-
-def _float_or_zero(val: Any) -> float:
-    v = _float_or_none(val)
-    return 0.0 if v is None else v
-
-
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -89,54 +78,41 @@ def get_defaults():
 @router.post("/submit_experiment")
 async def submit_experiment(data: dict):
     try:
-        errors = validate_experiment_data(data)
-        if errors:
-            return JSONResponse({"success": False, "errors": errors}, status_code=400)
+        try:
+            req = ExperimentIn.model_validate(data)
+        except ValidationError as e:
+            return JSONResponse(
+                {"success": False, "errors": validation_error_strings(e)},
+                status_code=400,
+            )
 
-        exp_name = data["experiment_name"].strip()
+        exp_name = req.experiment_name
         # Experimenter is optional now (per beamline change). The legacy
         # autonomous.db has a NOT NULL constraint on this column from the
         # original schema, and SQLite can't ALTER that without rebuilding
         # the table — so we store "" rather than NULL when none is given.
-        experimenter = (data.get("experimenter") or "").strip()
-        mono_crystal = data["mono_crystal"]
-        beam_size_h = data.get("beam_size_h", "big")
-        beam_size_v = data.get("beam_size_v", "big")
-        mirrors_out = bool(data.get("mirrors_out", False))
-        sample_env = data.get("sample_env", "ambient")
-        data_dir = data.get("data_directory", "").strip()
+        experimenter = req.experimenter
+        mono_crystal = req.mono_crystal
+        beam_size_h = req.beam_size_h
+        beam_size_v = req.beam_size_v
+        mirrors_out = req.mirrors_out
+        sample_env = req.sample_env
+        data_dir = req.data_directory
         if not data_dir:
             data_dir = f"/data/fifteen/{sanitize_spec_string(exp_name)}"
 
-        foil_elem_raw = (data.get("calibration_foil_element") or "").strip()
         # If the user left the foil element blank, default to the first
         # science-target element they configured. The user's rule: "by
         # default the foil will be the element we measure for the
         # experiment". Multiple elements: pick the first (priority 0 in
-        # storage; the user's primary target). Validation in
-        # validate_experiment_data has already required >=1 element.
-        if not foil_elem_raw:
-            elements_for_default = data.get("elements") or []
-            if elements_for_default:
-                first_sym = (elements_for_default[0].get("symbol") or "").strip()
-                if first_sym:
-                    foil_elem_raw = first_sym
-        calibration_foil_element = foil_elem_raw or None
-        foil_det_raw = (data.get("calibration_foil_detector") or "").strip()
-        calibration_foil_detector = foil_det_raw if foil_det_raw in ("I1", "I2") else "I2"
+        # storage; the user's primary target).
+        calibration_foil_element = (
+            req.calibration_foil_element or req.elements[0].symbol or None
+        )
+        calibration_foil_detector = req.calibration_foil_detector
+        end_time_dt = req.end_time
 
-        end_time_raw = (data.get("end_time") or "").strip()
-        end_time_dt: datetime | None = None
-        if end_time_raw:
-            try:
-                end_time_dt = datetime.fromisoformat(end_time_raw)
-            except ValueError:
-                return JSONResponse(
-                    {"success": False, "errors": [f"Invalid end_time format: {end_time_raw}"]},
-                    status_code=400,
-                )
-
-        existing_id = data.get("experiment_id")
+        existing_id = req.experiment_id
         if existing_id:
             exp = get_experiment(existing_id)
             if exp:
@@ -179,27 +155,24 @@ async def submit_experiment(data: dict):
             from orchestration.plan_store.session import set_experiment_end_time
             set_experiment_end_time(experiment_id, end_time_dt)
 
-        elements_data = data.get("elements", [])
-        for i, el in enumerate(elements_data):
-            mode = (el.get("measurement_mode") or "XES").upper()
-            crystal_hkl = (el.get("crystal_hkl") or "0 0 0").strip() or "0 0 0"
+        for i, el in enumerate(req.elements):
             create_experiment_element(
                 experiment_id=experiment_id,
-                element_symbol=el["symbol"].strip(),
-                edge=el["edge"],
-                measurement_mode=mode,
-                emission_line=(el.get("emission_line") or None) if mode == "XES" else None,
-                incident_energy_eV=float(el["incident_energy"]),
-                emission_energy_eV=float(el.get("emission_energy") or 0),
-                crystal_type=int(el.get("crystal_type", 0)),
-                crystal_hkl=crystal_hkl,
-                row_radius=int(el.get("row_radius", 1000) or 1000),
-                n_crystals=int(el.get("n_crystals", 3) or 3),
-                vortex_counter=str(el.get("vortex_counter") or "vortDT"),
+                element_symbol=el.symbol,
+                edge=el.edge,
+                measurement_mode=el.measurement_mode,
+                emission_line=el.emission_line if el.measurement_mode == "XES" else None,
+                incident_energy_eV=el.incident_energy,
+                emission_energy_eV=el.emission_energy,
+                crystal_type=el.crystal_type,
+                crystal_hkl=el.crystal_hkl or "0 0 0",
+                row_radius=el.row_radius,
+                n_crystals=el.n_crystals,
+                vortex_counter=el.vortex_counter,
                 priority=i,
             )
 
-        elem_summary = ", ".join(f"{el['symbol']} {el['edge']}" for el in elements_data)
+        elem_summary = ", ".join(f"{el.symbol} {el.edge}" for el in req.elements)
         return {
             "success": True,
             "experiment_id": experiment_id,
@@ -219,22 +192,33 @@ async def submit_experiment(data: dict):
 @router.post("/submit_sample_holder")
 async def submit_sample_holder(data: dict):
     try:
-        experiment_id = data.get("experiment_id")
-        if not experiment_id:
-            return JSONResponse({"success": False, "errors": ["No experiment selected"]}, status_code=400)
+        try:
+            req = SampleHolderIn.model_validate(data)
+        except ValidationError as e:
+            return JSONResponse(
+                {"success": False, "errors": validation_error_strings(e)},
+                status_code=400,
+            )
+        experiment_id = req.experiment_id
         exp = get_experiment(experiment_id)
         if not exp:
             return JSONResponse({"success": False, "errors": ["Experiment not found"]}, status_code=404)
 
         elements = get_elements_for_experiment(experiment_id)
         element_names = {el.element_symbol for el in elements}
-        errors = validate_sample_holder_data(data, element_names)
-        if errors:
-            return JSONResponse({"success": False, "errors": errors}, status_code=400)
+        unknown = [s.element for s in req.samples if s.element not in element_names]
+        if unknown:
+            return JSONResponse({
+                "success": False,
+                "errors": [
+                    f"element '{sym}' is not in the configured elements list"
+                    for sym in dict.fromkeys(unknown)
+                ],
+            }, status_code=400)
 
-        holder_name = data["sample_holder_name"].strip()
+        holder_name = req.sample_holder_name
         sample_env = exp.sample_env or "ambient"
-        samples_data = data.get("samples", [])
+        samples_data = req.samples
         holder_type = sample_env if sample_env in ("cryostat", "flat", "electrode") else "flat"
         element_emission = {el.element_symbol: el.emission_energy_eV for el in elements}
 
@@ -263,41 +247,34 @@ async def submit_sample_holder(data: dict):
             )
 
         for i, s in enumerate(samples_data, 1):
-            elem_sym = s["element"].strip()
-            emiss_eV = element_emission.get(elem_sym)
             create_sample_position(
                 experiment_id=experiment_id,
                 sample_holder_id=holder.id,
                 sample_number=i,
-                sample_name=s["name"].strip(),
-                element_symbol=elem_sym,
-                sx_lo=_float_or_zero(s.get("sx_lo")),
-                sx_hi=_float_or_zero(s.get("sx_hi")),
-                sy_lo=_float_or_zero(s.get("sy_lo")),
-                sy_hi=_float_or_zero(s.get("sy_hi")),
-                sz_lo=_float_or_zero(s.get("sz_lo")),
-                sz_hi=_float_or_zero(s.get("sz_hi")),
-                sx_del=_float_or_zero(s.get("sx_del")),
-                sy_del=_float_or_zero(s.get("sy_del")),
-                sz_del=_float_or_zero(s.get("sz_del")),
-                emiss_energy_eV=emiss_eV,
-                total_spots=int(s.get("total_spots", 1)),
-                enabled=s.get("enabled", True),
-                do_xas=s.get("do_xas", True),
-                xas_reps=int(s.get("xas_reps", 10)),
-                xas_time=float(s.get("xas_time", 0.5)),
-                xas_filter=int(s.get("xas_filter", 0)),
-                xas_emiss_override=_float_or_none(s.get("xas_emiss_override")),
-                do_rixs=s.get("do_rixs", False),
-                rixs_time=float(s.get("rixs_time", 1.0)),
-                rixs_start=_float_or_none(s.get("rixs_start")),
-                rixs_end=_float_or_none(s.get("rixs_end")),
-                rixs_step=float(s.get("rixs_step", -0.2)),
-                rixs_filter=int(s.get("rixs_filter", 0)),
-                i0_gain=(s.get("i0_gain") or None),
-                i0_offset=(s.get("i0_offset") or None),
-                i1_gain=(s.get("i1_gain") or None),
-                min_scans=int(s["min_scans"]) if s.get("min_scans") is not None else None,
+                sample_name=s.name,
+                element_symbol=s.element,
+                sx_lo=s.sx_lo, sx_hi=s.sx_hi,
+                sy_lo=s.sy_lo, sy_hi=s.sy_hi,
+                sz_lo=s.sz_lo, sz_hi=s.sz_hi,
+                sx_del=s.sx_del, sy_del=s.sy_del, sz_del=s.sz_del,
+                emiss_energy_eV=element_emission.get(s.element),
+                total_spots=s.total_spots,
+                enabled=s.enabled,
+                do_xas=s.do_xas,
+                xas_reps=s.xas_reps,
+                xas_time=s.xas_time,
+                xas_filter=s.xas_filter,
+                xas_emiss_override=s.xas_emiss_override,
+                do_rixs=s.do_rixs,
+                rixs_time=s.rixs_time,
+                rixs_start=s.rixs_start,
+                rixs_end=s.rixs_end,
+                rixs_step=s.rixs_step,
+                rixs_filter=s.rixs_filter,
+                i0_gain=s.i0_gain,
+                i0_offset=s.i0_offset,
+                i1_gain=s.i1_gain,
+                min_scans=s.min_scans,
             )
 
         try:
