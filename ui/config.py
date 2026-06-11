@@ -24,13 +24,15 @@ CONTEXT_DIR = PROJECT_ROOT / "context"
 
 # ---------------------------------------------------------------------------
 # Slack — secrets + channel IDs. Empty values disable the bridge.
+# Single source of truth is the pydantic-settings model in
+# orchestration.config; re-exported here for import compatibility.
 # ---------------------------------------------------------------------------
-SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN", "")
-SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN", "")
-# Steering channel: staff guidance + agent thread replies (was SLACK_LLM_CHANNEL_ID).
-SLACK_STEERING_CHANNEL_ID = os.getenv("SLACK_STEERING_CHANNEL_ID", "")
-# Chat channel: chat with the agent + manual status posts (was SLACK_USERS_CHANNEL_ID).
-SLACK_CHAT_CHANNEL_ID = os.getenv("SLACK_CHAT_CHANNEL_ID", "")
+from orchestration.config import (  # noqa: E402
+    SLACK_APP_TOKEN,
+    SLACK_BOT_TOKEN,
+    SLACK_CHAT_CHANNEL_ID,
+    SLACK_STEERING_CHANNEL_ID,
+)
 
 # ---------------------------------------------------------------------------
 # FastAPI app

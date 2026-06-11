@@ -319,7 +319,8 @@ def _post_to_slack(summary: dict) -> None:
         logger.info("plan_summary: slack notifier unavailable (%s) — skipping post", e)
         return
 
-    channel = os.getenv("SLACK_CHAT_CHANNEL_ID") or os.getenv("SLACK_CHANNEL_ID")
+    from orchestration.config import SLACK_CHAT_CHANNEL_ID
+    channel = SLACK_CHAT_CHANNEL_ID
     notifier = SlackNotifier(enabled=True, channel=channel)
     text = _format_slack_text(summary)
     # post_message is a no-op when the notifier disabled itself for

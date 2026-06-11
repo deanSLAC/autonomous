@@ -373,7 +373,8 @@ def _post_to_slack(image_path: str, caption: str) -> None:
     except Exception as e:  # noqa: BLE001
         logger.info("phase_reports: slack notifier unavailable (%s) — skipping post", e)
         return
-    channel = os.getenv("SLACK_CHAT_CHANNEL_ID") or os.getenv("SLACK_CHANNEL_ID")
+    from orchestration.config import SLACK_CHAT_CHANNEL_ID
+    channel = SLACK_CHAT_CHANNEL_ID
     notifier = SlackNotifier(enabled=True, channel=channel)
     logger.info(
         "phase_reports: posting image to slack (enabled=%s) path=%s",

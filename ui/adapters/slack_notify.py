@@ -38,7 +38,10 @@ class SlackNotifier:
         channel: Optional[str] = None,
     ):
         self.enabled = enabled
-        self.channel = channel or os.getenv("SLACK_CHANNEL_ID")
+        if channel is None:
+            from orchestration.config import SLACK_CHAT_CHANNEL_ID
+            channel = SLACK_CHAT_CHANNEL_ID
+        self.channel = channel
         token = os.getenv("SLACK_BOT_TOKEN")
 
         if self.enabled and not token:

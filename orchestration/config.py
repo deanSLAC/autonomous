@@ -51,31 +51,18 @@ class LLMGatewayName(str, Enum):
 
 
 # ---------------------------------------------------------------------------
-# Gateway sub-model — one per upstream provider
+# Gateway block — one per upstream provider
 # ---------------------------------------------------------------------------
-class _GatewayBlock:
-    """Resolved at runtime from env vars with the gateway's prefix."""
-
-    __slots__ = ("url", "key", "model_alias", "env")
-
-    def __init__(self, prefix: str) -> None:
-        self.url: str | None = os.environ.get(f"{prefix}BASE_URL") or None
-        self.key: str = os.environ.get(f"{prefix}API_KEY") or ""
-        self.model_alias: str | None = os.environ.get(f"{prefix}MODEL_ALIAS") or None
-        env_block: dict[str, str] = {}
-        skip = {"BASE_URL", "API_KEY", "MODEL_ALIAS"}
-        for k, v in os.environ.items():
-            if k.startswith(prefix) and k.removeprefix(prefix) not in skip:
-                env_block[k.removeprefix(prefix)] = v
-        self.env = env_block
-
-    def as_dict(self) -> dict:
-        return {
-            "url": self.url,
-            "key": self.key,
-            "model_alias": self.model_alias,
-            "env": dict(self.env),
-        }
+def _gateway_extra_env(prefix: str) -> dict[str, str]:
+    """Collect arbitrary additional <PREFIX>* env vars (everything except
+    the three the Settings model declares) for pass-through to the agent
+    subprocess environment."""
+    skip = {"BASE_URL", "API_KEY", "MODEL_ALIAS"}
+    return {
+        k.removeprefix(prefix): v
+        for k, v in os.environ.items()
+        if k.startswith(prefix) and k.removeprefix(prefix) not in skip
+    }
 
 
 _DEFAULT_GATEWAY = {"url": None, "key": "", "model_alias": None, "env": {}}
@@ -96,7 +83,11 @@ class Settings(BaseSettings):
     LLM_GATEWAY: LLMGatewayName
     CLAUDE_MODEL: str = ""
     SLAC_API_KEY: str = ""
+    SLAC_BASE_URL: str = ""
+    SLAC_MODEL_ALIAS: str = ""
     STANFORD_API_KEY: str = ""
+    STANFORD_BASE_URL: str = ""
+    STANFORD_MODEL_ALIAS: str = ""
 
     SLACK_BOT_TOKEN: str = ""
     SLACK_APP_TOKEN: str = ""
@@ -118,7 +109,7 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "LLM_GATEWAY=slac requires SLAC_API_KEY to be set in .env"
                 )
-            if not os.environ.get("SLAC_BASE_URL"):
+            if not self.SLAC_BASE_URL:
                 raise ValueError(
                     "LLM_GATEWAY=slac requires SLAC_BASE_URL to be set in .env"
                 )
@@ -127,7 +118,7 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "LLM_GATEWAY=stanford requires STANFORD_API_KEY to be set in .env"
                 )
-            if not os.environ.get("STANFORD_BASE_URL"):
+            if not self.STANFORD_BASE_URL:
                 raise ValueError(
                     "LLM_GATEWAY=stanford requires STANFORD_BASE_URL to be set in .env"
                 )
@@ -147,13 +138,29 @@ MLFLOW_ENABLED = _settings.MLFLOW_ENABLED
 MLFLOW_TRACKING_URI = _settings.MLFLOW_TRACKING_URI
 MLFLOW_TOKEN = _settings.MLFLOW_TRACKING_TOKEN
 
+# Slack — single source of truth (ui.config re-exports these).
+SLACK_BOT_TOKEN = _settings.SLACK_BOT_TOKEN
+SLACK_APP_TOKEN = _settings.SLACK_APP_TOKEN
+SLACK_STEERING_CHANNEL_ID = _settings.SLACK_STEERING_CHANNEL_ID
+SLACK_CHAT_CHANNEL_ID = _settings.SLACK_CHAT_CHANNEL_ID
+
 # ---------------------------------------------------------------------------
 # Gateway resolution
 # ---------------------------------------------------------------------------
 _GATEWAYS: dict[str, dict] = {
     "default": _DEFAULT_GATEWAY,
-    "slac": _GatewayBlock("SLAC_").as_dict(),
-    "stanford": _GatewayBlock("STANFORD_").as_dict(),
+    "slac": {
+        "url": _settings.SLAC_BASE_URL or None,
+        "key": _settings.SLAC_API_KEY,
+        "model_alias": _settings.SLAC_MODEL_ALIAS or None,
+        "env": _gateway_extra_env("SLAC_"),
+    },
+    "stanford": {
+        "url": _settings.STANFORD_BASE_URL or None,
+        "key": _settings.STANFORD_API_KEY,
+        "model_alias": _settings.STANFORD_MODEL_ALIAS or None,
+        "env": _gateway_extra_env("STANFORD_"),
+    },
 }
 
 
