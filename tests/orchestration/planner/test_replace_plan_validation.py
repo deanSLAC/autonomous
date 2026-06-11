@@ -97,7 +97,7 @@ def test_empty_sample_queue_during_collection_raises(stub_plan_store):
 
 
 def test_t_update_plan_returns_error_envelope(stub_plan_store, monkeypatch):
-    monkeypatch.setattr(tools.spec_cmd, "get_experiment_id",
+    monkeypatch.setattr(tools.runtime_state, "get_experiment_id",
                         lambda: "exp-1")
     # Suppress the best-effort plan_summary side-effect; not under test.
     import orchestration.planner.plan_summary as plan_summary_mod
@@ -112,7 +112,7 @@ def test_t_update_plan_returns_error_envelope(stub_plan_store, monkeypatch):
 
 
 def test_t_update_plan_returns_ok_on_valid_plan(stub_plan_store, monkeypatch):
-    monkeypatch.setattr(tools.spec_cmd, "get_experiment_id",
+    monkeypatch.setattr(tools.runtime_state, "get_experiment_id",
                         lambda: "exp-1")
     import orchestration.planner.plan_summary as plan_summary_mod
     monkeypatch.setattr(plan_summary_mod, "generate_and_post",
