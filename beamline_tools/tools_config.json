@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at": "2026-05-11T10:34:31.984589+00:00",
-    "total_tools": 118,
+    "generated_at": "2026-06-03T17:11:38.445479+00:00",
+    "total_tools": 119,
     "generator": "scripts/generate_tools_config.py"
   },
   "tools": [
@@ -78,6 +78,18 @@
       "comments": ""
     },
     {
+      "name": "capture_sample_image",
+      "cli_path": "tool",
+      "description": "Capture a low-resolution JPEG snapshot from the RPi-Cam sample camera. Returns image metadata as text and the raw JPEG as an inline base64 image. Also logs the JPEG to DATA_DIR/camera_log/ for audit. Useful for visual inspection of sample position, beam spot location, or cryostat window state.",
+      "when_to_use": "Capture a low-resolution JPEG snapshot of the sample from the beamline sample camera (RPi-Cam). Returns image metadata as text and the JPEG as an inline image. Use this to visually inspect sample position, beam spot, or cryostat window before or during alignment and data collection.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "evaluate_spec_macro",
       "cli_path": "tool",
       "description": "Run a SPEC macro in a disposable, network-isolated Docker container and return the execution log. Use to validate macros you authored or edited, or to reproduce a SPEC error in isolation. Each call is a cold start with no state from prior runs. The container has read-only access to production beamline macros but no network and no host devices \u2014 it cannot affect the live beamline. Always read the log even on ok=True; SPEC sometimes exits 0 despite warnings.",
@@ -92,10 +104,24 @@
       "comments": ""
     },
     {
+      "name": "execute_readonly_sql",
+      "cli_path": "tool",
+      "description": "Run a read-only SELECT against the S3DF metadata Postgres. Rejects write keywords; truncates at max_rows.",
+      "when_to_use": "Run a read-only SELECT against the S3DF metadata Postgres. Rejects write keywords; truncates at max_rows.",
+      "enabled": true,
+      "sample_input": {
+        "query": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "get_active_counter",
       "cli_path": "tool",
       "description": "Pick the 'meaningful' counter for an energy scan. Heuristic: ppboff if it exists, else the vortDT/vortDT2/vortDT3/vortDT4 with the highest max count, else I1.",
-      "when_to_use": "Identify the 'active' fluorescence/absorption counter for a scan. Logic: ppboff if present, else the vortDT/vortDT2/vortDT3/vortDT4 with highest max counts, else I1.",
+      "when_to_use": "Identify the active fluorescence/absorption counter for a scan stored in S3DF.",
       "enabled": true,
       "sample_input": {
         "file_name": "example",
@@ -146,7 +172,7 @@
       "name": "get_latest_scan",
       "cli_path": "tool",
       "description": "Return the most recently modified SPEC scan on disk, along with its metadata (file, scan number, command, counters) and a small numeric preview of the scan's points.",
-      "when_to_use": "Get the most recently processed scan. Returns metadata and a data preview.",
+      "when_to_use": "Return metadata for the most-recently inserted scan in the S3DF Postgres metadata table.",
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 5, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"Seconds\", \"I0\", \"I1\", \"vortDT\"], \"data_preview\": \"   energy  Seconds       I0  ...\\n0  7090.0      1.0  125000  ...\"}",
@@ -167,10 +193,24 @@
       "comments": ""
     },
     {
+      "name": "get_reference_image",
+      "cli_path": "tool",
+      "description": "Return a reference image for a known sample environment or diagnostic tool. The image is read from version-controlled package data and returned inline as base64 JPEG. Compare the result with a live capture_sample_image snapshot to confirm what is currently mounted on the sample stage.",
+      "when_to_use": "Return a reference image for a known sample environment or diagnostic tool. Compare the result with a live capture_sample_image snapshot to confirm what is currently mounted on the sample stage.",
+      "enabled": true,
+      "sample_input": {
+        "kind": "diagnostic_pinhole"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "get_scan_deadtime",
       "cli_path": "tool",
       "description": "Compute how much of a scan was acquisition vs overhead (motor moves, settling, comms). Useful when optimizing count time or diagnosing slow scans.",
-      "when_to_use": "Get the dead time for a scan \u2014 the overhead time spent on motor moves, settling, and communication vs actual detector acquisition. Returns wall-clock duration, acquisition time, dead time in seconds, and dead time as a percentage.",
+      "when_to_use": "Get dead-time stats for a scan (wall-clock vs acquisition seconds and percentage).",
       "enabled": true,
       "sample_input": {
         "file_name": "example",
@@ -190,6 +230,18 @@
       "sample_input": {
         "file_name": "example"
       },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "list_channels",
+      "cli_path": "tool",
+      "description": "List public Slack channels the bot belongs to.",
+      "when_to_use": "List public Slack channels the bot belongs to.",
+      "enabled": true,
+      "sample_input": {},
       "sample_output": "",
       "simulated": false,
       "working_live": false,
@@ -223,7 +275,7 @@
       "name": "list_scans",
       "cli_path": "tool",
       "description": "Enumerate recent SPEC scans with metadata so the agent can pick a file_name/scan_number pair for follow-up tools.",
-      "when_to_use": "List processed scans with metadata (file name, scan number, command, counters, number of points).",
+      "when_to_use": "List processed scans from the S3DF Postgres metadata table, most-recent first.",
       "enabled": true,
       "sample_input": {},
       "sample_output": "[{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 5, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"I0\", \"I1\", \"vortDT\"], \"npoints\": 301, \"timestamp\": \"2026-05-04T10:45:00\"}]",
@@ -337,7 +389,7 @@
       "name": "plot_scan",
       "cli_path": "tool",
       "description": "Render one scan as a PNG and return it to the user. Auto-detects the active counter; accepts an optional normalize_by counter.",
-      "when_to_use": "Generate and display a plot of scan data. Use this by default when the user wants to see a plot. The plot is shown directly to the user. Use list_scans to find available file_name and scan_number.",
+      "when_to_use": "Plot one scan from the S3DF pickle store. Auto-detects the active counter when none is given. The plot is shown directly to the user.",
       "enabled": true,
       "sample_input": {
         "file_name": "example",
@@ -363,6 +415,21 @@
       "comments": ""
     },
     {
+      "name": "post_slack_message",
+      "cli_path": "tool",
+      "description": "Post a message to a Slack channel or thread reply.",
+      "when_to_use": "Post a message to a Slack channel or thread reply.",
+      "enabled": true,
+      "sample_input": {
+        "channel_id": "example",
+        "text": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "post_status_update",
       "cli_path": "tool",
       "description": "Post a high-level progress message to Slack and the dashboard feed. Informational \u2014 does not block or gate anything.",
@@ -374,6 +441,20 @@
       "sample_output": "{\"posted\": true}",
       "simulated": false,
       "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "read_channel_messages",
+      "cli_path": "tool",
+      "description": "Read recent messages from a Slack channel.",
+      "when_to_use": "Read recent messages from a Slack channel.",
+      "enabled": true,
+      "sample_input": {
+        "channel_id": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
       "comments": ""
     },
     {
@@ -394,7 +475,7 @@
       "name": "read_scan",
       "cli_path": "tool",
       "description": "Return the full data array of a single scan, addressed by file_name + scan_number. Use list_scans first to discover the valid identifiers.",
-      "when_to_use": "Read a processed scan's data and metadata. Use list_scans first to find available file_name and scan_number.",
+      "when_to_use": "Read a processed scan's metadata + DataFrame from the converter's pickle store. Use s3df list-scans to discover file_name and scan_number.",
       "enabled": true,
       "sample_input": {
         "file_name": "example",
@@ -403,6 +484,21 @@
       "sample_output": "{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 3, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"Seconds\", \"I0\", \"I1\", \"vortDT\"], \"data\": \"   energy  Seconds       I0      I1   vortDT\\n0  7090.0      1.0  125340    3201    412\\n1  7091.0      1.0  125122    3198    418\\n...\"}",
       "simulated": false,
       "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "read_thread_replies",
+      "cli_path": "tool",
+      "description": "Read all replies in a Slack thread (parent + children).",
+      "when_to_use": "Read all replies in a Slack thread (parent + children).",
+      "enabled": true,
+      "sample_input": {
+        "channel_id": "example",
+        "thread_ts": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
       "comments": ""
     },
     {
@@ -680,21 +776,6 @@
       "comments": ""
     },
     {
-      "name": "transition_phase",
-      "cli_path": "db",
-      "description": "Advance the experiment phase, or request a revert. Forward moves are gated by machine-checked preconditions; backward moves require a human approval posted to Slack.",
-      "when_to_use": "Advance (or request to revert) the experiment phase. Preconditions gate forward moves; backward moves go through Slack approval.",
-      "enabled": true,
-      "sample_input": {
-        "justification": "Testing tool via tool-tester",
-        "target_phase": "setup"
-      },
-      "sample_output": "{\"allowed\": true, \"previous_phase\": \"beamline_alignment\", \"current_phase\": \"xes_alignment\", \"preconditions\": [{\"name\": \"align_beamline_done\", \"met\": true}], \"reason\": \"all preconditions met\"}",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
       "name": "update_plan",
       "cli_path": "db",
       "description": "Replace the live experiment plan JSON wholesale. The structure is up to the agent, but downstream views expect a sample_queue + holder_budgets + budget shape.",
@@ -893,11 +974,11 @@
       "cli_path": "spec-write",
       "description": "Run the full beamline alignment macro. Multi-minute: optimizes M1/M2, peaks mono pitch, aligns the mono slits, optimizes the B stage, zeros the pinhole, measures beam size. One-shot \u2014 refuses a re-run if the action_log shows it already succeeded this experiment.",
       "when_to_use": "Run the full `align_the_beamline` macro. Multi-minute, optimizes M1/M2, peaks mono pitch, aligns mono slits, optimizes B stage, zeros pinhole, measures beam size. Only in phase beamline_alignment.",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
-      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"align_the_beamline complete.\\nfinal_energy_ev=7100 beam_size_h=0.35 beam_size_v=0.12 anchor=saved\", \"elapsed_s\": 120.5}, \"elapsed_s\": 120.5}",
+      "sample_output": "",
       "simulated": false,
       "working_live": false,
       "comments": ""
@@ -907,11 +988,11 @@
       "cli_path": "spec-write",
       "description": "Align the 7-crystal HERFD analyzer via run_spec_align. One-shot per experiment. Crystals arg selects a subset (e.g. '1234' aligns only crystals 1\u20134).",
       "when_to_use": "Run `run_spec_align` to align the 7-crystal HERFD analyzer. Only in phase xes_alignment.",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
-      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"crystals\": \"1234567\", \"raw\": \"run_spec_align complete. XES_EN_OFFSET=-0.42\", \"elapsed_s\": 90.0}, \"elapsed_s\": 90.0}",
+      "sample_output": "",
       "simulated": false,
       "working_live": false,
       "comments": ""
@@ -1183,11 +1264,11 @@
       "cli_path": "spec-write",
       "description": "Multi-sample data-collection loop. Cycles through every enabled sample, producing one SPEC file per sample.",
       "when_to_use": "Run `run_collection` \u2014 the multi-sample data collection loop that cycles through every enabled sample. Only in phase collection.",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
-      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"run_collection complete. samples_completed=6 files=6\", \"elapsed_s\": 3600.0}, \"elapsed_s\": 3600.0}",
+      "sample_output": "",
       "simulated": false,
       "working_live": false,
       "comments": ""
@@ -1215,7 +1296,7 @@
       "cli_path": "spec-write",
       "description": "Element-specific emission-energy scan (<element>_cee). Requires an emission_ev; filter is an optional 0-255 bitmask.",
       "when_to_use": "Element-specific emission-energy (_cee) scan.",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester",
         "element": "example",
@@ -1223,7 +1304,7 @@
         "n_reps": 1,
         "emission_ev": 0.0
       },
-      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"element\": \"Fe\", \"count_time\": 0.5, \"n_reps\": 3, \"emission_ev\": 6400.0, \"filter\": 0, \"raw\": \"Fe_cee complete. reps=3 scan_n=1003\", \"elapsed_s\": 45.0}, \"elapsed_s\": 45.0}",
+      "sample_output": "",
       "simulated": false,
       "working_live": false,
       "comments": ""
@@ -1271,11 +1352,11 @@
       "cli_path": "spec-write",
       "description": "Run auto_sample_align: Sz survey plus per-sample centering. Populates each sample's Sx/Sy/Sz in the plan.",
       "when_to_use": "Run `auto_sample_align`. Only in phase sample_alignment.",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester"
       },
-      "sample_output": "{\"ok\": true, \"kind\": \"action\", \"action_id\": \"a1b2c3d4e5f6\", \"result\": {\"raw\": \"auto_sample_align complete. samples_found=6\", \"elapsed_s\": 30.0}, \"elapsed_s\": 30.0}",
+      "sample_output": "",
       "simulated": false,
       "working_live": false,
       "comments": ""
@@ -1556,99 +1637,39 @@
       "comments": ""
     },
     {
-      "name": "agent-instructions",
+      "name": "action-log",
       "cli_path": "ref",
-      "description": "Mandatory base-layer instructions every autonomous agent must follow (steering queue, completion contract, escalation).",
-      "when_to_use": "When operator asks about mandatory base-layer instructions every autonomous agent must follow (steering queue, completion contract, escalation).",
+      "description": "Action-log schema and how each CLI invocation is recorded.",
+      "when_to_use": "When operator asks about action-log schema and how each cli invocation is recorded.",
       "enabled": true,
       "sample_input": {},
       "sample_output": "",
       "simulated": false,
-      "working_live": true,
+      "working_live": false,
       "comments": ""
     },
     {
-      "name": "beamline-alignment",
+      "name": "getting-started",
       "cli_path": "ref",
-      "description": "Beamline alignment session notes with lessons learned",
-      "when_to_use": "When operator asks about beamline alignment session notes with lessons learned",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "",
-      "simulated": true,
-      "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "changing-energy",
-      "cli_path": "ref",
-      "description": "Minimal procedure for switching between absorption edges",
-      "when_to_use": "When operator asks about minimal procedure for switching between absorption edges",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "",
-      "simulated": true,
-      "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "cryostat-procedures",
-      "cli_path": "ref",
-      "description": "Liquid helium cryostat operating procedures and safety rules",
-      "when_to_use": "When operator asks about liquid helium cryostat operating procedures and safety rules",
-      "enabled": false,
-      "sample_input": {},
-      "sample_output": "[Reference document text returned]",
-      "simulated": true,
-      "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "energy-calibration",
-      "cli_path": "ref",
-      "description": "Mono energy calibration via reference foil: edge scan, calibrate_mono, iterate, reset_gap",
-      "when_to_use": "When operator asks about mono energy calibration via reference foil: edge scan, calibrate_mono, iterate, reset_gap",
+      "description": "Quick overview of the beamtimehero CLI surface.",
+      "when_to_use": "When operator asks about quick overview of the beamtimehero cli surface.",
       "enabled": true,
       "sample_input": {},
       "sample_output": "",
       "simulated": false,
-      "working_live": true,
+      "working_live": false,
       "comments": ""
     },
     {
-      "name": "sample-alignment",
+      "name": "profiles",
       "cli_path": "ref",
-      "description": "Procedure for aligning the cryostat sample holder (per-sample Sx/Sy/Sz + emiss)",
-      "when_to_use": "When operator asks about procedure for aligning the cryostat sample holder (per-sample sx/sy/sz + emiss)",
+      "description": "Agent profiles: curated per-agent CLI surfaces over the master catalog.",
+      "when_to_use": "When operator asks about agent profiles: curated per-agent cli surfaces over the master catalog.",
       "enabled": true,
       "sample_input": {},
       "sample_output": "",
       "simulated": false,
-      "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "sample-data-collection",
-      "cli_path": "ref",
-      "description": "Procedure for collecting HERFD spectra spot-by-spot, with beam-damage and statistics guidance",
-      "when_to_use": "When operator asks about procedure for collecting herfd spectra spot-by-spot, with beam-damage and statistics guidance",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "",
-      "simulated": false,
-      "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "spectrometer-alignment",
-      "cli_path": "ref",
-      "description": "Procedure for aligning the 7-crystal HERFD spectrometer to a chosen emission line",
-      "when_to_use": "When operator asks about procedure for aligning the 7-crystal herfd spectrometer to a chosen emission line",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "",
-      "simulated": false,
-      "working_live": true,
+      "working_live": false,
       "comments": ""
     }
   ]

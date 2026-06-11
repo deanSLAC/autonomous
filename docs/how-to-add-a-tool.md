@@ -2,26 +2,41 @@
 
 This guide is the recipe for landing a new tool in the autonomous-beamline tool catalog. It covers three flavors:
 
-1. **SPEC-bound tools** — anything that injects a SPEC command (motor moves, scans, alignment macros). Eight files to touch.
-2. **Non-SPEC tools** — anything that doesn't talk to SPEC or the orchestration DB (file I/O, analysis). Five files.
-3. **DB tools** — tools with `source: "autonomy_db"` in lineage that read/write the orchestration SQLite DB (experiment plan, budget, sample progress, guidance, interventions). Auto-route to `beamtimehero db`. Same five files as non-SPEC tools; the only difference is the lineage `source` field.
+1. **SPEC-bound tools** — anything that injects a SPEC command (motor moves, scans, alignment macros).
+2. **Non-SPEC tools** — anything that doesn't talk to SPEC or the orchestration DB (file I/O, analysis, camera, external HTTP).
+3. **DB tools** — tools with `source: "autonomy_db"` in lineage that read/write the orchestration SQLite DB (experiment plan, budget, sample progress, guidance, interventions).
 
-## First: decide where the tool lives
+All three flavors use the same registration pattern (schema, handler, dispatch, lineage). The only differences are which imports the handler uses and how the auto-generated CLI routes the call.
 
-Since the `beamline_tools/` package migrated to consuming `beamtimehero_cli` (editable local install at `../beamtimehero_cli`), there are now **two places** a tool can live, and the choice determines which file paths apply below:
+## Architecture overview
 
-- **Generic, reusable tools** (SPEC primitives, scan/log/data readers, motor moves) → land them upstream in `../beamtimehero_cli/src/beamtimehero_cli/tool_catalog/{tools_core,definitions,lineage}.py`. Other projects consuming beamtimehero_cli benefit too.
-- **Autonomy-only tools** (CAT-8 orchestration: plan edits, intervention requests, sample budgets, anything that imports `orchestration.*`) → land them in `beamline_tools/tool_catalog/{tools,definitions,lineage}.py`. They'll merge into the catalog via `{**upstream, **autonomy}` at runtime.
+The tool system spans two packages:
 
-The architecture has many layers because each layer enforces a different invariant — phase gating, action logging, schema validation, mock outputs. Adding a tool means making a small append in each of those places, not editing one big switch statement.
+- **`beamtimehero_cli`** (upstream, editable install at `../beamtimehero_cli`) — generic, reusable tools: SPEC primitives, scan/log/data readers, motor moves (CAT-0..CAT-7, CAT-9). ~82 tools. Other projects consuming `beamtimehero_cli` benefit too.
+- **`beamline_tools`** (this repo, `beamline_tools/tool_catalog/`) — autonomy-only tools: CAT-8 orchestration (plan edits, intervention requests, sample budgets, anything that imports `orchestration.*`).
+
+At runtime, `beamline_tools/tool_catalog/__init__.py` concatenates upstream + autonomy definitions and dispatchers via `{**upstream, **autonomy}`. Autonomy keys win on collision.
+
+The architecture has many layers because each layer enforces a different invariant — role gating, action logging, schema validation, mock outputs. Adding a tool means making a small append in each of those places.
 
 After patching the files, you regenerate `tools_config.json` and the new tool auto-appears in `scripts/beamtimehero` (the LLM-facing CLI) and in `tool-tester` (the operator UI). You don't wire those manually.
 
 ---
 
-## SPEC-bound tools (8 files)
+## Where to put a new tool
 
-Use this flavor when your tool ultimately calls `spec_cmd.call(...)` to inject a SPEC command. Almost every alignment / scan / motor / macro wrapper is of this shape.
+| Tool type | Package | Schema file | Handler file | Lineage file |
+|-----------|---------|-------------|-------------|--------------|
+| Generic / reusable (SPEC primitives, data readers) | `beamtimehero_cli` | `beamtimehero_cli/.../definitions.py` | `beamtimehero_cli/.../tools_core.py` | `beamtimehero_cli/.../lineage.py` |
+| Autonomy-only (orchestration, plan, camera) | `beamline_tools` | `beamline_tools/tool_catalog/definitions.py` | `beamline_tools/tool_catalog/tools.py` | `beamline_tools/tool_catalog/lineage.py` |
+
+This guide focuses on the autonomy-side paths. Upstream follows the same pattern but the file paths live under `../beamtimehero_cli/src/beamtimehero_cli/tool_catalog/`.
+
+---
+
+## SPEC-bound tools (7 files + regenerate)
+
+Use this flavor when your tool ultimately calls `audited_call(...)` to inject a SPEC command. Almost every alignment / scan / motor / macro wrapper is of this shape.
 
 ### Pre-flight: confirm the SPEC macro exists
 
@@ -37,24 +52,22 @@ Read the macro itself. You need to know:
 - How long it runs (sub-second / multi-second / multi-minute) — you'll set `timeout_s` accordingly.
 - Any preconditions it asserts (refuses with a `p "..."; exit` line). Mirror those at the Python layer if possible.
 
-If the macro doesn't exist yet, write it first. Adding a CLI surface to a phantom macro just produces a runtime error.
+If the macro doesn't exist yet, write it first.
 
-### File 1 — `../beamtimehero_cli/src/beamtimehero_cli/spec_control/spec_cmd.py`
+### File 1 — CommandSpec (upstream `spec_cmd.py`)
 
-(Generic SPEC primitives live upstream. The autonomy wrapper at `beamline_tools/spec_control/spec_cmd.py` is for write-throughs into the autonomy DB only — don't add new CommandSpec entries there.)
-
-Append a `CommandSpec` to the `_ACTION` dict (or `_READ` for read-only commands). The key is the command name used by `spec_cmd.call("<key>", ...)`. Conventionally this matches the SPEC macro token verbatim (`mvpinhole`, `peak_mono_pitch`, `safely_remove_filters`).
+Append a `CommandSpec` to the `_ACTION` dict (or `_READ` for read-only commands) in `beamtimehero_cli`'s `spec_control/spec_cmd.py`. The key is the command name used by `spec_cmd.call("<key>", ...)`:
 
 ```python
 "mvpinhole": CommandSpec(
     "mvpinhole", "action",
     lambda a: "mvpinhole",                       # to_spec — render args into SPEC string
     lambda o, a: {"raw": o},                     # result_parser — pull structured data out
-    timeout_s=60,                                # how long we'll wait for completion
+    timeout_s=60,
 ),
 ```
 
-For commands with structured args, the renderer formats them and the parser converts the `args` list back into named fields:
+For commands with structured args:
 
 ```python
 "measure_beam_size": CommandSpec(
@@ -65,29 +78,34 @@ For commands with structured args, the renderer formats them and the parser conv
 ),
 ```
 
-For motor-bearing commands (`umv`, `mv`, `dscan`, ...), set `needs_motor_allow=True` and `motor_arg_index=0` so the dispatcher checks the motor against the phase's motor allowlist.
+For motor-bearing commands (`umv`, `mv`, `dscan`, ...), set `needs_motor_allow=True` and `motor_arg_index=0`.
 
-### File 2 — agent-role allowlist (autonomy)
+### File 2 — Agent-role allowlist (`beamline_tools/agent_roles.py`)
 
-If the new command is a write-tool an agent role should be allowed to invoke, add it to that role's `spec_write_tools` frozenset in `beamline_tools/agent_roles.py`. Phase constants themselves come from `beamtimehero_cli.spec_control.phases` (upstream) and need no change.
+If the new command is a write-tool an agent role should be allowed to invoke, add it to that role's `spec_write_tools` frozenset in `beamline_tools/agent_roles.py`.
 
-Add the SPEC command name to `PROCEDURAL_PHASE` with the set of phases where it's allowed:
+Each agent role (`blaligner`, `samplealigner`, `collector`, `surveyor`) has:
+- `spec_write_tools` — frozenset of SPEC command names the role may call.
+- `motors` — set of motor mnemonics the role may move.
 
 ```python
-PROCEDURAL_PHASE = {
+AGENT_ROLES = {
+    "blaligner": {
+        "spec_write_tools": frozenset({
+            ...,
+            "mvpinhole",   # ← add here
+        }),
+        "motors": {...},
+    },
     ...
-    "mvpinhole": {PHASE_BL_ALIGN},
-    "mvplastic": {PHASE_BL_ALIGN, PHASE_XES_ALIGN},
 }
 ```
 
-If the command is allowed in every running phase (motor primitives, shutter, ct), put it in `PROCEDURAL_ANY_PHASE` instead.
+If your command moves a motor that isn't already on the relevant role's `motors` set, add it.
 
-If your command moves a motor that isn't already on the relevant phase's `_*_MOTORS` set, add it. The dispatcher refuses moves to motors that aren't on the active phase's allowlist.
+### File 3 — Schema (`beamline_tools/tool_catalog/definitions.py`)
 
-### File 3 — `beamline_tools/tool_catalog/autonomy_definitions.py`
-
-Append a JSON-schema entry to `AUTONOMY_TOOL_DEFINITIONS`. This is the schema the LLM sees. Tool names are snake_case; the auto-generated CLI converts to kebab-case (`mv_pinhole` → `mv-pinhole`).
+Append a JSON-schema entry to `AUTONOMY_TOOL_DEFINITIONS`. Tool names are snake_case; the auto-generated CLI converts to kebab-case (`mv_pinhole` → `mv-pinhole`).
 
 Every SPEC-write tool MUST have `justification` in `required` — the dispatcher rejects empty justifications, and the auto-generated CLI uses the presence of `justification` to route a tool into `spec-write` rather than `spec-read` or `tool`.
 
@@ -106,26 +124,16 @@ Every SPEC-write tool MUST have `justification` in `required` — the dispatcher
 },
 ```
 
-For structured args, expand `properties` with the schema fields:
+Also add the new tool name to the relevant `AUTONOMY_TOOL_CATEGORIES` row at the bottom of the file.
 
-```python
-"properties": {
-    **_J,
-    "small_x": {"type": "boolean", "default": False, "description": "..."},
-    "small_z": {"type": "boolean", "default": False, "description": "..."},
-},
-```
+### File 4 — Handler + dispatch (`beamline_tools/tool_catalog/tools.py`)
 
-Also add the new tool name to the relevant `AUTONOMY_TOOL_CATEGORIES` row at the bottom of the file (this drives the sidebar grouping in the UI).
-
-### File 4 — `beamline_tools/tool_catalog/autonomy_tools.py`
-
-Add a `t_<tool_name>` wrapper, then register it in `AUTONOMY_DISPATCH`. The wrapper is the bridge between LLM-shaped args and the spec_cmd renderer:
+Add a `t_<tool_name>` function, then register it in `_AUTONOMY_DISPATCH`. SPEC-mutating tools use `audited_call()` (not `spec_cmd.call()` directly) — it wraps the call with action logging, phase/experiment state, and the justification audit trail:
 
 ```python
 def t_mv_pinhole(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
-    res = spec_cmd.call("mvpinhole", [], justification=j)
+    res = audited_call("mvpinhole", [], justification=j)
     return _as_json(res), []
 ```
 
@@ -136,30 +144,36 @@ def t_measure_beam_size(args: dict) -> tuple[str, list[str]]:
     j = (args.get("justification") or "").strip()
     mode_x = "1" if bool(args.get("small_x", False)) else "0"
     mode_z = "1" if bool(args.get("small_z", False)) else "0"
-    res = spec_cmd.call("measure_beam_size", [mode_x, mode_z], justification=j)
+    res = audited_call("measure_beam_size", [mode_x, mode_z], justification=j)
     return _as_json(res), []
 ```
 
 Then add to the dispatch table near the bottom:
 
 ```python
-AUTONOMY_DISPATCH = {
+_AUTONOMY_DISPATCH: dict[str, callable] = {
     ...
     "mv_pinhole": t_mv_pinhole,
     "measure_beam_size": t_measure_beam_size,
 }
 ```
 
-For long-running one-shot macros (`align_beamline`, `auto_sample_align`), call `_refuse_rerun_if_already_done(...)` at the top of the `t_*` function — see the existing pattern.
+The final `DISPATCH` dict merges upstream + autonomy:
 
-### File 5 — `beamline_tools/tool_catalog/lineage.py`
+```python
+DISPATCH: dict[str, callable] = {**_UPSTREAM_DISPATCH, **_AUTONOMY_DISPATCH}
+```
 
-Append metadata to `TOOL_LINEAGE`. This drives the `/tools` UI page and is also the way the unit-test script identifies SPEC-bound tools (any entry with `spec_command != None` is expected to have a test case).
+For long-running one-shot macros (`align_beamline`, `auto_sample_align`), call `_refuse_rerun_if_already_done(...)` at the top of the `t_*` function.
+
+### File 5 — Lineage (`beamline_tools/tool_catalog/lineage.py`)
+
+Append metadata to `_AUTONOMY_LINEAGE`. This drives the `/tools` UI page and is also how the unit-test script identifies SPEC-bound tools (any entry with `spec_command != None` is expected to have a test case):
 
 ```python
 "mv_pinhole": {
     "long_description": "Move the sample stage so the diagnostic-tool pinhole is in the beam. ...",
-    "python_func": "spec_cmd.call('mvpinhole', [], justification)",
+    "python_func": "audited_call('mvpinhole', [], justification)",
     "spec_command": "mvpinhole",                 # MUST be non-None for SPEC tools
     "output": "JSON: {ok, kind, action_id, result: {raw, elapsed_s}, elapsed_s}",
     "source": "spec_session",
@@ -168,32 +182,22 @@ Append metadata to `TOOL_LINEAGE`. This drives the `/tools` UI page and is also 
 },
 ```
 
-The `source` field is one of: `spec_session`, `spec_datafile`, `spec_logfile`, `spec_config`, `autonomy_db`, `filesystem`, `tool_chain`, `slack`. SPEC-injecting tools should use `spec_session`.
+The `source` field is one of: `spec_session`, `spec_datafile`, `spec_logfile`, `spec_config`, `autonomy_db`, `filesystem`, `tool_chain`, `slack`, `camera`. SPEC-injecting tools should use `spec_session`.
 
-### File 6 — `beamline_tools/spec_control/transport.py`
+### File 6 — Mock output (upstream `transport.py`)
 
-Add a branch to `_MockScreen.inject` that returns synthetic output for the new SPEC string, so `SPEC_MOCK=1` runs (used by tests, the dashboard, and laptop development) don't hang or error. Match the prefix you'll see on the wire:
+Add a branch to `_MockScreen.inject` in `beamtimehero_cli`'s `spec_control/transport.py` so `SPEC_MOCK=1` runs don't hang. Match the prefix you'll see on the wire:
 
 ```python
 if low.startswith("mvpinhole"):
     cls._positions["Sx"] = 0.0
     cls._positions["Sy"] = 0.0
-    cls._positions["Sz"] = 0.0
-    cls._positions["Sr"] = 0.0
     return "mvpinhole complete. Sx=0 Sy=0 Sz=0 Sr=0"
 ```
 
-For long-running mock branches, `time.sleep(0.1)` so the orchestrator's "did this take a sensible amount of time?" heuristics don't get tripped by zero-elapsed dispatches:
+For long-running mock branches, `time.sleep(0.1)` so the orchestrator's "did this take a sensible amount of time?" heuristics aren't tripped by zero-elapsed dispatches.
 
-```python
-if low.startswith("measure_beam_size"):
-    time.sleep(0.1)
-    return "measure_beam_size complete. beamsize_x=0.35 beamsize_z=0.12 mm"
-```
-
-If your mock should mutate `cls._positions` to keep `wa` / `wm` honest, do so.
-
-### File 7 — `scripts/unit_test_spec_tools.py`
+### File 7 — Unit test (`scripts/unit_test_spec_tools.py`)
 
 Add a `Case` to the relevant `CASES_*` list (group by phase). The test asserts that calling the tool function dispatches the exact SPEC string you expect:
 
@@ -202,124 +206,128 @@ Case("mv_pinhole", {"justification": "test"},
      ["mvpinhole"], note="diagnostic pinhole into beam"),
 ```
 
-For tools that fan out to multiple SPEC dispatches, list them in order:
+If your tool wraps a SPEC macro that lives in `/usr/local/lib/spec.d/`, also add it to `KNOWN_MACROS` at the top of the file. SPEC built-ins go in `KNOWN_BUILTINS`.
 
-```python
-Case("...",
-     {"justification": "test"},
-     ["plotselect I1", "vvv", "peak"],
-     note="combined diagnostic + analysis"),
-```
-
-If your tool wraps a SPEC macro that lives in `/usr/local/lib/spec.d/`, also add it to `KNOWN_MACROS` at the top of the file with its source path so the macro-existence audit doesn't flag it as missing. SPEC built-ins (`p`, `cen`, `peak`, `plotselect`) go in `KNOWN_BUILTINS` instead.
-
-### File 8 — `beamline_tools/tools_config.json` (auto-generated)
-
-This file is regenerated by `scripts/generate_tools_config.py`. Do **not** hand-edit. After making the changes above, run:
+### File 8 — Regenerate `tools_config.json`
 
 ```bash
 SPEC_MOCK=1 venv/bin/python scripts/generate_tools_config.py
 ```
 
-The generator merges new tools into the existing config, preserving user-edited fields (`enabled`, `simulated`, `working_live`, `comments`, `sample_output`).
-
-The catalog filter (`beamline_tools/tool_catalog/__init__.py:_load_enabled_set`) reads this file at import time — tools with `enabled=False` are silently dropped. Until you regenerate, your new tool is *defined* but won't appear in the auto-generated CLI or tool-tester.
+The generator merges new tools into the existing config, preserving user-edited fields (`enabled`, `simulated`, `working_live`, `comments`, `sample_output`). The catalog filter (`beamline_tools/tool_catalog/__init__.py:_load_enabled_set`) reads this file at import time — tools with `enabled=False` are silently dropped.
 
 ---
 
-## Non-SPEC tools (5 files)
+## Non-SPEC tools (4 files + regenerate)
 
-Use this flavor for tools that don't inject a SPEC command — file I/O, analysis on already-collected data, plan saving, status posting. The shape is `save_plan`, `analyze_convergence`, `plot_scan`, `write_summary`.
+Use this flavor for tools that don't inject a SPEC command — file I/O, analysis, camera snapshots, external HTTP calls.
 
-### File 1 — `beamline_tools/tool_catalog/definitions.py`
+### File 1 — Schema (`beamline_tools/tool_catalog/definitions.py`)
 
-Append the schema. Non-SPEC tools live here, **not** in `autonomy_definitions.py`. Don't include `justification` — its presence triggers `spec-write` routing.
+Append the schema to `AUTONOMY_TOOL_DEFINITIONS`. Don't include `justification` — its presence triggers `spec-write` routing.
 
 ```python
 {
     "type": "function",
     "function": {
-        "name": "save_plan",
-        "description": "Save a markdown plan to the project's plans/ directory. ...",
+        "name": "capture_sample_image",
+        "description": "Capture a low-resolution JPEG snapshot of the sample ...",
         "parameters": {
             "type": "object",
             "properties": {
-                "filename": {"type": "string", "description": "..."},
-                "content": {"type": "string", "description": "..."},
-                "overwrite": {"type": "boolean", "default": False, "description": "..."},
+                "quality": {"type": "integer", "default": 50, "description": "..."},
             },
-            "required": ["filename", "content"],
+            "required": [],
         },
     },
 },
 ```
 
-### File 2 — `beamline_tools/tool_catalog/executor.py`
+Also add it to `AUTONOMY_TOOL_CATEGORIES`.
 
-Add an `elif name == "<tool_name>":` branch inside `execute_tool()`. This is the actual implementation. Validate inputs, do the work, return `(json_string, [])`.
+### File 2 — Handler + dispatch (`beamline_tools/tool_catalog/tools.py`)
+
+Add a `t_<tool_name>` function and register it in `_AUTONOMY_DISPATCH`. Non-SPEC tools don't call `audited_call()` — they implement logic directly:
 
 ```python
-elif name == "save_plan":
-    import re as _re
-    from beamline_tools.config import PLANS_DIR
-    filename = (arguments.get("filename") or "").strip()
-    content = arguments.get("content") or ""
-    overwrite = bool(arguments.get("overwrite", False))
-    if not _re.match(r"^[A-Za-z0-9_\-.]+\.md$", filename) or filename.startswith("."):
-        return json.dumps({"ok": False, "error": "..."}), images_b64
-    target = (PLANS_DIR / filename).resolve()
-    try:
-        target.relative_to(PLANS_DIR.resolve())
-    except ValueError:
-        return json.dumps({"ok": False, "error": "..."}), images_b64
-    existed = target.exists()
-    if existed and not overwrite:
-        return json.dumps({"ok": False, "error": "..."}), images_b64
-    target.write_text(content, encoding="utf-8")
-    return json.dumps({"ok": True, "path": str(target), "bytes": ...}), images_b64
+def t_capture_sample_image(args: dict) -> tuple[str, list[str]]:
+    import base64
+    import requests
+    from beamline_tools.config import SAMPLE_CAM_HOST, SAMPLE_CAM_PORT, SPEC_MOCK
+
+    if SPEC_MOCK:
+        return _as_json({"ok": True, "mock": True,
+                         "note": "Camera not available in mock mode"}), []
+
+    quality = max(1, min(100, int(args.get("quality", 50))))
+    url = f"http://{SAMPLE_CAM_HOST}:{SAMPLE_CAM_PORT}/snapshot.jpg"
+    resp = requests.get(url, params={"resolution": "low", "quality": str(quality)}, timeout=10)
+    resp.raise_for_status()
+    img_b64 = base64.b64encode(resp.content).decode("ascii")
+    return _as_json({"ok": True, "size_bytes": len(resp.content)}), [img_b64]
+```
+
+Then add to `_AUTONOMY_DISPATCH`:
+
+```python
+_AUTONOMY_DISPATCH: dict[str, callable] = {
+    ...
+    "capture_sample_image": t_capture_sample_image,
+}
 ```
 
 For tools that write files, **always**:
 - Validate the filename against an allow-list regex (no path separators, no traversal, no hidden files).
-- Resolve the target path and assert it stays inside the intended root via `Path.is_relative_to` (or the `try/except ValueError` form for Python < 3.9 compat).
+- Resolve the target path and assert it stays inside the intended root via `Path.is_relative_to`.
 - Refuse silent overwrites unless the caller explicitly opts in.
 
-### File 3 — `beamline_tools/tool_catalog/lineage.py`
+### File 3 — Lineage (`beamline_tools/tool_catalog/lineage.py`)
 
 Same as for SPEC tools, but `spec_command` is `None`:
 
 ```python
-"save_plan": {
+"capture_sample_image": {
     "long_description": "...",
-    "python_func": "PLANS_DIR.joinpath(filename).write_text(content)  (with regex + path-confinement checks)",
+    "python_func": "requests.get(.../snapshot.jpg, params={resolution: low, quality: q})",
     "spec_command": None,
-    "output": "JSON: {ok, path, bytes, overwrote}",
-    "source": "filesystem",                      # not spec_session
-    "source_detail": "Writes into PLANS_DIR (./plans/ under the project root).",
+    "output": "JSON: {ok, resolution, quality, size_bytes} + inline JPEG image",
+    "source": "camera",
+    "source_detail": "HTTP GET to the RPi-Cam snapshot endpoint.",
     "depends_on": [],
 },
 ```
 
 `spec_command: None` with `source: "autonomy_db"` routes the tool to `beamtimehero db`. `spec_command: None` with any other source routes to `beamtimehero tool`.
 
-### File 4 — `beamline_tools/config.py` (only if you need a new directory)
+### File 4 — Config (`beamline_tools/config.py`, only if needed)
 
-If your tool reads or writes a directory that isn't already exposed, add a constant:
+If your tool needs new configuration (hosts, ports, directories), add constants with env-var overrides:
 
 ```python
-PLANS_DIR = PROJECT_ROOT / "plans"
-PLANS_DIR.mkdir(exist_ok=True)
+SAMPLE_CAM_HOST = os.environ.get("SAMPLE_CAM_HOST", "192.168.150.93")
+SAMPLE_CAM_PORT = int(os.environ.get("SAMPLE_CAM_PORT", "8080"))
 ```
 
-Then import that constant in `executor.py`.
+### File 5 — Regenerate `tools_config.json`
 
-### File 5 — `beamline_tools/tools_config.json` (auto-generated)
+Same as for SPEC tools — run the generator.
 
-Same as before — run the generator after the rest of your edits.
+---
 
-### Don't bother with — `beamline_tools/tool_catalog/cli.py`
+## DB tools (4 files + regenerate)
 
-This file's `run_cli` function is **legacy / unused** as of 2026-05. The actual CLI is `scripts/beamtimehero`, which auto-generates argparse subparsers from `TOOL_DEFINITIONS`. Adding a subparser to `cli.py` is a no-op (its only live consumer is `REFERENCE_DOCS`, which we still import from there). New tools should not need a `cli.py` edit — and if you do edit it for consistency, no caller exercises that path.
+DB tools are structurally identical to non-SPEC tools. The only difference is the lineage `source` field:
+
+- Set `source: "autonomy_db"` — this routes the tool to `beamtimehero db` in the auto-generated CLI.
+- The handler typically imports from `orchestration.plan_store` or similar.
+
+Follow the non-SPEC tool checklist, substituting `source: "autonomy_db"` in lineage.
+
+---
+
+## The executor (`beamline_tools/tool_catalog/executor.py`)
+
+You do **not** need to edit `executor.py`. It's a thin adapter (~58 lines) that accepts either the new 3-arg form `execute_tool(tree, name, args)` or the legacy 2-arg form `execute_tool(name, args)` and looks up the handler in `DISPATCH`. No tool-specific logic lives there.
 
 ---
 
@@ -338,38 +346,34 @@ venv/bin/python scripts/unit_test_spec_tools.py
 
 Two pieces of context:
 
-- **`SPEC_EVAL_URL=http://127.0.0.1:1`** disables the sandbox client by pointing it at an unreachable port. Without this, when the dev sandbox is healthy, `spec_cmd.dispatch` routes through it instead of `_MockScreen.inject` — and the recorder hooks `_MockScreen.inject`. Every test then reports `dispatch mismatch: got []` because the recorder never fires. This is a quirk of the test infra: when the sandbox is up, you must point `SPEC_EVAL_URL` at a dead address to force the dispatcher onto the path the recorder watches.
-- **The `*_DB_PATH` overrides** isolate the test's SQLite from the live app's database, which would otherwise produce `disk I/O error` from concurrent writes.
+- **`SPEC_EVAL_URL=http://127.0.0.1:1`** disables the sandbox client by pointing it at an unreachable port. Without this, when the dev sandbox is healthy, `spec_cmd.dispatch` routes through it instead of `_MockScreen.inject` — and the recorder hooks `_MockScreen.inject`. Every test then reports `dispatch mismatch: got []` because the recorder never fires.
+- **The `*_DB_PATH` overrides** isolate the test's SQLite from the live app's database.
 
-The script exits 0 on success and prints a per-tool PASS/FAIL table plus a macro-existence audit. Aim for `Total checks: N/N passed` and `Missing macros: 0` (the audit will tolerate a few known-missing-element-specific macros like `Fe_cee`).
+**Non-SPEC tools.** Smoke-test via the auto-generated CLI:
 
-**Non-SPEC tools.** No formal harness yet; smoke-test directly:
+```bash
+SPEC_MOCK=1 venv/bin/python scripts/beamtimehero tool capture-sample-image --quality 50
+```
+
+Or directly:
 
 ```python
 from beamline_tools.tool_catalog.executor import execute_tool
-result, _ = execute_tool("save_plan", {"filename": "test.md", "content": "..."})
-print(result)
+result, imgs = execute_tool("capture_sample_image", {"quality": 50})
+print(result, len(imgs))
 ```
 
-Or via the auto-generated CLI:
-
-```bash
-SPEC_MOCK=1 venv/bin/python scripts/beamtimehero tool save-plan --filename test.md --content "..."
-```
-
-For tools with adversarial-input concerns (file writes, anything that takes a path), test the rejection cases explicitly: traversal, missing extension, hidden files, overwrite collisions.
-
-**Tool-tester UI.** No code change needed — `tool-tester/app.py` reads `tools_config.json` and `static/tool-tester.js` auto-generates form inputs from each tool's `sample_input` schema. Just regenerate the config and refresh the page.
+**Tool-tester UI.** No code change needed — `tool-tester/app.py` reads `tools_config.json` and auto-generates form inputs from each tool's schema. Just regenerate the config and refresh the page.
 
 ---
 
 ## Sequencing
 
-When adding multiple related tools at once, the order is:
+When adding multiple related tools at once:
 
 1. Make all the file edits.
 2. Run `scripts/generate_tools_config.py` once at the end (not after every file).
-3. Run `scripts/unit_test_spec_tools.py` to confirm dispatch parity.
+3. Run `scripts/unit_test_spec_tools.py` to confirm dispatch parity (SPEC tools only).
 4. Smoke-test the new tools through `scripts/beamtimehero` (auto-generated CLI).
 5. Open `tool-tester` in the browser, confirm the new tools render.
 6. Consider updating `context/` files if the tool is something an autonomous agent should know about.
@@ -379,9 +383,9 @@ When adding multiple related tools at once, the order is:
 ## Common gotchas
 
 - **The tool doesn't appear in `beamtimehero --help`.** You forgot to regenerate `tools_config.json`. The catalog filter drops anything not in the enabled-set.
-- **Schema validation passes but the tool errors out at runtime.** Check that the SPEC-cmd key in `_ACTION` matches the string you pass to `spec_cmd.call(...)`. They have to be identical.
-- **The dispatcher refuses with "command 'X' is only allowed in phase(s): ..."** even though you listed it in `PROCEDURAL_PHASE`. Check that the active phase (set via `spec_cmd.set_phase(...)`) matches one of the phases in the set.
-- **Mock-mode runs hang or 404.** You didn't add a `_MockScreen.inject` branch. The fallthrough `return f"ok: {cmd}"` works for trivial commands, but anything that returns parsed structured data (`mode_x`, `beamsize_x`, etc.) needs a tailored branch.
+- **Schema validation passes but the tool errors out at runtime.** Check that the SPEC-cmd key in `_ACTION` matches the string you pass to `audited_call(...)` / `spec_cmd.call(...)`. They have to be identical.
+- **The dispatcher refuses with "command 'X' is only allowed for role(s): ..."** You didn't add the tool to the right agent role's `spec_write_tools` frozenset in `agent_roles.py`.
+- **Mock-mode runs hang or 404.** You didn't add a `_MockScreen.inject` branch in upstream's `transport.py`. The fallthrough `return f"ok: {cmd}"` works for trivial commands, but anything that returns parsed structured data needs a tailored branch.
 - **`_refuse_rerun_if_already_done` keeps firing in tests.** That helper checks `action_log` for the same command + experiment. Tests that share an experiment ID across cases will trip it. Use a fresh experiment per test, or skip the guard for development.
 
 ---
@@ -391,30 +395,22 @@ When adding multiple related tools at once, the order is:
 For a new SPEC-bound tool:
 
 - [ ] Read the SPEC macro under `/usr/local/lib/spec.d/`
-- [ ] `spec_cmd.py`: `CommandSpec` in `_ACTION` (or `_READ`)
-- [ ] `phases.py`: entry in `PROCEDURAL_PHASE` (or `PROCEDURAL_ANY_PHASE`)
-- [ ] `autonomy_definitions.py`: schema + category list entry
-- [ ] `autonomy_tools.py`: `t_*` function + `AUTONOMY_DISPATCH` entry
-- [ ] `lineage.py`: metadata entry with non-None `spec_command`
-- [ ] `transport.py`: `_MockScreen.inject` branch
+- [ ] Upstream `spec_cmd.py`: `CommandSpec` in `_ACTION` (or `_READ`)
+- [ ] `agent_roles.py`: tool name in the relevant role's `spec_write_tools` frozenset (+ motor in `motors` if needed)
+- [ ] `definitions.py`: schema in `AUTONOMY_TOOL_DEFINITIONS` + `AUTONOMY_TOOL_CATEGORIES` entry
+- [ ] `tools.py`: `t_*` function using `audited_call()` + `_AUTONOMY_DISPATCH` entry
+- [ ] `lineage.py`: metadata entry in `_AUTONOMY_LINEAGE` with non-None `spec_command`
+- [ ] Upstream `transport.py`: `_MockScreen.inject` branch
 - [ ] `unit_test_spec_tools.py`: `Case` + `KNOWN_MACROS` entry
 - [ ] Run `scripts/generate_tools_config.py`
 - [ ] Run `scripts/unit_test_spec_tools.py` (with the env vars above)
 - [ ] Smoke-test through `scripts/beamtimehero spec-write <tool> --justification "..."`
 
-For a new non-SPEC tool:
+For a new non-SPEC / DB tool:
 
-- [ ] `definitions.py`: schema (no `justification`)
-- [ ] `executor.py`: `elif` branch with input validation + path confinement
-- [ ] `lineage.py`: metadata entry with `spec_command: None`, `source: "filesystem"` (or other non-spec source)
-- [ ] `config.py`: new directory constant if needed
+- [ ] `definitions.py`: schema in `AUTONOMY_TOOL_DEFINITIONS` (no `justification`) + `AUTONOMY_TOOL_CATEGORIES` entry
+- [ ] `tools.py`: `t_*` function + `_AUTONOMY_DISPATCH` entry (handle `SPEC_MOCK` if the tool calls external services)
+- [ ] `lineage.py`: metadata entry in `_AUTONOMY_LINEAGE` with `spec_command: None` (use `source: "autonomy_db"` for DB tools)
+- [ ] `config.py`: new constants if needed (with env-var overrides)
 - [ ] Run `scripts/generate_tools_config.py`
-- [ ] Inline smoke test via `execute_tool(...)` and through `scripts/beamtimehero tool <name>`
-
-For a new DB tool:
-
-- [ ] `autonomy_definitions.py` or `definitions.py`: schema (no `justification` unless the tool genuinely needs one)
-- [ ] `autonomy_tools.py` or `executor.py`: implementation
-- [ ] `lineage.py`: metadata entry with `spec_command: None`, `source: "autonomy_db"`
-- [ ] Run `scripts/generate_tools_config.py`
-- [ ] Smoke-test through `scripts/beamtimehero db <name>`
+- [ ] Smoke-test through `scripts/beamtimehero tool <name>` (or `beamtimehero db <name>` for DB tools)

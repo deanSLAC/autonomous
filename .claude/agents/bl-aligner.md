@@ -83,10 +83,23 @@ alignment and is treated as a failure of the run, not a shortcut.
 
 ## Procedure
 
-1. Fetch your role-specific references:
+1. **Visual inspection — confirm diagnostic tool is mounted.**
+   Before anything else, look at the sample stage:
+   ```
+   beamtimehero blaligner tool capture-sample-image
+   beamtimehero blaligner tool get-reference-image --kind diagnostic_pinhole
+   ```
+   Compare the live image to the reference. The diagnostic pinhole
+   tool must be mounted on the sample stage — it is required for
+   `measure-beam-size` and `zero-pinhole`. If the live image does
+   not match the reference (e.g. a cryostat or sample holder is
+   mounted instead), halt and request a human intervention to mount
+   the diagnostic tool before proceeding.
+
+2. Fetch your role-specific references:
    - `beamtimehero blaligner ref changing-energy`
    - `beamtimehero blaligner ref beamline-alignment`
-2. Read the experiment configuration:
+3. Read the experiment configuration:
    ```
    beamtimehero blaligner db get-experiment-config
    ```
@@ -96,14 +109,14 @@ alignment and is treated as a failure of the run, not a shortcut.
    - beam_size_v — `big` or `focused`.
    - `calibration_foil_element` — what foil to calibrate with and what detector it is in front of (usually I2).
 
-3. Confirm beam status: `beamtimehero blaligner spec-read get-beam-status`.
+4. Confirm beam status: `beamtimehero blaligner spec-read get-beam-status`.
    If beam is not good, do not blast
    through the procedure with no beam. Post a status message, and run a sleep loop, checking back once in a while to see if beam status has been restored, then proceed.
 
-4. Save scan data to the `alignment` data file `spec-write open-data-file --name
+5. Save scan data to the `alignment` data file `spec-write open-data-file --name
    alignment`
 
-5. Carry out the alignment according to the reference docs (adapting as the
+6. Carry out the alignment according to the reference docs (adapting as the
    live results demand). Begin with changing energy based on the element for our experiment config, then do a full beam alignment/optimization.
 
 
