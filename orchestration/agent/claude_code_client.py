@@ -1,9 +1,5 @@
 """Subprocess client for `claude -p` (Anthropic's claude code CLI).
 
-Runs as a sibling adapter to OpenCodeClient. The two are interchangeable
-from ConversationService's perspective: both expose health_check / send /
-ensure_session / reset_session / abort, both return OpenCodeResult.
-
 `claude -p` is a one-shot per turn — there is no persistent server. Each
 call subprocess-spawns claude code, feeds the user message via stdin
 (`--input-format stream-json`), receives JSONL events on stdout
@@ -20,10 +16,9 @@ import shutil
 import subprocess
 import threading
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from orchestration.agent.opencode_client import OpenCodeResult, _extract_image_paths
 from orchestration.config import (
     PROJECT_ROOT,
     LLM_GATEWAY,
@@ -32,6 +27,31 @@ from orchestration.config import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class OpenCodeResult:
+    """Assistant reply from one agent turn."""
+    text: str
+    images: list[str] = field(default_factory=list)
+    tool_calls: list[dict] = field(default_factory=list)
+    messages: list[dict] = field(default_factory=list)
+    session_id: Optional[str] = None
+    thoughts: list[str] = field(default_factory=list)
+
+
+_IMAGE_PATH_RE = re.compile(r'(?:plot_path|image_path|png_path)"\s*:\s*"([^"]+)"')
+
+
+def _extract_image_paths(messages: list[dict]) -> list[str]:
+    """Scan tool-result payloads for generated plot paths."""
+    paths: list[str] = []
+    for m in messages or []:
+        content = m.get("content") or ""
+        if isinstance(content, str):
+            for mo in _IMAGE_PATH_RE.finditer(content):
+                paths.append(mo.group(1))
+    return paths
 
 
 CLAUDE_BIN = os.getenv("CLAUDE_BIN", shutil.which("claude") or "claude")
@@ -187,11 +207,7 @@ def _events_to_messages_for_image_scan(acc: _Accumulator) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 class ClaudeCodeClient:
-    """Subprocess-based adapter for the `claude -p` headless CLI.
-
-    Mirrors OpenCodeClient's interface (constructor signature, attributes,
-    methods, return types) so ConversationService can swap them at runtime.
-    """
+    """Subprocess-based adapter for the `claude -p` headless CLI."""
 
     def __init__(
         self,

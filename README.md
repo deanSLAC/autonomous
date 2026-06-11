@@ -1,184 +1,127 @@
 # Autonomous Beamline Agent — SSRL BL15-2
 
-An LLM-driven agent that runs the BL15-2 X-ray beamline end-to-end: beamline
-alignment → spectrometer crystal alignment → sample holder alignment → data
-collection → real-time analysis → experiment steering — with every SPEC
-action logged to sqlite and a web UI that keeps users and staff informed.
+An LLM-driven multi-agent system that runs the BL15-2 X-ray beamline
+end-to-end: beamline alignment → spectrometer crystal alignment → sample
+holder alignment → data collection → real-time analysis → experiment
+steering — with every SPEC action logged to sqlite and a web dashboard +
+Slack bridge that keep users and staff informed.
 
-**LLM backend:** [opencode](https://opencode.ai) server bound to the SLAC AI
-Gateway (Claude Opus 4.6 by default). opencode runs the tool-calling loop
-and the ~100 autonomous-beamline tools are exposed to it via
-auto-generated `.opencode/tools/*.ts` wrappers that shell into the
-`scripts/beamtimehero` CLI — the same entry point Claude Code subagents
-invoke via `Bash(beamtimehero …)`. One execution path; one audit log.
-
-This project merges three prior efforts:
-
-- **`../beamtimehero/`** — LLM tool-calling loop + Slack 3-channel bridge + read-only beamline analysis tools.
-- **`../beamline/`** — phased dashboard UI, experiment-configuration form, SQLModel schema, decision / fitter / LLM-advisor layer.
-- **`../design_handoff_autonomous_beamline_agent/needed-tools-for-autonomy.md`** — authoritative spec for the new `spec_cmd` CLI, CAT-0..CAT-8 tool surface, phase allowlists, action_log schema, and `transition_phase` orchestration.
+**LLM backend:** Claude Code (`claude -p`), spawned as a subprocess per
+agent task / chat turn, bound to the SLAC AI Gateway (configurable via
+`LLM_GATEWAY`). Agents discover and invoke the ~100 beamline tools through
+the `scripts/beamtimehero` argparse CLI (`--help` at any depth) — one
+execution path, one audit log. The earlier opencode backend was removed in
+June 2026; its full implementation is preserved on the
+`archive/opencode-support` branch (tag `pre-opencode-removal`).
 
 ## What the agent does
 
-1. **Setup.** User submits the experiment config form at `/config`. Orchestrator builds a per-sample plan + budget.
-2. **Beamline alignment.** Agent calls `align_beamline` (high-level procedural macro) and/or diagnostic shortcuts (`vvv`, `m1m1`, …) as fallbacks.
-3. **Spectrometer alignment.** `align_xes_spectrometer` — per-crystal `c#y`/`c#p` peaking + mono elastic scan.
-4. **Sample alignment.** `run_sample_alignment` — wide Sz survey → per-sample fine centering + Sx/Sy boundaries.
-5. **Collection.** `run_collection` (multi-sample XAS/RIXS loop) *or* element-specific `<element>_xas` / `<element>_cee` loops under agent control.
-6. **Real-time analysis.** After each scan, the agent uses `analyze_efficiency`, `analyze_convergence`, `plot_scan`, and the planner's thresholds (SNR target, min-reps) to decide: more reps? skip? next sample? revise plan?
-7. **Budget.** Every turn, the agent sees remaining beamtime + sample queue state and trims accordingly.
-8. **Pause-for-human.** `request_human_intervention(kind, detail)` blocks until staff resolves (Slack `!resume <id>`, UI "Mark complete" button, or timeout).
-9. **Slack.** Periodic progress posts to `#beamtimehero`. Pause requests posted with resume instructions. Staff messages become `[STEERING]` input on the next agent turn.
+1. **Setup.** User submits the experiment config form at `/config`. Planner builds a per-sample plan + budget.
+2. **Beamline alignment.** Phase agent aligns upstream optics (M1/M2/mono) and measures beam size.
+3. **Spectrometer alignment.** Per-crystal peaking + mono elastic scan.
+4. **Sample alignment.** Wide Sz survey → per-sample fine centering + Sx/Sy boundaries.
+5. **Collection.** Spot-by-spot HERFD/XAS loop under agent control, one scan at a time.
+6. **Real-time analysis.** After each scan: efficiency / convergence analysis against the planner's thresholds (SNR target, min-reps) to decide more reps / skip / next sample / revise plan.
+7. **Budget.** Agents see remaining beamtime + sample queue state every turn and trim accordingly.
+8. **Pause-for-human.** `request_human_intervention(kind, detail)` blocks until staff resolves (Slack `!resume <id>` / `!deny <id>`, or the dashboard buttons).
+9. **Slack.** Status updates, phase reports, steering channel (staff guidance), and a chat channel (threads + DMs route to a chat agent).
 
 ## Key invariants
 
-- **Nothing reaches SPEC without a justification.** `spec_cmd` rejects action calls without a non-empty `justification` string and writes every action to the `action_log` table *before* dispatch. Even if SPEC hangs, the record exists.
-- **No free-form SPEC strings.** The agent chooses from a whitelist of ~40 commands (read-only + action) and the phase-allowlisted motors. Everything else is refused in Python before anything touches SPEC.
-- **Forward-only phase machine with gated transitions.** `setup → beamline_alignment → [xes_alignment] → sample_alignment → collection → complete`. Backward transitions require Slack approval with default-deny.
-- **High-level first, primitives as fallback.** The agent is told to prefer CAT-0 procedural macros (`align_beamline`, `run_collection`, etc.) over motor/scan primitives.
+- **Nothing reaches SPEC without a justification.** spec-write leaves require a non-empty `--justification` and every action is written to `action_log` *before* dispatch. Even if SPEC hangs, the record exists.
+- **No free-form SPEC strings.** Agents choose from the whitelisted command catalog and per-role allowlisted motors (`beamline_tools/agent_roles.py`). Everything else is refused in Python before anything touches SPEC.
+- **Plan state lives in sqlite** (`ExperimentPlan.plan_json`), schema-validated on every write (`orchestration/planner/plan_schema.py`) — including writes from the LLM via the `update_plan` tool.
+- **Safety switches** (`beamline_tools/safety_switches.json`) gate every spec call, re-read per call — flip from the dashboard without restarting anything.
 
 ## Directory layout
 
 ```
 autonomous/
-├── opencode.json              SLAC AI Gateway provider + model list
-├── .opencode/tools/*.ts       AUTOGENERATED tool wrappers (~60) — one per Python tool
-├── server/
-│   ├── app.py                 FastAPI hub (chat, config, dashboard, orchestrator, plan, WS)
-│   ├── config.py              env + paths + timeouts
-│   ├── opencode_client.py     HTTP client for the local opencode server
-│   ├── conversation.py        thin facade over one opencode session
-│   ├── slack_bridge.py        Slack 3-channel bridge + !resume / !deny
-│   ├── config_generator.py    SPEC .mac generator from experiment config
-│   ├── spec_reader.py         silx-based SPEC data reader
-│   ├── reports.py             Per-phase report PNGs
-│   ├── slack_notify.py        (compat) legacy slack/notify helper
-│   ├── tools/                     (the generic surface lives in beamtimehero_cli)
-│   │   ├── definitions.py         autonomy CAT-8 orchestration tool schemas only
-│   │   ├── tools.py               autonomy CAT-8 implementations + merged DISPATCH
-│   │   ├── executor.py            merged dispatcher
-│   │   └── lineage.py             autonomy lineage entries + upstream merge
-│   ├── spec/                      autonomy-side spec_cmd wrapper only
-│   │   └── spec_cmd.py            measure_beam_size DB write-through hook
-│   ├── agent_roles.py             per-agent-role motor + spec-write allowlists
-│   ├── orchestrator/
-│   │   ├── loop.py                outer agent loop
-│   │   ├── planner.py             experiment plan + beamtime budget
-│   │   ├── phase.py               transition_phase + preconditions
-│   │   └── staff_guidance.py      Slack-guidance queue + intervention waiters
-│   ├── analysis/                  decision layer (fitter, strategies, decisions)
-│   ├── llm/                       beamline phase advisor + prompts
-│   ├── db/
-│   │   ├── models.py              SQLModel tables (base + autonomy extensions)
-│   │   ├── client.py              CRUD helpers
-│   │   ├── autonomy_client.py     plan / guidance / intervention CRUD
-│   │   └── init_db.py             initialize the sqlite file
-│   └── ui/
-│       ├── config_api.py          form endpoints (was beamline/web/app.py)
-│       ├── dashboard_api.py       phase dashboard API
-│       ├── orchestrator_api.py    start / pause / resume / intervene / steer
-│       └── plan_api.py            steerable plan: add/remove/reorder/skip/extend_budget
-├── beamline_lib/                  beamtimehero scan-read + log tools
-├── static/
-│   ├── index.html                 legacy chat UI (served at /)
-│   ├── config/                    experiment configuration form (/config)
-│   └── dashboard/                 themed SSRL dashboard (/dashboard)
-├── context/                       system prompt + BL15-2 reference docs
-├── config/defaults.yaml           motor limits, crystal-cut table, common elements
-├── data/                          runtime sqlite DB + report PNGs
+├── main.py                    entry point — .env, simulation bootstrap, FastAPI
+├── ui/
+│   ├── server/app.py          app factory: pages, WS broadcast, chat endpoint, /health
+│   ├── server/schemas.py      pydantic request models for the HTTP boundary
+│   ├── server/routers/        dashboard, plan, config, phase_runner, orchestrator,
+│   │                          sample_holders, safety_switches, spec_log, viewer, …
+│   ├── adapters/slack_bridge.py  Slack Socket Mode bridge (steering / chat / DMs)
+│   └── static/                plain HTML/CSS/JS pages (no build step):
+│                              dashboard/ config/ viewer/ sample_holders/ tools/ shared/
+├── orchestration/
+│   ├── config.py              pydantic-settings Settings (.env is the source of truth)
+│   ├── api.py                 facade the UI layer calls; event emitter wiring
+│   ├── messages.py            typed cross-layer contracts (Slack inbound, chat WS events)
+│   ├── planner/               plan lifecycle: planner.py, plan_schema.py, plan_summary,
+│   │                          staff_guidance, orchestrator_tick
+│   ├── agents/                agent spawn/drain lifecycle
+│   ├── agent/                 claude_code_client.py, conversation.py, phase_runner
+│   ├── chat/                  ChatRouter — dashboard + Slack chat → chat-claude.sh spawns
+│   └── plan_store/            SQLModel schema (models.py) + sqlite session + CRUD
+├── beamline_tools/            autonomy overlay on the shared CLI package:
+│                              CAT-8 tools, agent roles, audited_call, steering CLI
+├── simulation/                SPEC mock bootstrap (SPEC_MOCK=1 is the default)
 ├── scripts/
-│   ├── start.sh                   venv + deps + launch
-│   └── smoke_test.py              end-to-end mock test (SPEC_MOCK=1)
-└── plan.md                        the plan used to build this
+│   ├── beamtimehero           the CLI agents call (upstream parser + autonomy branches)
+│   ├── start.sh / stop.sh     launch / kill FastAPI on :5005
+│   └── *-claude.sh            per-role agent launchers (planner, collector, chat, …)
+├── .claude/                   agent definitions, skills, prompts/base-layer.md
+├── context/                   reference docs served via `beamtimehero ref <name>`
+├── config/defaults.yaml       motor limits, gains, common elements
+├── data/                      runtime sqlite DB, tool plots, phase reports
+└── tests/                     pytest suite
 ```
 
-## URLs (default port 8080)
+The generic tool surface (CAT-0..7,9), SPEC file reading, log parsing, and
+analysis live in the shared editable dependency
+[`../beamtimehero_cli`](../beamtimehero_cli) (`pip install -e`).
+
+## URLs (default port 5005)
 
 | Path | What |
 |------|------|
-| `/` | Legacy beamtimehero chat UI (good for ad-hoc questions) |
-| `/config` | Experiment configuration form (two-tab: Experiment + Samples) → "🚀 Start Autonomous Run" hands off to the orchestrator |
-| `/dashboard` | Live autonomy dashboard: phase tiles, sample plan, action tape, interventions banner, guidance feed, chat |
-| `/history` | Scrollable action_log viewer |
-| `/api/chat` | POST — free-form chat with the agent |
-| `/api/submit_experiment` · `/api/submit_sample_holder` · `/api/load_experiment/{id}` · `/api/lookup_energy` · `/api/defaults` | Form backends |
-| `/api/dashboard/experiments` · `/api/dashboard/status?experiment_id=…` · `/api/dashboard/phase/{run_id}` · `/api/dashboard/image?path=…` | Dashboard API |
-| `/api/orchestrator/start` · `/pause` · `/resume` · `/stop` · `/status` · `/guidance` · `/intervention/{id}/resolve` · `/phase` | Orchestrator control |
-| `/api/plan/{id}` (GET) · `/api/plan/add_sample` · `/remove_sample` · `/skip_sample` · `/reorder` · `/update_sample` · `/extend_budget` · `/update_thresholds` · `/api/plan/{id}/edits` | Plan steering — every edit is attributed + logged to PlanEdit |
-| `/ws` | WebSocket: phase events, action updates, interventions, staff messages |
+| `/` `/dashboard` | Live autonomy dashboard: phase tiles, agent output, plan, action tape, interventions, guidance, chat |
+| `/config` | Experiment configuration form |
+| `/phase?phase=<slug>` | Phase detail page |
+| `/sample_holders` | Holder + sample editor with per-sample plan status |
+| `/viewer` | SPEC data viewer |
+| `/tools` | Tool catalog browser |
+| `/health` | Liveness + agent/orchestrator/simulation status |
+| `/api/chat` | POST — chat with the agent (reply arrives via `/ws` as `chat_reply`) |
+| `/api/plan/*` | Steerable plan: add/remove/skip/reorder/update samples, end time, thresholds — every edit attributed + logged |
+| `/ws` | WebSocket: chat replies/errors, steering + orchestrator events, interventions |
 
 ## Setup
 
 ```bash
-# 1. Install opencode (one-time, bundles Bun runtime)
-curl -fsSL https://opencode.ai/install | bash
+# 1. Install Claude Code (the `claude` binary must be on PATH)
 
-# 2. Create venv + install deps
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+# 2. Copy env template
+cp .env.example .env          # fill in LLM_GATEWAY creds, Slack tokens, etc.
 
-# 3. Init DB (idempotent) + generate opencode tool wrappers
-python server/db/init_db.py
-python scripts/generate_opencode_tools.py
-
-# 4. Copy env template
-cp .env.example .env          # fill in SLAC_API_KEY, Slack tokens, etc.
-
-# 5. Launch — start.sh starts opencode + FastAPI in one shot
+# 3. Launch — creates venv, installs deps, inits DB, starts FastAPI on :5005
 ./scripts/start.sh
 ```
 
-`scripts/start.sh` regenerates the TS tool wrappers from the Python
-tool registry, launches `opencode serve` on `:4096` (reading
-`opencode.json`), and then `python server/app.py` on `:8080`. Set
-`START_OPENCODE=0` to run FastAPI alone (useful for UI work).
-
 ## Running without SPEC (dev / demo)
 
-Set `SPEC_MOCK=1` to use the in-memory SPEC simulator (random but plausible
-positions, synthesized scan numbers, instant prompt-returns on macros). This
-lets you exercise the phase state machine, action_log writing, intervention
-flow, and dashboard without a live beamline.
+`SPEC_MOCK=1` (the default) routes all SPEC traffic to the in-process
+simulator and seeds mock scan files + logs, so the full stack — phase
+agents, plan machine, action_log, interventions, dashboard — runs on a dev
+machine. Set `SPEC_MOCK=0` on the real beamline host.
+
+## Tests
 
 ```bash
-SPEC_MOCK=1 PORT=8080 ./scripts/start.sh
+venv/bin/python -m pytest tests/ -q
 ```
-
-## Smoke test
-
-The included smoke test drives the dispatcher + orchestrator end-to-end:
-
-```bash
-SPEC_MOCK=1 python scripts/smoke_test.py
-```
-
-Covers: database init, experiment + sample creation, plan build, phase
-allowlist enforcement, justification enforcement, action_log writes, CAT-0
-procedural macro dispatch, forward-transition preconditions, backward
-transition gating (with / without an approver), staff-guidance drain, and
-intervention block/unblock.
 
 ## Slack behavior
 
-The Slack bridge is the beamtimehero 3-channel pattern plus two autonomy
-additions:
-
-- **Status updates**: posted to `#beamtimehero` on a configurable cadence (default 15 min) from the orchestrator loop.
-- **Interventions**: when the agent calls `request_human_intervention`, a message is posted with instructions to reply `!resume <id>` (resolve) or `!deny <id>` (cancel). Either also resolvable from the dashboard "Mark complete" / "Cancel" buttons.
-
-Staff messages in the LLM thread become `[STEERING]` entries on the agent's
-next turn, so free-text guidance steers the experiment without interrupting
-the current tool call.
-
-## What we could not test outside production
-
-- Real GNU-screen SPEC injection / prompt polling — `SPEC_MOCK=1` is exercised; live SPEC requires a running `spec` screen session.
-- Actual alignment convergence, scan quality, beam stability — the planner logic, thresholds, and tool surface are wired, but the feedback loop's *quality* can only be judged on real data.
-- The Stanford AI Gateway round-trip — the app boots without `API_KEY`; the agent loop is only activated if a key is present.
-- Slack Socket Mode — the bridge imports cleanly but requires real bot + app tokens to connect.
+- **Status updates + phase reports** posted to the chat channel from the orchestrator.
+- **Steering channel**: every staff post becomes a steering row; the orchestrator routes it to a control agent and replies in-thread. A bare `stop` message is the STOP fast-path.
+- **Chat channel + DMs**: each thread is a persistent chat session (`claude --resume` continuity); dashboard chat sessions are mirrored into Slack so staff can see and join them.
+- **Interventions**: `!resume <id>` / `!deny <id>`, or resolve from the dashboard.
 
 ## Ports
 
-Default is **8080**. The user-level CLAUDE.md rule forbids 5000 (macOS
-AirPlay Receiver). Override via `PORT`.
+Default is **5005**. The user-level rule forbids 5000 (macOS AirPlay
+Receiver). Override via `PORT`.

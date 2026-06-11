@@ -3,7 +3,7 @@
 Everything the UI or Slack adapter needs goes through this module:
 
   * startup wiring (`configure(app)`) installs the FastAPI lifespan,
-    opencode health check, Slack callbacks, and orchestrator.
+    agent health check, Slack callbacks, and orchestrator.
   * chat: `set_chat_handler(fn)` lets `orchestration.chat.ChatRouter`
     register itself; `on_chat_message(...)` routes Slack chat / DM
     inbound messages to the router. The router spawns chat-claude.sh
@@ -25,8 +25,7 @@ from orchestration import runtime_state
 from orchestration.messages import InboundSlackMessage
 from orchestration.agent.conversation import ConversationService
 from orchestration.agent.claude_code_client import ClaudeCodeClient
-from orchestration.agent.opencode_client import OpenCodeClient
-from orchestration.config import AGENT_BACKEND, OPENCODE_URL, llm_enabled
+from orchestration.config import llm_enabled
 from orchestration.planner.loop import Orchestrator, get_orchestrator, set_orchestrator
 from orchestration.planner.staff_guidance import coordinator
 
@@ -43,16 +42,9 @@ _slack_status_post: Callable[[str], Any] = lambda text: None
 _slack_post_steering_reply: Callable[[str, str, str], Any] = lambda c, t, s: None
 
 
-def _make_agent_client():
-    """Construct the agent client per AGENT_BACKEND. Both adapters expose
-    the same interface so ConversationService doesn't care which one runs."""
-    if AGENT_BACKEND == "claude_code":
-        return ClaudeCodeClient()
-    if AGENT_BACKEND not in ("opencode", ""):
-        logger.warning(
-            "Unknown AGENT_BACKEND=%r; falling back to opencode.", AGENT_BACKEND,
-        )
-    return OpenCodeClient()
+def _make_agent_client() -> ClaudeCodeClient:
+    """Construct the agent client (Claude Code is the only backend)."""
+    return ClaudeCodeClient()
 
 
 def set_event_emitter(fn: Callable[[dict], Any]) -> None:
@@ -259,21 +251,13 @@ async def lifespan(app):
             if client.health_check():
                 _conversation = ConversationService(client)
                 logger.info(
-                    "agent session service initialized (backend=%s model=%s)",
-                    AGENT_BACKEND, client.model,
+                    "agent session service initialized (model=%s)", client.model,
                 )
             else:
-                if AGENT_BACKEND == "claude_code":
-                    logger.warning(
-                        "claude binary not invokable — agent disabled until "
-                        "`claude --version` succeeds.",
-                    )
-                else:
-                    logger.warning(
-                        "opencode server at %s is not reachable yet — agent disabled "
-                        "until it comes up.",
-                        OPENCODE_URL,
-                    )
+                logger.warning(
+                    "claude binary not invokable — agent disabled until "
+                    "`claude --version` succeeds.",
+                )
         except Exception as e:
             logger.error("Failed to initialize agent client: %s", e)
 

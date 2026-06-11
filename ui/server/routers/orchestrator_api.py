@@ -14,9 +14,8 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from orchestration.config import AGENT_BACKEND, llm_enabled
+from orchestration.config import llm_enabled
 from orchestration.plan_store.client import get_intervention
-from orchestration.agent.opencode_client import OpenCodeClient
 from orchestration.planner.loop import get_orchestrator
 from orchestration.planner.staff_guidance import coordinator
 from beamline_tools.audited_call import audited_call
@@ -28,22 +27,9 @@ router = APIRouter(prefix="/api/orchestrator", tags=["orchestrator"])
 
 
 def _agent_reachable() -> bool:
-    """Live probe of the opencode backend — used by the dashboard
-    pill so a mid-run crash shows up without a page reload.
-
-    Only meaningful when AGENT_BACKEND=opencode (long-lived loopback
-    server). With AGENT_BACKEND=claude_code each turn spawns a
-    `claude -p` subprocess, so there's nothing to ping — treat as
-    always reachable.
-    """
-    if not llm_enabled():
-        return False
-    if AGENT_BACKEND != "opencode":
-        return True
-    try:
-        return OpenCodeClient().health_check()
-    except Exception:
-        return False
+    """Each turn spawns a `claude -p` subprocess — there is no long-lived
+    server to ping, so reachability reduces to "is the LLM configured"."""
+    return llm_enabled()
 
 
 @router.get("/status")
@@ -61,12 +47,10 @@ def status():
         return {
             "initialized": False,
             "agent_reachable": reachable,
-            "agent_backend": AGENT_BACKEND,
         }
     return {
         "initialized": True,
         "agent_reachable": reachable,
-        "agent_backend": AGENT_BACKEND,
         **orch.snapshot(),
     }
 

@@ -1,9 +1,8 @@
-"""Conversation service — thin wrapper around an opencode session.
+"""Conversation service — thin wrapper around an agent session.
 
-opencode runs the full tool-calling loop; this class just holds the
+Claude Code runs the full tool-calling loop; this class just holds the
 session handle and tracks buffered staff messages. Tool execution,
-model choice, and message routing are all handled by the opencode
-server (see scripts/start_opencode.sh, opencode.json).
+model choice, and message routing are all handled by Claude Code.
 """
 
 from __future__ import annotations
@@ -15,7 +14,7 @@ from dataclasses import dataclass, field
 
 import mlflow
 
-from orchestration.agent.opencode_client import OpenCodeClient, OpenCodeResult
+from orchestration.agent.claude_code_client import ClaudeCodeClient, OpenCodeResult
 from orchestration.observability import mlflow_logging
 
 logger = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ class ConversationResult:
 
 
 def _log_run_success(
-    run, *, client: OpenCodeClient, source: str, prompt: str,
+    run, *, client: ClaudeCodeClient, source: str, prompt: str,
     out: OpenCodeResult, latency_seconds: float,
     experiment_id: str | None, staff_name: str | None, turn: int | None,
 ) -> None:
@@ -106,9 +105,9 @@ def _log_run_failure(run, exc: BaseException) -> None:
 
 
 class ConversationService:
-    """Owns one persistent opencode session for an autonomous run."""
+    """Owns one persistent agent session for an autonomous run."""
 
-    def __init__(self, client: OpenCodeClient):
+    def __init__(self, client: ClaudeCodeClient):
         self.client = client
         self._staff_buffer: list[str] = []
         self.messages: list[dict] = []  # mirror for legacy / UI callers
@@ -150,7 +149,7 @@ class ConversationService:
                 out = self.client.send(combined)
             except Exception as e:
                 _log_run_failure(run, e)
-                logger.error("opencode send failed: %s", e, exc_info=True)
+                logger.error("agent send failed: %s", e, exc_info=True)
                 return ConversationResult(text=f"Error: {e}", prompt=combined)
             latency = time.perf_counter() - t0
             _log_run_success(
@@ -189,7 +188,7 @@ class ConversationService:
                 out = self.client.send(prompt)
             except Exception as e:
                 _log_run_failure(run, e)
-                logger.error("opencode staff-LLM send failed: %s", e, exc_info=True)
+                logger.error("agent staff-LLM send failed: %s", e, exc_info=True)
                 return ConversationResult(text=f"Error: {e}", prompt=prompt)
             latency = time.perf_counter() - t0
             _log_run_success(

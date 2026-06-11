@@ -9,7 +9,7 @@ the autonomy-specific layer:
   * `audited_call` — thin re-export of upstream `beamtimehero_cli.audited_call`
     (kept for import-compatibility).
   * `config` — re-exports upstream config + adds autonomy-only paths
-    (CONTEXT_DIR, PLANS_DIR, OPENCODE_DIR, OPENCODE_TOOLS_DIR).
+    (CONTEXT_DIR, PLANS_DIR).
   * `spec_control` — re-exports upstream transport/clients/phases/spec_cmd.
   * `tool_catalog` — autonomy-side tool surface (CAT-8+ orchestration tools)
     plus the per-experiment tools_config.json enable/disable filter; sources

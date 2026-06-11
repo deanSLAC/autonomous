@@ -6,7 +6,7 @@ that are not autonomy-specific. We re-export them verbatim so existing
 `from beamline_tools.config import ...` imports continue to work.
 
 Autonomy-only additions:
-  * `CONTEXT_DIR`, `PLANS_DIR`, `OPENCODE_DIR`, `OPENCODE_TOOLS_DIR` — paths
+  * `CONTEXT_DIR`, `PLANS_DIR` — paths
     rooted in the autonomous repo (not in `beamtimehero_cli`).
   * `PROJECT_ROOT` is overridden to point at the autonomous repo root.
 
@@ -59,6 +59,4 @@ from beamtimehero_cli.config import (  # noqa: E402,F401
 # ---------------------------------------------------------------------------
 CONTEXT_DIR = PROJECT_ROOT / "context"
 PLANS_DIR = PROJECT_ROOT / "logs" / "plans"
-OPENCODE_DIR = PROJECT_ROOT / ".opencode"
-OPENCODE_TOOLS_DIR = OPENCODE_DIR / "tools"
 PLANS_DIR.mkdir(parents=True, exist_ok=True)

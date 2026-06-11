@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Stop the Autonomous Beamline Agent — kills FastAPI (:5005) and
-# opencode (:4096). Idempotent: silently succeeds if nothing is up.
+# Stop the Autonomous Beamline Agent — kills FastAPI (:5005).
+# Idempotent: silently succeeds if nothing is up.
 
 set -u
 cd "$(dirname "$0")/.."
 
 FASTAPI_PORT="${FASTAPI_PORT:-5005}"
-OPENCODE_PORT="${OPENCODE_PORT:-4096}"
 
 kill_port() {
     local port="$1" label="$2"
@@ -31,6 +30,5 @@ kill_port() {
 }
 
 kill_port "$FASTAPI_PORT" "FastAPI"
-kill_port "$OPENCODE_PORT" "opencode"
 
 echo "[stop] done."

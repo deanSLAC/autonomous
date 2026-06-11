@@ -21,8 +21,7 @@ _SIM_INFO = _sim.bootstrap()
 
 # Importing `orchestration` triggers any orchestration-side tool
 # registration (CAT-8 plan tools) into beamline_tools.tool_catalog so
-# the full tool surface is visible to generate_opencode_tools and the
-# in-process dispatch.
+# the full tool surface is visible to the CLI and in-process dispatch.
 import orchestration  # noqa: F401, E402
 
 from ui import create_app  # noqa: E402

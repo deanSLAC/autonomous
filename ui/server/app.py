@@ -196,6 +196,9 @@ def create_app() -> FastAPI:
         return {
             "status": "ok",
             "phase": orch_api.current_experiment_id() and orch_api.orchestrator_snapshot().get("phase"),
+            # Renamed after the opencode-backend removal; the old key is
+            # dual-emitted for one release for external monitors.
+            "agent_reachable": orch_api.agent_reachable(),
             "opencode_reachable": orch_api.agent_reachable(),
             "orchestrator_initialized": orch_api.orchestrator_snapshot().get("initialized", False),
             "bl_scan_dir": scan_dir,

@@ -463,25 +463,6 @@ async function refreshAutonomy() {
 }
 
 function renderAutonomy(orc, dash) {
-    // Agent backend pill
-    const agentReady = orc
-        ? (orc.agent_reachable !== undefined ? !!orc.agent_reachable : !!orc.initialized)
-        : false;
-    // Agent backend pill — only meaningful for the opencode backend
-    // (long-lived loopback server). With AGENT_BACKEND=claude_code
-    // each turn spawns a `claude -p` subprocess, so there's no
-    // server to be online or offline — hide the pill entirely.
-    const agentPill = document.getElementById("orc-agent-pill");
-    const agentEl = document.getElementById("orc-agent");
-    const isOpencode = orc && orc.agent_backend === "opencode";
-    if (agentPill) {
-        agentPill.style.display = isOpencode ? "" : "none";
-    }
-    if (agentEl && isOpencode) {
-        agentEl.textContent = agentReady ? "online" : "offline";
-        agentEl.className = agentReady ? "dot-good" : "dot-bad";
-    }
-
     const snap = (orc && orc.plan_snapshot) || {};
     const setText = (id, val) => {
         const el = document.getElementById(id);

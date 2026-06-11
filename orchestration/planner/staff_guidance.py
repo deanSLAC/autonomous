@@ -91,7 +91,7 @@ class StaffCoordinator:
         #  1) In-process resolve (fast): coordinator.resolve() sets the
         #     Event directly. Used when the resolver and the waiter live
         #     in the same process.
-        #  2) Cross-process resolve (polled): opencode spawns tool calls
+        #  2) Cross-process resolve (polled): agent tool calls run
         #     in a *subprocess*, so its in-memory _waiters dict is
         #     separate from the FastAPI parent's. The parent still
         #     updates the DB row, and we poll the row here so the

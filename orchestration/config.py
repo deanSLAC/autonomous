@@ -39,11 +39,6 @@ load_dotenv(PROJECT_ROOT / ".env")
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
-class AgentBackend(str, Enum):
-    claude_code = "claude_code"
-    opencode = "opencode"
-
-
 class LLMGatewayName(str, Enum):
     slac = "slac"
     stanford = "stanford"
@@ -79,7 +74,6 @@ class Settings(BaseSettings):
     )
 
     # ---- operator-editable (must be in .env, no code-level defaults) -------
-    AGENT_BACKEND: AgentBackend
     LLM_GATEWAY: LLMGatewayName
     CLAUDE_MODEL: str = ""
     SLAC_API_KEY: str = ""
@@ -130,7 +124,6 @@ _settings = Settings()
 # ---------------------------------------------------------------------------
 # Public API — module-level names that existing imports reference
 # ---------------------------------------------------------------------------
-AGENT_BACKEND = _settings.AGENT_BACKEND.value
 LLM_GATEWAY = _settings.LLM_GATEWAY.value
 SLAC_API_KEY = _settings.SLAC_API_KEY
 STANFORD_API_KEY = _settings.STANFORD_API_KEY
@@ -168,17 +161,6 @@ def gateway_config() -> dict:
     """Return {url, key, model_alias, env} for the active LLM_GATEWAY."""
     return _GATEWAYS.get(LLM_GATEWAY, _DEFAULT_GATEWAY)
 
-
-# ---------------------------------------------------------------------------
-# Opencode internals (operators don't touch these)
-# ---------------------------------------------------------------------------
-OPENCODE_HOST = "127.0.0.1"
-OPENCODE_PORT = 4096
-OPENCODE_URL = f"http://{OPENCODE_HOST}:{OPENCODE_PORT}"
-OPENCODE_BIN = os.getenv(
-    "OPENCODE_BIN", str(Path.home() / ".opencode" / "bin" / "opencode")
-)
-OPENCODE_MESSAGE_TIMEOUT_S = None
 
 # ---------------------------------------------------------------------------
 # Orchestrator cadences (internal)
