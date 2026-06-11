@@ -12,9 +12,44 @@ it first (in case the autonomy team later registers tree-keyed handlers).
 """
 from __future__ import annotations
 
+import json
 import logging
 
+from pydantic import ValidationError
+
 logger = logging.getLogger(__name__)
+
+
+def _validate_args(name: str, arguments: dict) -> str | None:
+    """Boundary-validate CAT-8 tool arguments against their pydantic model.
+
+    Returns an ``{"ok": false, ...}`` JSON envelope string on validation
+    failure (field-level errors the LLM can act on), or ``None`` when the
+    arguments are valid or the tool has no registered model (the 82
+    upstream tools are dispatched unvalidated, as before).
+    """
+    try:
+        from beamline_tools.tool_catalog.arg_models import ARG_MODELS
+    except Exception:
+        return None
+    model_cls = ARG_MODELS.get(name)
+    if model_cls is None:
+        return None
+    try:
+        model_cls.model_validate(arguments)
+    except ValidationError as e:
+        details = [
+            "{}: {}".format(
+                ".".join(str(p) for p in err["loc"]) or "(root)", err["msg"]
+            )
+            for err in e.errors()
+        ]
+        return json.dumps({
+            "ok": False,
+            "error": "invalid arguments",
+            "details": details,
+        })
+    return None
 
 
 def execute_tool(*posargs, **kw) -> tuple[str, list[str]]:
@@ -49,6 +84,11 @@ def execute_tool(*posargs, **kw) -> tuple[str, list[str]]:
         fn = DISPATCH.get(name)
     if fn is None:
         return f"Unknown tool: {name}", []
+    # Boundary validation for CAT-8 tools only (name in ARG_MODELS).
+    # The handler still receives the ORIGINAL arguments dict.
+    error_envelope = _validate_args(name, arguments or {})
+    if error_envelope is not None:
+        return error_envelope, []
     try:
         text, imgs = fn(arguments or {})
         return text, list(imgs or [])
