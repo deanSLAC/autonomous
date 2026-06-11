@@ -683,7 +683,9 @@ function renderAutonomy(orc, dash) {
     // Phase tiles (status from DB phase_runs)
     document.querySelectorAll('.phase-tile:not([data-phase="config"]):not([data-phase="sample_holder_config"])').forEach(tile => {
         const key = tile.getAttribute("data-phase");
-        const matching = (dash.phase_runs || []).filter(r => r.phase === key || r.phase === key.replace("_alignment","_align"));
+        // The API canonicalizes legacy short-form slugs (bl_align, …), so
+        // tile data-phase attributes match r.phase directly.
+        const matching = (dash.phase_runs || []).filter(r => r.phase === key);
         const latest = matching[matching.length - 1];
         if (latest) {
             const status = latest.status || "pending";
@@ -1353,18 +1355,20 @@ function interventionPresentation(kind) {
 document.addEventListener("DOMContentLoaded", () => {
     refreshAutonomy();
     refreshSafetySwitches();
-    setInterval(refreshSafetySwitches, 5000);
     refreshAgentOutput();
     refreshPlannerOutput();
     refreshSpecOutput();
     refreshAgentPlot();
     refreshStatsTrend();
-    setInterval(refreshAgentOutput, 1500);
-    setInterval(refreshPlannerOutput, 1500);
-    setInterval(refreshSpecOutput, 1500);
-    setInterval(refreshAgentPlot, 3000);
-    setInterval(refreshStatsTrend, 3000);
-    setInterval(refreshAutonomy, POLL_MS);
+    // BL.pollWrap skips a tick while the tab is hidden or while the
+    // previous tick is still awaiting a response; cadences unchanged.
+    setInterval(BL.pollWrap(refreshSafetySwitches), 5000);
+    setInterval(BL.pollWrap(refreshAgentOutput), 1500);
+    setInterval(BL.pollWrap(refreshPlannerOutput), 1500);
+    setInterval(BL.pollWrap(refreshSpecOutput), 1500);
+    setInterval(BL.pollWrap(refreshAgentPlot), 3000);
+    setInterval(BL.pollWrap(refreshStatsTrend), 3000);
+    setInterval(BL.pollWrap(refreshAutonomy), POLL_MS);
     // Server health + SIM pill are handled by dashboard.js's checkServer()
     // — a second checker here used to fight it over the status dot.
 });

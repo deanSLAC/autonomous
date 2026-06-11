@@ -268,11 +268,9 @@
             if (!r.ok) { renderRunData(null); return; }
             const data = await r.json();
             const run = data.run || data.phase_run;
-            const phaseField = (run && run.phase) || "";
-            const slug = phaseField === "spec_align" ? "xes_alignment"
-                : phaseField === "bl_align" ? "beamline_alignment"
-                : phaseField === "sample_align" ? "sample_alignment"
-                : phaseField;
+            // The API canonicalizes legacy short-form slugs (bl_align, …);
+            // resolveInfo's alias table covers any stragglers.
+            const slug = (run && run.phase) || "";
             pageState.slug = slug;
             pageState.info = resolveInfo(slug);
             renderInfo(pageState.info);
@@ -297,14 +295,11 @@
             const r = await fetch("/api/dashboard/status?experiment_id=" + encodeURIComponent(experimentId));
             if (!r.ok) { renderRunData(null); return; }
             const data = await r.json();
-            // Find a phase run that matches this slug. The DB stores some
-            // phases under the _align short form; accept both.
-            const phaseNames = [slug];
-            if (slug === "xes_alignment") phaseNames.push("spec_align", "xes_align");
-            if (slug === "beamline_alignment") phaseNames.push("bl_align");
-            if (slug === "sample_alignment") phaseNames.push("sample_align");
-            const allRuns = data.phases || data.phase_runs || [];
-            const runs = allRuns.filter(p => phaseNames.includes(p.phase));
+            // Find a phase run that matches this slug. The API
+            // canonicalizes legacy short-form slugs (bl_align, …), so a
+            // direct comparison is enough.
+            const allRuns = data.phase_runs || [];
+            const runs = allRuns.filter(p => p.phase === slug);
             const run = runs[runs.length - 1];
             if (!run) {
                 // Collection page falls back to the latest sample_survey

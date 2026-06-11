@@ -31,6 +31,22 @@ from orchestration.plan_store.models import (
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
+# Older agent code wrote PhaseRun.phase using short forms; new rows
+# (phase_runner.start) already use the canonical slugs that match the
+# dashboard tiles' data-phase attributes. Canonicalize in API responses
+# so clients never have to translate.
+_LEGACY_PHASE_SLUGS = {
+    "bl_align": "beamline_alignment",
+    "xes_align": "xes_alignment",
+    "spec_align": "xes_alignment",
+    "sample_align": "sample_alignment",
+}
+
+
+def _canonical_phase_slug(phase):
+    return _LEGACY_PHASE_SLUGS.get(phase, phase)
+
+
 def _holder_pacing(experiment_id: str) -> dict:
     try:
         from orchestration.planner.planner import compute_holder_pacing
@@ -132,7 +148,7 @@ def status(experiment_id: str = Query(...)):
             scan_aggs[r.id]["scan_count"] = count
 
     plan = get_plan(experiment_id) or {}
-    current_phase = plan.get("phase", "setup") if plan else "setup"
+    current_phase = _canonical_phase_slug(plan.get("phase", "setup") if plan else "setup")
     return {
         "experiment": {
             "id": exp.id, "name": exp.name, "experimenter": exp.experimenter,
@@ -164,7 +180,7 @@ def status(experiment_id: str = Query(...)):
         "holder_pacing": _holder_pacing(experiment_id),
         "phase_runs": [
             {
-                "id": r.id, "phase": r.phase, "status": r.status,
+                "id": r.id, "phase": _canonical_phase_slug(r.phase), "status": r.status,
                 "started_at": r.started_at.isoformat() if r.started_at else None,
                 "completed_at": r.completed_at.isoformat() if r.completed_at else None,
                 "first_scan": r.first_scan, "last_scan": r.last_scan,
@@ -261,7 +277,7 @@ def phase(phase_run_id: str):
     return {
         "run": {
             "id": run.id, "experiment_id": run.experiment_id,
-            "phase": run.phase, "status": run.status,
+            "phase": _canonical_phase_slug(run.phase), "status": run.status,
             "started_at": run.started_at.isoformat() if run.started_at else None,
             "completed_at": run.completed_at.isoformat() if run.completed_at else None,
             "spec_datafile": run.spec_datafile,

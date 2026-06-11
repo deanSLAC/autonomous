@@ -183,15 +183,15 @@ async function init() {
         const sel = document.getElementById("experiment-select");
         if (sel) sel.addEventListener("change", onExperimentChange);
 
-        // Start polling
-        pollTimer = setInterval(() => {
-            checkServer();
-            refreshDashboard();
-        }, POLL_INTERVAL);
+        // Start polling. BL.pollWrap skips a tick while the tab is
+        // hidden or while the previous tick is still in flight.
+        pollTimer = setInterval(BL.pollWrap(async () => {
+            await Promise.all([checkServer(), refreshDashboard()]);
+        }), POLL_INTERVAL);
     } else {
         // Phase detail page — phase.js owns rendering + polling. Only
         // bother with the health dot here.
-        setInterval(checkServer, POLL_INTERVAL);
+        setInterval(BL.pollWrap(checkServer), POLL_INTERVAL);
     }
 }
 
