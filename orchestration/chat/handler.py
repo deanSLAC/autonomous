@@ -33,6 +33,7 @@ from orchestration.chat.sessions import (
     update_session_activity,
 )
 from orchestration.config import PROJECT_ROOT
+from orchestration.messages import ChatErrorEvent, ChatReplyEvent
 
 logger = logging.getLogger(__name__)
 
@@ -315,12 +316,11 @@ class ChatRouter:
 
             # Push to UI via WS.
             try:
-                self._ws_emit({
-                    "type": "chat_reply",
-                    "session_id": session_id,
-                    "thread_key": session["thread_key"],
-                    "text": result_text,
-                })
+                self._ws_emit(ChatReplyEvent(
+                    session_id=session_id,
+                    thread_key=session["thread_key"],
+                    text=result_text,
+                ).model_dump())
             except Exception as e:  # noqa: BLE001
                 logger.warning("chat watcher: ws_emit failed: %s", e)
 
@@ -343,12 +343,11 @@ class ChatRouter:
         except Exception:  # noqa: BLE001
             pass
         try:
-            self._ws_emit({
-                "type": "chat_error",
-                "session_id": session_id,
-                "thread_key": thread_key,
-                "error": error,
-            })
+            self._ws_emit(ChatErrorEvent(
+                session_id=session_id,
+                thread_key=thread_key,
+                error=error,
+            ).model_dump())
         except Exception as e:  # noqa: BLE001
             logger.warning("chat: chat_error emit failed: %s", e)
 

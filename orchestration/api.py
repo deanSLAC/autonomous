@@ -22,6 +22,7 @@ from contextlib import asynccontextmanager
 from typing import Any, Callable, Optional
 
 from orchestration import runtime_state
+from orchestration.messages import InboundSlackMessage
 from orchestration.agent.conversation import ConversationService
 from orchestration.agent.claude_code_client import ClaudeCodeClient
 from orchestration.agent.opencode_client import OpenCodeClient
@@ -116,9 +117,7 @@ def orchestrator_snapshot() -> dict:
 # the adapter is just transport.
 # ---------------------------------------------------------------------------
 
-def on_steering_message(
-    text: str, author: str, channel: str, thread_ts: str, is_stop: bool,
-) -> None:
+def on_steering_message(msg: InboundSlackMessage) -> None:
     """Slack steering channel inbound — record on the steering queue.
 
     The orchestrator state machine picks the row up, routes it to a control
@@ -128,18 +127,18 @@ def on_steering_message(
 
     _event_emitter({
         "type": "steering_message",
-        "name": author,
-        "text": text,
-        "is_stop": is_stop,
+        "name": msg.author,
+        "text": msg.text,
+        "is_stop": msg.is_stop,
     })
     add_steering(
         experiment_id=runtime_state.get_experiment_id(),
         source="slack-steering",
-        author=author,
-        text=text,
-        slack_channel=channel,
-        slack_thread_ts=thread_ts,
-        is_stop=is_stop,
+        author=msg.author,
+        text=msg.text,
+        slack_channel=msg.channel,
+        slack_thread_ts=msg.thread_ts,
+        is_stop=msg.is_stop,
     )
 
 
@@ -152,32 +151,28 @@ def set_chat_handler(fn: Callable[..., None]) -> None:
     _chat_handler = fn
 
 
-def on_chat_message(
-    text: str, author: str, channel: str, thread_ts: str, source: str,
-) -> None:
+def on_chat_message(msg: InboundSlackMessage) -> None:
     """Slack chat channel or DM inbound — hand off to the chat handler.
 
     The chat handler is wired via `set_chat_handler(fn)`; until it is set,
-    we just log the message so nothing is silently dropped. The chat
-    handler subagent will replace this stub with full routing (per-thread
-    ChatSession + outbound Slack reply).
+    we just log the message so nothing is silently dropped.
     """
     _event_emitter({
         "type": "chat_message",
-        "name": author,
-        "text": text,
-        "source": source,
+        "name": msg.author,
+        "text": msg.text,
+        "source": msg.source,
     })
     handler = _chat_handler
     if handler is None:
         logger.info(
             "chat msg [%s/%s/%s/%s]: %s",
-            source, channel, thread_ts, author, text[:120],
+            msg.source, msg.channel, msg.thread_ts, msg.author, msg.text[:120],
         )
         return
     handler(
-        text=text, author=author, channel=channel,
-        thread_ts=thread_ts, source=source,
+        text=msg.text, author=msg.author, channel=msg.channel,
+        thread_ts=msg.thread_ts, source=msg.source,
     )
 
 

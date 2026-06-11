@@ -11,6 +11,7 @@ import json
 from datetime import datetime
 from typing import Optional
 
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import select
 
 from orchestration.plan_store.models import (
@@ -415,34 +416,42 @@ def _intervention_to_dict(r: InterventionRequest) -> dict:
 # See the `StaffGuidance` docstring in models.py for the full lifecycle.
 # The CLI surface lives at `beamtimehero steering ...`.
 
+class SteeringRow(BaseModel):
+    """The steering-row contract shared by the orchestrator tick, the
+    `beamtimehero steering` CLI, and the dashboard.
+
+    `orchestrator_tick` key-reads `is_stop` / `target_agent_type` to
+    decide which agents to kill or spawn — when this was a hand-typed
+    19-key dict literal, a renamed key made STOP rows silently inert
+    (`.get()` → None → falsy). The model is now the single source of
+    the field names; serialize with `model_dump(mode="json")`.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    experiment_id: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    source: str
+    author: str
+    text: str
+    consumed: bool = False                  # legacy
+    consumed_at: Optional[datetime] = None  # legacy
+    orchestrator_ack_at: Optional[datetime] = None
+    ack_comment: Optional[str] = None
+    active_agent_run_id: Optional[str] = None
+    active_agent_ack_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    result: Optional[str] = None
+    slack_channel: Optional[str] = None
+    slack_thread_ts: Optional[str] = None
+    is_stop: bool = False
+    slack_replied_at: Optional[datetime] = None
+    target_agent_type: Optional[str] = None
+
+
 def _steering_to_dict(r: StaffGuidance) -> dict:
-    return {
-        "id": r.id,
-        "experiment_id": r.experiment_id,
-        "timestamp": r.timestamp.isoformat() if r.timestamp else None,
-        "source": r.source,
-        "author": r.author,
-        "text": r.text,
-        "consumed": r.consumed,
-        "consumed_at": r.consumed_at.isoformat() if r.consumed_at else None,
-        "orchestrator_ack_at": (
-            r.orchestrator_ack_at.isoformat() if r.orchestrator_ack_at else None
-        ),
-        "ack_comment": r.ack_comment,
-        "active_agent_run_id": r.active_agent_run_id,
-        "active_agent_ack_at": (
-            r.active_agent_ack_at.isoformat() if r.active_agent_ack_at else None
-        ),
-        "completed_at": r.completed_at.isoformat() if r.completed_at else None,
-        "result": r.result,
-        "slack_channel": r.slack_channel,
-        "slack_thread_ts": r.slack_thread_ts,
-        "is_stop": r.is_stop,
-        "slack_replied_at": (
-            r.slack_replied_at.isoformat() if r.slack_replied_at else None
-        ),
-        "target_agent_type": r.target_agent_type,
-    }
+    return SteeringRow.model_validate(r).model_dump(mode="json")
 
 
 def add_steering(

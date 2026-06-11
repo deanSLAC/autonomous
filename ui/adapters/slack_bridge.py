@@ -22,6 +22,7 @@ from typing import Callable
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
+from orchestration.messages import InboundSlackMessage
 from ui.config import (
     SLACK_APP_TOKEN,
     SLACK_BOT_TOKEN,
@@ -57,14 +58,14 @@ class SlackBridge:
     """Bidirectional bridge between BeamtimeHero web app and Slack."""
 
     def __init__(self):
-        # callback(text, author, channel, thread_ts, is_stop)
+        # Both inbound callbacks take a single InboundSlackMessage —
+        # the typed contract lives in orchestration.messages.
         self._on_steering_message: (
-            Callable[[str, str, str, str, bool], None] | None
+            Callable[[InboundSlackMessage], None] | None
         ) = None
-        # callback(text, author, channel, thread_ts, source)
-        # source ∈ {'slack_chat', 'slack_dm'}
+        # message.source ∈ {'slack_chat', 'slack_dm'}
         self._on_chat_message: (
-            Callable[[str, str, str, str, str], None] | None
+            Callable[[InboundSlackMessage], None] | None
         ) = None
         # callback(intervention_id, status, staff_name) for !resume / !deny
         self._on_intervention_resolve: (
@@ -80,13 +81,13 @@ class SlackBridge:
     # -- callback wiring -----------------------------------------------
 
     def set_steering_callback(
-        self, callback: Callable[[str, str, str, str, bool], None]
+        self, callback: Callable[[InboundSlackMessage], None]
     ) -> None:
         """Set callback for messages in the steering Slack channel."""
         self._on_steering_message = callback
 
     def set_chat_callback(
-        self, callback: Callable[[str, str, str, str, str], None]
+        self, callback: Callable[[InboundSlackMessage], None]
     ) -> None:
         """Set callback for chat-channel messages and DMs."""
         self._on_chat_message = callback
@@ -210,9 +211,10 @@ class SlackBridge:
                 root_ts = thread_ts or msg_ts
                 logger.info("Staff DM from %s: %s", staff_name, text[:100])
                 if self._on_chat_message:
-                    self._on_chat_message(
-                        text, staff_name, channel, root_ts, "slack_dm",
-                    )
+                    self._on_chat_message(InboundSlackMessage(
+                        text=text, author=staff_name, channel=channel,
+                        thread_ts=root_ts, source="slack_dm",
+                    ))
                 return
 
             # --- Steering channel ---
@@ -225,9 +227,11 @@ class SlackBridge:
                     staff_name, stop_flag, text[:100],
                 )
                 if self._on_steering_message:
-                    self._on_steering_message(
-                        text, staff_name, channel, root_ts, stop_flag,
-                    )
+                    self._on_steering_message(InboundSlackMessage(
+                        text=text, author=staff_name, channel=channel,
+                        thread_ts=root_ts, source="steering",
+                        is_stop=stop_flag,
+                    ))
                 return
 
             # --- Chat channel ---
@@ -236,9 +240,10 @@ class SlackBridge:
                 root_ts = thread_ts or msg_ts
                 logger.info("Chat message from %s: %s", staff_name, text[:100])
                 if self._on_chat_message:
-                    self._on_chat_message(
-                        text, staff_name, channel, root_ts, "slack_chat",
-                    )
+                    self._on_chat_message(InboundSlackMessage(
+                        text=text, author=staff_name, channel=channel,
+                        thread_ts=root_ts, source="slack_chat",
+                    ))
                 return
 
             # Anything else — ignore.
