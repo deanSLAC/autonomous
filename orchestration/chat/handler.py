@@ -19,7 +19,6 @@ already running its own drain — we just need to learn when it finished.
 
 from __future__ import annotations
 
-import json
 import logging
 import threading
 import time
@@ -88,8 +87,6 @@ class ChatRouter:
         thread_ts: Optional[str],
         source: str,
         ui_session_id: Optional[str] = None,
-        page: Optional[str] = None,
-        page_context: Optional[Any] = None,
     ) -> dict:
         """Route an incoming chat message.
 
@@ -186,10 +183,7 @@ class ChatRouter:
 
             if still_active:
                 self._queues.setdefault(session_id, []).append(
-                    {
-                        "text": text, "author": author,
-                        "page": page, "page_context": page_context,
-                    }
+                    {"text": text, "author": author}
                 )
                 logger.info(
                     "chat[%s]: queued behind active run %s (%d in queue)",
@@ -206,10 +200,7 @@ class ChatRouter:
             if active_run_id and not still_active:
                 update_session_activity(session_id, clear_active_agent=True)
 
-            run_id = self._spawn_for(
-                session, text, author,
-                page=page, page_context=page_context,
-            )
+            run_id = self._spawn_for(session, text, author)
             return {
                 "ok": True,
                 "session_id": session_id,
@@ -220,15 +211,7 @@ class ChatRouter:
 
     # -- internal: spawn + watcher -------------------------------------
 
-    def _spawn_for(
-        self,
-        session: dict,
-        text: str,
-        author: str,
-        *,
-        page: Optional[str] = None,
-        page_context: Optional[Any] = None,
-    ) -> str:
+    def _spawn_for(self, session: dict, text: str, author: str) -> str:
         """spawn() a chat-claude.sh agent for `text`; start watcher; return run_id.
 
         Caller is expected to be holding self._lock so we can mark the
@@ -237,12 +220,6 @@ class ChatRouter:
         thread_key = session["thread_key"]
         working_dir = Path(session["working_dir"])
         working_dir.mkdir(parents=True, exist_ok=True)
-
-        # Phase-page chats pass live page_context with each turn so the agent
-        # always sees current state (claude --resume otherwise carries stale
-        # snapshots forward). The block sits between the first-turn orientation
-        # header and the user's message.
-        page_block = _format_page_context_block(page, page_context)
 
         # Build the seed prompt. claude --resume carries prior turns
         # automatically, so we only prepend an orientation header on the
@@ -253,12 +230,11 @@ class ChatRouter:
                 f"You are the BeamtimeHero chat agent. Use only the\n"
                 f"`beamtimehero db`, `beamtimehero ref`, and `beamtimehero tool`\n"
                 f"subtrees, plus Read. Do NOT attempt spec mutation.\n"
-                f"{page_block}"
                 f"\n"
                 f"User ({author}): {text}"
             )
         else:
-            seed = f"{page_block}{text}" if page_block else text
+            seed = text
 
         run_id = spawn(
             agent_type="chat",
@@ -397,28 +373,7 @@ class ChatRouter:
                     session_id,
                 )
                 return
-            self._spawn_for(
-                session, nxt["text"], nxt["author"],
-                page=nxt.get("page"), page_context=nxt.get("page_context"),
-            )
-
-
-def _format_page_context_block(
-    page: Optional[str], page_context: Optional[Any],
-) -> str:
-    """Render the page_context block that gets injected into the seed.
-
-    Returns "" when there's nothing to render so callers can splice it in
-    unconditionally without changing today's dashboard/Slack seed format.
-    """
-    if page_context is None:
-        return ""
-    try:
-        body = json.dumps(page_context, indent=2, default=str, sort_keys=True)
-    except (TypeError, ValueError):
-        body = repr(page_context)
-    label = f" — page={page}" if page else ""
-    return f"\n[Phase page context{label}]\n{body}\n"
+            self._spawn_for(session, nxt["text"], nxt["author"])
 
 
 # ---------------------------------------------------------------------------

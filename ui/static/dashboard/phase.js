@@ -7,9 +7,7 @@
  * Renders static phase docs (description / inputs / method /
  * outputs) on every load, then overlays the live run data
  * (scan table, summary cards, collection progress) if a run exists.
- * A page-aware chat widget is mounted at the bottom so the operator
- * can ask the agent questions with the current page already loaded
- * into the prompt context.
+ * Chat with the agent happens on the main dashboard or in Slack.
  */
 (function () {
     "use strict";
@@ -152,7 +150,7 @@
         return "confidence-low";
     }
 
-    // ---- State passed to the chat widget -------------------------------
+    // ---- Page state ------------------------------------------------------
 
     const pageState = {
         info: null,
@@ -359,65 +357,6 @@
         renderBadge("pending");
     }
 
-    // ---- Chat widget mount --------------------------------------------
-
-    function mountChat() {
-        const container = byId("phase-chat");
-        if (!container || typeof window.mountChatWidget !== "function") return;
-        const info = pageState.info;
-        const title = info ? `Chat about ${info.name}` : "Chat with the agent";
-        window.mountChatWidget(container, {
-            header: title,
-            placeholder:
-                "Ask the agent about this phase — e.g. 'how does the detector Dz scan look?' " +
-                "or 'summarize the beamline alignment'.  (Enter sends, Shift+Enter newline)",
-            context: () => ({
-                experiment_id: pageState.experimentId || undefined,
-                page: pageState.slug || "phase",
-                page_context: buildPageContext(),
-            }),
-            // Continuity per (experiment, phase slug). Resolved lazily because
-            // experimentId is filled in after phase data loads. No replay on
-            // reload — the agent has memory via claude --resume, but the UI
-            // log starts empty.
-            sessionStorageKey: () => {
-                const exp = pageState.experimentId || "noexp";
-                const slug = pageState.slug || "phase";
-                return `chat:phase:${exp}:${slug}`;
-            },
-        });
-    }
-
-    function buildPageContext() {
-        const info = pageState.info || {};
-        const ctx = {
-            phase_name: info.name || pageState.slug,
-            phase_slug: info.slug || pageState.slug,
-            description: info.description,
-            inputs: info.inputs,
-            method: info.method,
-            outputs: info.outputs,
-        };
-        const run = pageState.phaseRun;
-        if (run) {
-            ctx.phase_run_id = run.id;
-            ctx.phase_run_status = run.status;
-            ctx.phase_run_started_at = run.started_at;
-            ctx.phase_run_datafile = run.spec_datafile;
-            ctx.phase_run_scan_count = pageState.scanCount;
-            if (pageState.latestScan) {
-                ctx.latest_scan = {
-                    scan_number: pageState.latestScan.scan_number,
-                    motor: pageState.latestScan.motor_name,
-                    iteration: pageState.latestScan.iteration,
-                    result_position: pageState.latestScan.result_position,
-                    fwhm: pageState.latestScan.fwhm,
-                };
-            }
-        }
-        return ctx;
-    }
-
     // ---- Init ----------------------------------------------------------
 
     function init() {
@@ -430,11 +369,9 @@
         if (typeof checkServer === "function") checkServer();
         setInterval(() => { if (typeof checkServer === "function") checkServer(); }, 5000);
 
-        // Mount chat first so the container exists even if later fetches fail.
         if (phase) pageState.slug = phase === "spec_align" ? "xes_alignment" : phase;
         pageState.info = resolveInfo(pageState.slug);
         renderInfo(pageState.info);
-        mountChat();
 
         if (runId) {
             loadByRunId(runId);
