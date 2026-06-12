@@ -1,6 +1,6 @@
 """Orchestrator polling tick — the deterministic glue between agents.
 
-Runs as an asyncio task started in the FastAPI lifespan. Three jobs:
+Runs as an asyncio task started in the FastAPI lifespan. Four jobs:
 
   1. **Auto-respawn the planner** after each new `CollectionScan`.
      Detects new scans by tracking the latest CollectionScan row id
@@ -19,6 +19,11 @@ Runs as an asyncio task started in the FastAPI lifespan. Three jobs:
      every active phase agent (except a designated `target_agent_type`
      if named) and lets staff resolve from a clean state. Uses
      `list_pending_stops()`.
+
+  4. **Post steering replies to Slack.** When an agent completes a
+     steering row that originated from Slack, relay the `--result`
+     text into the originating thread. Uses
+     `list_completed_unposted_steering()` + `mark_steering_replied()`.
 
 The tick is intentionally polling (~3 s cadence) rather than event-
 driven: SQLite is the source of truth and a poll is cheap, simple, and
@@ -39,9 +44,11 @@ from orchestration.agent import phase_runner
 from orchestration.agents import list_active
 from orchestration.plan_store.client import (
     get_plan,
+    list_completed_unposted_steering,
     list_orphaned_deferred_steering,
     list_pending_stops,
     list_unacked_steering,
+    mark_steering_replied,
     record_orchestrator_ack,
 )
 
@@ -278,6 +285,46 @@ async def _step_dispatch_deferred_steering(experiment_id: str) -> None:
                         target, e)
         except Exception as e:  # noqa: BLE001
             logger.exception("orchestrator_tick: redispatch failed: %s", e)
+
+
+async def _step_post_steering_replies(experiment_id: str) -> None:
+    """Post completed steering results back to the originating Slack thread.
+
+    Agents close steering rows with `beamtimehero steering complete <id>
+    --result "..."`; rows that arrived from Slack carry (slack_channel,
+    slack_thread_ts). This step relays the result into that thread and
+    stamps slack_replied_at so a row is posted exactly once.
+    """
+    from orchestration.planner.loop import get_orchestrator
+
+    orch = get_orchestrator()
+    if orch is None:
+        return  # not initialized yet — rows stay queued for the next tick
+
+    try:
+        rows = await asyncio.to_thread(list_completed_unposted_steering, experiment_id)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("orchestrator_tick: completed-steering lookup failed: %s", e)
+        return
+
+    for row in rows:
+        text = row.get("result") or "(steering item completed — no result text)"
+        try:
+            orch._safe_invoke(
+                orch.slack_post_steering_reply,
+                row.get("slack_channel"), row.get("slack_thread_ts"),
+                f"✅ {text}",
+            )
+            await asyncio.to_thread(mark_steering_replied, row.get("id"))
+            logger.info(
+                "orchestrator_tick: posted steering reply for %s to %s/%s",
+                row.get("id"), row.get("slack_channel"), row.get("slack_thread_ts"),
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.exception(
+                "orchestrator_tick: steering reply failed for %s: %s",
+                row.get("id"), e,
+            )
 
 
 async def _step_stop_rows(experiment_id: str) -> None:
@@ -522,6 +569,7 @@ async def run_forever() -> None:
 
                 await _step_stop_rows(experiment_id)
                 await _step_dispatch_deferred_steering(experiment_id)
+                await _step_post_steering_replies(experiment_id)
                 await _step_planner_respawn(state, experiment_id)
                 await _step_requested_replan(state, experiment_id)
                 await _step_collection_heartbeat(state, experiment_id)

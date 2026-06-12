@@ -627,26 +627,6 @@ def record_orchestrator_ack(
 # Steering-state-machine helpers used by the orchestrator loop
 # ---------------------------------------------------------------------------
 
-def list_new_steering_for_orchestrator(
-    experiment_id: str,
-) -> list[dict]:
-    """Rows the orchestrator has not yet ack'd, oldest first (FIFO).
-
-    Excludes rows already completed (e.g. STOP rows that the fast-path
-    completed without setting `orchestrator_ack_at`) so they don't get
-    re-dispatched as normal steering.
-    """
-    with get_session() as session:
-        stmt = (
-            select(StaffGuidance)
-            .where(StaffGuidance.orchestrator_ack_at.is_(None))  # type: ignore[union-attr]
-            .where(StaffGuidance.completed_at.is_(None))  # type: ignore[union-attr]
-            .where(StaffGuidance.experiment_id == experiment_id)
-        )
-        stmt = stmt.order_by(StaffGuidance.timestamp)  # type: ignore[union-attr]
-        return [_steering_to_dict(r) for r in session.exec(stmt)]
-
-
 def list_completed_unposted_steering(experiment_id: str) -> list[dict]:
     """Completed rows whose Slack reply hasn't been posted yet.
 
