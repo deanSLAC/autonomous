@@ -53,7 +53,7 @@ autonomous/
 │   ├── planner/               plan lifecycle: planner.py, plan_schema.py, plan_summary,
 │   │                          staff_guidance, orchestrator_tick
 │   ├── agents/                agent spawn/drain lifecycle
-│   ├── agent/                 claude_code_client.py, conversation.py, phase_runner
+│   ├── agent/                 claude_code_client.py, phase_runner, phase_reports, gateway_env
 │   ├── chat/                  ChatRouter — dashboard + Slack chat → chat-claude.sh spawns
 │   └── plan_store/            SQLModel schema (models.py) + sqlite session + CRUD
 ├── beamline_tools/            autonomy overlay on the shared CLI package:

@@ -12,6 +12,15 @@ fi
 
 export PATH="$PROJECT_ROOT/scripts:$PATH"
 
+# Map the configured LLM gateway (.env LLM_GATEWAY + <GATEWAY>_* vars) onto
+# the ANTHROPIC_* env the claude CLI reads. Single source of truth is
+# orchestration.config.gateway_config — this just serializes it. Best-effort:
+# if the python side fails (e.g. missing .env in a dev checkout), the agent
+# falls back to claude's on-disk auth, same as LLM_GATEWAY=default.
+if GATEWAY_EXPORTS="$("$PROJECT_ROOT/venv/bin/python" -m orchestration.agent.gateway_env 2>/dev/null)"; then
+  eval "$GATEWAY_EXPORTS"
+fi
+
 if [ -n "${BEAMTIMEHERO_CLAUDE_SESSION_ID:-}" ]; then
   SESSION_FLAG=(--resume "$BEAMTIMEHERO_CLAUDE_SESSION_ID")
 else

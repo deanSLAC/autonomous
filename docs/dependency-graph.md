@@ -192,7 +192,6 @@ Top-level endpoints registered directly in `app.py` (not in a router):
 | `/api/chat`      | Inbound chat -> `ChatRouter.handle_inbound`.   |
 | `/api/chat/clear`| Archive UI chat session, mint new id.          |
 | `/api/tools`     | Tool catalog for `/tools`.                    |
-| `/api/reset`     | `orch_api.reset_conversation()`.               |
 | `/ws`            | WebSocket broadcast for live updates.          |
 | `/static/*`      | Mounted from `ui/static/`.                    |
 

@@ -77,7 +77,11 @@ def _log_run_to_mlflow(
         else:
             latency = 0.0
 
-        tool_calls = list(acc.tool_calls_by_id.values())
+        from orchestration.messages import ToolCallRecord
+        tool_calls = [
+            ToolCallRecord.model_validate(tc).model_dump()
+            for tc in acc.tool_calls_by_id.values()
+        ]
 
         with mlflow_logging.run(
             _MLFLOW_EXPERIMENT,

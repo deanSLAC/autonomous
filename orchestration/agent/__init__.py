@@ -1,5 +1,5 @@
-"""orchestration.agent — LLM client, conversation service, report builder."""
+"""orchestration.agent — claude-CLI helpers, phase runner, report builders."""
 
-from orchestration.agent import conversation, reports
+from orchestration.agent import reports
 
-__all__ = ["conversation", "reports"]
+__all__ = ["reports"]

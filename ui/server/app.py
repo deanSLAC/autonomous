@@ -325,12 +325,6 @@ def create_app() -> FastAPI:
         ]
         return {"categories": categorized, "references": references}
 
-    @app.post(f"{BASE_PATH}/api/reset")
-    async def reset():
-        orch_api.reset_conversation()
-        # Slack thread state no longer lives in the bridge; nothing to reset here.
-        return {"status": "reset"}
-
     # -- WebSocket ------------------------------------------------------
 
     @app.websocket(f"{BASE_PATH}/ws")

@@ -24,10 +24,10 @@ __all__ = [
 class ToolCallRecord(BaseModel):
     """One tool invocation from a claude stream-json transcript.
 
-    Single producer since the opencode removal:
-    `claude_code_client._ingest_event`. MLflow logging
-    (`conversation._log_run_success` → tool_calls.json) and the agent
-    output viewers consume this shape.
+    Single producer: `claude_code_client._ingest_event` (entries in
+    `_Accumulator.tool_calls_by_id`). Consumed by the spawn drain's
+    MLflow logging (`agents.spawn._log_run_to_mlflow`), which validates
+    against this model so the shape can't drift silently.
     """
 
     model_config = ConfigDict(extra="allow")

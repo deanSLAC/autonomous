@@ -23,7 +23,6 @@ from typing import Any, Callable, Optional
 
 from orchestration import runtime_state
 from orchestration.messages import InboundSlackMessage
-from orchestration.agent.conversation import ConversationService
 from orchestration.agent.claude_code_client import ClaudeCodeClient
 from orchestration.config import llm_enabled
 from orchestration.planner.loop import Orchestrator, get_orchestrator, set_orchestrator
@@ -36,7 +35,6 @@ logger = logging.getLogger(__name__)
 # Process-wide state owned by orchestration — injected into the UI at startup.
 # ---------------------------------------------------------------------------
 
-_conversation: Optional[ConversationService] = None
 _event_emitter: Callable[[dict], Any] = lambda evt: None
 _slack_status_post: Callable[[str], Any] = lambda text: None
 _slack_post_steering_reply: Callable[[str, str, str], Any] = lambda c, t, s: None
@@ -78,14 +76,6 @@ def agent_reachable() -> bool:
 def current_experiment_id() -> Optional[str]:
     """Convenience for UI callers that don't want to import orchestration.runtime_state."""
     return runtime_state.get_experiment_id()
-
-
-def reset_conversation() -> None:
-    global _conversation
-    if llm_enabled():
-        _conversation = ConversationService(_make_agent_client())
-    else:
-        _conversation = None
 
 
 # ---------------------------------------------------------------------------
@@ -169,14 +159,13 @@ def on_chat_message(msg: InboundSlackMessage) -> None:
 
 
 def on_setdir(dir_name: str) -> str:
-    """Operator ran `!setdir` in Slack — rewire bl_config + reset conversation."""
+    """Operator ran `!setdir` in Slack — rewire bl_config + clear the scan cache."""
     from beamline_tools import config as bl_config
     from beamtimehero_cli.spec_data.local_data import clear_cache
 
     bl_config.set_scan_dir(dir_name)
     clear_cache()
-    reset_conversation()
-    return f"Scan directory set to `{bl_config.BL_SCAN_DIR}`. Conversation reset."
+    return f"Scan directory set to `{bl_config.BL_SCAN_DIR}`."
 
 
 def on_intervention_resolve(intervention_id: str, status: str, staff_name: str,
@@ -199,8 +188,6 @@ def on_intervention_resolve(intervention_id: str, status: str, staff_name: str,
 @asynccontextmanager
 async def lifespan(app):
     """FastAPI lifespan. Owns: DB init, orchestrator init, Slack wiring."""
-    global _conversation
-
     event_loop = asyncio.get_running_loop()
 
     # 0. MLflow health check — make a broken token loud at startup so a
@@ -244,22 +231,21 @@ async def lifespan(app):
     except Exception as e:
         logger.error("purge_orphans_at_startup failed: %s", e, exc_info=True)
 
-    # 2. Conversation (LLM client) — gated on the configured backend.
+    # 2. LLM reachability check — agents are spawned subprocesses
+    #    (phase tiles, chat-claude.sh), so this is just a loud boot-time
+    #    warning when the claude binary isn't invokable.
     if llm_enabled():
         try:
             client = _make_agent_client()
             if client.health_check():
-                _conversation = ConversationService(client)
-                logger.info(
-                    "agent session service initialized (model=%s)", client.model,
-                )
+                logger.info("claude CLI reachable (model=%s)", client.model)
             else:
                 logger.warning(
-                    "claude binary not invokable — agent disabled until "
+                    "claude binary not invokable — agents disabled until "
                     "`claude --version` succeeds.",
                 )
         except Exception as e:
-            logger.error("Failed to initialize agent client: %s", e)
+            logger.error("claude CLI health check failed: %s", e)
 
     # 3. Orchestrator — no longer depends on the LLM. Control agents get
     #    their own claude session via scripts/control-claude.sh; the loop
