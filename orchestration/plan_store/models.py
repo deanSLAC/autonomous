@@ -172,7 +172,6 @@ class ScanRecord(SQLModel, table=True):
     decision_command: Optional[str] = None  # Exact SPEC command returned
     decision_confidence: Optional[float] = None
     llm_consulted: bool = False
-    llm_log_id: Optional[str] = None  # FK to LLMLog (soft reference)
     iteration: int = 1
 
 
@@ -262,55 +261,6 @@ class CollectionScan(SQLModel, table=True):
     # (legacy rows or single-spot samples).
     spot_index: Optional[int] = None
     timestamp: datetime = Field(default_factory=datetime.now)
-
-
-# ---------------------------------------------------------------------------
-# LLM Log
-# ---------------------------------------------------------------------------
-
-class LLMLog(SQLModel, table=True):
-    """Record of every LLM call: prompt, response, cost, timing."""
-    id: str = Field(default_factory=generate_id, primary_key=True)
-    experiment_id: Optional[str] = Field(default=None, foreign_key="experiment.id", index=True)
-    phase: str  # bl_align, xes_align, sample_align, collection
-    phase_run_id: Optional[str] = None
-    prompt_summary: str  # First 500 chars of prompt
-    full_prompt: str
-    response: str
-    model: str = "claude-opus-4-6"
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    latency_ms: Optional[int] = None
-    image_path: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.now)
-
-
-# ---------------------------------------------------------------------------
-# Motor Position
-# ---------------------------------------------------------------------------
-
-class MotorPosition(SQLModel, table=True):
-    """Snapshot of a motor position for a specific scan."""
-    id: str = Field(default_factory=generate_id, primary_key=True)
-    experiment_id: str = Field(foreign_key="experiment.id", index=True)
-    scan_filename: str
-    scan_number: int
-    motor_name: str
-    position: float
-
-
-# ---------------------------------------------------------------------------
-# Image
-# ---------------------------------------------------------------------------
-
-class Image(SQLModel, table=True):
-    """Image file metadata (report PNGs, sample photos, etc.)."""
-    id: str = Field(default_factory=generate_id, primary_key=True)
-    experiment_id: str = Field(foreign_key="experiment.id", index=True)
-    image_type: str  # sample_holder, report, scan_plot, etc.
-    file_path: str
-    file_size: int
-    sha256_hash: str
 
 
 # ---------------------------------------------------------------------------

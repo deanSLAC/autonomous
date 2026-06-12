@@ -9,7 +9,7 @@ Two SQLite files, both WAL mode + 5 s busy_timeout:
 
 | File | Package | Tables | Scope |
 |---|---|---|---|
-| `data/orchestration.db` | `orchestration/plan_store` | 18 | Experiment config, plan, agents, steering, chat, audit |
+| `data/orchestration.db` | `orchestration/plan_store` | 15 | Experiment config, plan, agents, steering, chat, audit |
 | `data/beamline_tools.db` | `beamline_tools/action_log` | 3 | SPEC command log, query log, CLI invocation log |
 
 Cross-DB references are soft (indexed strings, no FK constraint):
@@ -28,7 +28,6 @@ Experiment  ──1:N──  ExperimentElement
      ├──1:1──  ExperimentPlan   (plan_json blob + version)
      │
      ├──1:N──  PhaseRun  ──1:N──  ScanRecord
-     │                              └── MotorPosition (per-scan snapshots)
      │
      ├──1:N──  CollectionScan   (one per XAS/HERFD/RIXS/VTC scan)
      │
@@ -42,12 +41,14 @@ Experiment  ──1:N──  ExperimentElement
      │
      ├──1:N──  PhaseTransitionLog
      │
-     ├──1:N──  PlanEdit         (audit trail of every plan mutation)
-     │
-     ├──1:N──  LLMLog           (prompt/response/cost per LLM call)
-     │
-     └──1:N──  Image            (report PNGs, sample photos)
+     └──1:N──  PlanEdit         (audit trail of every plan mutation)
 ```
+
+LLM transcripts/cost live outside this DB: per-agent JSONL logs under
+`logs/agents/` + AgentRun rows + optional MLflow metrics. Report PNGs
+are tracked by `PhaseRun.summary_image_path` and the `data/` tree, and
+per-scan motor positions live in the SPEC data files themselves —
+the former `LLMLog` / `MotorPosition` / `Image` tables were removed.
 
 ### beamline_tools.db
 
@@ -209,8 +210,8 @@ Each forward transition requires preconditions checked by
 
 **Written to DB:**
 - `PhaseRun` row (status, scan range, anomaly flags)
-- `ScanRecord` rows (per alignment scan: motor, position, FWHM, centroid, decision)
-- `MotorPosition` snapshots
+- `ScanRecord` rows (per scan-emitting action; written automatically by
+  the tool-executor capture hook, `beamline_tools/scan_capture.py`)
 - `ActionLog` rows (every SPEC command, with justification)
 - `Experiment.beam_h_fwhm_um`, `beam_v_fwhm_um` (measured beam size)
 

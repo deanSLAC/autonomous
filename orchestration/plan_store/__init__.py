@@ -1,9 +1,8 @@
 """plan_store — orchestration-layer persistence.
 
 Owns: Experiment, ExperimentElement, SampleHolder, SamplePosition,
-PhaseRun, ScanRecord, CollectionScan, LLMLog, MotorPosition, Image,
-PhaseTransitionLog, ExperimentPlan, StaffGuidance, PlanEdit,
-InterventionRequest.
+PhaseRun, ScanRecord, CollectionScan, PhaseTransitionLog,
+ExperimentPlan, StaffGuidance, PlanEdit, InterventionRequest.
 
 The beamline_tools action_log DB holds ActionLog + QueryLog in a
 separate sqlite file. Cross-references (e.g. ActionLog.experiment_id)

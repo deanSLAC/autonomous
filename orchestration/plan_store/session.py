@@ -23,13 +23,9 @@ from orchestration.plan_store.models import (
     CollectionScan,
     Experiment,
     ExperimentElement,
-    Image,
-    LLMLog,
-    MotorPosition,
     PhaseRun,
     SampleHolder,
     SamplePosition,
-    ScanRecord,
 )
 
 _SENTINEL = object()
@@ -225,19 +221,6 @@ def get_active_experiment() -> Optional[Experiment]:
             .order_by(Experiment.created_at.desc())  # type: ignore[union-attr]
         )
         return session.exec(stmt).first()
-
-
-def update_experiment_status(experiment_id: str, status: str) -> Optional[Experiment]:
-    """Update the status field of an Experiment."""
-    with get_session() as session:
-        exp = session.get(Experiment, experiment_id)
-        if exp is None:
-            return None
-        exp.status = status
-        session.add(exp)
-        session.commit()
-        session.refresh(exp)
-    return exp
 
 
 def record_measured_beam_size(
@@ -556,81 +539,6 @@ def get_phase_runs_for_experiment(
 
 
 # ---------------------------------------------------------------------------
-# ScanRecord
-# ---------------------------------------------------------------------------
-
-def create_scan_record(
-    phase_run_id: str,
-    scan_number: int,
-    motor_name: str,
-    scan_type: str,
-    command: str,
-    result_position: Optional[float] = None,
-    peak_intensity: Optional[float] = None,
-    fwhm: Optional[float] = None,
-    centroid: Optional[float] = None,
-    anomaly: bool = False,
-    anomaly_reason: Optional[str] = None,
-    fit_result: Optional[str] = None,
-    decision_action: Optional[str] = None,
-    decision_command: Optional[str] = None,
-    decision_confidence: Optional[float] = None,
-    llm_consulted: bool = False,
-    llm_log_id: Optional[str] = None,
-    iteration: int = 1,
-) -> ScanRecord:
-    """Create and persist a new ScanRecord."""
-    record = ScanRecord(
-        phase_run_id=phase_run_id,
-        scan_number=scan_number,
-        motor_name=motor_name,
-        scan_type=scan_type,
-        command=command,
-        result_position=result_position,
-        peak_intensity=peak_intensity,
-        fwhm=fwhm,
-        centroid=centroid,
-        anomaly=anomaly,
-        anomaly_reason=anomaly_reason,
-        fit_result=fit_result,
-        decision_action=decision_action,
-        decision_command=decision_command,
-        decision_confidence=decision_confidence,
-        llm_consulted=llm_consulted,
-        llm_log_id=llm_log_id,
-        iteration=iteration,
-    )
-    with get_session() as session:
-        session.add(record)
-        session.commit()
-        session.refresh(record)
-    return record
-
-
-def get_scans_for_phase_run(phase_run_id: str) -> list[ScanRecord]:
-    """Return all scans for a phase run, ordered by scan number."""
-    with get_session() as session:
-        stmt = (
-            select(ScanRecord)
-            .where(ScanRecord.phase_run_id == phase_run_id)
-            .order_by(ScanRecord.scan_number)  # type: ignore[union-attr]
-        )
-        return list(session.exec(stmt).all())
-
-
-def get_llm_consulted_scans(phase_run_id: str) -> list[ScanRecord]:
-    """Return scans where the LLM was consulted."""
-    with get_session() as session:
-        stmt = (
-            select(ScanRecord)
-            .where(ScanRecord.phase_run_id == phase_run_id)
-            .where(ScanRecord.llm_consulted == True)  # noqa: E712
-            .order_by(ScanRecord.scan_number)  # type: ignore[union-attr]
-        )
-        return list(session.exec(stmt).all())
-
-
-# ---------------------------------------------------------------------------
 # SamplePosition
 # ---------------------------------------------------------------------------
 
@@ -749,17 +657,6 @@ def get_samples_for_holder(sample_holder_id: str) -> list[SamplePosition]:
         stmt = (
             select(SamplePosition)
             .where(SamplePosition.sample_holder_id == sample_holder_id)
-            .order_by(SamplePosition.sample_number)  # type: ignore[union-attr]
-        )
-        return list(session.exec(stmt).all())
-
-
-def get_samples_for_experiment(experiment_id: str) -> list[SamplePosition]:
-    """Return all samples across all holders for an experiment."""
-    with get_session() as session:
-        stmt = (
-            select(SamplePosition)
-            .where(SamplePosition.experiment_id == experiment_id)
             .order_by(SamplePosition.sample_number)  # type: ignore[union-attr]
         )
         return list(session.exec(stmt).all())
@@ -931,113 +828,3 @@ def get_collection_scans_since(
         return list(session.exec(stmt).all())
 
 
-def get_collection_scans_for_experiment(experiment_id: str) -> list[CollectionScan]:
-    """Return every collection scan for an experiment, ordered by scan number."""
-    with get_session() as session:
-        stmt = (
-            select(CollectionScan)
-            .where(CollectionScan.experiment_id == experiment_id)
-            .order_by(CollectionScan.scan_number)  # type: ignore[union-attr]
-        )
-        return list(session.exec(stmt).all())
-
-
-# ---------------------------------------------------------------------------
-# LLMLog
-# ---------------------------------------------------------------------------
-
-def create_llm_log(
-    phase: str,
-    prompt_summary: str,
-    full_prompt: str,
-    response: str,
-    experiment_id: Optional[str] = None,
-    phase_run_id: Optional[str] = None,
-    model: str = "claude-opus-4-6",
-    input_tokens: Optional[int] = None,
-    output_tokens: Optional[int] = None,
-    latency_ms: Optional[int] = None,
-    image_path: Optional[str] = None,
-) -> LLMLog:
-    """Log an LLM call with full prompt/response and timing."""
-    log = LLMLog(
-        experiment_id=experiment_id,
-        phase=phase,
-        phase_run_id=phase_run_id,
-        prompt_summary=prompt_summary[:500],
-        full_prompt=full_prompt,
-        response=response,
-        model=model,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-        latency_ms=latency_ms,
-        image_path=image_path,
-    )
-    with get_session() as session:
-        session.add(log)
-        session.commit()
-        session.refresh(log)
-    return log
-
-
-def get_llm_logs_for_experiment(experiment_id: str) -> list[LLMLog]:
-    """Return all LLM logs for an experiment, newest first."""
-    with get_session() as session:
-        stmt = (
-            select(LLMLog)
-            .where(LLMLog.experiment_id == experiment_id)
-            .order_by(LLMLog.timestamp.desc())  # type: ignore[union-attr]
-        )
-        return list(session.exec(stmt).all())
-
-
-# ---------------------------------------------------------------------------
-# MotorPosition
-# ---------------------------------------------------------------------------
-
-def create_motor_position(
-    experiment_id: str,
-    scan_filename: str,
-    scan_number: int,
-    motor_name: str,
-    position: float,
-) -> MotorPosition:
-    """Record a motor position snapshot."""
-    mp = MotorPosition(
-        experiment_id=experiment_id,
-        scan_filename=scan_filename,
-        scan_number=scan_number,
-        motor_name=motor_name,
-        position=position,
-    )
-    with get_session() as session:
-        session.add(mp)
-        session.commit()
-        session.refresh(mp)
-    return mp
-
-
-# ---------------------------------------------------------------------------
-# Image
-# ---------------------------------------------------------------------------
-
-def create_image(
-    experiment_id: str,
-    image_type: str,
-    file_path: str,
-    file_size: int,
-    sha256_hash: str,
-) -> Image:
-    """Register an image file in the database."""
-    img = Image(
-        experiment_id=experiment_id,
-        image_type=image_type,
-        file_path=file_path,
-        file_size=file_size,
-        sha256_hash=sha256_hash,
-    )
-    with get_session() as session:
-        session.add(img)
-        session.commit()
-        session.refresh(img)
-    return img
