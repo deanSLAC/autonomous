@@ -231,6 +231,15 @@ class GuidanceIn(BaseModel):
         return v
 
 
+class ResetRunIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    experiment_id: Optional[str] = None
+    # The dashboard sends confirm=true after its "are you sure" dialog;
+    # requiring it server-side keeps curl/script accidents from resetting.
+    confirm: bool = False
+
+
 class ResolveInterventionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

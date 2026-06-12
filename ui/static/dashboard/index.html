@@ -42,12 +42,14 @@
     <div id="extra-time-pill" class="extra-time-pill" style="display:none;">EXTRA TIME <span id="extra-time-value"></span></div>
 </div>
 
-<!-- Autonomy strip — start/pause/resume/stop/reset retired. Each phase
-     tile owns its own Run/Kill buttons; this strip is now read-only. -->
+<!-- Autonomy strip — start/pause/resume/stop retired. Each phase tile
+     owns its own Run/Kill buttons; this strip holds the cross-cutting
+     operator controls (Stop SPEC / Stop agents / Reset run). -->
 <div class="autonomy-bar">
     <div class="autonomy-bar-left">
         <button class="btn-autonomy" id="btn-stop-spec" onclick="stopSpec()" title="Issue a ctrl-C in SPEC">Stop SPEC</button>
         <button class="btn-autonomy" id="btn-stop-agents" onclick="stopAgents()" title="SIGTERM every running phase agent">Stop agents</button>
+        <button class="btn-autonomy" id="btn-reset-run" onclick="resetRun()" title="Kill agents, invalidate the action log, resolve pending interventions, and return to setup">Reset run</button>
     </div>
     <div class="autonomy-bar-right">
         <label class="safety-toggle" title="Allow agents to issue read-only spec_cmd calls">
@@ -329,6 +331,6 @@
 
 <script src="/static/shared/util.js?v=1"></script>
 <script src="/static/dashboard/static/dashboard.js?v=8"></script>
-<script src="/static/dashboard/autonomy.js?v=13"></script>
+<script src="/static/dashboard/autonomy.js?v=14"></script>
 </body>
 </html>

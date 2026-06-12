@@ -20,7 +20,7 @@ from orchestration.planner.loop import get_orchestrator
 from orchestration.planner.staff_guidance import coordinator
 from beamline_tools.audited_call import audited_call
 from orchestration import runtime_state
-from ui.server.schemas import GuidanceIn, ResolveInterventionIn
+from ui.server.schemas import GuidanceIn, ResetRunIn, ResolveInterventionIn
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/orchestrator", tags=["orchestrator"])
@@ -76,6 +76,39 @@ async def resolve_intervention(intervention_id: str, payload: ResolveInterventio
         note=payload.note,
     )
     return {"ok": True, "status": payload.status}
+
+
+@router.post("/reset_run")
+async def reset_run(payload: ResetRunIn):
+    """Operator-triggered hard reset of the *run* (not the experiment).
+
+    Kills running phase agents, records the phase transition back to
+    `setup`, invalidates prior action-log rows, and resolves pending
+    interventions with status='reset'. Experiment config, sample
+    holders, and the sample queue are untouched.
+    """
+    if not payload.confirm:
+        raise HTTPException(400, "confirm=true required (dashboard confirm dialog)")
+    experiment_id = payload.experiment_id or runtime_state.get_experiment_id()
+    if not experiment_id:
+        raise HTTPException(404, "no active experiment")
+
+    from orchestration.agent import phase_runner
+    from orchestration.plan_store.client import reset_run_state
+
+    killed = phase_runner.kill_all()
+    try:
+        # Before the DB phase is rewritten, so the transition row records
+        # the actual previous phase.
+        runtime_state.set_phase(
+            "setup", experiment_id=experiment_id,
+            justification="operator reset the run from the dashboard",
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning("reset_run: set_phase('setup') failed: %s", e)
+    summary = reset_run_state(experiment_id)
+    logger.info("reset_run: %s (killed %d agent(s))", summary, len(killed))
+    return {"ok": True, "killed_agents": len(killed), **summary}
 
 
 @router.post("/abort_spec")

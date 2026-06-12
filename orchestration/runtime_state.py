@@ -38,13 +38,21 @@ def get_experiment_id() -> Optional[str]:
     return _STATE.get("experiment_id")
 
 
-def set_phase(phase: str, experiment_id: str | None = None) -> None:
+def set_phase(
+    phase: str,
+    experiment_id: str | None = None,
+    justification: str | None = None,
+) -> None:
     """Update the in-memory phase and (best-effort) persist to ExperimentPlan.
 
     The DB write-through is best-effort: callers in test contexts may not
     have an experiment row yet, and we don't want a missing row to break
     the in-memory state update. The CLI bootstrap re-seeds from the DB on
     the next subprocess start regardless.
+
+    When the persisted phase actually changes (not on reseeds writing the
+    same value back), a PhaseTransitionLog row is recorded — that table is
+    the audit trail of phase changes.
     """
     if phase not in phases.VALID_PHASES:
         raise ValueError(f"unknown phase: {phase}")
@@ -58,8 +66,24 @@ def set_phase(phase: str, experiment_id: str | None = None) -> None:
     xid = experiment_id or _STATE.get("experiment_id")
     if xid:
         try:
-            from orchestration.plan_store.client import upsert_experiment_plan
+            from orchestration.plan_store.client import (
+                get_plan,
+                record_phase_transition,
+                upsert_experiment_plan,
+            )
+            plan = get_plan(xid)
+            previous = (plan or {}).get("phase")
             upsert_experiment_plan(xid, phase=phase)
+            # Audit only real transitions: a known previous phase that
+            # differs. Reseeds (same value) and first-ever writes skip.
+            if previous and previous != phase:
+                record_phase_transition(
+                    experiment_id=xid,
+                    previous_phase=previous,
+                    new_phase=phase,
+                    justification=justification or "set via runtime_state.set_phase",
+                    allowed=True,
+                )
         except Exception as e:  # noqa: BLE001
             logger.warning("runtime_state.set_phase: DB write-through failed: %s", e)
 

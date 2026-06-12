@@ -539,7 +539,10 @@ async def run_phase(slug: str):
             slug if slug in phases.VALID_PHASES else runtime_state.get_phase()
         )
         try:
-            runtime_state.set_phase(new_phase, experiment_id=exp.id)
+            runtime_state.set_phase(
+                new_phase, experiment_id=exp.id,
+                justification=f"operator launched the {slug!r} phase tile",
+            )
         except Exception as e:  # noqa: BLE001
             logger.warning("run_phase: set_phase(%r) failed: %s", new_phase, e)
     else:

@@ -1256,6 +1256,36 @@ async function setSafetySwitch(key, enabled) {
     }
 }
 
+async function resetRun() {
+    if (!confirm(
+        "Hard-reset this run?\n\n" +
+        "This kills running phase agents, invalidates the prior action " +
+        "log, resolves pending interventions, and returns to the setup " +
+        "phase. Experiment config, sample holders, and the sample queue " +
+        "are untouched."
+    )) return;
+    try {
+        const r = await fetch(API + "/api/orchestrator/reset_run", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ confirm: true }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) {
+            alert("Reset run failed: " + (j.detail || j.error || r.status));
+            return;
+        }
+        alert(
+            `Run reset: ${j.killed_agents} agent(s) killed, ` +
+            `${j.invalidated_actions} action(s) invalidated, ` +
+            `${j.resolved_interventions} intervention(s) resolved.`
+        );
+    } catch (e) {
+        alert("Reset run failed: " + (e && e.message ? e.message : e));
+    }
+    refreshAutonomy();
+}
+
 async function stopAgents() {
     if (!confirm("SIGTERM every running phase agent?")) return;
     try {
