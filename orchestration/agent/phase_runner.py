@@ -338,6 +338,10 @@ def start(slug: str, *, seed_text: Optional[str] = None,
         log_path = _logs_dir() / f"phase_{slug}_{ts}.log"
         log_file = open(log_path, "ab", buffering=0)
         env = {**os.environ, "BEAMTIMEHERO_AGENT_RUN_ID": run_id}
+        if phase_run_id:
+            # Lets the tool executor attribute ScanRecord rows (and
+            # action-log provenance) to this phase run.
+            env["BEAMTIMEHERO_PHASE_RUN_ID"] = phase_run_id
         # stdout=PIPE (not the raw log fd) so a pump thread can truncate
         # oversized JSONL records before they hit disk. The fast-path in
         # _truncate_jsonl_line keeps small-line overhead near zero.

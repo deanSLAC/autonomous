@@ -91,7 +91,15 @@ def execute_tool(*posargs, **kw) -> tuple[str, list[str]]:
         return error_envelope, []
     try:
         text, imgs = fn(arguments or {})
-        return text, list(imgs or [])
     except Exception as e:
         logger.error("Tool %s failed: %s", name, e, exc_info=True)
         return f"Tool error ({name}): {e}", []
+    # Best-effort ScanRecord capture for scan-emitting actions. Cheap
+    # substring gate first so non-action tools pay nothing.
+    if isinstance(text, str) and '"action_id"' in text:
+        try:
+            from beamline_tools.scan_capture import capture_scan_record
+            capture_scan_record(name, text)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("scan_capture hook failed for %s: %s", name, e)
+    return text, list(imgs or [])

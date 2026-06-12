@@ -113,14 +113,14 @@ def status(experiment_id: str = Query(...)):
                 if anomaly:
                     a["anomaly_count"] += 1
 
-    # Live SPEC-derived scan_count fallback. ScanRecord rows aren't
-    # currently produced by any agent path, so without this every tile
-    # would show 0 scans even mid-run. We count scans whose date_time
-    # falls within each phase_run's [started_at, completed_at] window
-    # (or [started_at, now] if still running). When ScanRecord rows
-    # later start being written, the agent-side count above (which is
-    # authoritative — it knows iterations / LLM consults / anomalies)
-    # takes precedence.
+    # Live SPEC-derived scan_count fallback. ScanRecord rows are written
+    # by the tool-executor capture hook (beamline_tools/scan_capture.py)
+    # for phase-tile agents; the count above takes precedence when rows
+    # exist. The fallback covers runs predating the hook, agents spawned
+    # without a PhaseRun row, and scans driven outside the tool layer —
+    # counting scans whose date_time falls within each phase_run's
+    # [started_at, completed_at] window (or [started_at, now] if still
+    # running).
     needs_spec_count = [
         r for r in phase_runs
         if scan_aggs.get(r.id, {}).get("scan_count", 0) == 0 and r.started_at
