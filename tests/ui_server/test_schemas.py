@@ -14,7 +14,6 @@ if str(REPO_ROOT) not in sys.path:
 
 from ui.server.schemas import (  # noqa: E402
     ExperimentIn,
-    SampleHolderIn,
     validation_error_strings,
 )
 
@@ -107,62 +106,3 @@ def test_blank_end_time_is_none():
 def test_foil_element_symbol_validated():
     with pytest.raises(ValidationError):
         ExperimentIn.model_validate(_experiment(calibration_foil_element="gold"))
-
-
-# -- sample holder -----------------------------------------------------------
-
-def _sample(**over):
-    base = {"name": "FeO ref", "element": "Fe"}
-    base.update(over)
-    return base
-
-
-def _holder(**over):
-    base = {
-        "experiment_id": "exp-1",
-        "sample_holder_name": "rod A",
-        "samples": [_sample()],
-    }
-    base.update(over)
-    return base
-
-
-def test_valid_holder_parses_with_defaults():
-    req = SampleHolderIn.model_validate(_holder())
-    s = req.samples[0]
-    assert s.xas_time == 0.5 and s.do_xas is True and s.sx_lo == 0.0
-
-
-def test_blank_position_strings_become_defaults():
-    req = SampleHolderIn.model_validate(_holder(
-        samples=[_sample(sx_lo="", sz_hi="12.5")],
-    ))
-    assert req.samples[0].sx_lo == 0.0
-    assert req.samples[0].sz_hi == 12.5
-
-
-def test_position_outside_motor_limits_rejected():
-    with pytest.raises(ValidationError) as exc:
-        SampleHolderIn.model_validate(_holder(samples=[_sample(sz_lo=999)]))
-    assert any("Sz" in e for e in validation_error_strings(exc.value))
-
-
-def test_duplicate_sample_names_rejected():
-    with pytest.raises(ValidationError):
-        SampleHolderIn.model_validate(_holder(
-            samples=[_sample(), _sample()],
-        ))
-
-
-def test_rixs_direction_checks():
-    with pytest.raises(ValidationError) as exc:
-        SampleHolderIn.model_validate(_holder(samples=[_sample(
-            do_rixs=True, rixs_start=7000, rixs_end=7100, rixs_step=0.2,
-        )]))
-    msgs = " ".join(validation_error_strings(exc.value))
-    assert "start must be greater than end" in msgs or "step must be negative" in msgs
-
-
-def test_all_samples_disabled_rejected():
-    with pytest.raises(ValidationError):
-        SampleHolderIn.model_validate(_holder(samples=[_sample(enabled=False)]))

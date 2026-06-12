@@ -125,8 +125,7 @@ _settings = Settings()
 # Public API — module-level names that existing imports reference
 # ---------------------------------------------------------------------------
 LLM_GATEWAY = _settings.LLM_GATEWAY.value
-SLAC_API_KEY = _settings.SLAC_API_KEY
-STANFORD_API_KEY = _settings.STANFORD_API_KEY
+CLAUDE_MODEL = _settings.CLAUDE_MODEL
 MLFLOW_ENABLED = _settings.MLFLOW_ENABLED
 MLFLOW_TRACKING_URI = _settings.MLFLOW_TRACKING_URI
 MLFLOW_TOKEN = _settings.MLFLOW_TRACKING_TOKEN
@@ -163,10 +162,8 @@ def gateway_config() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Orchestrator cadences (internal)
+# Orchestrator defaults (internal)
 # ---------------------------------------------------------------------------
-ORCHESTRATOR_ENABLED = True
-ORCHESTRATOR_TICK_S = 2.0
 DEFAULT_BEAMTIME_HOURS = 48.0
 
 # ---------------------------------------------------------------------------

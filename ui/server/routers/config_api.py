@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import traceback
-from datetime import datetime
 
 import yaml
 from fastapi import APIRouter
@@ -19,7 +18,6 @@ from sqlmodel import select
 from ui.config import CONFIG_DIR
 from ui.server.schemas import (
     ExperimentIn,
-    SampleHolderIn,
     validation_error_strings,
 )
 from orchestration.config_generator import (
@@ -29,16 +27,13 @@ from orchestration.config_generator import (
 from orchestration.plan_store.session import (
     create_experiment,
     create_experiment_element,
-    create_sample_holder,
-    create_sample_position,
     get_active_experiment,
     get_elements_for_experiment,
     get_experiment,
-    get_sample_holder_by_name,
     get_samples_for_holder,
     get_session,
 )
-from orchestration.plan_store.models import Experiment, ExperimentElement, SampleHolder, SamplePosition
+from orchestration.plan_store.models import Experiment, ExperimentElement, SampleHolder
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["config"])
@@ -183,125 +178,6 @@ async def submit_experiment(data: dict):
                 "mono_crystal": mono_crystal,
                 "beam_size": f"H:{beam_size_h} V:{beam_size_v}",
             },
-        }
-    except Exception as e:
-        traceback.print_exc()
-        return JSONResponse({"success": False, "errors": [f"Server error: {e}"]}, status_code=500)
-
-
-@router.post("/submit_sample_holder")
-async def submit_sample_holder(data: dict):
-    try:
-        try:
-            req = SampleHolderIn.model_validate(data)
-        except ValidationError as e:
-            return JSONResponse(
-                {"success": False, "errors": validation_error_strings(e)},
-                status_code=400,
-            )
-        experiment_id = req.experiment_id
-        exp = get_experiment(experiment_id)
-        if not exp:
-            return JSONResponse({"success": False, "errors": ["Experiment not found"]}, status_code=404)
-
-        elements = get_elements_for_experiment(experiment_id)
-        element_names = {el.element_symbol for el in elements}
-        unknown = [s.element for s in req.samples if s.element not in element_names]
-        if unknown:
-            return JSONResponse({
-                "success": False,
-                "errors": [
-                    f"element '{sym}' is not in the configured elements list"
-                    for sym in dict.fromkeys(unknown)
-                ],
-            }, status_code=400)
-
-        holder_name = req.sample_holder_name
-        sample_env = exp.sample_env or "ambient"
-        samples_data = req.samples
-        holder_type = sample_env if sample_env in ("cryostat", "flat", "electrode") else "flat"
-        element_emission = {el.element_symbol: el.emission_energy_eV for el in elements}
-
-        existing_holder = get_sample_holder_by_name(experiment_id, holder_name)
-        if existing_holder:
-            with get_session() as session:
-                stmt = select(SamplePosition).where(
-                    SamplePosition.sample_holder_id == existing_holder.id
-                )
-                for sp in session.exec(stmt).all():
-                    session.delete(sp)
-                h = session.get(SampleHolder, existing_holder.id)
-                h.updated_at = datetime.now()
-                h.holder_type = holder_type
-                h.n_samples = len(samples_data)
-                session.add(h)
-                session.commit()
-                session.refresh(h)
-            holder = h
-        else:
-            holder = create_sample_holder(
-                experiment_id=experiment_id,
-                name=holder_name,
-                n_samples=len(samples_data),
-                holder_type=holder_type,
-            )
-
-        for i, s in enumerate(samples_data, 1):
-            create_sample_position(
-                experiment_id=experiment_id,
-                sample_holder_id=holder.id,
-                sample_number=i,
-                sample_name=s.name,
-                element_symbol=s.element,
-                sx_lo=s.sx_lo, sx_hi=s.sx_hi,
-                sy_lo=s.sy_lo, sy_hi=s.sy_hi,
-                sz_lo=s.sz_lo, sz_hi=s.sz_hi,
-                sx_del=s.sx_del, sy_del=s.sy_del, sz_del=s.sz_del,
-                emiss_energy_eV=element_emission.get(s.element),
-                total_spots=s.total_spots,
-                enabled=s.enabled,
-                do_xas=s.do_xas,
-                xas_reps=s.xas_reps,
-                xas_time=s.xas_time,
-                xas_filter=s.xas_filter,
-                xas_emiss_override=s.xas_emiss_override,
-                do_rixs=s.do_rixs,
-                rixs_time=s.rixs_time,
-                rixs_start=s.rixs_start,
-                rixs_end=s.rixs_end,
-                rixs_step=s.rixs_step,
-                rixs_filter=s.rixs_filter,
-                i0_gain=s.i0_gain,
-                i0_offset=s.i0_offset,
-                i1_gain=s.i1_gain,
-                min_scans=s.min_scans,
-            )
-
-        try:
-            generate_config(experiment_id)
-        except Exception as e:
-            logger.warning("config_generator failed (non-fatal): %s", e)
-
-        # If an experiment plan already exists, rebuild it so the agent
-        # immediately sees the new/edited holder samples. Safe no-op if
-        # no plan is present yet.
-        try:
-            from orchestration.planner import planner
-            from orchestration.plan_store.client import get_plan
-            if get_plan(experiment_id):
-                planner.rebuild_plan_preserving_progress(experiment_id)
-        except Exception as e:
-            logger.warning("plan rebuild on holder save skipped: %s", e)
-
-        return {
-            "success": True,
-            "experiment_id": experiment_id,
-            "holder_id": holder.id,
-            "message": (
-                f"Sample holder '{holder_name}' saved with {len(samples_data)} samples. "
-                "Click 'Start autonomous run' to hand over to the agent."
-            ),
-            "summary": {"holder": holder_name, "n_samples": len(samples_data)},
         }
     except Exception as e:
         traceback.print_exc()
@@ -477,52 +353,6 @@ async def element_info(data: dict):
         "energy_range": [emin, emax],
         "edges": edges,
         "lines_by_edge": lines_by_edge,
-    }
-
-
-@router.post("/lookup_energy")
-async def lookup_energy(data: dict):
-    symbol = (data.get("symbol") or "").strip()
-    edge = (data.get("edge") or "").strip()
-    if not symbol or not edge:
-        return JSONResponse({"success": False, "error": "symbol and edge required"}, status_code=400)
-
-    try:
-        import xraydb  # type: ignore
-    except ImportError:
-        return JSONResponse({
-            "success": False,
-            "error": "xraydb not installed (pip install xraydb) — energies must be entered manually.",
-        }, status_code=500)
-
-    edge_data = xraydb.xray_edge(symbol, edge)
-    if edge_data is None:
-        return JSONResponse({"success": False, "error": f"No edge data for {symbol} {edge}"}, status_code=404)
-
-    incident_energy = edge_data.energy
-    emission_energy = None
-    emission_line = None
-    edge_to_lines = {
-        "K": ["Ka1", "Ka2", "Kb1"],
-        "L1": ["Lb3", "Lb4"],
-        "L2": ["Lb1", "Lg1"],
-        "L3": ["La1", "La2", "Lb2"],
-    }
-    for line_name in edge_to_lines.get(edge, []):
-        try:
-            edata = xraydb.xray_line(symbol, line_name)
-            if edata is not None:
-                emission_energy = edata.energy
-                emission_line = line_name
-                break
-        except (ValueError, KeyError):
-            continue
-    return {
-        "success": True,
-        "edge_energy": round(incident_energy, 1),
-        "incident_energy": round(incident_energy + 200, 1),
-        "emission_energy": round(emission_energy, 1) if emission_energy else None,
-        "emission_line": emission_line,
     }
 
 

@@ -10,21 +10,20 @@ a couple of tools reach back into it from a subprocess context:
   * the chat router resolves the active experiment via
     `orch.state.experiment_id`
 
-So we keep a pared-down container with `state` (current experiment,
-last-summary cache for the dashboard pill) and the Slack status
-callback. start/pause/resume/stop/_run_forever are gone, and the
-precondition gating layer that used to live here is gone too.
+So we keep a pared-down container with `state` (current experiment)
+and the Slack callbacks (status posts + steering-thread replies).
+start/pause/resume/stop/_run_forever are gone, and the precondition
+gating layer that used to live here is gone too.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from orchestration import runtime_state
-from orchestration.agent.conversation import ConversationService
 from orchestration.planner import planner
 
 logger = logging.getLogger(__name__)
@@ -36,15 +35,11 @@ EventEmitter = Callable[[dict], Any]  # can be sync or async — we handle both
 @dataclass
 class OrchestratorState:
     experiment_id: Optional[str] = None
-    turn_count: int = 0
-    last_summary: str = ""
-    last_images: list[str] = field(default_factory=list)
     # Compatibility shims for callers (autonomy.js, dashboards) that
     # still read these fields. With the per-phase model there is no
     # master loop, so they're always False.
     running: bool = False
     paused: bool = False
-    last_turn_at: float = 0.0
 
 
 class Orchestrator:
@@ -56,13 +51,11 @@ class Orchestrator:
 
     def __init__(
         self,
-        conversation: Optional[ConversationService] = None,
         *,
         emit: Optional[EventEmitter] = None,
         slack_status_post: Optional[Callable[[str], Any]] = None,
         slack_post_steering_reply: Optional[Callable[[str, str, str], Any]] = None,
     ):
-        self.conversation = conversation
         self.emit = emit or (lambda evt: None)
         self.slack_status_post = slack_status_post or (lambda text: None)
         self.slack_post_steering_reply = (
@@ -86,10 +79,7 @@ class Orchestrator:
             "running": self.state.running,
             "paused": self.state.paused,
             "experiment_id": self.state.experiment_id,
-            "turn_count": self.state.turn_count,
-            "last_turn_at": self.state.last_turn_at,
             "phase": runtime_state.get_phase(),
-            "last_summary": self.state.last_summary,
             "plan_snapshot": snap,
             "obs_status": obs_status,
         }
