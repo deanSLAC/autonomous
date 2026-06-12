@@ -4,12 +4,14 @@ Orchestrator-side hook fired by phase_runner._watch_exit when a phase
 agent finishes successfully. Routes by slug:
 
     beamline_alignment → reports.alignment_report
-    sample_survey      → reports.sample_report
+    sample_alignment   → reports.sample_report
+    sample_survey      → reports.survey_report
 
 Each route discovers its required inputs from the SPEC scan cache
-(restricted to the phase run's [started_at, completed_at] window) and
-the plan_store DB, calls the matching renderer in
-orchestration.agent.reports, persists the PNG under
+(restricted to the phase run's [started_at, completed_at] window,
+padded by _WINDOW_PAD_S to absorb clock skew between the SPEC host
+and this machine) and the plan_store DB, calls the matching renderer
+in orchestration.agent.reports, persists the PNG under
 data/phase_reports/, and uploads it to Slack. Returns the saved path so
 the caller can stamp it onto PhaseRun.summary_image_path. Every step is
 best-effort — failures log and return None so the phase row update is
@@ -21,7 +23,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from orchestration.config import DATA_DIR
@@ -33,6 +35,13 @@ logger = logging.getLogger(__name__)
 
 
 REPORTS_DIR = DATA_DIR / "phase_reports"
+
+# Seconds added on both ends of the phase window before matching SPEC
+# scan timestamps. The #D lines come from the SPEC host's clock; the
+# PhaseRun timestamps come from this machine's. A couple of minutes of
+# skew between the two must not empty the window (the historical
+# "report rendered with every cell blank" failure).
+_WINDOW_PAD_S = 120.0
 
 
 # Substring patterns (lower-case) that classify a SPEC motor name into one
@@ -62,7 +71,7 @@ def generate_and_post(slug: str, phase_run_id: str) -> Optional[str]:
     Returns the saved PNG path on success, or None if the slug is not
     handled, the inputs cannot be assembled, or rendering failed.
     """
-    if slug not in ("beamline_alignment", "sample_survey"):
+    if slug not in ("beamline_alignment", "sample_alignment", "sample_survey"):
         return None
     try:
         run = get_phase_run(phase_run_id)
@@ -72,13 +81,20 @@ def generate_and_post(slug: str, phase_run_id: str) -> Optional[str]:
     if run is None or run.started_at is None:
         return None
 
-    window = (run.started_at, run.completed_at or datetime.now())
+    pad = timedelta(seconds=_WINDOW_PAD_S)
+    window = (
+        run.started_at - pad,
+        (run.completed_at or datetime.now()) + pad,
+    )
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
     try:
         if slug == "beamline_alignment":
             path = _render_alignment(run.experiment_id, phase_run_id, window)
             caption = "Beamline alignment complete — summary report"
+        elif slug == "sample_alignment":
+            path = _render_sample_alignment(run.experiment_id, phase_run_id, window)
+            caption = "Sample alignment complete — summary report"
         else:
             path = _render_sample_survey(run.experiment_id, phase_run_id, window)
             caption = "Sample survey complete — summary report"
@@ -130,6 +146,18 @@ def _scans_in_window(window: tuple[datetime, datetime]) -> list[dict]:
             out.append(s)
     # Ascending by time so "last per motor" picks the converged scan.
     out.sort(key=lambda s: s["_dt"])
+    logger.info(
+        "phase_reports: %d/%d cached scans fall in window [%s .. %s]",
+        len(out), len(scans), start, end,
+    )
+    if scans and not out:
+        # The classic blank-report cause — say what would have helped.
+        newest = max((s.get("date_time") for s in scans if s.get("date_time")), default=None)
+        logger.warning(
+            "phase_reports: scan cache is non-empty but nothing matched the "
+            "window — check SPEC-host vs orchestrator clock skew "
+            "(newest cached scan: %s)", newest,
+        )
     return out
 
 
@@ -181,6 +209,17 @@ def _pick_alignment_scans(window) -> tuple[Optional[str], list[Optional[int]]]:
             scan_numbers.append(int(s.get("scan_number")) if s.get("scan_number") is not None else None)
         else:
             scan_numbers.append(None)
+
+    unmatched = [
+        label for (label, _), n in zip(_ALIGNMENT_MOTOR_PATTERNS, scan_numbers)
+        if n is None
+    ]
+    if unmatched:
+        seen_motors = sorted({(_motor_of(s) or "?") for s in scans})
+        logger.info(
+            "phase_reports: alignment grid slots without a matching scan: %s "
+            "(motors seen in window: %s)", unmatched, seen_motors,
+        )
     return spec_datafile, scan_numbers
 
 
@@ -240,6 +279,168 @@ def _alignment_metadata(experiment_id: str) -> dict:
         logger.warning("phase_reports: experiment lookup failed: %s", e)
     md["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     return md
+
+
+# ---------------------------------------------------------------------------
+# Sample alignment report
+# ---------------------------------------------------------------------------
+
+_SAMPLE_MOTORS = ("sz", "sx", "sy")
+
+
+def _scan_range(scan: dict) -> Optional[tuple[float, float]]:
+    """Parse (lo, hi) out of an `a/dscan <motor> <lo> <hi> ...` command."""
+    toks = (scan.get("scan_command") or "").split()
+    try:
+        lo, hi = float(toks[2]), float(toks[3])
+    except (IndexError, ValueError):
+        return None
+    return (lo, hi) if lo <= hi else (hi, lo)
+
+
+def _sample_positions_for_alignment(experiment_id: str) -> list[dict]:
+    """Enabled SamplePosition rows as the dicts reports.sample_report wants."""
+    from sqlmodel import select
+
+    positions: list[dict] = []
+    try:
+        with get_session() as session:
+            stmt = (
+                select(SamplePosition)
+                .where(SamplePosition.experiment_id == experiment_id)
+                .where(SamplePosition.enabled == True)  # noqa: E712
+                .order_by(SamplePosition.sample_number)  # type: ignore[union-attr]
+            )
+            for sp in session.exec(stmt).all():
+                positions.append({
+                    "sample_number": sp.sample_number,
+                    "sample_name": sp.sample_name,
+                    "element_symbol": sp.element_symbol,
+                    "sx_lo": sp.sx_lo, "sx_hi": sp.sx_hi,
+                    "sy_lo": sp.sy_lo, "sy_hi": sp.sy_hi,
+                    "sz_lo": sp.sz_lo, "sz_hi": sp.sz_hi,
+                    "total_spots": sp.total_spots,
+                    "emiss_energy_eV": getattr(sp, "emiss_energy_eV", None),
+                })
+    except Exception as e:  # noqa: BLE001
+        logger.warning("phase_reports: sample position lookup failed: %s", e)
+    return positions
+
+
+def _pick_sample_alignment_inputs(
+    experiment_id: str,
+    window: tuple[datetime, datetime],
+) -> tuple[Optional[str], Optional[int], dict[int, list[int]], list[dict]]:
+    """Return (spec_datafile, survey_scan, sample_scans, sample_positions).
+
+    The aligner's procedure is: one wide Sz survey, then per-sample fine
+    scans (Sz, then Sx/Sy boundaries) sample by sample. Discovery mirrors
+    that shape:
+
+      * survey  = the widest Sz scan in the window;
+      * blocks  = scans after the survey, attributed to the sample whose
+        aligned [sz_lo, sz_hi] contains the block-opening Sz scan's
+        center; Sx/Sy scans attach to the current block (the procedure
+        is sequential per sample).
+    """
+    scans = _scans_in_window(window)
+    motor_scans: list[tuple[dict, str]] = []
+    for s in scans:
+        motor = (_motor_of(s) or "").lower()
+        if motor in _SAMPLE_MOTORS:
+            motor_scans.append((s, motor))
+    positions = _sample_positions_for_alignment(experiment_id)
+    if not motor_scans:
+        return None, None, {}, positions
+
+    # Spec file: the one backing the most sample-stage scans.
+    from collections import Counter
+    files = Counter(
+        s["file_path"] for s, _ in motor_scans if s.get("file_path")
+    )
+    spec_datafile = files.most_common(1)[0][0] if files else None
+    motor_scans = [
+        (s, m) for s, m in motor_scans if s.get("file_path") == spec_datafile
+    ]
+
+    # Stable procedure order: #D timestamps have 1 s resolution, so fast
+    # consecutive scans tie on time — break ties by scan number.
+    motor_scans.sort(
+        key=lambda pair: (pair[0]["_dt"], pair[0].get("scan_number") or 0)
+    )
+
+    # Survey: widest Sz scan.
+    survey = None
+    survey_idx = -1
+    survey_width = -1.0
+    for idx, (s, m) in enumerate(motor_scans):
+        if m != "sz":
+            continue
+        rng = _scan_range(s)
+        width = (rng[1] - rng[0]) if rng else 0.0
+        if width > survey_width:
+            survey, survey_idx, survey_width = s, idx, width
+    survey_scan = int(survey["scan_number"]) if survey else None
+
+    # Sequential block attribution after the survey.
+    sample_scans: dict[int, list[int]] = {}
+    current: Optional[int] = None
+    for s, m in motor_scans[survey_idx + 1:]:
+        if m == "sz":
+            rng = _scan_range(s)
+            if rng:
+                center = (rng[0] + rng[1]) / 2
+                for sp in positions:
+                    lo, hi = sp.get("sz_lo", 0.0), sp.get("sz_hi", 0.0)
+                    if (lo or hi) and lo - 0.5 <= center <= hi + 0.5:
+                        current = sp["sample_number"]
+                        break
+        if current is not None and s.get("scan_number") is not None:
+            sample_scans.setdefault(current, []).append(int(s["scan_number"]))
+
+    if not sample_scans:
+        logger.info(
+            "phase_reports: no per-sample fine scans attributed "
+            "(%d stage scans in window, survey=%s, %d positions)",
+            len(motor_scans), survey_scan, len(positions),
+        )
+    return spec_datafile, survey_scan, sample_scans, positions
+
+
+def _render_sample_alignment(
+    experiment_id: str,
+    phase_run_id: str,
+    window: tuple[datetime, datetime],
+) -> Optional[str]:
+    spec_datafile, survey_scan, sample_scans, positions = (
+        _pick_sample_alignment_inputs(experiment_id, window)
+    )
+    if not spec_datafile or survey_scan is None:
+        logger.info(
+            "phase_reports: no sample-alignment scans in window for %s",
+            phase_run_id,
+        )
+        return None
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_path = str(REPORTS_DIR / f"sample_alignment_{phase_run_id}_{ts}.png")
+    out_dir = str(REPORTS_DIR)
+
+    from orchestration.agent import reports
+    written = reports.sample_report(
+        spec_datafile=spec_datafile,
+        survey_scan=survey_scan,
+        sample_scans=sample_scans,
+        sample_positions=positions,
+        output_dir=out_dir,
+    )
+    try:
+        if written and written != out_path:
+            os.replace(written, out_path)
+    except OSError as e:
+        logger.warning("phase_reports: rename failed (%s → %s): %s", written, out_path, e)
+        return written
+    return out_path
 
 
 # ---------------------------------------------------------------------------
