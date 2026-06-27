@@ -644,12 +644,12 @@ keep in mind when reading the data-collection agent's output:
   active sample's accumulated scans every spawn N. The skill
   identifies a feature on the averaged spectrum, reads off
   numeric energy bounds, and runs the windowed analysis tools
-  (`analyze-feature-evolution`, windowed `analyze-efficiency`,
-  `analyze-per-spot`) on those bounds. Do NOT call the analysis
-  tools without bounds on a sample with a known feature — the
-  whole-spectrum mode averages the dynamic content with the
-  normalization-defined plateaus and produces an optimistic
-  verdict.
+  (`analyze-feature-evolution`, `analyze-efficiency`,
+  `analyze-per-spot`) on those bounds. The analysis tools require
+  `--e-min`/`--e-max`; there is no whole-spectrum mode, because a
+  statistic over the whole spectrum averages the dynamic content
+  with the normalization-defined plateaus and produces an
+  optimistic verdict.
 - **SPEAR-normalize before comparing.** Ring current drifts ~5 mA
   per session. Raw count drops between samples often look like flux
   loss but are just SPEAR drift; I1/mA is the apples-to-apples

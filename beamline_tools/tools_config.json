@@ -24,7 +24,7 @@
       "name": "analyze_efficiency",
       "cli_path": "tool",
       "description": "Comprehensive scan-repetition efficiency report: convergence, coefficient of variation, comparison to the Poisson statistical limit, and a terminal verdict (needs_more / reasonable / marginal / wasteful).",
-      "when_to_use": "Comprehensive scan repetition efficiency report. Includes convergence, CV analysis, rate-based and counts-based Poisson floor comparison, optimal scan count recommendation, and a verdict (needs_more / reasonable / marginal / wasteful). e_min/e_max bounds are required \u2014 whole-spectrum mode averages dynamic content with normalization-defined plateaus and produces structurally optimistic verdicts.",
+      "when_to_use": "Comprehensive scan repetition efficiency report. Includes convergence, CV analysis, rate-based and counts-based Poisson floor comparison, optimal scan count recommendation, and a verdict (needs_more / reasonable / marginal / wasteful). e_min/e_max bounds are required: the verdict is only meaningful on the dynamic feature window (white-line / pre-edge), since the normalization-defined plateaus otherwise dominate the statistics and mask a feature that is still resolving.",
       "enabled": true,
       "sample_input": {
         "e_min": 0.0,
@@ -224,8 +224,8 @@
     {
       "name": "group_scans_by_spot",
       "cli_path": "tool",
-      "description": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful before convergence analysis when reps came from multiple spots \u2014 between-spot differences can pollute whole-file CV. Pair with analyze_per_spot.",
-      "when_to_use": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful before convergence analysis when reps came from multiple spots \u2014 between-spot differences can pollute whole-file CV. Pair with analyze_per_spot.",
+      "description": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful before convergence analysis when reps came from multiple spots \u2014 between-spot differences can pollute the combined cross-spot CV. Pair with analyze_per_spot.",
+      "when_to_use": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful before convergence analysis when reps came from multiple spots \u2014 between-spot differences can pollute the combined cross-spot CV. Pair with analyze_per_spot.",
       "enabled": true,
       "sample_input": {
         "file_name": "example"
@@ -344,8 +344,8 @@
     {
       "name": "plot_feature_evolution",
       "cli_path": "tool",
-      "description": "Plot a single per-rep scalar (the chosen statistic over [e_min, e_max]) versus rep number, with running mean and \u00b1SEM band. The visual companion to analyze_feature_evolution. Use to confirm a feature has flatlined; a still-trending trace means the feature is not yet converged regardless of whole-spectrum verdicts.",
-      "when_to_use": "Plot a single per-rep scalar (the chosen statistic over [e_min, e_max]) versus rep number, with running mean and \u00b1SEM band. The visual companion to analyze_feature_evolution. Use to confirm a feature has flatlined; a still-trending trace means the feature is not yet converged regardless of whole-spectrum verdicts.",
+      "description": "Plot a single per-rep scalar (the chosen statistic over [e_min, e_max]) versus rep number, with running mean and \u00b1SEM band. The visual companion to analyze_feature_evolution. Use to confirm a feature has flatlined; a still-trending trace means the feature is not yet converged.",
+      "when_to_use": "Plot a single per-rep scalar (the chosen statistic over [e_min, e_max]) versus rep number, with running mean and \u00b1SEM band. The visual companion to analyze_feature_evolution. Use to confirm a feature has flatlined; a still-trending trace means the feature is not yet converged.",
       "enabled": true,
       "sample_input": {
         "file_name": "example",
