@@ -1178,6 +1178,46 @@ def t_record_completed_scan(args: dict) -> tuple[str, list[str]]:
     }), []
 
 
+def t_record_alignment_flux(args: dict) -> tuple[str, list[str]]:
+    """Store the bl-aligner's max I0/I1 flux + gain record on the experiment."""
+    from orchestration.plan_store import session as _ps
+
+    j = (args.get("justification") or "").strip()
+    if not j:
+        return json.dumps({"ok": False, "error": "justification required"}), []
+    xid = _require_xid()
+    if not xid:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+
+    fields: dict = {}
+    try:
+        for key in ("i0_max_cps", "i1_max_cps"):
+            if args.get(key) is not None:
+                fields[key] = float(args[key])
+        for key in ("i0_gain", "i1_gain"):
+            if args.get(key) is not None:
+                fields[key] = str(args[key]).strip()
+    except (TypeError, ValueError) as e:
+        return json.dumps({"ok": False, "error": f"bad value: {e}"}), []
+    if not fields:
+        return json.dumps({
+            "ok": False,
+            "error": "provide at least one of i0_max_cps/i0_gain/i1_max_cps/i1_gain",
+        }), []
+    for cps_key in ("i0_max_cps", "i1_max_cps"):
+        if cps_key in fields and fields[cps_key] < 0:
+            return json.dumps({"ok": False, "error": f"{cps_key} must be >= 0"}), []
+
+    exp = _ps.record_alignment_flux(xid, **fields)
+    if exp is None:
+        return json.dumps({"ok": False, "error": "experiment not found"}), []
+    return json.dumps({
+        "ok": True,
+        "experiment_id": xid,
+        "recorded": fields,
+    }), []
+
+
 def t_regenerate_plan(args: dict) -> tuple[str, list[str]]:
     xid = _require_xid()
     if not xid:
@@ -1221,6 +1261,7 @@ _AUTONOMY_DISPATCH: dict[str, callable] = {
     "upload_sample_survey_results": t_upload_sample_survey_results,
     "get_comprehensive_collection_plan": t_get_comprehensive_collection_plan,
     "record_completed_scan": t_record_completed_scan,
+    "record_alignment_flux": t_record_alignment_flux,
     "regenerate_plan": t_regenerate_plan,
 }
 

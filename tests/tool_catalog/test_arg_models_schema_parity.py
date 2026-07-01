@@ -50,6 +50,7 @@ EXPECTED_ORDER = [
     "upload_sample_survey_results",
     "get_comprehensive_collection_plan",
     "record_completed_scan",
+    "record_alignment_flux",
     "regenerate_plan",
 ]
 
@@ -181,6 +182,16 @@ SNAPSHOT = {
             "count_time": {"type": "number"},
             "spec_datafile": {"type": "string"},
             "spot_index": {"type": "integer"},
+        },
+        "required": ["justification"],
+    },
+    "record_alignment_flux": {
+        "params": {
+            "justification": {"type": "string"},
+            "i0_max_cps": {"type": "number"},
+            "i0_gain": {"type": "string"},
+            "i1_max_cps": {"type": "number"},
+            "i1_gain": {"type": "string"},
         },
         "required": ["justification"],
     },

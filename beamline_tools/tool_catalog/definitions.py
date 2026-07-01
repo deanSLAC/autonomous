@@ -2,7 +2,7 @@
 
 The 82 upstream tool schemas (CAT-0..CAT-7, CAT-9) live in
 `beamtimehero_cli.tool_catalog.definitions.AUTONOMY_TOOL_DEFINITIONS`.
-This module only defines the 22 CAT-8 orchestration tools that are
+This module only defines the 23 CAT-8 orchestration tools that are
 autonomy-specific (plan edits, intervention requests, sample/holder
 budgets, etc.). The package's `__init__.py` concatenates the two
 lists into a single `TOOL_DEFINITIONS` view.
@@ -137,6 +137,14 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "summary (recent_plots lookup). Justification is "
         "required so the action is auditable."
     ),
+    "record_alignment_flux": (
+        "Persist the beamline-alignment flux deliverable to the active "
+        "experiment: maximum recorded I0/I1 rate (cps) from the best "
+        "post-optimization get_counts, plus the gain setting each "
+        "detector was at. Called once by the bl-aligner at completion; "
+        "surfaced on the alignment summary report. Justification is "
+        "required (write op)."
+    ),
     "regenerate_plan": (
         "Rebuild the sample plan from the database while preserving per-sample "
         "progress (status, reps_completed, notes) and user overrides "
@@ -170,5 +178,6 @@ AUTONOMY_TOOL_CATEGORIES = [
         "get_holder_time_budget",
         "set_experiment_end_time", "regenerate_plan",
         "record_completed_scan", "record_convergence_stats",
+        "record_alignment_flux",
     ]),
 ]

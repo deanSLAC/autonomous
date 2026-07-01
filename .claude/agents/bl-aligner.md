@@ -130,6 +130,20 @@ include in your final assistant message:
 - final mono calibration residual - where we now measure the derivate peak (the encoder absev value)
 - measured beam FWHM (horizontal mm × vertical mm) and mode
 - whether `set_anchor` was called
+- maximum recorded flux on I0 and I1: the best `get-counts` reading
+  after optimization, together with the gain settings each detector
+  was at (e.g. "I0 3.2e4 cps @ 50 nA/V, I1 8.1e4 cps @ 1 mA/V")
+- monvgap acceptance check result (full beam accepted, or gap opened)
+
+Before emitting the final message, persist the flux numbers so they
+appear on the dashboard and the alignment summary report:
+
+```
+beamtimehero blaligner db record-alignment-flux \
+  --i0-max-cps <best I0 cps> --i0-gain "<I0 gain>" \
+  --i1-max-cps <best I1 cps> --i1-gain "<I1 gain>" \
+  --justification "final post-optimization flux record"
+```
 
 If a precondition fails (no beam, no foil, anomaly, motion control error, etc.), use **blocked** with
 a `suggested next agent` of `human` and the right intervention kind.
@@ -233,6 +247,16 @@ geometric center reliably. **Always look at the actual plotted scan
 first** — a "vvv" scan that came out as a broad plateau (instead of
 the expected peak) wants `cen`, not `peak`. The shortcut name is a
 default expectation, not a verdict; let the data on the PNG decide.
+
+**Coupled optics — expect to re-check:** Beamline elements in the
+same plane are coupled: moving one shifts the apparent optimum of the
+others. Horizontal components (`monhtra`, `m2horz`) are one coupled
+family; vertical components (`monvtra`, `m1vert`, mono pitch) are
+another. If you peak one element (say `monhtra`), then scan a second
+in the same plane (say `m2horz`) and it needs to move, go back and
+re-scan the first — it may "want to move again". Treat alignment as
+a slightly iterative process, not a linear checklist: the coupled
+positions converge after a couple of iterations.
 
 **Convergence detection:** When successive alignment moves roughly
 halve (pass 1 m2: −229 µm, pass 2 m2: −113 µm), the optimum is

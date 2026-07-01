@@ -71,6 +71,7 @@ AGENT_ROLES: dict[str, dict] = {
             "small_beam", "big_beam", "xtal_align", "reset_gap",
             "set_m2_stripe", "set_anchor", "tracking",
             "request_gap_ownership", "abort_current_scan",
+            "record_alignment_flux",
         }),
     },
     "samplealigner": {

@@ -250,6 +250,40 @@ def record_measured_beam_size(
     return exp
 
 
+def record_alignment_flux(
+    experiment_id: str,
+    i0_max_cps: Optional[float] = None,
+    i0_gain: Optional[str] = None,
+    i1_max_cps: Optional[float] = None,
+    i1_gain: Optional[str] = None,
+) -> Optional[Experiment]:
+    """Store the bl-aligner's end-of-alignment flux record on the experiment.
+
+    Called from the `record_alignment_flux` CAT-8 tool: the maximum
+    post-optimization get_counts reading per detector plus the gain it
+    was measured at. Only provided fields overwrite; None leaves the
+    previous value in place.
+    """
+    if all(v is None for v in (i0_max_cps, i0_gain, i1_max_cps, i1_gain)):
+        return None
+    with get_session() as session:
+        exp = session.get(Experiment, experiment_id)
+        if exp is None:
+            return None
+        if i0_max_cps is not None:
+            exp.i0_max_cps = float(i0_max_cps)
+        if i0_gain is not None:
+            exp.i0_gain = str(i0_gain)
+        if i1_max_cps is not None:
+            exp.i1_max_cps = float(i1_max_cps)
+        if i1_gain is not None:
+            exp.i1_gain = str(i1_gain)
+        session.add(exp)
+        session.commit()
+        session.refresh(exp)
+    return exp
+
+
 def set_spectrometer_aligned(experiment_id: str, aligned: bool) -> Optional[Experiment]:
     """Mark the spectrometer as aligned (or clear the flag) for an experiment.
 

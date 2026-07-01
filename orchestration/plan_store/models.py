@@ -43,6 +43,14 @@ class Experiment(SQLModel, table=True):
     # these values once they're populated.
     beam_h_fwhm_um: Optional[float] = None
     beam_v_fwhm_um: Optional[float] = None
+    # Maximum recorded flux at the end of beamline alignment. Written by
+    # the bl-aligner via `db record-alignment-flux`: best post-optimization
+    # get_counts reading on each detector plus the gain it was measured at
+    # (e.g. "50 nA/V"). Surfaced on the alignment summary report footer.
+    i0_max_cps: Optional[float] = None
+    i0_gain: Optional[str] = None
+    i1_max_cps: Optional[float] = None
+    i1_gain: Optional[str] = None
     # Energy-calibration foil. `calibration_foil_element` is the element
     # symbol of the reference foil (e.g. "Au", "Cu", "Fe") used during
     # the calibration step. `calibration_foil_detector` is which diode

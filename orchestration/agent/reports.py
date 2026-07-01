@@ -158,7 +158,8 @@ def alignment_report(
             positions. If fewer than 8, remaining slots show 'No data'.
         output_dir: Directory to save the output PNG.
         metadata: Optional dict with keys: energy, crystal, beam_h_fwhm,
-            beam_v_fwhm, anomaly_flags, timestamp, experiment_name.
+            beam_v_fwhm, i0_max_cps, i0_gain, i1_max_cps, i1_gain,
+            anomaly_flags, timestamp, experiment_name.
 
     Returns:
         Absolute path to the saved PNG file.
@@ -205,6 +206,16 @@ def alignment_report(
         ann_parts.append(f"Beam H: {metadata['beam_h_fwhm']:.1f} um")
     if "beam_v_fwhm" in metadata:
         ann_parts.append(f"Beam V: {metadata['beam_v_fwhm']:.1f} um")
+    for det in ("i0", "i1"):
+        cps = metadata.get(f"{det}_max_cps")
+        gain = metadata.get(f"{det}_gain")
+        if cps is not None:
+            part = f"{det.upper()} max: {cps:.3g} cps"
+            if gain:
+                part += f" @ {gain}"
+            ann_parts.append(part)
+        elif gain:
+            ann_parts.append(f"{det.upper()} gain: {gain}")
     if "anomaly_flags" in metadata and metadata["anomaly_flags"]:
         flags = metadata["anomaly_flags"]
         if isinstance(flags, list):

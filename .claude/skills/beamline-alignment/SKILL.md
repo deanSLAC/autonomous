@@ -55,7 +55,21 @@ check our current bend values. if experiment config says we're supposed to have 
 
 If I1 already has good signal (>= ~20 kcps), `plotselect I1` from the start — skip the macro's I0-first safety pattern.
 
-### Iteration loop (run 2 passes)
+### Iteration loop (iterate until converged)
+
+**Why this loop is iterative — coupled optics.** The beamline elements
+are not independent: moving one element shifts the apparent optimum of
+the others in the same plane. The horizontal components (`monhtra`,
+`m2horz`) form one coupled family; the vertical components (`monvtra`,
+`m1vert`, mono pitch) form another. If you scan `monhtra`, move to its
+peak, then scan `m2horz` and find it needs to move, the `monhtra`
+optimum has now shifted — go back and re-scan it to see if it "wants
+to move again". This is a general principle, not a fixed recipe: the
+positions converge after a couple of iterations, so keep cycling
+through the family until the requested moves become small (successive
+moves roughly halving is the converged signature; see the agent's
+convergence heuristic). Typically 2 passes suffice; take a third if a
+pass-2 move came back large.
 
 | Step | Shortcut | Motor | Apply |
 |------|----------|-------|-------|
@@ -67,7 +81,7 @@ If I1 already has good signal (>= ~20 kcps), `plotselect I1` from the start — 
 
 After each step: `get-counts`, compare I1/mA to baseline.
 
-**Pass 2:** skip `m1m1big` — only needed in pass 1 to get into the aperture.
+**Pass 2+:** skip `m1m1big` — only needed in pass 1 to get into the aperture.
 
 NOTE: if abs(monvtra) > .25 after these steps on I0 and I1, our source beam is not being delivered correctly. Raise human attention via post_status_update. But it is ok to proceed in the meantime. 
 
@@ -83,9 +97,27 @@ If a second time still doesnt recover counts, its time to HALT and get staff att
 | 1 | `bzbz` | Bz | `cen` |
 | 2 | `bxbx` | Bx | `cen` |
 
-### Optional: diagnostic dscan monvgap
+### Required: monvgap acceptance check (dscan ±0.5)
 
-`run-motor-scan-relative --motor monvgap --start -0.3 --finish 0.3 --intervals 20 --count-time 0.2` between the iteration loop and B-stage is a no-action snapshot of mono acceptance.
+After the iteration loop converges and before B-stage centering, run:
+
+`run-motor-scan-relative --motor monvgap --start -0.5 --finish 0.5 --intervals 30 --count-time 0.2`
+
+This verifies the mono vertical gap is accepting the **full incident
+beam**. What to look for on the plot:
+
+- Intensity should rise and then **plateau** as the gap opens — a flat
+  top means the gap is already wider than the beam and nothing is
+  being clipped. Leave monvgap where it was (no move by default).
+- If intensity is **still climbing at the open end** of the scan, the
+  gap is clipping the beam — open it to where the plateau starts and
+  note it in your report.
+
+Do not slit it down yourself: staff may later close monvgap somewhat
+to improve energy resolution, but the alignment deliverable is
+confirmation that the full beam is accepted. This scan also fills the
+monvgap slot in the automatic alignment summary report — skipping it
+leaves a "No data" hole in the report.
 
 ---
 

@@ -255,6 +255,28 @@ class RecordCompletedScanArgs(_ToolArgs):
     )
 
 
+class RecordAlignmentFluxArgs(_ToolArgs):
+    justification: str = Field(description=_JUSTIFICATION_DESC)
+    i0_max_cps: Optional[float] = Field(
+        default=None,
+        description=("Maximum recorded I0 rate (SPEAR-normalized cps) "
+                     "from the best post-optimization get_counts."),
+    )
+    i0_gain: Optional[str] = Field(
+        default=None,
+        description="I0 SRS gain the reading was taken at, e.g. '50 nA/V'.",
+    )
+    i1_max_cps: Optional[float] = Field(
+        default=None,
+        description=("Maximum recorded I1 rate (SPEAR-normalized cps) "
+                     "from the best post-optimization get_counts."),
+    )
+    i1_gain: Optional[str] = Field(
+        default=None,
+        description="I1 SRS gain the reading was taken at, e.g. '1 mA/V'.",
+    )
+
+
 class RegeneratePlanArgs(_ToolArgs):
     beamtime_hours: Optional[float] = Field(
         default=None,
@@ -290,6 +312,7 @@ ARG_MODELS: dict[str, type[BaseModel]] = {
     "upload_sample_survey_results": UploadSampleSurveyResultsArgs,
     "get_comprehensive_collection_plan": GetComprehensiveCollectionPlanArgs,
     "record_completed_scan": RecordCompletedScanArgs,
+    "record_alignment_flux": RecordAlignmentFluxArgs,
     "regenerate_plan": RegeneratePlanArgs,
 }
 

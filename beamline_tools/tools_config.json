@@ -682,6 +682,24 @@
       "comments": ""
     },
     {
+      "name": "record_alignment_flux",
+      "cli_path": "db",
+      "description": "Persist the beamline-alignment flux deliverable to the active experiment: maximum recorded I0/I1 rate (cps) from the best post-optimization get_counts, plus the gain setting each detector was at. Called once by the bl-aligner at completion; surfaced on the alignment summary report.",
+      "when_to_use": "At the end of beamline alignment, after the final get_counts: record max I0/I1 cps and the gain each was measured at so the numbers survive the agent run. Justification is required (write op).",
+      "enabled": true,
+      "sample_input": {
+        "justification": "Testing tool via tool-tester",
+        "i0_max_cps": 32000.0,
+        "i0_gain": "50 nA/V",
+        "i1_max_cps": 81000.0,
+        "i1_gain": "1 mA/V"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "record_convergence_stats",
       "cli_path": "db",
       "description": "Store per-sample convergence statistics (cumulative CV, feature SEM, verdicts, feature window) so the orchestrator can render a live statistics trend plot on the dashboard.",

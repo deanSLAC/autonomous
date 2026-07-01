@@ -275,6 +275,14 @@ def _alignment_metadata(experiment_id: str) -> dict:
                     md["beam_h_fwhm"] = float(exp.beam_h_fwhm_um)
                 if getattr(exp, "beam_v_fwhm_um", None):
                     md["beam_v_fwhm"] = float(exp.beam_v_fwhm_um)
+                if getattr(exp, "i0_max_cps", None):
+                    md["i0_max_cps"] = float(exp.i0_max_cps)
+                if getattr(exp, "i0_gain", None):
+                    md["i0_gain"] = str(exp.i0_gain)
+                if getattr(exp, "i1_max_cps", None):
+                    md["i1_max_cps"] = float(exp.i1_max_cps)
+                if getattr(exp, "i1_gain", None):
+                    md["i1_gain"] = str(exp.i1_gain)
     except Exception as e:  # noqa: BLE001
         logger.warning("phase_reports: experiment lookup failed: %s", e)
     md["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

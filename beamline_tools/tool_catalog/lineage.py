@@ -378,6 +378,29 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "depends_on": ["get_scan_number", "get_current_datafile"],
     },
+    "record_alignment_flux": {
+        "long_description": (
+            "Persist the beamline-alignment flux deliverable to the "
+            "active Experiment row: maximum recorded I0/I1 rate "
+            "(SPEAR-normalized cps) from the best post-optimization "
+            "get_counts, plus the SRS gain each detector was at. "
+            "Called once by the bl-aligner at completion so the "
+            "numbers survive the agent run and appear on the "
+            "alignment summary report footer."
+        ),
+        "python_func": (
+            "plan_store.session.record_alignment_flux(experiment_id, "
+            "i0_max_cps, i0_gain, i1_max_cps, i1_gain)"
+        ),
+        "spec_command": None,
+        "output": "JSON: {ok, experiment_id, recorded:{...}}",
+        "source": "autonomy_db",
+        "source_detail": (
+            "Mutates Experiment.i0_max_cps/.i0_gain/.i1_max_cps/"
+            ".i1_gain on the active experiment."
+        ),
+        "depends_on": ["get_counts"],
+    },
 }
 
 
