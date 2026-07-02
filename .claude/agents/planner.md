@@ -112,11 +112,23 @@ The relevant DB tools:
 
 You also have:
 
-- `tool list-scans`, `tool read-scan`, `tool get-scan-deadtime` — for
-  diagnosing how long the data-collection agent's scans are taking.
-- `tool analyze-efficiency --e-min <eV> --e-max <eV>`,
-  `tool analyze-convergence --e-min <eV> --e-max <eV>` — convergence
+- `spec-file list-scans`, `spec-file read-scan`,
+  `spec-file get-scan-deadtime` — for diagnosing how long the
+  data-collection agent's scans are taking.
+- `spec-file analyze-efficiency --e-min <eV> --e-max <eV>`,
+  `spec-file analyze-convergence --e-min <eV> --e-max <eV>` — convergence
   and efficiency on a feature window. `e_min`/`e_max` are required.
+- `spec-file summarize-sample-chemistry --file-name <f>` — the chemistry
+  capstone: oxidation state, coordination geometry, and a **per-scan
+  oxidation-state drift** verdict (the photoreduction/beam-damage
+  signature). Call it once a sample's scans have accumulated to record
+  what the spectrum *means*, not just its SNR. Absolute oxidation state
+  is only reported once `spec-file record-energy-calibration` has been
+  run against a reference foil this session; otherwise the tool returns
+  relative/shape-based content and says so. `spec-file
+  interpret-oxidation-state` / `interpret-coordination-geometry` give the
+  individual verdicts; `spec-file get-energy-calibration` reports the
+  current calibration/offset/drift.
 - `Skill(analyze-statistical-convergence)` — the primary
   convergence-decision skill. Invoke it on the active sample's
   accumulated scans to decide whether to advance.
@@ -534,6 +546,15 @@ For each scan completion you're notified about:
    array from `analyze-efficiency`, the `running_sem_frac` array from
    `analyze-feature-evolution`, and both verdicts. The orchestrator
    uses this to render a live statistics trend on the dashboard.
+   **Then call `spec-file summarize-sample-chemistry --file-name <f>`**
+   for the active sample. This is the chemistry counterpart to the
+   convergence check: it reports oxidation state and coordination
+   geometry, and — critically for this decision — a **per-scan
+   oxidation-state drift** verdict (`beam_damage.drift_detected` /
+   `direction`). Convergence tells you the *average* has stabilized;
+   the drift verdict tells you whether that average is smearing together
+   evolving chemistry (photoreduction) that more reps will only worsen.
+   Feed both into step 6.
 6. Decide, integrating both the convergence verdict AND any
    pending planner-applicable steering:
    - **Converged** -> advance the active sample. Mark it
@@ -546,13 +567,20 @@ For each scan completion you're notified about:
    - **Not converged, budget tight** -> trim other samples'
      n_scans (lowest priority first) to keep this one going, or
      accept lower SNR here and advance early.
-   - **Damage suspected** (rare; the surveyor caught most of these
-     up front) -> move 100 eV over the edge and do a count. Then
-     increase filters by 1 and count again. Continue until counts
-     are reduced by 20%. Update the sample's `filter_bitmask` in
-     the plan and note the change via `record-sample-progress`.
-     This is a quick fix — a full sample damage assessment is not
-     needed during collection.
+   - **Damage suspected** — either the surveyor flagged it up front,
+     or `summarize-sample-chemistry` reported
+     `beam_damage.drift_detected` with a reducing `direction`
+     (photoreduction). A monotonic oxidation-state drift means the
+     later reps are a *different* (more-reduced) species than the
+     early ones, so averaging them corrupts the result and adding
+     reps makes it worse — do NOT extend; prefer truncating the
+     average to the pre-drift scans and advancing. As a mitigation for
+     any samples still to run, move 100 eV over the edge and do a
+     count, increase filters by 1 and count again, continuing until
+     counts drop by 20%; update the sample's `filter_bitmask` in the
+     plan and note the change via `record-sample-progress`. This is a
+     quick fix — a full sample damage assessment is not needed during
+     collection.
    - **Steering says replan** -> fold its instruction into the
      edit (e.g. "lost an hour" -> trim reps proportionally;
      "deprioritize CuO" -> reorder/skip; "double Cu reps" ->

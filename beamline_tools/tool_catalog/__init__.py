@@ -1,12 +1,12 @@
 """Autonomous Beamline Agent tool system.
 
 Concatenates upstream's `beamtimehero_cli.tool_catalog` (CAT-0..CAT-7,
-CAT-9) with autonomy's CAT-8 orchestration overlay.
+CAT-9, CAT-10) with autonomy's CAT-8 orchestration overlay.
 
 Public surface:
 
   * `TOOL_DEFINITIONS` — JSON-schema definitions for every tool the LLM can call.
-  * `TOOL_CATEGORIES` — CAT-0..CAT-9 groupings for the UI sidebar.
+  * `TOOL_CATEGORIES` — CAT-0..CAT-10 groupings for the UI sidebar.
   * `CLI_TOOL_DEFINITION` — progressive-discovery CLI tool (TOOLS_MODE=cli).
   * `execute_tool(name, args)` — dispatch to a tool's Python implementation.
 """
@@ -55,7 +55,7 @@ def _filter(defs: list[dict]) -> list[dict]:
     return [d for d in defs if d["function"]["name"] in _enabled]
 
 
-# Concatenate upstream (CAT-0..CAT-7, CAT-9) and autonomy (CAT-8) tool defs.
+# Concatenate upstream (CAT-0..CAT-7, CAT-9, CAT-10) and autonomy (CAT-8) tool defs.
 _BASE_TOOLS: list[dict] = list(_UPSTREAM_TOOLS) + list(_AUTONOMY_TOOLS)
 # Concatenate category groupings the same way, but let autonomy own CAT-8
 # (upstream ships a stale CAT-8 stub that references tools it does not define).

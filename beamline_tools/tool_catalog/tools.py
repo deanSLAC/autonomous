@@ -1,6 +1,6 @@
 """Autonomy CAT-8 orchestration tools — overlay on top of upstream's tools_core.
 
-The 82 upstream tool handlers (CAT-0..CAT-7, CAT-9) live in
+The ~101 upstream tool handlers (CAT-0..CAT-7, CAT-9, CAT-10) live in
 `beamtimehero_cli.tool_catalog.tools_core`. This module only defines
 the 22 CAT-8 orchestration tools that are autonomy-specific (plan
 edits, intervention requests, sample/holder budgets, etc.) and merges
@@ -1235,7 +1235,8 @@ def t_regenerate_plan(args: dict) -> tuple[str, list[str]]:
 
 
 # ---------------------------------------------------------------------------
-# Dispatch table — merge upstream (CAT-0..CAT-7, CAT-9) with autonomy (CAT-8).
+# Dispatch table — merge upstream (CAT-0..CAT-7, CAT-9, CAT-10) with
+# autonomy (CAT-8).
 # ---------------------------------------------------------------------------
 
 _AUTONOMY_DISPATCH: dict[str, callable] = {
@@ -1265,5 +1266,5 @@ _AUTONOMY_DISPATCH: dict[str, callable] = {
     "regenerate_plan": t_regenerate_plan,
 }
 
-# Autonomy overrides take precedence; upstream supplies the other ~82 handlers.
+# Autonomy overrides take precedence; upstream supplies the other ~101 handlers.
 DISPATCH: dict[str, callable] = {**_UPSTREAM_DISPATCH, **_AUTONOMY_DISPATCH}

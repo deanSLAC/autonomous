@@ -25,13 +25,16 @@ Do **not** invoke before two consecutive scans on the same spot exist. The whole
 
 ## Inputs (tools to call)
 
-All via `beamtimehero tool ...`. Always work from saved scan data, never from in-memory plot impressions.
+Scan/analysis tools live under the `spec-file` tree (`beamtimehero
+spec-file ...`); DB tools under `db`. Always work from saved scan data,
+never from in-memory plot impressions.
 
-1. `beamtimehero tool list-scans --limit 5` — find the two most recent scans on the active sample. Confirm the file name matches the active sample id (`open-data-file --name <sample_id>` is the convention).
-2. `beamtimehero tool read-scan --file-name <sample_id> --scan-number <N>` and `--scan-number <N+1>` — pull both scans' raw arrays.
-3. use `beamtimhero db get-experiment-config`, get the correct counter to use in comparing the scans (eg vortDT, vortDT2...).
-4. `beamtimehero tool normalize-scan --file-name <sample_id> --scan-number <N> --normalize-by I0` — get edge-step normalized intensity for each scan. **You compare normalized data, not raw.** Raw counter / I0 ratios drift with SPEAR ring current and beam motion.
-5. `beamtimehero tool plot-scan --file-name <sample_id> --scan-number <N> --normalize-by I0` for each, so the operator can see the comparison.
+1. `beamtimehero spec-file list-scans --limit 5` — find the two most recent scans on the active sample. Confirm the file name matches the active sample id (`open-data-file --name <sample_id>` is the convention).
+2. `beamtimehero spec-file read-scan --file-name <sample_id> --scan-number <N>` and `--scan-number <N+1>` — pull both scans' raw arrays.
+3. use `beamtimehero db get-experiment-config`, get the correct counter to use in comparing the scans (eg vortDT, vortDT2...).
+4. `beamtimehero spec-file normalize-scan --file-name <sample_id> --scan-number <N> --normalize-by I0` — get edge-step normalized intensity for each scan. **You compare normalized data, not raw.** Raw counter / I0 ratios drift with SPEAR ring current and beam motion.
+5. `beamtimehero spec-file plot-scan --file-name <sample_id> --scan-number <N> --normalize-by I0` for each, so the operator can see the comparison.
+6. `beamtimehero spec-file summarize-sample-chemistry --file-name <sample_id>` — the whole-run cross-check. Where steps 1–5 compare one pair by hand, this fits a **per-scan oxidation-state drift** across *all* accumulated reps (monotonic-drift test on E0, white-line, and pre-edge vs scan index) and returns `beam_damage.drift_detected` / `direction`. A reducing drift across the run is photoreduction even when any single adjacent pair looks within threshold — this catches slow damage the pairwise check misses. Relative/shape-based, so it needs no energy calibration.
 
 ---
 
@@ -58,6 +61,7 @@ A scan pair is **damaging** if any of the following holds (cross-check at least 
 - **White-line height change** > ~3% relative, in the same direction across the pair (i.e. monotonic, not just noise). Reduction of a Cr⁶⁺/V⁵⁺/Mn⁴⁺-type species drops the white line; oxidation often raises it.
 - **Pre-edge height change** > ~5% relative on a feature that was clearly resolved in scan N. Pre-edge intensity is geometry- and oxidation-state-sensitive.
 - **Counter / I0 at white-line** drops by > 5% scan-to-scan with no SPEAR drop (>2%), no filter change, and no I0-gain change. Catches damage that flattens the spectrum without obviously shifting it.
+- **`summarize-sample-chemistry` reports `beam_damage.drift_detected` with a reducing `direction`** (photoreduction) across the accumulated reps. This is a whole-run monotonic test, so it counts as a strong indicator on its own — if it fires with a reducing trend, treat the pair as `damaging` without needing a second cross-check. (An *oxidizing* drift is likewise real damage but rarer; same action.)
 
 A scan pair is **not damaging** if all of:
 

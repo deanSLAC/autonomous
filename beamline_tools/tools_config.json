@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at": "2026-06-03T17:11:38.445479+00:00",
-    "total_tools": 119,
+    "generated_at": "2026-07-01T22:25:45.837669+00:00",
+    "total_tools": 126,
     "generator": "scripts/generate_tools_config.py"
   },
   "tools": [
@@ -24,7 +24,7 @@
       "name": "analyze_efficiency",
       "cli_path": "tool",
       "description": "Comprehensive scan-repetition efficiency report: convergence, coefficient of variation, comparison to the Poisson statistical limit, and a terminal verdict (needs_more / reasonable / marginal / wasteful).",
-      "when_to_use": "Comprehensive scan repetition efficiency report. Includes convergence, CV analysis, rate-based and counts-based Poisson floor comparison, optimal scan count recommendation, and a verdict (needs_more / reasonable / marginal / wasteful). e_min/e_max bounds are required: the verdict is only meaningful on the dynamic feature window (white-line / pre-edge), since the normalization-defined plateaus otherwise dominate the statistics and mask a feature that is still resolving.",
+      "when_to_use": "Comprehensive scan repetition efficiency report. Includes convergence, CV analysis, rate-based and counts-based Poisson floor comparison, optimal scan count recommendation, and a verdict (needs_more / reasonable / marginal / wasteful). e_min/e_max bounds are required: the verdict is only meaningful on the dynamic feature window (white-line / pre-edge), since the normalization-defined plateaus (post-edge ~1.0, pre-edge ~0) otherwise dominate the statistics and mask a feature that is still resolving.",
       "enabled": true,
       "sample_input": {
         "e_min": 0.0,
@@ -54,11 +54,13 @@
     {
       "name": "analyze_per_spot",
       "cli_path": "tool",
-      "description": "Run the full convergence/efficiency analysis SEPARATELY for each sample spot in the file (grouped by Sx/Sy/Sz), and report a between-spot vs within-spot heterogeneity F-statistic. F~1 = spots agree (safe to combine); F>>1 = spots disagree beyond shot noise (the combined average is a population mean, not a single chemistry \u2014 more reps won't fix it). Pass numeric e_min/e_max for the feature you care about.",
-      "when_to_use": "Run the full convergence/efficiency analysis SEPARATELY for each sample spot in the file (grouped by Sx/Sy/Sz), and report a between-spot vs within-spot heterogeneity F-statistic. F~1 = spots agree (safe to combine); F>>1 = spots disagree beyond shot noise (the combined average is a population mean, not a single chemistry \u2014 more reps won't fix it). Pass numeric e_min/e_max for the feature you care about.",
+      "description": "Run the full convergence/efficiency analysis SEPARATELY for each sample spot in the file (grouped by Sx/Sy/Sz), and report a between-spot vs within-spot heterogeneity F-statistic. F~1 = spots agree (safe to combine); F>>1 = spots disagree beyond shot noise (the combined average is a population mean, not a single chemistry \u2014 more reps won't fix it). Pass numeric e_min/e_max for the feature you care about (required).",
+      "when_to_use": "Run the full convergence/efficiency analysis SEPARATELY for each sample spot in the file (grouped by Sx/Sy/Sz), and report a between-spot vs within-spot heterogeneity F-statistic. F~1 = spots agree (safe to combine); F>>1 = spots disagree beyond shot noise (the combined average is a population mean, not a single chemistry \u2014 more reps won't fix it). Pass numeric e_min/e_max for the feature you care about (required).",
       "enabled": true,
       "sample_input": {
-        "file_name": "example"
+        "file_name": "example",
+        "e_min": 0.0,
+        "e_max": 0.0
       },
       "sample_output": "",
       "simulated": false,
@@ -118,6 +120,20 @@
       "comments": ""
     },
     {
+      "name": "extract_xas_descriptors",
+      "cli_path": "tool",
+      "description": "Deterministic numeric descriptors from the averaged, normalized XANES spectrum of a file: E0 (derivative-max AND half-step, with uncertainties), white-line fit (energy/height/area), Wilke-style pre-edge fit (centroid, integrated intensity, component count, fit quality), per-scan descriptor trends (drift/beam-damage test), glitch/saturation/self-absorption quality flags, and full provenance (normalization, baseline model, fit windows). For 3d K-edges a core-hole re-broadened pre-edge fit is included so conventional-XANES calibrations apply validly to HERFD data. Returns an annotated plot. This is the source of truth the interpret_* tools consume.",
+      "when_to_use": "Deterministic numeric descriptors from the averaged, normalized XANES spectrum of a file: E0 (derivative-max AND half-step, with uncertainties), white-line fit (energy/height/area), Wilke-style pre-edge fit (centroid, integrated intensity, component count, fit quality), per-scan descriptor trends (drift/beam-damage test), glitch/saturation/self-absorption quality flags, and full provenance (normalization, baseline model, fit windows). For 3d K-edges a core-hole re-broadened pre-edge fit is included so conventional-XANES calibrations apply validly to HERFD data. Returns an annotated plot. This is the source of truth the interpret_* tools consume.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "get_active_counter",
       "cli_path": "tool",
       "description": "Pick the 'meaningful' counter for an energy scan. Heuristic: ppboff if it exists, else the vortDT/vortDT2/vortDT3/vortDT4 with the highest max count, else I1.",
@@ -142,6 +158,18 @@
       "sample_output": "CNT000  EPICS_SC  0  0  1  0x001  sec  Seconds\nCNT001  EPICS_SC  0  1  1  0x002  I0   I0\nCNT002  EPICS_SC  0  2  1  0x000  I1   I1\n...",
       "simulated": false,
       "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "get_energy_calibration",
+      "cli_path": "tool",
+      "description": "Report the current session energy calibration: offset (eV), reference element/edge, age, and drift across all calibration records. Returns calibrated=false when none exists \u2014 interpretation tools then run in relative-only mode (no absolute oxidation states).",
+      "when_to_use": "Report the current session energy calibration: offset (eV), reference element/edge, age, and drift across all calibration records. Returns calibrated=false when none exists \u2014 interpretation tools then run in relative-only mode (no absolute oxidation states).",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
       "comments": ""
     },
     {
@@ -226,6 +254,34 @@
       "cli_path": "tool",
       "description": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful before convergence analysis when reps came from multiple spots \u2014 between-spot differences can pollute the combined cross-spot CV. Pair with analyze_per_spot.",
       "when_to_use": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful before convergence analysis when reps came from multiple spots \u2014 between-spot differences can pollute the combined cross-spot CV. Pair with analyze_per_spot.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "interpret_coordination_geometry",
+      "cli_path": "tool",
+      "description": "Hybrid coordination/site-symmetry verdict for 3d K-edges from the pre-edge intensity + component count on the Wilke 2001 centroid-vs-intensity envelope (weak pre-edge = centrosymmetric/octahedral; strong = non-centrosymmetric/tetrahedral; intermediate = 5-coordinate/distorted/mixed). Uses the core-hole re-broadened fit and area normalization; confidence is degraded under self-absorption risk, edge-step normalization, or non-Fe elements (envelope calibrated for Fe). For L3/M edges returns electronic-structure hints only. Same structured output contract as interpret_oxidation_state.",
+      "when_to_use": "Hybrid coordination/site-symmetry verdict for 3d K-edges from the pre-edge intensity + component count on the Wilke 2001 centroid-vs-intensity envelope (weak pre-edge = centrosymmetric/octahedral; strong = non-centrosymmetric/tetrahedral; intermediate = 5-coordinate/distorted/mixed). Uses the core-hole re-broadened fit and area normalization; confidence is degraded under self-absorption risk, edge-step normalization, or non-Fe elements (envelope calibrated for Fe). For L3/M edges returns electronic-structure hints only. Same structured output contract as interpret_oxidation_state.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "interpret_oxidation_state",
+      "cli_path": "tool",
+      "description": "Hybrid oxidation-state verdict from the file's averaged spectrum, on the family-appropriate basis: 3d K-edge -> pre-edge centroid (Wilke 2001, applied to the re-broadened spectrum) + calibrated edge shift; Ce L3 -> Ce(IV) final-state doublet deconvolution; U M4 -> peak-position/satellite method (Bes 2016); 5d L3 -> white-line trend. Returns {estimate, range, confidence, basis, descriptors_used, calibration_context, flags, caveats, narration} \u2014 all numbers from fits, none invented. REFUSES an absolute estimate when no session energy calibration exists (record_energy_calibration first); shape-based signatures (Ce doublet, U(VI) satellites) still work uncalibrated.",
+      "when_to_use": "Hybrid oxidation-state verdict from the file's averaged spectrum, on the family-appropriate basis: 3d K-edge -> pre-edge centroid (Wilke 2001, applied to the re-broadened spectrum) + calibrated edge shift; Ce L3 -> Ce(IV) final-state doublet deconvolution; U M4 -> peak-position/satellite method (Bes 2016); 5d L3 -> white-line trend. Returns {estimate, range, confidence, basis, descriptors_used, calibration_context, flags, caveats, narration} \u2014 all numbers from fits, none invented. REFUSES an absolute estimate when no session energy calibration exists (record_energy_calibration first); shape-based signatures (Ce doublet, U(VI) satellites) still work uncalibrated.",
       "enabled": true,
       "sample_input": {
         "file_name": "example"
@@ -502,6 +558,22 @@
       "comments": ""
     },
     {
+      "name": "record_energy_calibration",
+      "cli_path": "tool",
+      "description": "Register a session energy calibration from a MEASURED reference foil/compound scan. Computes the reference's E0 (fixed definition: Savitzky-Golay smoothed derivative maximum) and stores the offset to the assigned reference energy, with timestamp. Run this after calibrate_mono / at session start and after any mono/crystal change. Interpretation tools REFUSE absolute oxidation-state estimates until a calibration is recorded (mono offset/drift is eV-scale \u2014 the same size as the valence signal).",
+      "when_to_use": "Register a session energy calibration from a MEASURED reference foil/compound scan. Computes the reference's E0 (fixed definition: Savitzky-Golay smoothed derivative maximum) and stores the offset to the assigned reference energy, with timestamp. Run this after calibrate_mono / at session start and after any mono/crystal change. Interpretation tools REFUSE absolute oxidation-state estimates until a calibration is recorded (mono offset/drift is eV-scale \u2014 the same size as the valence signal).",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "element": "example",
+        "edge": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "save_plan",
       "cli_path": "tool",
       "description": "Persist a markdown plan into the project's logs/plans/ directory. Used at the start of multi-step tasks (typically beamline optimization) to record the step-by-step plan the agent intends to follow, so future sessions can review what was attempted and why. Filenames are validated against a strict allow-list and writes are confined to PLANS_DIR \u2014 no path traversal, no overwriting unless explicitly requested.",
@@ -528,6 +600,20 @@
       "sample_output": "[{\"log_file\": \"spec_log_20260504.log\", \"line_number\": 1423, \"line\": \"ERROR: motor limit hit on th at 45.002\"}, {\"log_file\": \"spec_log_20260504.log\", \"line_number\": 1425, \"line\": \"WARNING: motor limit check failed for th\"}]",
       "simulated": false,
       "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "summarize_sample_chemistry",
+      "cli_path": "tool",
+      "description": "Capstone chemical interpretation of a sample's averaged spectrum: runs extract_xas_descriptors + interpret_oxidation_state + interpret_coordination_geometry, adds a per-scan drift verdict (monotonic E0/white-line/pre-edge trends \u2014 the photoreduction/beam-damage signature a half-split misses), and returns one consolidated narration paragraph plus the annotated descriptor plot. Use after convergence analysis to record the chemistry of each sample; feed drift verdicts into skip/extend decisions.",
+      "when_to_use": "Capstone chemical interpretation of a sample's averaged spectrum: runs extract_xas_descriptors + interpret_oxidation_state + interpret_coordination_geometry, adds a per-scan drift verdict (monotonic E0/white-line/pre-edge trends \u2014 the photoreduction/beam-damage signature a half-split misses), and returns one consolidated narration paragraph plus the annotated descriptor plot. Use after convergence analysis to record the chemistry of each sample; feed drift verdicts into skip/extend decisions.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
       "comments": ""
     },
     {
@@ -668,10 +754,10 @@
       "comments": ""
     },
     {
-      "name": "record_completed_scan",
+      "name": "record_alignment_flux",
       "cli_path": "db",
-      "description": "Insert a CollectionScan row keyed by sample_id + scan_number after each successful run_xas (or sibling technique). Called by the Data Collection / Sample Surveyor agents between scans so the Planner's convergence analysis and the orchestrator's plan summary (recent_plots lookup) can see what's been collected. Auto-fills sample_id / scan_number / spec_datafile from the active context when omitted.",
-      "when_to_use": "Insert a CollectionScan row keyed by sample_id + scan_number after a successful run_xas (or sibling technique). Auto-fills `sample_id` from the active sample in plan_json, `scan_number` from get_scan_number, and `spec_datafile` from get_current_datafile when omitted. The scan row is what makes the run visible to the Planner's convergence analysis and to the orchestrator's plan summary (recent_plots lookup). Justification is required so the action is auditable.",
+      "description": "Persist the beamline-alignment flux deliverable to the active Experiment row: maximum recorded I0/I1 rate (SPEAR-normalized cps) from the best post-optimization get_counts, plus the SRS gain each detector was at. Called once by the bl-aligner at completion so the numbers survive the agent run and appear on the alignment summary report footer.",
+      "when_to_use": "Persist the beamline-alignment flux deliverable to the active experiment: maximum recorded I0/I1 rate (cps) from the best post-optimization get_counts, plus the gain setting each detector was at. Called once by the bl-aligner at completion; surfaced on the alignment summary report. Justification is required (write op).",
       "enabled": true,
       "sample_input": {
         "justification": "Testing tool via tool-tester"
@@ -682,17 +768,13 @@
       "comments": ""
     },
     {
-      "name": "record_alignment_flux",
+      "name": "record_completed_scan",
       "cli_path": "db",
-      "description": "Persist the beamline-alignment flux deliverable to the active experiment: maximum recorded I0/I1 rate (cps) from the best post-optimization get_counts, plus the gain setting each detector was at. Called once by the bl-aligner at completion; surfaced on the alignment summary report.",
-      "when_to_use": "At the end of beamline alignment, after the final get_counts: record max I0/I1 cps and the gain each was measured at so the numbers survive the agent run. Justification is required (write op).",
+      "description": "Insert a CollectionScan row keyed by sample_id + scan_number after each successful run_xas (or sibling technique). Called by the Data Collection / Sample Surveyor agents between scans so the Planner's convergence analysis and the orchestrator's plan summary (recent_plots lookup) can see what's been collected. Auto-fills sample_id / scan_number / spec_datafile from the active context when omitted.",
+      "when_to_use": "Insert a CollectionScan row keyed by sample_id + scan_number after a successful run_xas (or sibling technique). Auto-fills `sample_id` from the active sample in plan_json, `scan_number` from get_scan_number, and `spec_datafile` from get_current_datafile when omitted. The scan row is what makes the run visible to the Planner's convergence analysis and to the orchestrator's plan summary (recent_plots lookup). Justification is required so the action is auditable.",
       "enabled": true,
       "sample_input": {
-        "justification": "Testing tool via tool-tester",
-        "i0_max_cps": 32000.0,
-        "i0_gain": "50 nA/V",
-        "i1_max_cps": 81000.0,
-        "i1_gain": "1 mA/V"
+        "justification": "Testing tool via tool-tester"
       },
       "sample_output": "",
       "simulated": false,

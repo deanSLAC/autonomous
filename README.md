@@ -70,7 +70,7 @@ autonomous/
 └── tests/                     pytest suite
 ```
 
-The generic tool surface (CAT-0..7,9), SPEC file reading, log parsing, and
+The generic tool surface (CAT-0..7, 9, 10), SPEC file reading, log parsing, and
 analysis live in the shared editable dependency
 [`../beamtimehero_cli`](../beamtimehero_cli) (`pip install -e`).
 

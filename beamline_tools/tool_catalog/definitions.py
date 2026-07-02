@@ -1,6 +1,6 @@
 """Autonomy-only tool schemas (CAT-8 orchestration).
 
-The 82 upstream tool schemas (CAT-0..CAT-7, CAT-9) live in
+The ~101 upstream tool schemas (CAT-0..CAT-7, CAT-9, CAT-10) live in
 `beamtimehero_cli.tool_catalog.definitions.AUTONOMY_TOOL_DEFINITIONS`.
 This module only defines the 23 CAT-8 orchestration tools that are
 autonomy-specific (plan edits, intervention requests, sample/holder
@@ -162,8 +162,8 @@ AUTONOMY_TOOL_DEFINITIONS = [
 ]
 
 # Category map for the sidebar — autonomy-only categories.
-# (Upstream's CAT-0..CAT-7, CAT-9 lists are concatenated by the package
-# __init__.) Only CAT-8 is autonomy-specific.
+# (Upstream's CAT-0..CAT-7, CAT-9, CAT-10 lists are concatenated by the
+# package __init__.) Only CAT-8 is autonomy-specific.
 AUTONOMY_TOOL_CATEGORIES = [
     ("CAT-8 Orchestration", [
         "request_human_intervention", "post_status_update",

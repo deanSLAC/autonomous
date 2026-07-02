@@ -12,7 +12,7 @@ All three flavors use the same registration pattern (schema, handler, dispatch, 
 
 The tool system spans two packages:
 
-- **`beamtimehero_cli`** (upstream, editable install at `../beamtimehero_cli`) — generic, reusable tools: SPEC primitives, scan/log/data readers, motor moves (CAT-0..CAT-7, CAT-9). ~82 tools. Other projects consuming `beamtimehero_cli` benefit too.
+- **`beamtimehero_cli`** (upstream, editable install at `../beamtimehero_cli`) — generic, reusable tools: SPEC primitives, scan/log/data readers, motor moves, scientific interpretation (CAT-0..CAT-7, CAT-9, CAT-10). ~101 tools. Other projects consuming `beamtimehero_cli` benefit too.
 - **`beamline_tools`** (this repo, `beamline_tools/tool_catalog/`) — autonomy-only tools: CAT-8 orchestration (plan edits, intervention requests, sample budgets, anything that imports `orchestration.*`).
 
 At runtime, `beamline_tools/tool_catalog/__init__.py` concatenates upstream + autonomy definitions and dispatchers via `{**upstream, **autonomy}`. Autonomy keys win on collision.
