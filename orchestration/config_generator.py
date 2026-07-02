@@ -119,20 +119,24 @@ def validate_experiment(experiment_id: str) -> list[str]:
                 f"outside range [{energy_limits[0]}, {energy_limits[1]}]"
             )
 
-        if el.emission_energy_eV >= el.incident_energy_eV:
-            errors.append(f"{pfx}: emission energy must be less than incident energy")
+        # Emission energy + analyzer crystals only apply to XES. TFY (total
+        # fluorescence yield) uses no analyzer crystals, so it legitimately
+        # submits emission_energy=0, crystal_hkl="0 0 0", n_crystals=0.
+        if el.measurement_mode == "XES":
+            if el.emission_energy_eV >= el.incident_energy_eV:
+                errors.append(f"{pfx}: emission energy must be less than incident energy")
 
-        if not (emiss_limits[0] <= el.emission_energy_eV <= emiss_limits[1]):
-            errors.append(
-                f"{pfx}: emission energy {el.emission_energy_eV} eV "
-                f"outside range [{emiss_limits[0]}, {emiss_limits[1]}]"
-            )
+            if not (emiss_limits[0] <= el.emission_energy_eV <= emiss_limits[1]):
+                errors.append(
+                    f"{pfx}: emission energy {el.emission_energy_eV} eV "
+                    f"outside range [{emiss_limits[0]}, {emiss_limits[1]}]"
+                )
 
-        if not re.match(r'^\d+\s+\d+\s+\d+$', el.crystal_hkl.strip()):
-            errors.append(f"{pfx}: crystal hkl must be 3 integers (e.g. '6 4 2')")
+            if not re.match(r'^\d+\s+\d+\s+\d+$', el.crystal_hkl.strip()):
+                errors.append(f"{pfx}: crystal hkl must be 3 integers (e.g. '6 4 2')")
 
-        if el.n_crystals < 1 or el.n_crystals > 7:
-            errors.append(f"{pfx}: number of crystals must be 1-7")
+            if el.n_crystals < 1 or el.n_crystals > 7:
+                errors.append(f"{pfx}: number of crystals must be 1-7")
 
         from orchestration.plan_store.models import VORTEX_COUNTERS
         counter = el.vortex_counter or ""

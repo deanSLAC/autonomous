@@ -77,11 +77,22 @@ def test_emission_must_be_below_incident_for_xes():
 
 
 def test_tfy_skips_xes_checks():
+    # TFY uses no analyzer crystals, so n_crystals=0 (what the form sends)
+    # must validate — the XES floor of 1 does not apply.
     req = ExperimentIn.model_validate(_experiment(
         elements=[_element(measurement_mode="tfy", emission_energy=0,
-                           crystal_hkl="")],
+                           crystal_hkl="", n_crystals=0)],
     ))
     assert req.elements[0].measurement_mode == "TFY"
+    assert req.elements[0].n_crystals == 0
+
+
+def test_xes_rejects_zero_crystals():
+    with pytest.raises(ValidationError) as exc:
+        ExperimentIn.model_validate(_experiment(
+            elements=[_element(measurement_mode="XES", n_crystals=0)],
+        ))
+    assert any("crystals" in e for e in validation_error_strings(exc.value))
 
 
 def test_duplicate_elements_rejected():

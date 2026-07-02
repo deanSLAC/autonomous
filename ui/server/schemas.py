@@ -80,7 +80,9 @@ class ElementIn(BaseModel):
     crystal_type: int = 0
     crystal_hkl: str = "0 0 0"
     row_radius: int = 1000
-    n_crystals: int = Field(default=3, ge=1, le=7)
+    # TFY uses no analyzer crystals, so 0 is valid there; the XES floor of
+    # 1 is enforced in `_beamline_limits` below.
+    n_crystals: int = Field(default=3, ge=0, le=7)
     vortex_counter: str = "vortDT"
 
     @field_validator("symbol", "edge", "crystal_hkl", mode="before")
@@ -121,6 +123,8 @@ class ElementIn(BaseModel):
                 )
             if not re.match(r"^\d+\s+\d+\s+\d+$", self.crystal_hkl):
                 raise ValueError("crystal hkl must be 3 integers (e.g. '6 4 2')")
+            if not (1 <= self.n_crystals <= 7):
+                raise ValueError("number of crystals must be 1-7 for XES")
         return self
 
 
