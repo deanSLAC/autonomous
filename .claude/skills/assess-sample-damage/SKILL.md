@@ -26,8 +26,12 @@ Do **not** invoke before two consecutive scans on the same spot exist. The whole
 ## Inputs (tools to call)
 
 Scan/analysis tools live under the `spec-file` tree (`beamtimehero
-spec-file ...`); DB tools under `db`. Always work from saved scan data,
-never from in-memory plot impressions.
+spec-file ...`); DB tools under `db`. **Role-scoped agents insert their
+branch** — the surveyor and data-collection agents run these as
+`beamtimehero surveyor spec-file ...` / `beamtimehero collector spec-file
+...`; the planner uses the bare `beamtimehero spec-file ...` form shown
+below. Always work from saved scan data, never from in-memory plot
+impressions.
 
 1. `beamtimehero spec-file list-scans --limit 5` — find the two most recent scans on the active sample. Confirm the file name matches the active sample id (`open-data-file --name <sample_id>` is the convention).
 2. `beamtimehero spec-file read-scan --file-name <sample_id> --scan-number <N>` and `--scan-number <N+1>` — pull both scans' raw arrays.

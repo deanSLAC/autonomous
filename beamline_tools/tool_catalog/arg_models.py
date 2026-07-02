@@ -83,6 +83,20 @@ class RecordConvergenceStatsArgs(_ToolArgs):
     ))
 
 
+class RecordObservableTrendArgs(_ToolArgs):
+    sample_id: str
+    trend: dict = Field(description=(
+        "Observable drift verdict from summarize-sample-chemistry / "
+        "extract-xas-descriptors per-scan trends. Suggested keys: metric "
+        "(e0_ev|white_line_height|white_line_energy_ev|pre_edge_intensity), "
+        "theil_slope_per_scan, kendall_tau, p_value, direction "
+        "(stable|reduction|oxidation), drift_detected (bool), "
+        "n_scans_assessed, verdict, assessed_at. For operando/in-situ "
+        "experiments also pass values (the per-rep metric series) — the "
+        "chemistry trajectory is itself a deliverable there, not just noise."
+    ))
+
+
 class GetPlanArgs(_ToolArgs):
     pass
 
@@ -297,6 +311,7 @@ ARG_MODELS: dict[str, type[BaseModel]] = {
     "update_plan": UpdatePlanArgs,
     "record_sample_progress": RecordSampleProgressArgs,
     "record_convergence_stats": RecordConvergenceStatsArgs,
+    "record_observable_trend": RecordObservableTrendArgs,
     "get_plan": GetPlanArgs,
     "get_experiment_config": GetExperimentConfigArgs,
     "get_remaining_beamtime": GetRemainingBeamtimeArgs,

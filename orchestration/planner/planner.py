@@ -49,6 +49,8 @@ from orchestration.plan_store.models import (
 
 DEFAULT_SNR_TARGET = 8.0          # "efficiency_verdict >= marginal"
 DEFAULT_MIN_REPS_PER_SAMPLE = 3   # don't declare a sample done below this
+DEFAULT_MAX_DRIFT_EV = 0.15       # per-scan E0 drift above which a sample is
+                                  # treated as degrading, not converging
 
 
 class PlanValidationError(ValueError):
@@ -123,6 +125,7 @@ def build_initial_plan(experiment_id: str,
             "snr_estimate": None,
             "efficiency_verdict": None,
             "convergence_stats": None,
+            "observable_trend": None,
             "reps_completed": 0,
             "notes": [],
         })
@@ -161,6 +164,7 @@ def build_initial_plan(experiment_id: str,
         "thresholds": {
             "snr_target": DEFAULT_SNR_TARGET,
             "min_reps_per_sample": DEFAULT_MIN_REPS_PER_SAMPLE,
+            "max_drift_ev": DEFAULT_MAX_DRIFT_EV,
         },
         "budget": {
             "beamtime_total_hours": beamtime_hours or DEFAULT_BEAMTIME_HOURS,
@@ -282,7 +286,8 @@ class PlannerSnapshot:
             f"{self.samples_queued} queued ({self.samples_total} total)\n"
             + pacing_line
             + f"  thresholds: SNR target={self.plan.get('thresholds', {}).get('snr_target')}, "
-            f"min reps/sample={self.plan.get('thresholds', {}).get('min_reps_per_sample')}\n"
+            f"min reps/sample={self.plan.get('thresholds', {}).get('min_reps_per_sample')}, "
+            f"max drift={self.plan.get('thresholds', {}).get('max_drift_ev')} eV/scan\n"
             + phase_note
             + "  plan updates should go through the `update_plan` tool "
             "so the user can see the rationale."
@@ -504,6 +509,22 @@ def record_convergence_stats(
         for s in queue:
             if s.get("sample_id") == sample_id:
                 s["convergence_stats"] = stats
+                break
+    return _mutate_plan(experiment_id, apply)
+
+
+def record_observable_trend(
+    experiment_id: str,
+    sample_id: str,
+    trend: dict,
+) -> dict:
+    """Persist the per-scan drift verdict of the scientific observable onto a
+    sample entry — the "is the observable degrading?" signal the planner reads
+    alongside convergence when deciding to advance / trim / not-extend."""
+    def apply(body: dict, queue: list[dict]) -> None:
+        for s in queue:
+            if s.get("sample_id") == sample_id:
+                s["observable_trend"] = trend
                 break
     return _mutate_plan(experiment_id, apply)
 
@@ -820,6 +841,7 @@ def rebuild_plan_preserving_progress(
                 "snr_estimate": s.get("snr_estimate"),
                 "efficiency_verdict": s.get("efficiency_verdict"),
                 "convergence_stats": s.get("convergence_stats"),
+                "observable_trend": s.get("observable_trend"),
                 "reps_completed": s.get("reps_completed"),
                 "notes": s.get("notes", []),
                 "modes": s.get("modes"),
@@ -842,7 +864,7 @@ def rebuild_plan_preserving_progress(
             prior = progress.get(sid)
             if prior:
                 for k in ("status", "snr_estimate", "efficiency_verdict",
-                          "convergence_stats", "reps_completed"):
+                          "convergence_stats", "observable_trend", "reps_completed"):
                     if prior.get(k) is not None:
                         s[k] = prior[k]
                 if prior.get("notes"):

@@ -159,6 +159,7 @@ def _build_summary(experiment_id: str) -> Optional[dict]:
                 "planned_n_scans": int(n_scans),
                 "scan_duration_s": float(count_time),
                 "planned_time_s": planned_time_s,
+                "observable_trend": plan_entry.get("observable_trend"),
                 "recent_plots": _find_recent_plots_for_sample(
                     s.id, s.sample_name, max_n=2,
                 ),
@@ -309,7 +310,25 @@ def _format_slack_text(summary: dict) -> str:
                     float(r.get("planned_time_s") or 0.0),
                 )
             )
+            drift = _format_drift(r.get("observable_trend"))
+            if drift:
+                lines.append(drift)
     return "\n".join(lines)
+
+
+def _format_drift(trend: Optional[dict]) -> Optional[str]:
+    """One-line degradation alert for a sample, or None when stable/absent.
+
+    Surfaces the observable-drift verdict beside the plan so staff see a
+    degrading catalyst / beam-damaged sample without opening the dashboard.
+    """
+    if not isinstance(trend, dict) or not trend.get("drift_detected"):
+        return None
+    metric = trend.get("metric") or "observable"
+    direction = trend.get("direction") or ""
+    slope = trend.get("theil_slope_per_scan")
+    slope_str = f" {slope:+.3g}/scan" if isinstance(slope, (int, float)) else ""
+    return f"    ⚠ drift: {metric}{slope_str} {direction}".rstrip()
 
 
 def _post_to_slack(summary: dict) -> None:

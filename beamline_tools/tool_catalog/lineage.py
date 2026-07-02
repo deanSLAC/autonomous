@@ -122,6 +122,19 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         "source_detail": "Writes convergence_stats onto a sample entry in the plan JSON.",
         "depends_on": ["analyze_efficiency"],
     },
+    "record_observable_trend": {
+        "long_description": (
+            "Store the per-sample drift verdict of the scientific observable "
+            "(monotonic E0 / white-line / pre-edge trend across reps) so the "
+            "planner can distinguish degradation from statistical convergence."
+        ),
+        "python_func": "orchestrator.planner.record_observable_trend(experiment_id, sample_id, trend)",
+        "spec_command": None,
+        "output": "JSON: {ok}",
+        "source": "autonomy_db",
+        "source_detail": "Writes observable_trend onto a sample entry in the plan JSON.",
+        "depends_on": ["summarize_sample_chemistry"],
+    },
     "record_sample_progress": {
         "long_description": (
             "Update per-sample status (queued/in_progress/done/skipped/"

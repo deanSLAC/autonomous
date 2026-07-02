@@ -171,7 +171,7 @@ For each queued sample, in plan order:
         of 2 for sample <id>"`.
       - Second scan: same args, justification `"survey scan 2 of 2
         for sample <id>"`.
-      - **Per base contract §5, you must call `tool plot-scan` and
+      - **Per base contract §5, you must call `surveyor spec-file plot-scan` and
         write a one-sentence description (white-line, edge step,
         pre-edge, anomalies) before any decision-making action.**
         Do not chain a second `run_xas` or invoke
@@ -190,7 +190,7 @@ For each queued sample, in plan order:
          scan visible to the Planner's convergence analysis and the
          orchestrator's plan summary (recent_plots).** Skip it and
          the scan effectively doesn't exist for those views.
-      4. `beamtimehero surveyor tool plot-scan --file-name <datafile>
+      4. `beamtimehero surveyor spec-file plot-scan --file-name <datafile>
          --scan-number N` — required before the next decision per
          §5. Saved with scan_number embedded so plan-summary can
          find it. Read the PNG and write your one-sentence

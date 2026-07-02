@@ -1,84 +1,10 @@
 {
   "_meta": {
-    "generated_at": "2026-07-01T22:25:45.837669+00:00",
-    "total_tools": 126,
+    "generated_at": "2026-07-02T08:42:52.460877+00:00",
+    "total_tools": 127,
     "generator": "scripts/generate_tools_config.py"
   },
   "tools": [
-    {
-      "name": "analyze_convergence",
-      "cli_path": "tool",
-      "description": "Answer 'do I have enough scans?' via cosine similarity of each scan to the running mean, plus cumulative convergence and standard error.",
-      "when_to_use": "Check if repeated scans have converged using cosine similarity metrics. Reports per-scan similarity to the mean, cumulative convergence, and standard error. Cosine similarity is amplitude-dominated; the post-edge plateau (defined to be ~1.0 by edge-step normalization) dominates the metric. You must pass e_min/e_max to focus on the dynamic part of the spectrum.",
-      "enabled": true,
-      "sample_input": {
-        "e_min": 0.0,
-        "e_max": 0.0
-      },
-      "sample_output": "{\"per_scan_similarity\": [0.9812, 0.9934, 0.9971, 0.9985], \"cumulative\": [0.9812, 0.9873, 0.9906, 0.9926], \"std_error\": 0.0038, \"verdict\": \"converged\", \"file_name\": \"Fe_HERFD_0001\", \"active_counter\": \"vortDT\", \"scan_numbers\": [1, 2, 3, 4]}",
-      "simulated": false,
-      "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "analyze_efficiency",
-      "cli_path": "tool",
-      "description": "Comprehensive scan-repetition efficiency report: convergence, coefficient of variation, comparison to the Poisson statistical limit, and a terminal verdict (needs_more / reasonable / marginal / wasteful).",
-      "when_to_use": "Comprehensive scan repetition efficiency report. Includes convergence, CV analysis, rate-based and counts-based Poisson floor comparison, optimal scan count recommendation, and a verdict (needs_more / reasonable / marginal / wasteful). e_min/e_max bounds are required: the verdict is only meaningful on the dynamic feature window (white-line / pre-edge), since the normalization-defined plateaus (post-edge ~1.0, pre-edge ~0) otherwise dominate the statistics and mask a feature that is still resolving.",
-      "enabled": true,
-      "sample_input": {
-        "e_min": 0.0,
-        "e_max": 0.0
-      },
-      "sample_output": "{\"convergence\": 0.9926, \"cv\": 0.041, \"poisson_ratio\": 1.12, \"recommended_n\": 6, \"verdict\": \"reasonable\", \"file_name\": \"Cu_XAS_0002\", \"active_counter\": \"vortDT\", \"scan_numbers\": [1, 2, 3, 4, 5]}",
-      "simulated": false,
-      "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "analyze_feature_evolution",
-      "cli_path": "tool",
-      "description": "Per-rep scalar trace + convergence verdict for a feature defined by an energy window and a statistic. The agent identifies a feature on the spectrum (white-line peak, pre-edge shoulder, dip between oscillations, etc.) and passes the numeric eV bounds and the statistic that captures it. Returns running mean, running SEM, and a verdict (converged / marginal / needs_more) for that scalar. This is the publication-quality test: the feature SEM should be a small fraction of its mean and the running mean should be flat rep-over-rep.",
-      "when_to_use": "Per-rep scalar trace + convergence verdict for a feature defined by an energy window and a statistic. The agent identifies a feature on the spectrum (white-line peak, pre-edge shoulder, dip between oscillations, etc.) and passes the numeric eV bounds and the statistic that captures it. Returns running mean, running SEM, and a verdict (converged / marginal / needs_more) for that scalar. This is the publication-quality test: the feature SEM should be a small fraction of its mean and the running mean should be flat rep-over-rep.",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example",
-        "e_min": 0.0,
-        "e_max": 0.0
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "analyze_per_spot",
-      "cli_path": "tool",
-      "description": "Run the full convergence/efficiency analysis SEPARATELY for each sample spot in the file (grouped by Sx/Sy/Sz), and report a between-spot vs within-spot heterogeneity F-statistic. F~1 = spots agree (safe to combine); F>>1 = spots disagree beyond shot noise (the combined average is a population mean, not a single chemistry \u2014 more reps won't fix it). Pass numeric e_min/e_max for the feature you care about (required).",
-      "when_to_use": "Run the full convergence/efficiency analysis SEPARATELY for each sample spot in the file (grouped by Sx/Sy/Sz), and report a between-spot vs within-spot heterogeneity F-statistic. F~1 = spots agree (safe to combine); F>>1 = spots disagree beyond shot noise (the combined average is a population mean, not a single chemistry \u2014 more reps won't fix it). Pass numeric e_min/e_max for the feature you care about (required).",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example",
-        "e_min": 0.0,
-        "e_max": 0.0
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "average_scans",
-      "cli_path": "tool",
-      "description": "Edge-step normalize every energy scan in a file, then average them. Returns the mean, the point-wise standard deviation, and the number of scans averaged.",
-      "when_to_use": "Average all energy scans in a SPEC file after edge-step normalization. Returns mean and standard deviation across scans. If file_name is omitted, uses the most recent file with >1 energy scan. Optionally crops the average to a numeric energy window [e_min, e_max] in eV, and supports SNR-aware inverse-variance weighting across reps.",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "{\"x\": [7090.0, 7095.0, \"...\", 7200.0], \"mean\": [0.01, 0.02, \"...\", 1.02], \"std\": [0.003, 0.004, \"...\", 0.008], \"n_scans\": 5, \"file_name\": \"Fe_HERFD_0001\"}",
-      "simulated": false,
-      "working_live": true,
-      "comments": ""
-    },
     {
       "name": "capture_sample_image",
       "cli_path": "tool",
@@ -106,49 +32,6 @@
       "comments": ""
     },
     {
-      "name": "execute_readonly_sql",
-      "cli_path": "tool",
-      "description": "Run a read-only SELECT against the S3DF metadata Postgres. Rejects write keywords; truncates at max_rows.",
-      "when_to_use": "Run a read-only SELECT against the S3DF metadata Postgres. Rejects write keywords; truncates at max_rows.",
-      "enabled": true,
-      "sample_input": {
-        "query": "example"
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "extract_xas_descriptors",
-      "cli_path": "tool",
-      "description": "Deterministic numeric descriptors from the averaged, normalized XANES spectrum of a file: E0 (derivative-max AND half-step, with uncertainties), white-line fit (energy/height/area), Wilke-style pre-edge fit (centroid, integrated intensity, component count, fit quality), per-scan descriptor trends (drift/beam-damage test), glitch/saturation/self-absorption quality flags, and full provenance (normalization, baseline model, fit windows). For 3d K-edges a core-hole re-broadened pre-edge fit is included so conventional-XANES calibrations apply validly to HERFD data. Returns an annotated plot. This is the source of truth the interpret_* tools consume.",
-      "when_to_use": "Deterministic numeric descriptors from the averaged, normalized XANES spectrum of a file: E0 (derivative-max AND half-step, with uncertainties), white-line fit (energy/height/area), Wilke-style pre-edge fit (centroid, integrated intensity, component count, fit quality), per-scan descriptor trends (drift/beam-damage test), glitch/saturation/self-absorption quality flags, and full provenance (normalization, baseline model, fit windows). For 3d K-edges a core-hole re-broadened pre-edge fit is included so conventional-XANES calibrations apply validly to HERFD data. Returns an annotated plot. This is the source of truth the interpret_* tools consume.",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example"
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "get_active_counter",
-      "cli_path": "tool",
-      "description": "Pick the 'meaningful' counter for an energy scan. Heuristic: ppboff if it exists, else the vortDT/vortDT2/vortDT3/vortDT4 with the highest max count, else I1.",
-      "when_to_use": "Identify the active fluorescence/absorption counter for a scan stored in S3DF.",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example",
-        "scan_number": 1
-      },
-      "sample_output": "{\"counter\": \"vortDT\", \"reason\": \"vortDT has highest max counts (48523)\"}",
-      "simulated": false,
-      "working_live": true,
-      "comments": ""
-    },
-    {
       "name": "get_counter_config",
       "cli_path": "tool",
       "description": "Return SPEC's counter table: per-counter controller, unit, channel, scale, flags, and mnemonic. The counter index (CNTnnn) maps to the S[] array.",
@@ -158,18 +41,6 @@
       "sample_output": "CNT000  EPICS_SC  0  0  1  0x001  sec  Seconds\nCNT001  EPICS_SC  0  1  1  0x002  I0   I0\nCNT002  EPICS_SC  0  2  1  0x000  I1   I1\n...",
       "simulated": false,
       "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "get_energy_calibration",
-      "cli_path": "tool",
-      "description": "Report the current session energy calibration: offset (eV), reference element/edge, age, and drift across all calibration records. Returns calibrated=false when none exists \u2014 interpretation tools then run in relative-only mode (no absolute oxidation states).",
-      "when_to_use": "Report the current session energy calibration: offset (eV), reference element/edge, age, and drift across all calibration records. Returns calibrated=false when none exists \u2014 interpretation tools then run in relative-only mode (no absolute oxidation states).",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
       "comments": ""
     },
     {
@@ -192,18 +63,6 @@
       "enabled": true,
       "sample_input": {},
       "sample_output": "{\"log_file\": \"spec_log_20260504.log\", \"lines\": [\"1234> Fe_xas 1.0 3\", \"Starting scan 42...\", \"Scan 42 complete, 301 points.\"]}",
-      "simulated": false,
-      "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "get_latest_scan",
-      "cli_path": "tool",
-      "description": "Return the most recently modified SPEC scan on disk, along with its metadata (file, scan number, command, counters) and a small numeric preview of the scan's points.",
-      "when_to_use": "Return metadata for the most-recently inserted scan in the S3DF Postgres metadata table.",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 5, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"Seconds\", \"I0\", \"I1\", \"vortDT\"], \"data_preview\": \"   energy  Seconds       I0  ...\\n0  7090.0      1.0  125000  ...\"}",
       "simulated": false,
       "working_live": true,
       "comments": ""
@@ -235,75 +94,6 @@
       "comments": ""
     },
     {
-      "name": "get_scan_deadtime",
-      "cli_path": "tool",
-      "description": "Compute how much of a scan was acquisition vs overhead (motor moves, settling, comms). Useful when optimizing count time or diagnosing slow scans.",
-      "when_to_use": "Get dead-time stats for a scan (wall-clock vs acquisition seconds and percentage).",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example",
-        "scan_number": 1
-      },
-      "sample_output": "{\"wall_s\": 420.5, \"acq_s\": 301.0, \"dead_s\": 119.5, \"dead_pct\": 28.4}",
-      "simulated": false,
-      "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "group_scans_by_spot",
-      "cli_path": "tool",
-      "description": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful before convergence analysis when reps came from multiple spots \u2014 between-spot differences can pollute the combined cross-spot CV. Pair with analyze_per_spot.",
-      "when_to_use": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful before convergence analysis when reps came from multiple spots \u2014 between-spot differences can pollute the combined cross-spot CV. Pair with analyze_per_spot.",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example"
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "interpret_coordination_geometry",
-      "cli_path": "tool",
-      "description": "Hybrid coordination/site-symmetry verdict for 3d K-edges from the pre-edge intensity + component count on the Wilke 2001 centroid-vs-intensity envelope (weak pre-edge = centrosymmetric/octahedral; strong = non-centrosymmetric/tetrahedral; intermediate = 5-coordinate/distorted/mixed). Uses the core-hole re-broadened fit and area normalization; confidence is degraded under self-absorption risk, edge-step normalization, or non-Fe elements (envelope calibrated for Fe). For L3/M edges returns electronic-structure hints only. Same structured output contract as interpret_oxidation_state.",
-      "when_to_use": "Hybrid coordination/site-symmetry verdict for 3d K-edges from the pre-edge intensity + component count on the Wilke 2001 centroid-vs-intensity envelope (weak pre-edge = centrosymmetric/octahedral; strong = non-centrosymmetric/tetrahedral; intermediate = 5-coordinate/distorted/mixed). Uses the core-hole re-broadened fit and area normalization; confidence is degraded under self-absorption risk, edge-step normalization, or non-Fe elements (envelope calibrated for Fe). For L3/M edges returns electronic-structure hints only. Same structured output contract as interpret_oxidation_state.",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example"
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "interpret_oxidation_state",
-      "cli_path": "tool",
-      "description": "Hybrid oxidation-state verdict from the file's averaged spectrum, on the family-appropriate basis: 3d K-edge -> pre-edge centroid (Wilke 2001, applied to the re-broadened spectrum) + calibrated edge shift; Ce L3 -> Ce(IV) final-state doublet deconvolution; U M4 -> peak-position/satellite method (Bes 2016); 5d L3 -> white-line trend. Returns {estimate, range, confidence, basis, descriptors_used, calibration_context, flags, caveats, narration} \u2014 all numbers from fits, none invented. REFUSES an absolute estimate when no session energy calibration exists (record_energy_calibration first); shape-based signatures (Ce doublet, U(VI) satellites) still work uncalibrated.",
-      "when_to_use": "Hybrid oxidation-state verdict from the file's averaged spectrum, on the family-appropriate basis: 3d K-edge -> pre-edge centroid (Wilke 2001, applied to the re-broadened spectrum) + calibrated edge shift; Ce L3 -> Ce(IV) final-state doublet deconvolution; U M4 -> peak-position/satellite method (Bes 2016); 5d L3 -> white-line trend. Returns {estimate, range, confidence, basis, descriptors_used, calibration_context, flags, caveats, narration} \u2014 all numbers from fits, none invented. REFUSES an absolute estimate when no session energy calibration exists (record_energy_calibration first); shape-based signatures (Ce doublet, U(VI) satellites) still work uncalibrated.",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example"
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "list_channels",
-      "cli_path": "tool",
-      "description": "List public Slack channels the bot belongs to.",
-      "when_to_use": "List public Slack channels the bot belongs to.",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
       "name": "list_files",
       "cli_path": "tool",
       "description": "List non-SPEC files (macros, configs, notes) in the scan directory so the agent can decide what to read or edit.",
@@ -328,18 +118,6 @@
       "comments": ""
     },
     {
-      "name": "list_scans",
-      "cli_path": "tool",
-      "description": "Enumerate recent SPEC scans with metadata so the agent can pick a file_name/scan_number pair for follow-up tools.",
-      "when_to_use": "List processed scans from the S3DF Postgres metadata table, most-recent first.",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "[{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 5, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"I0\", \"I1\", \"vortDT\"], \"npoints\": 301, \"timestamp\": \"2026-05-04T10:45:00\"}]",
-      "simulated": false,
-      "working_live": true,
-      "comments": ""
-    },
-    {
       "name": "log_status_assessment",
       "cli_path": "tool",
       "description": "Append the planner's STATUS ASSESSMENT block to a per-experiment JSONL file under logs/. Canonical record of the per-spawn assessment \u2014 separate from Slack.",
@@ -349,35 +127,6 @@
         "text": "example"
       },
       "sample_output": "{\"logged\": true, \"path\": \"logs/status_assessments_EXP_2026-05-11.jsonl\", \"spawn\": 3}",
-      "simulated": false,
-      "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "normalize_scan",
-      "cli_path": "tool",
-      "description": "Edge-step normalize an energy scan: divide the signal by I0 (or any chosen reference), then linearly rescale so the pre-edge reads 0 and the post-edge reads 1.",
-      "when_to_use": "Edge-step normalize a scan: divide signal by I0, then scale so pre-edge is 0 and post-edge is 1. Returns the normalized data array.",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example",
-        "scan_number": 1
-      },
-      "sample_output": "{\"x\": [7090.0, 7095.0, \"...\", 7200.0], \"y\": [0.002, 0.005, \"...\", 1.01], \"counter\": \"vortDT\", \"normalize_by\": \"I0\"}",
-      "simulated": false,
-      "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "plot_averaged_scans",
-      "cli_path": "tool",
-      "description": "Edge-step normalize every scan in each given SPEC file, average, and overlay all samples on one plot with std-dev shading. The go-to cross-sample comparison plot.",
-      "when_to_use": "Plot averaged energy scans for multiple samples overlaid on one plot. Each sample is edge-step normalized and averaged, then plotted with standard deviation shading.",
-      "enabled": true,
-      "sample_input": {
-        "file_names": []
-      },
-      "sample_output": "Overlay plot of 2 samples (Fe_HERFD_0001: 5 scans averaged, Fe_HERFD_0002: 3 scans averaged). [PNG image returned]",
       "simulated": false,
       "working_live": true,
       "comments": ""
@@ -398,94 +147,6 @@
       "comments": ""
     },
     {
-      "name": "plot_feature_evolution",
-      "cli_path": "tool",
-      "description": "Plot a single per-rep scalar (the chosen statistic over [e_min, e_max]) versus rep number, with running mean and \u00b1SEM band. The visual companion to analyze_feature_evolution. Use to confirm a feature has flatlined; a still-trending trace means the feature is not yet converged.",
-      "when_to_use": "Plot a single per-rep scalar (the chosen statistic over [e_min, e_max]) versus rep number, with running mean and \u00b1SEM band. The visual companion to analyze_feature_evolution. Use to confirm a feature has flatlined; a still-trending trace means the feature is not yet converged.",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example",
-        "e_min": 0.0,
-        "e_max": 0.0
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "plot_first_half_vs_second_half",
-      "cli_path": "tool",
-      "description": "Compare the average of the first half of reps to the second half, with SEM bands. Reports max |\u0394|/SEM. <2\u03c3: halves agree, sample is stationary. >3\u03c3 at any feature: the halves disagree, more reps may not help (drift, damage, or heterogeneity). This is the strongest single-glance test for whether the sample is publication-clean.",
-      "when_to_use": "Compare the average of the first half of reps to the second half, with SEM bands. Reports max |\u0394|/SEM. <2\u03c3: halves agree, sample is stationary. >3\u03c3 at any feature: the halves disagree, more reps may not help (drift, damage, or heterogeneity). This is the strongest single-glance test for whether the sample is publication-clean.",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example"
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "plot_running_average",
-      "cli_path": "tool",
-      "description": "Plot the running average across reps as it evolves (one line per cumulative subset, color-progressed by rep #), with the final \u00b1SEM band. Shows whether the running mean is still changing rep-over-rep at the feature of interest.",
-      "when_to_use": "Plot the running average across reps as it evolves (one line per cumulative subset, color-progressed by rep #), with the final \u00b1SEM band. Shows whether the running mean is still changing rep-over-rep at the feature of interest.",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example"
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "plot_scan",
-      "cli_path": "tool",
-      "description": "Render one scan as a PNG and return it to the user. Auto-detects the active counter; accepts an optional normalize_by counter.",
-      "when_to_use": "Plot one scan from the S3DF pickle store. Auto-detects the active counter when none is given. The plot is shown directly to the user.",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example",
-        "scan_number": 1
-      },
-      "sample_output": "Fe_HERFD_0001 scan #3: ascan energy 7090 7200 301 1.0 (counter: vortDT). [PNG image returned]",
-      "simulated": false,
-      "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "plot_scan_stack",
-      "cli_path": "tool",
-      "description": "Overlay all reps of one sample on a single axis, color-progressed by rep order. Use to visually judge whether reps scatter symmetrically around a stable mean (converged), are still drifting in one direction (more reps needed or evolving sample), or are being burned away (damage). Pass numeric e_min/e_max to crop to the feature you care about.",
-      "when_to_use": "Overlay all reps of one sample on a single axis, color-progressed by rep order. Use to visually judge whether reps scatter symmetrically around a stable mean (converged), are still drifting in one direction (more reps needed or evolving sample), or are being burned away (damage). Pass numeric e_min/e_max to crop to the feature you care about.",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example"
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "post_slack_message",
-      "cli_path": "tool",
-      "description": "Post a message to a Slack channel or thread reply.",
-      "when_to_use": "Post a message to a Slack channel or thread reply.",
-      "enabled": true,
-      "sample_input": {
-        "channel_id": "example",
-        "text": "example"
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
       "name": "post_status_update",
       "cli_path": "tool",
       "description": "Post a high-level progress message to Slack and the dashboard feed. Informational \u2014 does not block or gate anything.",
@@ -500,20 +161,6 @@
       "comments": ""
     },
     {
-      "name": "read_channel_messages",
-      "cli_path": "tool",
-      "description": "Read recent messages from a Slack channel.",
-      "when_to_use": "Read recent messages from a Slack channel.",
-      "enabled": true,
-      "sample_input": {
-        "channel_id": "example"
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
       "name": "read_file",
       "cli_path": "tool",
       "description": "Read a text file from the scan directory \u2014 typically a .mac macro the agent wants to inspect or edit.",
@@ -525,52 +172,6 @@
       "sample_output": "# run01.mac - Fe HERFD collection\ndef run01 '\n  newfile Fe_HERFD_0001\n  Fe_xas 1.0 5\n'",
       "simulated": false,
       "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "read_scan",
-      "cli_path": "tool",
-      "description": "Return the full data array of a single scan, addressed by file_name + scan_number. Use list_scans first to discover the valid identifiers.",
-      "when_to_use": "Read a processed scan's metadata + DataFrame from the converter's pickle store. Use s3df list-scans to discover file_name and scan_number.",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example",
-        "scan_number": 1
-      },
-      "sample_output": "{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 3, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"Seconds\", \"I0\", \"I1\", \"vortDT\"], \"data\": \"   energy  Seconds       I0      I1   vortDT\\n0  7090.0      1.0  125340    3201    412\\n1  7091.0      1.0  125122    3198    418\\n...\"}",
-      "simulated": false,
-      "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "read_thread_replies",
-      "cli_path": "tool",
-      "description": "Read all replies in a Slack thread (parent + children).",
-      "when_to_use": "Read all replies in a Slack thread (parent + children).",
-      "enabled": true,
-      "sample_input": {
-        "channel_id": "example",
-        "thread_ts": "example"
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
-      "comments": ""
-    },
-    {
-      "name": "record_energy_calibration",
-      "cli_path": "tool",
-      "description": "Register a session energy calibration from a MEASURED reference foil/compound scan. Computes the reference's E0 (fixed definition: Savitzky-Golay smoothed derivative maximum) and stores the offset to the assigned reference energy, with timestamp. Run this after calibrate_mono / at session start and after any mono/crystal change. Interpretation tools REFUSE absolute oxidation-state estimates until a calibration is recorded (mono offset/drift is eV-scale \u2014 the same size as the valence signal).",
-      "when_to_use": "Register a session energy calibration from a MEASURED reference foil/compound scan. Computes the reference's E0 (fixed definition: Savitzky-Golay smoothed derivative maximum) and stores the offset to the assigned reference energy, with timestamp. Run this after calibrate_mono / at session start and after any mono/crystal change. Interpretation tools REFUSE absolute oxidation-state estimates until a calibration is recorded (mono offset/drift is eV-scale \u2014 the same size as the valence signal).",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example",
-        "element": "example",
-        "edge": "example"
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
       "comments": ""
     },
     {
@@ -600,20 +201,6 @@
       "sample_output": "[{\"log_file\": \"spec_log_20260504.log\", \"line_number\": 1423, \"line\": \"ERROR: motor limit hit on th at 45.002\"}, {\"log_file\": \"spec_log_20260504.log\", \"line_number\": 1425, \"line\": \"WARNING: motor limit check failed for th\"}]",
       "simulated": false,
       "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "summarize_sample_chemistry",
-      "cli_path": "tool",
-      "description": "Capstone chemical interpretation of a sample's averaged spectrum: runs extract_xas_descriptors + interpret_oxidation_state + interpret_coordination_geometry, adds a per-scan drift verdict (monotonic E0/white-line/pre-edge trends \u2014 the photoreduction/beam-damage signature a half-split misses), and returns one consolidated narration paragraph plus the annotated descriptor plot. Use after convergence analysis to record the chemistry of each sample; feed drift verdicts into skip/extend decisions.",
-      "when_to_use": "Capstone chemical interpretation of a sample's averaged spectrum: runs extract_xas_descriptors + interpret_oxidation_state + interpret_coordination_geometry, adds a per-scan drift verdict (monotonic E0/white-line/pre-edge trends \u2014 the photoreduction/beam-damage signature a half-split misses), and returns one consolidated narration paragraph plus the annotated descriptor plot. Use after convergence analysis to record the chemistry of each sample; feed drift verdicts into skip/extend decisions.",
-      "enabled": true,
-      "sample_input": {
-        "file_name": "example"
-      },
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
       "comments": ""
     },
     {
@@ -792,6 +379,21 @@
         "stats": {}
       },
       "sample_output": "{\"ok\": true}",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "record_observable_trend",
+      "cli_path": "db",
+      "description": "Store the per-sample drift verdict of the scientific observable (monotonic E0 / white-line / pre-edge trend across reps) so the planner can distinguish degradation from statistical convergence.",
+      "when_to_use": "Store the per-sample drift verdict of the scientific observable (oxidation-state / white-line / pre-edge trend across the accumulating scan stack, from summarize-sample-chemistry). The planner reads it to tell degradation (beam damage / catalyst deactivation) apart from statistical convergence when deciding to advance, trim, or not-extend a sample.",
+      "enabled": true,
+      "sample_input": {
+        "sample_id": "example",
+        "trend": {}
+      },
+      "sample_output": "",
       "simulated": false,
       "working_live": false,
       "comments": ""
@@ -1053,6 +655,349 @@
       "sample_output": "{\"ok\": true, \"kind\": \"read\", \"result\": {\"value\": 12199.998, \"raw\": \"\\n            energy\\n            energy\\nUser\\n High    25000.000\\n Current 12199.998\\n Low     5100.000\\nDial\\n ...\"}}",
       "simulated": true,
       "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "analyze_convergence",
+      "cli_path": "spec-file",
+      "description": "Answer 'do I have enough scans?' via cosine similarity of each scan to the running mean, plus cumulative convergence and standard error.",
+      "when_to_use": "Check if repeated scans have converged using cosine similarity metrics. Reports per-scan similarity to the mean, cumulative convergence, and standard error. Cosine similarity is amplitude-dominated; the post-edge plateau (defined to be ~1.0 by edge-step normalization) dominates the metric. You must pass e_min/e_max to focus on the dynamic part of the spectrum.",
+      "enabled": true,
+      "sample_input": {
+        "e_min": 0.0,
+        "e_max": 0.0
+      },
+      "sample_output": "{\"per_scan_similarity\": [0.9812, 0.9934, 0.9971, 0.9985], \"cumulative\": [0.9812, 0.9873, 0.9906, 0.9926], \"std_error\": 0.0038, \"verdict\": \"converged\", \"file_name\": \"Fe_HERFD_0001\", \"active_counter\": \"vortDT\", \"scan_numbers\": [1, 2, 3, 4]}",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "analyze_efficiency",
+      "cli_path": "spec-file",
+      "description": "Comprehensive scan-repetition efficiency report: convergence, coefficient of variation, comparison to the Poisson statistical limit, and a terminal verdict (needs_more / reasonable / marginal / wasteful).",
+      "when_to_use": "Comprehensive scan repetition efficiency report. Includes convergence, CV analysis, rate-based and counts-based Poisson floor comparison, optimal scan count recommendation, and a verdict (needs_more / reasonable / marginal / wasteful). e_min/e_max bounds are required: the verdict is only meaningful on the dynamic feature window (white-line / pre-edge), since the normalization-defined plateaus (post-edge ~1.0, pre-edge ~0) otherwise dominate the statistics and mask a feature that is still resolving.",
+      "enabled": true,
+      "sample_input": {
+        "e_min": 0.0,
+        "e_max": 0.0
+      },
+      "sample_output": "{\"convergence\": 0.9926, \"cv\": 0.041, \"poisson_ratio\": 1.12, \"recommended_n\": 6, \"verdict\": \"reasonable\", \"file_name\": \"Cu_XAS_0002\", \"active_counter\": \"vortDT\", \"scan_numbers\": [1, 2, 3, 4, 5]}",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "analyze_feature_evolution",
+      "cli_path": "spec-file",
+      "description": "Per-rep scalar trace + convergence verdict for a feature defined by an energy window and a statistic. The agent identifies a feature on the spectrum (white-line peak, pre-edge shoulder, dip between oscillations, etc.) and passes the numeric eV bounds and the statistic that captures it. Returns running mean, running SEM, and a verdict (converged / marginal / needs_more) for that scalar. This is the publication-quality test: the feature SEM should be a small fraction of its mean and the running mean should be flat rep-over-rep.",
+      "when_to_use": "Per-rep scalar trace + convergence verdict for a feature defined by an energy window and a statistic. The agent identifies a feature on the spectrum (white-line peak, pre-edge shoulder, dip between oscillations, etc.) and passes the numeric eV bounds and the statistic that captures it. Returns running mean, running SEM, and a verdict (converged / marginal / needs_more) for that scalar. This is the publication-quality test: the feature SEM should be a small fraction of its mean and the running mean should be flat rep-over-rep.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "e_min": 0.0,
+        "e_max": 0.0
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "analyze_per_spot",
+      "cli_path": "spec-file",
+      "description": "Run the full convergence/efficiency analysis SEPARATELY for each sample spot in the file (grouped by Sx/Sy/Sz), and report a between-spot vs within-spot heterogeneity F-statistic. F~1 = spots agree (safe to combine); F>>1 = spots disagree beyond shot noise (the combined average is a population mean, not a single chemistry \u2014 more reps won't fix it). Pass numeric e_min/e_max for the feature you care about (required).",
+      "when_to_use": "Run the full convergence/efficiency analysis SEPARATELY for each sample spot in the file (grouped by Sx/Sy/Sz), and report a between-spot vs within-spot heterogeneity F-statistic. F~1 = spots agree (safe to combine); F>>1 = spots disagree beyond shot noise (the combined average is a population mean, not a single chemistry \u2014 more reps won't fix it). Pass numeric e_min/e_max for the feature you care about (required).",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "e_min": 0.0,
+        "e_max": 0.0
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "average_scans",
+      "cli_path": "spec-file",
+      "description": "Edge-step normalize every energy scan in a file, then average them. Returns the mean, the point-wise standard deviation, and the number of scans averaged.",
+      "when_to_use": "Average all energy scans in a SPEC file after edge-step normalization. Returns mean and standard deviation across scans. If file_name is omitted, uses the most recent file with >1 energy scan. Optionally crops the average to a numeric energy window [e_min, e_max] in eV, and supports SNR-aware inverse-variance weighting across reps.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"x\": [7090.0, 7095.0, \"...\", 7200.0], \"mean\": [0.01, 0.02, \"...\", 1.02], \"std\": [0.003, 0.004, \"...\", 0.008], \"n_scans\": 5, \"file_name\": \"Fe_HERFD_0001\"}",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "extract_xas_descriptors",
+      "cli_path": "spec-file",
+      "description": "Deterministic numeric descriptors from the averaged, normalized XANES spectrum of a file: E0 (derivative-max AND half-step, with uncertainties), white-line fit (energy/height/area), Wilke-style pre-edge fit (centroid, integrated intensity, component count, fit quality), per-scan descriptor trends (drift/beam-damage test), glitch/saturation/self-absorption quality flags, and full provenance (normalization, baseline model, fit windows). For 3d K-edges a core-hole re-broadened pre-edge fit is included so conventional-XANES calibrations apply validly to HERFD data. Returns an annotated plot. This is the source of truth the interpret_* tools consume.",
+      "when_to_use": "Deterministic numeric descriptors from the averaged, normalized XANES spectrum of a file: E0 (derivative-max AND half-step, with uncertainties), white-line fit (energy/height/area), Wilke-style pre-edge fit (centroid, integrated intensity, component count, fit quality), per-scan descriptor trends (drift/beam-damage test), glitch/saturation/self-absorption quality flags, and full provenance (normalization, baseline model, fit windows). For 3d K-edges a core-hole re-broadened pre-edge fit is included so conventional-XANES calibrations apply validly to HERFD data. Returns an annotated plot. This is the source of truth the interpret_* tools consume.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "get_active_counter",
+      "cli_path": "spec-file",
+      "description": "Pick the 'meaningful' counter for an energy scan. Heuristic: ppboff if it exists, else the vortDT/vortDT2/vortDT3/vortDT4 with the highest max count, else I1.",
+      "when_to_use": "Identify the 'active' fluorescence/absorption counter for a scan. Logic: ppboff if present, else the vortDT/vortDT2/vortDT3/vortDT4 with highest max counts, else I1.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "scan_number": 1
+      },
+      "sample_output": "{\"counter\": \"vortDT\", \"reason\": \"vortDT has highest max counts (48523)\"}",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "get_energy_calibration",
+      "cli_path": "spec-file",
+      "description": "Report the current session energy calibration: offset (eV), reference element/edge, age, and drift across all calibration records. Returns calibrated=false when none exists \u2014 interpretation tools then run in relative-only mode (no absolute oxidation states).",
+      "when_to_use": "Report the current session energy calibration: offset (eV), reference element/edge, age, and drift across all calibration records. Returns calibrated=false when none exists \u2014 interpretation tools then run in relative-only mode (no absolute oxidation states).",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "get_latest_scan",
+      "cli_path": "spec-file",
+      "description": "Return the most recently modified SPEC scan on disk, along with its metadata (file, scan number, command, counters) and a small numeric preview of the scan's points.",
+      "when_to_use": "Get the most recently processed scan. Returns metadata and a data preview.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 5, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"Seconds\", \"I0\", \"I1\", \"vortDT\"], \"data_preview\": \"   energy  Seconds       I0  ...\\n0  7090.0      1.0  125000  ...\"}",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "get_scan_deadtime",
+      "cli_path": "spec-file",
+      "description": "Compute how much of a scan was acquisition vs overhead (motor moves, settling, comms). Useful when optimizing count time or diagnosing slow scans.",
+      "when_to_use": "Get the dead time for a scan \u2014 the overhead time spent on motor moves, settling, and communication vs actual detector acquisition. Returns wall-clock duration, acquisition time, dead time in seconds, and dead time as a percentage.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "scan_number": 1
+      },
+      "sample_output": "{\"wall_s\": 420.5, \"acq_s\": 301.0, \"dead_s\": 119.5, \"dead_pct\": 28.4}",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "group_scans_by_spot",
+      "cli_path": "spec-file",
+      "description": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful before convergence analysis when reps came from multiple spots \u2014 between-spot differences can pollute the combined cross-spot CV. Pair with analyze_per_spot.",
+      "when_to_use": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful before convergence analysis when reps came from multiple spots \u2014 between-spot differences can pollute the combined cross-spot CV. Pair with analyze_per_spot.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "interpret_coordination_geometry",
+      "cli_path": "spec-file",
+      "description": "Hybrid coordination/site-symmetry verdict for 3d K-edges from the pre-edge intensity + component count on the Wilke 2001 centroid-vs-intensity envelope (weak pre-edge = centrosymmetric/octahedral; strong = non-centrosymmetric/tetrahedral; intermediate = 5-coordinate/distorted/mixed). Uses the core-hole re-broadened fit and area normalization; confidence is degraded under self-absorption risk, edge-step normalization, or non-Fe elements (envelope calibrated for Fe). For L3/M edges returns electronic-structure hints only. Same structured output contract as interpret_oxidation_state.",
+      "when_to_use": "Hybrid coordination/site-symmetry verdict for 3d K-edges from the pre-edge intensity + component count on the Wilke 2001 centroid-vs-intensity envelope (weak pre-edge = centrosymmetric/octahedral; strong = non-centrosymmetric/tetrahedral; intermediate = 5-coordinate/distorted/mixed). Uses the core-hole re-broadened fit and area normalization; confidence is degraded under self-absorption risk, edge-step normalization, or non-Fe elements (envelope calibrated for Fe). For L3/M edges returns electronic-structure hints only. Same structured output contract as interpret_oxidation_state.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "interpret_oxidation_state",
+      "cli_path": "spec-file",
+      "description": "Hybrid oxidation-state verdict from the file's averaged spectrum, on the family-appropriate basis: 3d K-edge -> pre-edge centroid (Wilke 2001, applied to the re-broadened spectrum) + calibrated edge shift; Ce L3 -> Ce(IV) final-state doublet deconvolution; U M4 -> peak-position/satellite method (Bes 2016); 5d L3 -> white-line trend. Returns {estimate, range, confidence, basis, descriptors_used, calibration_context, flags, caveats, narration} \u2014 all numbers from fits, none invented. REFUSES an absolute estimate when no session energy calibration exists (record_energy_calibration first); shape-based signatures (Ce doublet, U(VI) satellites) still work uncalibrated.",
+      "when_to_use": "Hybrid oxidation-state verdict from the file's averaged spectrum, on the family-appropriate basis: 3d K-edge -> pre-edge centroid (Wilke 2001, applied to the re-broadened spectrum) + calibrated edge shift; Ce L3 -> Ce(IV) final-state doublet deconvolution; U M4 -> peak-position/satellite method (Bes 2016); 5d L3 -> white-line trend. Returns {estimate, range, confidence, basis, descriptors_used, calibration_context, flags, caveats, narration} \u2014 all numbers from fits, none invented. REFUSES an absolute estimate when no session energy calibration exists (record_energy_calibration first); shape-based signatures (Ce doublet, U(VI) satellites) still work uncalibrated.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "list_scans",
+      "cli_path": "spec-file",
+      "description": "Enumerate recent SPEC scans with metadata so the agent can pick a file_name/scan_number pair for follow-up tools.",
+      "when_to_use": "List processed scans with metadata (file name, scan number, command, counters, number of points).",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "[{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 5, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"I0\", \"I1\", \"vortDT\"], \"npoints\": 301, \"timestamp\": \"2026-05-04T10:45:00\"}]",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "normalize_scan",
+      "cli_path": "spec-file",
+      "description": "Edge-step normalize an energy scan: divide the signal by I0 (or any chosen reference), then linearly rescale so the pre-edge reads 0 and the post-edge reads 1.",
+      "when_to_use": "Edge-step normalize a scan: divide signal by I0, then scale so pre-edge is 0 and post-edge is 1. Returns the normalized data array.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "scan_number": 1
+      },
+      "sample_output": "{\"x\": [7090.0, 7095.0, \"...\", 7200.0], \"y\": [0.002, 0.005, \"...\", 1.01], \"counter\": \"vortDT\", \"normalize_by\": \"I0\"}",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "plot_averaged_scans",
+      "cli_path": "spec-file",
+      "description": "Edge-step normalize every scan in each given SPEC file, average, and overlay all samples on one plot with std-dev shading. The go-to cross-sample comparison plot.",
+      "when_to_use": "Plot averaged energy scans for multiple samples overlaid on one plot. Each sample is edge-step normalized and averaged, then plotted with standard deviation shading.",
+      "enabled": true,
+      "sample_input": {
+        "file_names": []
+      },
+      "sample_output": "Overlay plot of 2 samples (Fe_HERFD_0001: 5 scans averaged, Fe_HERFD_0002: 3 scans averaged). [PNG image returned]",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "plot_feature_evolution",
+      "cli_path": "spec-file",
+      "description": "Plot a single per-rep scalar (the chosen statistic over [e_min, e_max]) versus rep number, with running mean and \u00b1SEM band. The visual companion to analyze_feature_evolution. Use to confirm a feature has flatlined; a still-trending trace means the feature is not yet converged.",
+      "when_to_use": "Plot a single per-rep scalar (the chosen statistic over [e_min, e_max]) versus rep number, with running mean and \u00b1SEM band. The visual companion to analyze_feature_evolution. Use to confirm a feature has flatlined; a still-trending trace means the feature is not yet converged.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "e_min": 0.0,
+        "e_max": 0.0
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "plot_first_half_vs_second_half",
+      "cli_path": "spec-file",
+      "description": "Compare the average of the first half of reps to the second half, with SEM bands. Reports max |\u0394|/SEM. <2\u03c3: halves agree, sample is stationary. >3\u03c3 at any feature: the halves disagree, more reps may not help (drift, damage, or heterogeneity). This is the strongest single-glance test for whether the sample is publication-clean.",
+      "when_to_use": "Compare the average of the first half of reps to the second half, with SEM bands. Reports max |\u0394|/SEM. <2\u03c3: halves agree, sample is stationary. >3\u03c3 at any feature: the halves disagree, more reps may not help (drift, damage, or heterogeneity). This is the strongest single-glance test for whether the sample is publication-clean.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "plot_running_average",
+      "cli_path": "spec-file",
+      "description": "Plot the running average across reps as it evolves (one line per cumulative subset, color-progressed by rep #), with the final \u00b1SEM band. Shows whether the running mean is still changing rep-over-rep at the feature of interest.",
+      "when_to_use": "Plot the running average across reps as it evolves (one line per cumulative subset, color-progressed by rep #), with the final \u00b1SEM band. Shows whether the running mean is still changing rep-over-rep at the feature of interest.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "plot_scan",
+      "cli_path": "spec-file",
+      "description": "Render one scan as a PNG and return it to the user. Auto-detects the active counter; accepts an optional normalize_by counter.",
+      "when_to_use": "Generate and display a plot of scan data. Use this by default when the user wants to see a plot. The plot is shown directly to the user. Use list_scans to find available file_name and scan_number.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "scan_number": 1
+      },
+      "sample_output": "Fe_HERFD_0001 scan #3: ascan energy 7090 7200 301 1.0 (counter: vortDT). [PNG image returned]",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "plot_scan_stack",
+      "cli_path": "spec-file",
+      "description": "Overlay all reps of one sample on a single axis, color-progressed by rep order. Use to visually judge whether reps scatter symmetrically around a stable mean (converged), are still drifting in one direction (more reps needed or evolving sample), or are being burned away (damage). Pass numeric e_min/e_max to crop to the feature you care about.",
+      "when_to_use": "Overlay all reps of one sample on a single axis, color-progressed by rep order. Use to visually judge whether reps scatter symmetrically around a stable mean (converged), are still drifting in one direction (more reps needed or evolving sample), or are being burned away (damage). Pass numeric e_min/e_max to crop to the feature you care about.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "read_scan",
+      "cli_path": "spec-file",
+      "description": "Return the full data array of a single scan, addressed by file_name + scan_number. Use list_scans first to discover the valid identifiers.",
+      "when_to_use": "Read a processed scan's data and metadata. Use list_scans first to find available file_name and scan_number.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "scan_number": 1
+      },
+      "sample_output": "{\"file_name\": \"Fe_HERFD_0001\", \"scan_number\": 3, \"command\": \"ascan energy 7090 7200 301 1.0\", \"counters\": [\"energy\", \"Seconds\", \"I0\", \"I1\", \"vortDT\"], \"data\": \"   energy  Seconds       I0      I1   vortDT\\n0  7090.0      1.0  125340    3201    412\\n1  7091.0      1.0  125122    3198    418\\n...\"}",
+      "simulated": false,
+      "working_live": true,
+      "comments": ""
+    },
+    {
+      "name": "record_energy_calibration",
+      "cli_path": "spec-file",
+      "description": "Register a session energy calibration from a MEASURED reference foil/compound scan. Computes the reference's E0 (fixed definition: Savitzky-Golay smoothed derivative maximum) and stores the offset to the assigned reference energy, with timestamp. Run this after calibrate_mono / at session start and after any mono/crystal change. Interpretation tools REFUSE absolute oxidation-state estimates until a calibration is recorded (mono offset/drift is eV-scale \u2014 the same size as the valence signal).",
+      "when_to_use": "Register a session energy calibration from a MEASURED reference foil/compound scan. Computes the reference's E0 (fixed definition: Savitzky-Golay smoothed derivative maximum) and stores the offset to the assigned reference energy, with timestamp. Run this after calibrate_mono / at session start and after any mono/crystal change. Interpretation tools REFUSE absolute oxidation-state estimates until a calibration is recorded (mono offset/drift is eV-scale \u2014 the same size as the valence signal).",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "element": "example",
+        "edge": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "summarize_sample_chemistry",
+      "cli_path": "spec-file",
+      "description": "Capstone chemical interpretation of a sample's averaged spectrum: runs extract_xas_descriptors + interpret_oxidation_state + interpret_coordination_geometry, adds a per-scan drift verdict (monotonic E0/white-line/pre-edge trends \u2014 the photoreduction/beam-damage signature a half-split misses), and returns one consolidated narration paragraph plus the annotated descriptor plot. Use after convergence analysis to record the chemistry of each sample; feed drift verdicts into skip/extend decisions.",
+      "when_to_use": "Capstone chemical interpretation of a sample's averaged spectrum: runs extract_xas_descriptors + interpret_oxidation_state + interpret_coordination_geometry, adds a per-scan drift verdict (monotonic E0/white-line/pre-edge trends \u2014 the photoreduction/beam-damage signature a half-split misses), and returns one consolidated narration paragraph plus the annotated descriptor plot. Use after convergence analysis to record the chemistry of each sample; feed drift verdicts into skip/extend decisions.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
       "comments": ""
     },
     {
@@ -1731,6 +1676,76 @@
         "id",
         "text"
       ],
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "execute_readonly_sql",
+      "cli_path": "s3df/psql",
+      "description": "Run a read-only SELECT against the S3DF metadata Postgres. Rejects write keywords; truncates at max_rows.",
+      "when_to_use": "Run a read-only SELECT against the S3DF metadata Postgres. Rejects write keywords; truncates at max_rows.",
+      "enabled": true,
+      "sample_input": {
+        "query": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "list_channels",
+      "cli_path": "slack",
+      "description": "List public Slack channels the bot belongs to.",
+      "when_to_use": "List public Slack channels the bot belongs to.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "post_slack_message",
+      "cli_path": "slack",
+      "description": "Post a message to a Slack channel or thread reply.",
+      "when_to_use": "Post a message to a Slack channel or thread reply.",
+      "enabled": true,
+      "sample_input": {
+        "channel_id": "example",
+        "text": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "read_channel_messages",
+      "cli_path": "slack",
+      "description": "Read recent messages from a Slack channel.",
+      "when_to_use": "Read recent messages from a Slack channel.",
+      "enabled": true,
+      "sample_input": {
+        "channel_id": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "read_thread_replies",
+      "cli_path": "slack",
+      "description": "Read all replies in a Slack thread (parent + children).",
+      "when_to_use": "Read all replies in a Slack thread (parent + children).",
+      "enabled": true,
+      "sample_input": {
+        "channel_id": "example",
+        "thread_ts": "example"
+      },
       "sample_output": "",
       "simulated": false,
       "working_live": false,

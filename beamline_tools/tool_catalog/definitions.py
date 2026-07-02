@@ -45,6 +45,14 @@ TOOL_DESCRIPTIONS: dict[str, str] = {
         "analysis run. The orchestrator reads these to auto-generate "
         "a statistics trend plot on the dashboard."
     ),
+    "record_observable_trend": (
+        "Store the per-sample drift verdict of the scientific observable "
+        "(oxidation-state / white-line / pre-edge trend across the "
+        "accumulating scan stack, from summarize-sample-chemistry). The "
+        "planner reads it to tell degradation (beam damage / catalyst "
+        "deactivation) apart from statistical convergence when deciding to "
+        "advance, trim, or not-extend a sample."
+    ),
     "get_plan": "Return the live experiment plan (config + sample queue + budget).",
     "get_experiment_config": (
         "Return the operator-entered experiment configuration "
@@ -178,6 +186,7 @@ AUTONOMY_TOOL_CATEGORIES = [
         "get_holder_time_budget",
         "set_experiment_end_time", "regenerate_plan",
         "record_completed_scan", "record_convergence_stats",
+        "record_observable_trend",
         "record_alignment_flux",
     ]),
 ]

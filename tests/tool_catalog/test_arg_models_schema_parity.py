@@ -35,6 +35,7 @@ EXPECTED_ORDER = [
     "update_plan",
     "record_sample_progress",
     "record_convergence_stats",
+    "record_observable_trend",
     "get_plan",
     "get_experiment_config",
     "get_remaining_beamtime",
@@ -98,6 +99,13 @@ SNAPSHOT = {
             "stats": {"type": "object"},
         },
         "required": ["sample_id", "stats"],
+    },
+    "record_observable_trend": {
+        "params": {
+            "sample_id": {"type": "string"},
+            "trend": {"type": "object"},
+        },
+        "required": ["sample_id", "trend"],
     },
     "get_plan": {"params": {}, "required": []},
     "get_experiment_config": {"params": {}, "required": []},

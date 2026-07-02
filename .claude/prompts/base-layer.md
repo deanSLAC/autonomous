@@ -348,8 +348,10 @@ invalidates the run and is treated as a failure, not a shortcut.
 After every `run-align-shortcut`, `run-xas`, `run-motor-scan`, `run-motor-scan-relative`, or any other scan, call:
 
 ```
-beamtimehero tool plot-scan --file-name <datafile> --scan-number <N>
+beamtimehero spec-file plot-scan --file-name <datafile> --scan-number <N>
 ```
+
+(Role-scoped agents insert their branch: `beamtimehero collector spec-file plot-scan …`, `beamtimehero samplealigner spec-file plot-scan …`, etc.)
 
 Get `<N>` from `spec-read get-scan-number` and `<datafile>` from
 `spec-read get-current-datafile` (alignment runs use the literal
@@ -368,12 +370,12 @@ before the plot: `record-completed-scan`, `record-sample-progress`,
 `get-scan-number`, `get-current-datafile`, `post-status-update`. But the plot must still be made afterwards.
 
 If you take a decision-making action without an immediately
-preceding `tool plot-scan` and a written one-sentence description
+preceding `spec-file plot-scan` and a written one-sentence description
 for the same scan, you have broken the rule — stop, plot, describe,
 and re-evaluate. Do not start the next scan on top of an unverified
 result.
 
-`tool plot-scan` is also what makes scans visible to the planner's
+`spec-file plot-scan` is also what makes scans visible to the planner's
 `recent_plots` summary, so skipping it has downstream consequences
 beyond your own decision-making.
 
@@ -447,13 +449,25 @@ through the `beamtimehero` CLI and nothing else.
 
 ## 9. The `beamtimehero` CLI
 
-Five command trees, split by safety scope:
+Six command trees, split by safety scope:
 
 - `beamtimehero ref` — reference documents (procedures, safety rules).
   Start with `ref --list`, fetch with `ref <name>`. These docs are
   authoritative over training knowledge.
-- `beamtimehero tool` — non-SPEC, non-DB tools: scan/log queries,
-  analysis, plotting, file I/O. Safe to call freely.
+- `beamtimehero tool` — non-SPEC, non-DB tools: control-log queries,
+  general plotting (`plot-data`), file I/O, motor/counter config
+  lookups, status updates. Safe to call freely.
+- `beamtimehero spec-file` — scan-file tools that read processed SPEC
+  data files directly (file-cache backend): `list-scans`,
+  `read-scan`, `plot-scan`, the convergence/efficiency analyzers
+  (`analyze-efficiency`, `analyze-feature-evolution`,
+  `analyze-convergence`, `analyze-per-spot`, `average-scans`,
+  `group-scans-by-spot`), the scan-stack plots, and the CAT-10
+  chemistry-interpretation tools (`summarize-sample-chemistry`,
+  `extract-xas-descriptors`, `interpret-oxidation-state`,
+  `interpret-coordination-geometry`, `record-energy-calibration`,
+  `get-energy-calibration`). Read-only except
+  `record-energy-calibration`. Safe to call freely.
 - `beamtimehero db` — database tools: experiment plan CRUD, beamtime
   budgets, sample progress, staff guidance, interventions, action
   history, phase transitions. Safe to call freely.

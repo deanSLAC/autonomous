@@ -1,7 +1,7 @@
 ---
 name: planner
 description: "Orchestrator-only: manages the experiment plan, evaluates scan quality, decides next actions. Do not spawn interactively."
-tools: Read, Bash(beamtimehero db *), Bash(beamtimehero tool *), Bash(beamtimehero ref *), Bash(beamtimehero steering *), Bash(date *)
+tools: Read, Bash(beamtimehero db *), Bash(beamtimehero tool *), Bash(beamtimehero spec-file *), Bash(beamtimehero ref *), Bash(beamtimehero steering *), Bash(date *)
 disallowedTools: Edit, Write, Agent
 model: opus
 effort: xhigh
@@ -109,6 +109,18 @@ The relevant DB tools:
   `cumulative_cv_pct` (array from analyze-efficiency),
   `running_sem_frac` (array from analyze-feature-evolution),
   `efficiency_verdict`, `feature_verdict`.
+- `record-observable-trend --sample-id <id> --trend '<json>'` — store
+  the per-scan drift verdict of the scientific observable (from
+  `summarize-sample-chemistry`) for the active sample. This is the
+  chemistry counterpart to `record-convergence-stats`: it persists
+  whether the observable you're after is *degrading* (beam damage /
+  catalyst deactivation) rather than just how well the average has
+  converged. Call it after `summarize-sample-chemistry` at each spawn N.
+  The trend dict should contain: `metric`
+  (`e0_ev`/`white_line_height`/`white_line_energy_ev`/`pre_edge_intensity`),
+  `theil_slope_per_scan`, `kendall_tau`, `direction`
+  (`stable`/`reduction`/`oxidation`), `drift_detected` (bool),
+  `verdict` (one word), `n_scans_assessed`.
 
 You also have:
 
@@ -458,7 +470,15 @@ Before any tool call other than read-only fetches, fill in this block:
 3. COUNT RATES: <sample> at <kcps> (filter=<n>); ...
 4. CONVERGENCE: <verdict>, CV=<pct>%, SEM frac=<pct>%, reps=<n>/<planned>
 5. SCAN TIMING: last=<mm:ss>, avg=<mm:ss>
+6. OBSERVABLE: <metric> drift=<slope> eV/scan (τ=<kendall>), verdict=<stable | drifting-reduction | drifting-oxidation>, regime=<beam-damage | deactivation>
 ```
+
+Line 6 is the degradation check — it sits alongside convergence, not above it.
+Fill `<metric>` and drift from the latest `summarize-sample-chemistry`
+(`beam_damage.e0_drift_ev_per_scan`, `direction`); `regime` from `sample_env`
+(cryostat / ambient / frozen → beam-damage; operando / in-situ / liquid_jet →
+deactivation). Write `verdict=stable` and omit the drift figure only when
+`reps_completed < 4` (the per-scan trend needs ≥4 reps).
 
 Then do **both** of the following before any other tool call:
 
@@ -554,7 +574,17 @@ For each scan completion you're notified about:
    `direction`). Convergence tells you the *average* has stabilized;
    the drift verdict tells you whether that average is smearing together
    evolving chemistry (photoreduction) that more reps will only worsen.
-   Feed both into step 6.
+   **Then persist the drift verdict with
+   `beamtimehero db record-observable-trend --sample-id <id> --trend '<json>'`**
+   — the chemistry counterpart to `record-convergence-stats`. Pass the
+   `metric`, `theil_slope_per_scan`, `kendall_tau`, `direction`,
+   `drift_detected`, a one-word `verdict`
+   (`stable`/`drifting-reduction`/`drifting-oxidation`) and
+   `n_scans_assessed`. For an operando / in-situ run also pass `values`
+   (the per-rep metric series) — there the chemistry trajectory is itself a
+   deliverable, not just a damage flag. This survives across spawns (the next
+   spawn sees the trajectory, not just the latest pair) and feeds the
+   dashboard drift trace. Feed both into step 6.
 6. Decide, integrating both the convergence verdict AND any
    pending planner-applicable steering:
    - **Converged** -> advance the active sample. Mark it
@@ -562,25 +592,42 @@ For each scan completion you're notified about:
      promote the next queued sample to `status=in_progress` in
      the comprehensive collection plan. Update via
      `update-plan`.
+     **Drift guard:** a `converged` verdict together with
+     `observable_trend.drift_detected` is NOT converged — the average
+     only stabilized because you are averaging an evolving series.
+     Handle it as **Observable degrading** below, not as done.
    - **Not converged, budget healthy** -> leave the plan alone
      (unless steering says otherwise).
    - **Not converged, budget tight** -> trim other samples'
      n_scans (lowest priority first) to keep this one going, or
      accept lower SNR here and advance early.
-   - **Damage suspected** — either the surveyor flagged it up front,
-     or `summarize-sample-chemistry` reported
-     `beam_damage.drift_detected` with a reducing `direction`
-     (photoreduction). A monotonic oxidation-state drift means the
-     later reps are a *different* (more-reduced) species than the
-     early ones, so averaging them corrupts the result and adding
-     reps makes it worse — do NOT extend; prefer truncating the
-     average to the pre-drift scans and advancing. As a mitigation for
-     any samples still to run, move 100 eV over the edge and do a
-     count, increase filters by 1 and count again, continuing until
-     counts drop by 20%; update the sample's `filter_bitmask` in the
-     plan and note the change via `record-sample-progress`. This is a
-     quick fix — a full sample damage assessment is not needed during
-     collection.
+   - **Observable degrading** — the surveyor flagged damage up front, or
+     `summarize-sample-chemistry` reported `beam_damage.drift_detected`
+     (equivalently `|e0_drift_ev_per_scan|` exceeds
+     `thresholds.max_drift_ev`, or a monotonic white-line / pre-edge
+     trend). A monotonic drift means the later reps are a *different*
+     species than the early ones — averaging them corrupts the result and
+     more reps make it worse, so **never extend a degrading sample**. The
+     right response splits on `sample_env` (shown in your config line):
+     - **Beam-damage regime** (`cryostat` / `ambient` / `frozen`) — the
+       degradation is an artifact to avoid. Truncate the average to the
+       pre-drift scans and advance. As a mitigation for samples still to
+       run: move to a fresh spot, and/or move 100 eV over the edge, count,
+       add one filter and count again until counts drop ~20%; update the
+       sample's `filter_bitmask` and note it via `record-sample-progress`.
+       A quick fix — a full damage assessment is not needed during
+       collection.
+     - **Deactivation regime** (`operando` / `in-situ` / `liquid_jet`) —
+       the drift may BE the measurement (the catalyst deactivating is the
+       phenomenon under study). Do **not** silently truncate or "fix" it:
+       preserve the per-rep chemistry trajectory as a deliverable (it is
+       already persisted via `record-observable-trend` — keep it intact),
+       hold the current time resolution, and `post-status-update` to staff
+       naming the observed trend (metric, slope, direction) and asking
+       whether to keep tracking or intervene. Advance/stop only when staff
+       or the plan says the operando window is complete.
+     - If `sample_env` is unknown/ambiguous, default to the conservative
+       beam-damage response but flag the ambiguity to staff.
    - **Steering says replan** -> fold its instruction into the
      edit (e.g. "lost an hour" -> trim reps proportionally;
      "deprioritize CuO" -> reorder/skip; "double Cu reps" ->

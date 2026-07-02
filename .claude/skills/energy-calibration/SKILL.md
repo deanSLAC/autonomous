@@ -80,3 +80,21 @@ when the foil is in front of I1.
    ```spec
    reset_gap                  # re-syncs gap encoder with the new mono cal
    ```
+
+8. **Register the session energy calibration for chemistry interpretation.**
+   Once the foil edge reads within tolerance, record the calibration so the
+   CAT-10 interpretation tools (`interpret-oxidation-state`,
+   `summarize-sample-chemistry`) can report **absolute** oxidation states.
+   Without it they run in relative/shape-only mode and refuse absolute
+   estimates — mono offset/drift is eV-scale, the same size as the valence
+   signal:
+   ```bash
+   beamtimehero spec-file record-energy-calibration \
+       --file-name <foil_scan_file> --element <X> --edge K \
+       --assigned-reference-ev <tabulated_edge>
+   ```
+   (Role-scoped agents prefix their branch, e.g.
+   `beamtimehero blaligner spec-file record-energy-calibration ...`.)
+   Re-run this after any later `calibrate_mono` or crystal change — the
+   stored offset goes stale the moment the mono moves. `get-energy-calibration`
+   reports the current offset, age, and drift.

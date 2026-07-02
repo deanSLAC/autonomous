@@ -295,6 +295,19 @@ def t_record_convergence_stats(args: dict) -> tuple[str, list[str]]:
     return json.dumps({"ok": True}), []
 
 
+def t_record_observable_trend(args: dict) -> tuple[str, list[str]]:
+    experiment_id = runtime_state.get_experiment_id()
+    if not experiment_id:
+        return json.dumps({"ok": False, "error": "no active experiment"}), []
+    trend = args.get("trend")
+    if not isinstance(trend, dict):
+        return json.dumps({"ok": False, "error": "trend must be a JSON object"}), []
+    planner.record_observable_trend(
+        experiment_id, args["sample_id"], trend,
+    )
+    return json.dumps({"ok": True}), []
+
+
 def t_get_plan(args: dict) -> tuple[str, list[str]]:
     experiment_id = runtime_state.get_experiment_id()
     if not experiment_id:
@@ -1247,6 +1260,7 @@ _AUTONOMY_DISPATCH: dict[str, callable] = {
     "update_plan": t_update_plan,
     "record_sample_progress": t_record_sample_progress,
     "record_convergence_stats": t_record_convergence_stats,
+    "record_observable_trend": t_record_observable_trend,
     "get_plan": t_get_plan,
     "get_experiment_config": t_get_experiment_config,
     "get_remaining_beamtime": t_get_remaining_beamtime,

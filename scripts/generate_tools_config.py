@@ -43,6 +43,15 @@ from beamtimehero_cli.tool_catalog.definitions import (
 )
 from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE
 
+# Delegate categorization to the SAME upstream function the CLI dispatch uses
+# (see scripts/beamtimehero), patched to see autonomy's db-tool lineage. This
+# keeps cli_path in tools_config.json consistent with the tree a tool actually
+# resolves under at runtime — notably the spec-file scan/analysis/chemistry
+# tools, which the old hand-rolled logic mislabeled as "tool".
+import beamtimehero_cli.tool_catalog.categorize as _cat_mod  # noqa: E402
+
+_cat_mod.TOOL_LINEAGE = TOOL_LINEAGE
+
 # Merge upstream (unfiltered) + autonomy (unfiltered) so the generator
 # sees every tool regardless of what tools_config.json currently enables.
 _UPSTREAM_NAMES = {d["function"]["name"] for d in _UPSTREAM_TOOLS}
@@ -108,19 +117,14 @@ _STEERING_COMMANDS = [
 
 
 def _categorize(tool_def: dict) -> str:
-    """Derive CLI tree from tool schema (mirrors scripts/beamtimehero logic)."""
-    name = tool_def["function"]["name"]
-    lineage = TOOL_LINEAGE.get(name) or {}
-    if lineage.get("source") == "autonomy_db":
-        return "db"
-    params = tool_def["function"].get("parameters", {}) or {}
-    required = set(params.get("required", []) or [])
-    if "justification" in required:
-        return "spec-write"
-    spec_cmd = lineage.get("spec_command")
-    if spec_cmd is not None:
-        return "spec-read"
-    return "tool"
+    """Derive the CLI tree a tool resolves under.
+
+    Delegates to the upstream ``categorize()`` used by the CLI dispatch so
+    cli_path always matches runtime — including explicit ``tree`` pins and the
+    per-name CATEGORY_OVERRIDES that move the file-cache scan/analysis/chemistry
+    tools into ``spec-file``.
+    """
+    return "/".join(_cat_mod.categorize(tool_def))
 
 
 def _sample_value(prop: dict) -> object:
@@ -215,10 +219,17 @@ def _build_steering_entry(cmd: dict) -> dict:
 
 def generate() -> dict:
     """Generate the full config, merging with existing if present."""
-    # Build fresh entries
+    # Build fresh entries. A few tool names exist in more than one tree
+    # (e.g. list_scans / plot_scan in both spec-file and s3df). This is the
+    # local file-cache deployment, so prefer the non-s3df variant on collision.
     fresh: dict[str, dict] = {}
     for tdef in TOOL_DEFINITIONS:
         entry = _build_tool_entry(tdef)
+        prev = fresh.get(entry["name"])
+        if (prev is not None
+                and prev["cli_path"].split("/")[0] != "s3df"
+                and entry["cli_path"].split("/")[0] == "s3df"):
+            continue  # keep the already-seen local (non-s3df) variant
         fresh[entry["name"]] = entry
     for ref_name, ref_info in REFERENCE_DOCS.items():
         entry = _build_ref_entry(ref_name, ref_info)
@@ -248,7 +259,10 @@ def generate() -> dict:
         tools.append(entry)
 
     # Sort by cli_path then name for readability
-    category_order = {"tool": 0, "db": 1, "spec-read": 2, "spec-write": 3, "steering": 4, "ref": 5}
+    category_order = {
+        "tool": 0, "db": 1, "spec-read": 2, "spec-file": 3, "spec-write": 4,
+        "steering": 5, "s3df": 6, "s3df/psql": 7, "slack": 8, "ref": 9,
+    }
     tools.sort(key=lambda t: (category_order.get(t["cli_path"], 99), t["name"]))
 
     config = {

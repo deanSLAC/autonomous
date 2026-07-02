@@ -170,7 +170,7 @@ mid-collection, that's a sample-alignment-agent job — defer.
          spot <k> scan <i>/<plan_n>"`.
       4. After each scan completes, run the inspect-and-record
          sequence below. **Per base contract §5, you must call
-         `tool plot-scan` and write a one-sentence description of
+         `collector spec-file plot-scan` and write a one-sentence description of
          what the plot shows (count rate sanity, edge step,
          white-line, pre-edge, anomalies) before starting the next
          scan or any other decision-making action.** Skipping the
@@ -190,7 +190,7 @@ mid-collection, that's a sample-alignment-agent job — defer.
             `--spot-index`** so the comprehensive plan can return
             accurate per-spot remaining counts; without it, the
             scan only contributes to the sample-level total.
-         4. `beamtimehero collector tool plot-scan --file-name <datafile>
+         4. `beamtimehero collector spec-file plot-scan --file-name <datafile>
             --scan-number N` — required before the next decision
             per §5. Saved with scan_number embedded so
             plan-summary can find it. Read the PNG and write your

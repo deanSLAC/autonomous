@@ -56,6 +56,6 @@ In order to take a spectra, rely on the built in function specific to that eleme
 
 ### Statistics
 
-**Per agent-instructions §5, you must call `tool plot-scan` and write a one-sentence description of every scan before the next decision.** That is the mandatory per-scan baseline check, not optional advice.
+**Per agent-instructions §5, you must call `spec-file plot-scan` (role-scoped agents prefix their branch, e.g. `collector spec-file plot-scan`) and write a one-sentence description of every scan before the next decision.** That is the mandatory per-scan baseline check, not optional advice.
 
 Beyond that, beamtimehero CLI contains several tools to assist in analyzing the progression of the sample statistics across reps. Use them, but also keep visually inspecting the accumulating stack: plot all the spectra together each time a new spectrum is taken, look at the similarity between each consecutive scan (check for beam damage over time), and judge whether a scan looks anomalous and is recommended to be thrown out (via a note in spec). After each spectrum, look at the average of all scans taken, compare it to the previous average. Always isolate the evolution of statistics for an individual feature within the spectrum — that is why the convergence tools require an energy window (`--e-min`/`--e-max`) and there is no whole-spectrum mode: a statistic applied to the whole spectrum at once would claim nothing is changing with successive scans, washing out the tiny details in small features that might still be resolving progressively. 

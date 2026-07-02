@@ -69,6 +69,10 @@ class SampleQueueEntry(BaseModel):
     holder_id: Optional[str] = None
     snr_estimate: Optional[float] = None
     efficiency_verdict: Optional[str] = None
+    # Per-scan drift verdict of the scientific observable (oxidation state /
+    # white-line / pre-edge trend across the accumulating stack). Written by
+    # record_observable_trend; the planner's damage/advance branch reads it.
+    observable_trend: Optional[dict] = None
     notes: list = Field(default_factory=list)
 
     @field_validator("status", mode="before")
@@ -85,6 +89,10 @@ class Thresholds(BaseModel):
 
     snr_target: Optional[float] = Field(default=None, gt=0)
     min_reps_per_sample: Optional[int] = Field(default=None, ge=0)
+    # Max tolerated monotonic drift of the observable (e.g. E0 shift, eV) per
+    # scan before the planner treats a sample as degrading rather than
+    # converging. Read by the degradation-tracking decision branch.
+    max_drift_ev: Optional[float] = Field(default=None, gt=0)
 
 
 class Budget(BaseModel):
