@@ -18,14 +18,17 @@ import shlex
 
 
 def export_lines() -> list[str]:
-    from orchestration.config import CLAUDE_MODEL, gateway_config
+    from orchestration.config import CLAUDE_MODEL, gateway_config, gateway_key_pool
 
     gw = gateway_config()
     lines: list[str] = []
     if gw.get("url"):
         lines.append(f"export ANTHROPIC_BASE_URL={shlex.quote(gw['url'])}")
-    if gw.get("key"):
-        lines.append(f"export ANTHROPIC_AUTH_TOKEN={shlex.quote(gw['key'])}")
+    # Prefer the primary key; fall back to the secondary while the primary is
+    # cooling down from a recent rate-limit (see orchestration.config).
+    active = gateway_key_pool().active()
+    if active:
+        lines.append(f"export ANTHROPIC_AUTH_TOKEN={shlex.quote(active[1])}")
     # CLAUDE_MODEL (.env) overrides the gateway's model alias if set —
     # useful for one-off A/B testing of model versions.
     model = CLAUDE_MODEL or gw.get("model_alias")

@@ -18,6 +18,8 @@ from dotenv import load_dotenv
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from beamtimehero_cli.llm import get_pool, is_lockout
+
 
 # ---------------------------------------------------------------------------
 # Paths (derived from repo layout, not configurable)
@@ -52,7 +54,7 @@ def _gateway_extra_env(prefix: str) -> dict[str, str]:
     """Collect arbitrary additional <PREFIX>* env vars (everything except
     the three the Settings model declares) for pass-through to the agent
     subprocess environment."""
-    skip = {"BASE_URL", "API_KEY", "MODEL_ALIAS"}
+    skip = {"BASE_URL", "API_KEY", "API_KEY_PRIMARY", "MODEL_ALIAS"}
     return {
         k.removeprefix(prefix): v
         for k, v in os.environ.items()
@@ -60,7 +62,7 @@ def _gateway_extra_env(prefix: str) -> dict[str, str]:
     }
 
 
-_DEFAULT_GATEWAY = {"url": None, "key": "", "model_alias": None, "env": {}}
+_DEFAULT_GATEWAY = {"url": None, "keys": [], "model_alias": None, "env": {}}
 
 
 # ---------------------------------------------------------------------------
@@ -77,9 +79,11 @@ class Settings(BaseSettings):
     LLM_GATEWAY: LLMGatewayName
     CLAUDE_MODEL: str = ""
     SLAC_API_KEY: str = ""
+    SLAC_API_KEY_PRIMARY: str = ""
     SLAC_BASE_URL: str = ""
     SLAC_MODEL_ALIAS: str = ""
     STANFORD_API_KEY: str = ""
+    STANFORD_API_KEY_PRIMARY: str = ""
     STANFORD_BASE_URL: str = ""
     STANFORD_MODEL_ALIAS: str = ""
 
@@ -99,18 +103,20 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _validate_gateway_credentials(self) -> "Settings":
         if self.LLM_GATEWAY == LLMGatewayName.slac:
-            if not self.SLAC_API_KEY:
+            if not (self.SLAC_API_KEY or self.SLAC_API_KEY_PRIMARY):
                 raise ValueError(
-                    "LLM_GATEWAY=slac requires SLAC_API_KEY to be set in .env"
+                    "LLM_GATEWAY=slac requires SLAC_API_KEY "
+                    "(or SLAC_API_KEY_PRIMARY) to be set in .env"
                 )
             if not self.SLAC_BASE_URL:
                 raise ValueError(
                     "LLM_GATEWAY=slac requires SLAC_BASE_URL to be set in .env"
                 )
         elif self.LLM_GATEWAY == LLMGatewayName.stanford:
-            if not self.STANFORD_API_KEY:
+            if not (self.STANFORD_API_KEY or self.STANFORD_API_KEY_PRIMARY):
                 raise ValueError(
-                    "LLM_GATEWAY=stanford requires STANFORD_API_KEY to be set in .env"
+                    "LLM_GATEWAY=stanford requires STANFORD_API_KEY "
+                    "(or STANFORD_API_KEY_PRIMARY) to be set in .env"
                 )
             if not self.STANFORD_BASE_URL:
                 raise ValueError(
@@ -143,13 +149,20 @@ _GATEWAYS: dict[str, dict] = {
     "default": _DEFAULT_GATEWAY,
     "slac": {
         "url": _settings.SLAC_BASE_URL or None,
-        "key": _settings.SLAC_API_KEY,
+        # Ordered keys: primary first, existing key as fallback on lockout.
+        "keys": [
+            ("SLAC_API_KEY_PRIMARY", _settings.SLAC_API_KEY_PRIMARY),
+            ("SLAC_API_KEY", _settings.SLAC_API_KEY),
+        ],
         "model_alias": _settings.SLAC_MODEL_ALIAS or None,
         "env": _gateway_extra_env("SLAC_"),
     },
     "stanford": {
         "url": _settings.STANFORD_BASE_URL or None,
-        "key": _settings.STANFORD_API_KEY,
+        "keys": [
+            ("STANFORD_API_KEY_PRIMARY", _settings.STANFORD_API_KEY_PRIMARY),
+            ("STANFORD_API_KEY", _settings.STANFORD_API_KEY),
+        ],
         "model_alias": _settings.STANFORD_MODEL_ALIAS or None,
         "env": _gateway_extra_env("STANFORD_"),
     },
@@ -157,8 +170,38 @@ _GATEWAYS: dict[str, dict] = {
 
 
 def gateway_config() -> dict:
-    """Return {url, key, model_alias, env} for the active LLM_GATEWAY."""
+    """Return {url, keys, model_alias, env} for the active LLM_GATEWAY."""
     return _GATEWAYS.get(LLM_GATEWAY, _DEFAULT_GATEWAY)
+
+
+def gateway_key_pool():
+    """Shared KeyPool for the active gateway (primary preferred, fallback on
+    lockout). Process-wide so the spawn path and the drain path cooperate."""
+    return get_pool(LLM_GATEWAY, gateway_config().get("keys", []))
+
+
+def looks_rate_limited(text: str) -> bool:
+    """Heuristic: does this claude output / stderr indicate a gateway rate limit?"""
+    if not text:
+        return False
+    low = text.lower()
+    return is_lockout(None, low) or "429" in low or "rate_limit_error" in low
+
+
+def note_gateway_rate_limited() -> None:
+    """Trip the active gateway key's cooldown so the next agent spawn uses the
+    fallback key. Mid-turn failover isn't possible — the key is baked into the
+    subprocess env at spawn — so a rate-limited turn cools the primary and the
+    next spawn's gateway_env picks the secondary."""
+    pool = gateway_key_pool()
+    active = pool.active()
+    if active:
+        pool.mark_locked_out(active[0])
+        import logging
+        logging.getLogger(__name__).warning(
+            "Gateway '%s' key %s hit a rate limit; failing over to the "
+            "fallback key on the next spawn.", LLM_GATEWAY, active[0],
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +217,6 @@ os.environ.setdefault("ORCHESTRATION_DB_PATH", DB_PATH)
 
 
 def llm_enabled() -> bool:
-    """True iff the LLM backend is usable (gateway key present)."""
+    """True iff the LLM backend is usable (at least one gateway key present)."""
     gw = gateway_config()
-    return bool(gw["key"])
+    return any(v for _, v in gw.get("keys", []))

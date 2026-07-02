@@ -30,7 +30,11 @@ from typing import Optional
 
 from orchestration.agent.claude_code_client import _Accumulator, _ingest_event
 from orchestration.agents import runs as agent_runs
-from orchestration.config import PROJECT_ROOT
+from orchestration.config import (
+    PROJECT_ROOT,
+    looks_rate_limited,
+    note_gateway_rate_limited,
+)
 from orchestration.observability import mlflow_logging
 
 logger = logging.getLogger(__name__)
@@ -257,6 +261,12 @@ def _drain_and_finalize(run_id: str, proc: subprocess.Popen) -> None:
     elif rc != 0:
         logger.warning("agent %s: exited rc=%d (stderr tail: %s)",
                        run_id, rc, stderr_tail[:300])
+
+    # If this turn was rate-limited by the gateway, trip the key cooldown so the
+    # next agent spawn fails over to the fallback key (mid-turn swap isn't
+    # possible — the key is baked into the subprocess env at spawn).
+    if looks_rate_limited(final_text) or looks_rate_limited(stderr_tail):
+        note_gateway_rate_limited()
 
     # If the row was already marked killed via kill(), don't clobber that.
     existing = agent_runs.get_run(run_id)
