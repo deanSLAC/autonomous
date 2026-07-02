@@ -31,10 +31,10 @@ fi
 launch_agent() {
   local agent_name="$1"; shift
   exec claude --agent "$agent_name" -p \
+    --settings "$PROJECT_ROOT/.claude/settings.json" \
     --append-system-prompt-file "$PROJECT_ROOT/.claude/prompts/base-layer.md" \
     --output-format stream-json \
     --input-format stream-json \
-    --include-partial-messages \
     --verbose \
     "$@" \
     "${SESSION_FLAG[@]}"

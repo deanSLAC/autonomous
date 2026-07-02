@@ -1,7 +1,7 @@
 ---
 name: bl-aligner
 description: "Orchestrator-only: upstream optics alignment agent for BL15-2. Drives gap, mono, KB mirrors, slits, and B-stage diagnostics. Do not spawn interactively."
-tools: Read, Bash(beamtimehero blaligner *)
+tools: Read, Bash(beamtimehero blaligner:*)
 disallowedTools: Edit, Write, Agent
 model: opus
 effort: xhigh
