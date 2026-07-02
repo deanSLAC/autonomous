@@ -65,7 +65,7 @@ follow Outcome 3 or 4 of the base contract.
 
 The universal plot-and-describe-every-scan rule lives in base
 contract §5; for alignment
-runs, use `--file-name alignment` when calling `tool plot-scan`. The
+runs, use `--file-name alignment` when calling `spec-file plot-scan`. The
 rules below layer alignment-specific decision constraints on top of
 it. They are non-negotiable; violating any of them invalidates the
 alignment and is treated as a failure of the run, not a shortcut.
@@ -230,7 +230,7 @@ Always do these first:
   outside the main feature) is a red flag — stop and investigate, do
   not chain another scan on top of a bad position.
 - Pattern: `plotselect <counter>` → `run-align-shortcut` →
-  `tool plot-scan` (read PNG) → predict target → `post-scan-move`
+  `spec-file plot-scan` (read PNG) → predict target → `post-scan-move`
   (peak or cen) → verify motor position → `get-counts` → verify
   counts vs initial.
 - For full detail: `beamtimehero blaligner ref beamline-alignment`.

@@ -145,18 +145,18 @@ These are summaries. Consult reference docs for full detail before unfamiliar pr
 - **Read initial counts before planning.** `get-counts` first; the starting I0/I1 (SPEAR-normalized) are what every decision gate -- "do I need pass 2", "is this converged", "did this move help" -- compares against. If you skip this, you have nothing to compare to.
 - `plotselect I1` for alignment -- it is downstream and closer to the real signal path
 - **`plotselect` BEFORE the scan.** `peak`/`cen` operate on whichever counter is currently selected. If you scan with the wrong plotselect, `peak` finds the peak of the wrong signal and walks the motor to a meaningless position. Always: `plotselect <counter>` -> `run-align-shortcut` -> inspect plot -> `post-scan-move`.
-- **Plot every scan and read the PNG before deciding peak vs cen.** Run `tool plot-scan` (or equivalent) and read the image. The curve shape -- sharp peak, broad plateau, asymmetric, double-humped, noisy -- determines which post-scan-move is appropriate. Do not pick peak vs cen from the shortcut name alone.
+- **Plot every scan and read the PNG before deciding peak vs cen.** Run `spec-file plot-scan` (or equivalent) and read the image. The curve shape -- sharp peak, broad plateau, asymmetric, double-humped, noisy -- determines which post-scan-move is appropriate. Do not pick peak vs cen from the shortcut name alone.
 - **Predict the motor target before the move, then verify after.** Looking at the plotted curve, estimate where `peak`/`cen` should land. After `post-scan-move`, read the resulting motor position and confirm it matches your prediction within reason. A `peak` move that lands far from the visible peak (or jumps to a noise spike outside the main feature) is a red flag -- stop and investigate, do not chain another scan on top of a bad position.
-- Pattern: `plotselect <counter>` -> `run-align-shortcut` -> `tool plot-scan` (read PNG) -> predict target -> `post-scan-move` (peak or cen) -> verify motor position -> `get-counts` -> verify counts vs initial
+- Pattern: `plotselect <counter>` -> `run-align-shortcut` -> `spec-file plot-scan` (read PNG) -> predict target -> `post-scan-move` (peak or cen) -> verify motor position -> `get-counts` -> verify counts vs initial
 - For full detail: `beamtimehero ref beamline-alignment`
 
 
 **Data collection:**
 - One SPEC file per sample (`open-data-file`)
 - `run-xas` or `run-emiss-scan` per sample with appropriate element, count time, and reps
-- Monitor convergence with `beamtimehero tool analyze-convergence --e-min <eV> --e-max <eV>`
-- Monitor efficiency with `beamtimehero tool analyze-efficiency --e-min <eV> --e-max <eV>`
-- Use `beamtimehero tool get-latest-scan` and `tool plot-scan` to inspect results
+- Monitor convergence with `beamtimehero spec-file analyze-convergence --e-min <eV> --e-max <eV>`
+- Monitor efficiency with `beamtimehero spec-file analyze-efficiency --e-min <eV> --e-max <eV>`
+- Use `beamtimehero spec-file get-latest-scan` and `spec-file plot-scan` to inspect results
 
 
 **Recovery from SPEAR downtime:**
