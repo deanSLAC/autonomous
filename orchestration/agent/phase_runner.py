@@ -209,21 +209,34 @@ def _watch_exit(slug: str, slot: _Slot) -> None:
             existing_pr = get_phase_run(slot.phase_run_id)
             if existing_pr and existing_pr.status == "running":
                 summary_image_path: Optional[str] = None
+                report_error: Optional[str] = None
                 if rc == 0:
                     try:
                         from orchestration.agent import phase_reports
-                        summary_image_path = phase_reports.generate_and_post(
+                        outcome = phase_reports.generate_and_post(
                             slug, slot.phase_run_id,
                         )
+                        summary_image_path = outcome.path
+                        report_error = outcome.error
                     except Exception as e:  # noqa: BLE001
-                        logger.warning(
-                            "phase_runner: phase_reports.generate_and_post failed for %s: %s",
+                        logger.exception(
+                            "phase_runner: phase_reports.generate_and_post raised for %s: %s",
                             slot.phase_run_id, e,
                         )
+                        report_error = f"report hook raised {type(e).__name__}: {e}"
+                # Stamp the reason onto the row so the phase page can distinguish
+                # "report failed, here's why" from "this phase has no report".
+                # anomaly_flags is a free JSON field on PhaseRun that nothing
+                # else writes; using it avoids a schema change on a table that
+                # already exists in the wild.
+                anomaly_flags = None
+                if report_error:
+                    anomaly_flags = json.dumps({"report_error": report_error})
                 complete_phase_run(
                     slot.phase_run_id,
                     status="completed" if rc == 0 else "failed",
                     summary_image_path=summary_image_path,
+                    anomaly_flags=anomaly_flags,
                 )
         except Exception as e:  # noqa: BLE001
             logger.warning("phase_runner: complete_phase_run failed for %s: %s",

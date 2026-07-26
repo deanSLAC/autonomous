@@ -83,6 +83,14 @@
             <div class="report-image-label">Phase summary report</div>
         </div>
 
+        <!-- Shown when the report was attempted and failed. Without this, a
+             broken report renders exactly like a phase that has no report, which
+             is how four render bugs survived a month unnoticed. -->
+        <div class="report-error-box" id="report-error-box" style="display:none;">
+            <div class="report-error-title">Phase summary report failed</div>
+            <div class="report-error-text" id="report-error-text"></div>
+        </div>
+
         <div id="collection-progress" style="display:none;">
             <div class="scan-table-title">Sample progress</div>
             <div class="collection-grid" id="collection-grid"></div>

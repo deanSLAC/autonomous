@@ -4,6 +4,7 @@ Orchestrator-side hook fired by phase_runner._watch_exit when a phase
 agent finishes successfully. Routes by slug:
 
     beamline_alignment → reports.alignment_report
+    xes_alignment      → reports.spectrometer_report
     sample_alignment   → reports.sample_report
     sample_survey      → reports.survey_report
 
@@ -12,10 +13,17 @@ Each route discovers its required inputs from the SPEC scan cache
 padded by _WINDOW_PAD_S to absorb clock skew between the SPEC host
 and this machine) and the plan_store DB, calls the matching renderer
 in orchestration.agent.reports, persists the PNG under
-data/phase_reports/, and uploads it to Slack. Returns the saved path so
-the caller can stamp it onto PhaseRun.summary_image_path. Every step is
-best-effort — failures log and return None so the phase row update is
-never blocked.
+data/phase_reports/, and uploads it to Slack.
+
+Failures are REPORTED, not swallowed. generate_and_post returns a
+ReportOutcome carrying either a path or a specific reason, and the caller
+stamps that reason onto the PhaseRun so the UI can say "report failed:
+<why>". Previously every failure path returned a bare None, which the
+phase page rendered identically to "this phase has no report" — so a
+broken report was indistinguishable from an absent one, and four separate
+render bugs went unnoticed for a month (see the 2026-05-11 and 2026-06-11
+fix rounds). Rendering is still best-effort in the sense that it never
+blocks the phase row update.
 """
 
 from __future__ import annotations
@@ -24,7 +32,7 @@ import logging
 import os
 import re
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import NamedTuple, Optional
 
 from orchestration.config import DATA_DIR
 from orchestration.plan_store.session import get_phase_run, get_session
@@ -65,52 +73,96 @@ _ALIGNMENT_MOTOR_PATTERNS: list[tuple[str, tuple[str, ...]]] = [
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def generate_and_post(slug: str, phase_run_id: str) -> Optional[str]:
+class ReportOutcome(NamedTuple):
+    """Result of a summary-report attempt.
+
+    Exactly one of `path` / `error` is set, except for the not-applicable case
+    where both are None: this slug has no report and nothing went wrong. That
+    distinction is the whole point — `error` is what lets the UI show "report
+    failed: <why>" instead of silently hiding the container.
+    """
+
+    path: Optional[str] = None
+    error: Optional[str] = None
+
+    @property
+    def failed(self) -> bool:
+        return self.error is not None
+
+
+# Slugs that produce a summary image, and the caption used for the Slack post.
+_ROUTES = {
+    "beamline_alignment": "Beamline alignment complete — summary report",
+    "xes_alignment": "Spectrometer (XES) alignment complete — summary report",
+    "sample_alignment": "Sample alignment complete — summary report",
+    "sample_survey": "Sample survey complete — summary report",
+}
+
+
+def generate_and_post(slug: str, phase_run_id: str) -> ReportOutcome:
     """Render and post the summary image for a finished phase run.
 
-    Returns the saved PNG path on success, or None if the slug is not
-    handled, the inputs cannot be assembled, or rendering failed.
+    Returns ReportOutcome(path=...) on success, ReportOutcome(error=...) with a
+    specific reason on failure, and ReportOutcome() when this slug simply has no
+    report to make.
     """
-    if slug not in ("beamline_alignment", "sample_alignment", "sample_survey"):
-        return None
+    if slug not in _ROUTES:
+        return ReportOutcome()
+
+    def fail(msg: str) -> ReportOutcome:
+        logger.warning("phase_reports: %s [%s]: %s", slug, phase_run_id, msg)
+        return ReportOutcome(error=msg)
+
     try:
         run = get_phase_run(phase_run_id)
     except Exception as e:  # noqa: BLE001
-        logger.warning("phase_reports: get_phase_run failed for %s: %s", phase_run_id, e)
-        return None
-    if run is None or run.started_at is None:
-        return None
+        return fail(f"could not load phase run: {e}")
+    if run is None:
+        return fail("phase run row not found")
+    if run.started_at is None:
+        return fail("phase run has no started_at, so the scan window is unknown")
 
     pad = timedelta(seconds=_WINDOW_PAD_S)
     window = (
         run.started_at - pad,
         (run.completed_at or datetime.now()) + pad,
     )
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-
     try:
-        if slug == "beamline_alignment":
-            path = _render_alignment(run.experiment_id, phase_run_id, window)
-            caption = "Beamline alignment complete — summary report"
-        elif slug == "sample_alignment":
-            path = _render_sample_alignment(run.experiment_id, phase_run_id, window)
-            caption = "Sample alignment complete — summary report"
-        else:
-            path = _render_sample_survey(run.experiment_id, phase_run_id, window)
-            caption = "Sample survey complete — summary report"
+        REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        return fail(f"cannot create {REPORTS_DIR}: {e}")
+
+    renderers = {
+        "beamline_alignment": _render_alignment,
+        "xes_alignment": _render_spectrometer,
+        "sample_alignment": _render_sample_alignment,
+        "sample_survey": _render_sample_survey,
+    }
+    try:
+        path = renderers[slug](run.experiment_id, phase_run_id, window)
     except Exception as e:  # noqa: BLE001
-        logger.exception("phase_reports: render failed for %s: %s", slug, e)
-        return None
+        logger.exception("phase_reports: render raised for %s: %s", slug, e)
+        return fail(f"renderer raised {type(e).__name__}: {e}")
 
     if not path:
-        return None
+        # The renderer declined — almost always "no matching scans in the phase
+        # window". Say so, and say what the window was: that is the single most
+        # useful fact when a report comes up empty.
+        return fail("no usable scans found in the phase window "
+                    f"{window[0]:%H:%M:%S}–{window[1]:%H:%M:%S} "
+                    f"(±{int(_WINDOW_PAD_S)}s clock-skew pad)")
+    if not os.path.exists(path):
+        return fail(f"renderer returned {path} but no file is there")
 
     try:
-        _post_to_slack(path, caption)
+        _post_to_slack(path, _ROUTES[slug])
     except Exception as e:  # noqa: BLE001
-        logger.warning("phase_reports: slack post failed: %s", e)
+        # A failed Slack post is not a failed report — the image exists and the
+        # UI will show it. Log and carry on.
+        logger.warning("phase_reports: slack post failed for %s: %s", slug, e)
 
-    return path
+    logger.info("phase_reports: %s [%s] wrote %s", slug, phase_run_id, path)
+    return ReportOutcome(path=path)
 
 
 # ---------------------------------------------------------------------------
@@ -258,6 +310,89 @@ def _render_alignment(
         logger.warning("phase_reports: rename failed (%s → %s): %s", written, out_path, e)
         return written
     return out_path
+
+
+# ---------------------------------------------------------------------------
+# Spectrometer (XES) alignment report
+# ---------------------------------------------------------------------------
+
+# c1y..c7y (pitch/Ath) and c1p..c7p (roll/Achi). Two digits because the XRS
+# spectrometer numbers its 66 crystals c11..c58. Anchored and matched against
+# the scanned motor only: ordinary files carry analyser *counters* named c5/c6/c7,
+# and `crystal` is a real mono motor.
+_CRYSTAL_SCAN_RE = re.compile(r"^c(\d{1,2})([yp])$", re.IGNORECASE)
+
+
+def _pick_spectrometer_scans(window) -> tuple[Optional[str], list[int]]:
+    """(spec_datafile, crystal scan numbers) for an xes_align run in this window.
+
+    reports.spectrometer_report classifies the scans itself by motor name, so
+    this only has to find them and agree on one data file.
+    """
+    scans = _scans_in_window(window)
+    if not scans:
+        return None, []
+
+    matched = [s for s in scans if _CRYSTAL_SCAN_RE.match((_motor_of(s) or "").strip())]
+    if not matched:
+        seen = sorted({(_motor_of(s) or "?") for s in scans})
+        logger.info("phase_reports: no c#y/c#p scans in window; motors seen: %s", seen)
+        return None, []
+
+    from collections import Counter
+    files = Counter(s["file_path"] for s in matched if s.get("file_path"))
+    if not files:
+        return None, []
+    spec_datafile = files.most_common(1)[0][0]
+    numbers = [int(s["scan_number"]) for s in matched
+               if s.get("file_path") == spec_datafile
+               and s.get("scan_number") is not None]
+    return spec_datafile, sorted(numbers)
+
+
+def _spectrometer_elements(experiment_id: str) -> list[dict]:
+    """Element rows for spectrometer_report's resolution table (best effort)."""
+    out: list[dict] = []
+    try:
+        from sqlmodel import select
+        from orchestration.plan_store.models import ExperimentElement
+        with get_session() as session:
+            rows = session.exec(
+                select(ExperimentElement).where(
+                    ExperimentElement.experiment_id == experiment_id)
+            ).all()
+            for r in rows:
+                row = {"symbol": getattr(r, "symbol", None) or getattr(r, "element", "")}
+                for src, dst in (("crystal_cut", "crystal_cut"),
+                                 ("expected_fwhm", "expected_fwhm")):
+                    val = getattr(r, src, None)
+                    if val is not None:
+                        row[dst] = val
+                out.append(row)
+    except Exception as e:  # noqa: BLE001
+        logger.info("phase_reports: element lookup for resolution table failed: %s", e)
+    return out
+
+
+def _render_spectrometer(
+    experiment_id: str,
+    phase_run_id: str,
+    window: tuple[datetime, datetime],
+) -> Optional[str]:
+    spec_datafile, scan_numbers = _pick_spectrometer_scans(window)
+    if not spec_datafile or not scan_numbers:
+        return None
+    resolved = _resolve_spec_datafile(spec_datafile)
+    if not resolved:
+        logger.info("phase_reports: could not resolve spec file %s", spec_datafile)
+        return None
+    from orchestration.agent import reports
+    return reports.spectrometer_report(
+        spec_datafile=resolved,
+        scan_numbers=scan_numbers,
+        elements=_spectrometer_elements(experiment_id),
+        output_dir=str(REPORTS_DIR),
+    )
 
 
 def _alignment_metadata(experiment_id: str) -> dict:

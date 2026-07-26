@@ -724,3 +724,33 @@ table.scan-table .confidence-low { color: var(--red); }
     .topbar { flex-direction: column; gap: 10px; }
     .exp-info { flex-wrap: wrap; }
 }
+
+/* Report-failure box — the visible half of "stop swallowing report failures".
+   A report that was attempted and failed must not look like a phase that never
+   had one; this states the reason phase_reports recorded. */
+.report-error-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+}
+
+.report-error-box .report-error-title {
+    font-size: 11px;
+    color: var(--red);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.report-error-box .report-error-text {
+    font-size: 13px;
+    font-family: var(--font-mono, ui-monospace, Menlo, monospace);
+    line-height: 1.5;
+    color: var(--text);
+    word-break: break-word;
+}

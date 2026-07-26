@@ -216,12 +216,22 @@
         } else {
             byId("assessment-box").style.display = "none";
         }
+        // Three states, not two: an image, an explicit failure with its reason,
+        // or genuinely nothing. Collapsing the middle case into the last one is
+        // what made a broken report indistinguishable from an absent one.
+        const reportError = run.anomaly_flags && run.anomaly_flags.report_error;
         if (run.summary_image_path) {
             byId("report-image").src =
                 "/api/dashboard/image?path=" + encodeURIComponent(run.summary_image_path);
             byId("report-image-container").style.display = "";
+            byId("report-error-box").style.display = "none";
+        } else if (reportError) {
+            byId("report-image-container").style.display = "none";
+            byId("report-error-text").textContent = reportError;
+            byId("report-error-box").style.display = "";
         } else {
             byId("report-image-container").style.display = "none";
+            byId("report-error-box").style.display = "none";
         }
 
         if (run.phase === "collection" && data.collection_progress) {
