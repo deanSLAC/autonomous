@@ -75,11 +75,15 @@ class RecordSampleProgressArgs(_ToolArgs):
 class RecordConvergenceStatsArgs(_ToolArgs):
     sample_id: str
     stats: dict = Field(description=(
-        "Convergence statistics dict with keys: "
-        "feature_window_eV ([e_min, e_max]), statistic, "
-        "cumulative_cv_pct (array from analyze-efficiency), "
-        "running_sem_frac (array from analyze-feature-evolution), "
-        "efficiency_verdict, feature_verdict."
+        "Convergence statistics dict. From analyze-efficiency, copy through: "
+        "cumulative_sem_pct, cumulative_floor_pct, sem_threshold_pct, "
+        "target_reached_at_rep, reps_to_target, plateau_from_rep, limited_by, "
+        "and verdict as efficiency_verdict. Also pass feature_window_eV "
+        "([e_min, e_max]) and statistic. From analyze-feature-evolution, copy "
+        "running_sem_frac, is_drifting, sem_is_rising, and verdict as "
+        "feature_verdict. cumulative_floor_pct is what the dashboard plot "
+        "draws the counting-statistics floor from — omit it and the panel "
+        "falls back to a fitted 1/sqrt(n) guide with no absolute reference."
     ))
 
 

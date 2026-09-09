@@ -104,11 +104,20 @@ The relevant DB tools:
   store the convergence analysis results for the active sample. The
   orchestrator reads this to auto-generate a statistics trend plot
   on the dashboard. Call this after running the convergence analysis
-  at each spawn N. The stats dict should contain:
-  `feature_window_eV` ([e_min, e_max]), `statistic` (e.g. "max"),
-  `cumulative_cv_pct` (array from analyze-efficiency),
-  `running_sem_frac` (array from analyze-feature-evolution),
-  `efficiency_verdict`, `feature_verdict`.
+  at each spawn N. The stats dict should contain, copied straight
+  from the tool output:
+  - from `analyze-efficiency`: `cumulative_sem_pct`,
+    `cumulative_floor_pct`, `sem_threshold_pct`,
+    `target_reached_at_rep`, `reps_to_target`, `plateau_from_rep`,
+    `limited_by`, and `verdict` as `efficiency_verdict`
+  - from `analyze-feature-evolution`: `running_sem_frac`,
+    `is_drifting`, `sem_is_rising`, and `verdict` as
+    `feature_verdict`
+  - plus `feature_window_eV` ([e_min, e_max]) and `statistic`
+  `cumulative_floor_pct` is the counting-statistics floor the plot
+  draws; without it the panel falls back to a fitted 1/sqrt(n)
+  guide with no absolute reference. `plateau_from_rep` is the mark
+  that says more reps stopped helping.
 - `record-observable-trend --sample-id <id> --trend '<json>'` — store
   the per-scan drift verdict of the scientific observable (from
   `summarize-sample-chemistry`) for the active sample. This is the
@@ -562,7 +571,7 @@ For each scan completion you're notified about:
    reps are buying SNR or just costing time. Output is a verdict
    plus per-feature progression.
    **After running the skill, call `record-convergence-stats`** to
-   store the results. Pass the feature window, the `cumulative_cv_pct`
+   store the results. Pass the feature window, the `cumulative_sem_pct`
    array from `analyze-efficiency`, the `running_sem_frac` array from
    `analyze-feature-evolution`, and both verdicts. The orchestrator
    uses this to render a live statistics trend on the dashboard.
