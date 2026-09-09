@@ -2,7 +2,7 @@ import os, re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIGS = os.path.join(HERE, 'figs')
-OUT = os.path.join(HERE, '..', '..', 'stopping-decision.html')
+OUT = os.path.join(HERE, '..', 'stopping-decision.html')
 
 CSS = """
   /* System fonts only. No external requests of any kind. */

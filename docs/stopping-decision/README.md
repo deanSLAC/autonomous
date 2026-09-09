@@ -1,6 +1,6 @@
 # `stopping-decision.html` — figure generator
 
-Sources for `../../stopping-decision.html`. Every plotted number in that
+Sources for `../stopping-decision.html`. Every plotted number in that
 document is the return value of the shipped implementation in
 `beamtimehero_cli.science.statistics`; nothing here re-implements the maths.
 
@@ -10,7 +10,7 @@ document is the return value of the shipped implementation in
 | `series.py` | the four example series (A clean, B disturbed at rep 6, C photoreduced, D bumped at rep 10) and the real `analyze_scan_efficiency` / `analyze_scalar_convergence` output for each |
 | `mkfigs.py` | renders `figs/*.svg` from those results |
 | `body.html` | the prose, with `{{FIG1}}`…`{{FIG10}}` placeholders |
-| `build.py` | CSS + `body.html` + `figs/*.svg` → `../../stopping-decision.html` |
+| `build.py` | CSS + `body.html` + `figs/*.svg` → `../stopping-decision.html` |
 
 ## Rebuild
 
@@ -21,6 +21,11 @@ cd docs/stopping-decision
 ```
 
 Edit prose in `body.html`, not in the built HTML — `build.py` overwrites it.
+
+`../stopping-decision.html` is checked in alongside these sources. Rerunning
+`mkfigs.py` rewrites matplotlib's element ids and the timestamp it embeds in
+each SVG, so expect a large diff even when no plotted number changed; run
+`build.py` alone if the data has not moved.
 
 ## The count model
 
