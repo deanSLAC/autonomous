@@ -1,9 +1,13 @@
 """Safety-switches API.
 
-Reads/writes `beamline_tools/safety_switches.json`. The file gates every
-spec_cmd call (see beamtimehero_cli/spec_control/spec_cmd.py:_safety_check),
-re-read on every call, so a flip here takes effect immediately without
-restarting any process.
+Reads/writes the file that gates every spec_cmd call. The path is **not**
+computed here: it comes from `spec_cmd.safety_switches_path()`, the same
+resolver the enforcement point uses, so this endpoint cannot drift into
+writing a file nothing reads. `spec_cmd` re-reads it on every call, so a flip
+here takes effect immediately without restarting any process.
+
+Importing `beamline_tools` first is load-bearing — that package's __init__
+pins BEAMTIMEHERO_SAFETY_SWITCHES for this deployment.
 """
 
 from __future__ import annotations
@@ -19,10 +23,10 @@ from ui.server.schemas import SafetySwitchesIn
 
 router = APIRouter(prefix="/api/safety_switches", tags=["safety"])
 
-_PATH = (
-    Path(__file__).resolve().parent.parent.parent.parent
-    / "beamline_tools" / "safety_switches.json"
-)
+import beamline_tools  # noqa: F401  # pins the deployment path env vars
+from beamtimehero_cli.spec_control.spec_cmd import safety_switches_path
+
+_PATH = safety_switches_path()
 
 _KEYS = ("spec_read_enabled", "spec_write_enabled")
 
