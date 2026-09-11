@@ -13,6 +13,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Deployment paths (data dir, safety switches) before any other repo import.
+import deployment_paths  # noqa: E402,F401
+
 # Simulation bootstrap MUST run before bl_config is imported, because
 # bl_config reads BL_SCAN_DIR / BL_LOGS_DIR at import time.
 import simulation as _sim  # noqa: E402

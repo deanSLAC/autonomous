@@ -22,27 +22,9 @@ spec_logs, generic_data, experiment_planning, spec_eval, transport clients),
 import directly from `beamtimehero_cli.*`.
 """
 
-# ---------------------------------------------------------------------------
-# Deployment path bootstrap — MUST run before any beamtimehero_cli import.
-#
-# Upstream `beamtimehero_cli.config` reads these at import time. This package's
-# __init__ imports audited_call (-> beamtimehero_cli.config) on the first line
-# below, so setting them inside `beamline_tools/config.py` was too late: the
-# action log and the SPEC safety switch both resolved into the *toolbelt's*
-# checkout instead of this repo. Set them here, before the first import, and
-# every entry point (scripts/beamtimehero, the UI server, the orchestrator)
-# inherits the same answer.
-# ---------------------------------------------------------------------------
-
-import os as _os
-from pathlib import Path as _Path
-
-_REPO_ROOT = _Path(__file__).resolve().parent.parent
-_os.environ.setdefault("BEAMTIMEHERO_DATA_DIR", str(_REPO_ROOT / "data"))
-_os.environ.setdefault(
-    "BEAMTIMEHERO_SAFETY_SWITCHES",
-    str(_REPO_ROOT / "beamline_tools" / "safety_switches.json"),
-)
+# Deployment paths must be set before the first beamtimehero_cli import, and
+# the line below reaches it. See deployment_paths for why this is load-bearing.
+import deployment_paths  # noqa: F401
 
 from beamline_tools.audited_call import audited_call
 from beamtimehero_cli.spec_control import spec_cmd

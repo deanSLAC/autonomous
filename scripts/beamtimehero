@@ -30,6 +30,9 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(ROOT))
 
+# Deployment paths (data dir, safety switches) before any other repo import.
+import deployment_paths  # noqa: E402,F401
+
 # Simulation bootstrap MUST happen before any beamline_tools / beamtimehero_cli
 # import, because they read SPEC_MOCK / BL_SCAN_DIR / BL_LOGS_DIR at import time.
 if os.getenv("SPEC_MOCK", "1") != "0":
