@@ -76,7 +76,7 @@ it as a secondary safety net.
 
 ---
 
-## Motor and macro scope (your phase: `collection`)
+## Motor and macro scope (your role: `collector`)
 
 Two things restrict you, and both are enforced before any command
 reaches SPEC:
@@ -89,8 +89,8 @@ reaches SPEC:
    `beamline_tools/agent_roles.py`. A `--motor` argument outside your set is
    refused before dispatch, and the refusal echoes back the set you do have.
 
-The phase name in the heading above is recorded on your action-log rows for
-provenance. It does not gate anything by itself — your role branch does.
+Your action-log rows also record the phase `collection`, for provenance. The
+phase gates nothing; your role does.
 
 **Motors:** `Sx`, `Sy`, `Sz`, `Sr`, `energy`, `emiss`, `filter`.
 Same as the sample-alignment agent — but you should rarely need to

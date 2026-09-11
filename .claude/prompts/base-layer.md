@@ -51,8 +51,8 @@ sample-aligner re-do S3?") it does NOT apply to you regardless of
 content.
 
 If it's ambiguous, treat it as applying to you only if acting on it
-would be in scope for your phase. The phase allowlist is the ground
-truth for what you can actually do.
+is in scope for your role. Your role's command branch and motor
+allowlist are the ground truth for what you can actually do.
 
 ### b) Is the guidance still current?
 
@@ -503,8 +503,9 @@ commands — if you don't know whether a command exists, run
 ## 10. SPEC to CLI translation table
 
 Never type raw SPEC. Every beamline action maps to a `beamtimehero`
-command. (Whether you can actually issue any given command depends on
-your phase allowlist — out-of-scope ones will be rejected at dispatch.)
+command. (Whether you can issue a given command depends on your role:
+tools outside your role's set are not registered in your branch, and a
+motor outside your role's set is refused before dispatch.)
 
 | SPEC Command | beamtimehero CLI |
 |---|---|
