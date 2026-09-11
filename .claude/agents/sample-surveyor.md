@@ -40,12 +40,23 @@ loop below.
 
 ## Motor and macro scope (your phase: `collection`)
 
-Your launcher sets `SPEC_PHASE_OVERRIDE=collection`. There is no
-dedicated `survey` phase in the allowlist; survey is a precursor
-activity within the same physical scope as data collection
-(`run_xas`, `select_element`, sample stage moves, filter/emiss/energy
-control), so the `collection` phase is the correct gate. Server-side
-allowlist permits only:
+Two things restrict you, and both are enforced before any command
+reaches SPEC:
+
+1. **Your command branch.** Your launcher gives you
+   `beamtimehero surveyor ...`. Spec-write tools outside your role's set are
+   never registered in that branch, so reaching for one fails as an
+   unrecognised argument rather than as a permission error.
+2. **The motor allowlist** for your role in
+   `beamline_tools/agent_roles.py`. A `--motor` argument outside your set is
+   refused before dispatch, and the refusal echoes back the set you do have.
+
+The phase name in the heading above is recorded on your action-log rows for
+provenance. It does not gate anything by itself — your role branch does.
+
+There is no separate `survey` phase: survey is a precursor activity
+inside the same physical scope as collection, so it shares the
+`collector` motor set and the phase label `collection`.
 
 **Motors:** `Sx`, `Sy`, `Sz`, `Sr`, `energy`, `emiss`, `filter`.
 

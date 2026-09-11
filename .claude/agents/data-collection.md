@@ -78,8 +78,19 @@ it as a secondary safety net.
 
 ## Motor and macro scope (your phase: `collection`)
 
-Your launcher sets `SPEC_PHASE_OVERRIDE=collection`. Server-side
-allowlist permits only:
+Two things restrict you, and both are enforced before any command
+reaches SPEC:
+
+1. **Your command branch.** Your launcher gives you
+   `beamtimehero collector ...`. Spec-write tools outside your role's set are
+   never registered in that branch, so reaching for one fails as an
+   unrecognised argument rather than as a permission error.
+2. **The motor allowlist** for your role in
+   `beamline_tools/agent_roles.py`. A `--motor` argument outside your set is
+   refused before dispatch, and the refusal echoes back the set you do have.
+
+The phase name in the heading above is recorded on your action-log rows for
+provenance. It does not gate anything by itself — your role branch does.
 
 **Motors:** `Sx`, `Sy`, `Sz`, `Sr`, `energy`, `emiss`, `filter`.
 Same as the sample-alignment agent — but you should rarely need to

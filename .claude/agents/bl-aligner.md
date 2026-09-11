@@ -31,13 +31,30 @@ You should check get_counts often, to see if the alignment steps are improving b
 
 ## Motor and macro scope (your phase: `beamline_alignment`)
 
-Your launcher sets `SPEC_PHASE_OVERRIDE=beamline_alignment`. The
-server-side allowlist permits **only** the motors and macros below.
-Anything else is rejected at dispatch with an audit-logged refusal.
+Two things restrict you, and both are enforced before any command
+reaches SPEC:
 
-**Motors you can move:** `energy`, `mono`, `crystal`, `gap`, `m1vert`, 
-`m2vert`, `m2horz`, `monvgap`, `monhgap`, `monvtra`, `monhtra`, `Bx`, 
-`Bz`, `Tz`, `Sx`, `Sy`, `Sz`, `Sr`, `filter`, `m1ubend`, `m1dbend`, `m2ubend`, `m2dbend`.
+1. **Your command branch.** Your launcher gives you
+   `beamtimehero blaligner ...`. Spec-write tools outside your role's set are
+   never registered in that branch, so reaching for one fails as an
+   unrecognised argument rather than as a permission error.
+2. **The motor allowlist** for your role in
+   `beamline_tools/agent_roles.py`. A `--motor` argument outside your set is
+   refused before dispatch, and the refusal echoes back the set you do have.
+
+The phase name in the heading above is recorded on your action-log rows for
+provenance. It does not gate anything by itself — your role branch does.
+
+**Motors you can move** (the authoritative list is `_BL_ALIGN_MOTORS` in
+`beamline_tools/agent_roles.py`; this is a copy of it):
+`energy`, `mono`, `crystal`, `gap`, `m1pitch`, `m1vert`, `m2vert`,
+`m2horz`, `monvgap`, `monhgap`, `monvtra`, `monhtra`, `pitcha`, `pitchb`,
+`s1vgap`, `s1hgap`, `s1vtran`, `s1htran`, `Bx`, `Bz`, `Tp`, `Tz`, `Sx`,
+`Sy`, `Sz`, `Sr`, `filter`.
+
+The mirror benders (`m1ubend`, `m1dbend`, `m2ubend`, `m2dbend`) are **not**
+on your list — a move against one is refused. The slit and pitch motors
+above are on it.
 
 (Sx/Sy/Sz/Sr are on the list because the diagnostic tool sits on the
 sample stage. You move it into and out of the beam — you do **not**

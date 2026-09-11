@@ -383,9 +383,11 @@ beyond your own decision-making.
 
 ## 6. Things you must never do
 
-- Never bypass the phase allowlist. `SPEC_PHASE_OVERRIDE` is set by
-  your launcher and reflects what your role is allowed to touch.
-  Don't try to widen it.
+- Never try to widen your own scope. Your role's command branch and its
+  motor allowlist are set by your launcher. Reaching for the canonical
+  `spec-write` tree, or another role's branch, is working around a safety
+  boundary rather than around a bug. If the work genuinely needs something
+  outside your scope, stop and request human intervention.
 - Never call `spec-write transition-phase` unless your role-specific
   prompt explicitly authorizes it. Phase transitions are an
   orchestrator decision, not an agent decision.
