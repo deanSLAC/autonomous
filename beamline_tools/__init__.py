@@ -12,9 +12,11 @@ the autonomy-specific layer:
   * `config` — re-exports upstream config + adds autonomy-only paths
     (CONTEXT_DIR, PLANS_DIR).
   * `spec_control` — re-exports upstream transport/clients/phases/spec_cmd.
-  * `tool_catalog` — autonomy-side tool surface (CAT-8+ orchestration tools)
-    plus the per-experiment tools_config.json enable/disable filter; sources
-    upstream's tools_core for the generic catalog.
+  * `tool_catalog` — the autonomy-side tool surface (CAT-8 orchestration
+    tools), registered into upstream's catalog rather than shadowing it.
+    There is no enable/disable filter: `tools_config.json` is the
+    tool-tester UI's status document, and what an agent may reach is
+    declared per role in `agent_roles.SURFACES`.
   * `steering` — autonomy-only intervention queue surface.
 
 Existing consumers using `from beamline_tools.* import ...` keep working for

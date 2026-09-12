@@ -219,7 +219,9 @@ If your tool wraps a SPEC macro that lives in `/usr/local/lib/spec.d/`, also add
 SPEC_MOCK=1 venv/bin/python scripts/generate_tools_config.py
 ```
 
-The generator merges new tools into the existing config, preserving user-edited fields (`enabled`, `simulated`, `working_live`, `comments`, `sample_output`). The catalog filter (`beamline_tools/tool_catalog/__init__.py:_load_enabled_set`) reads this file at import time — tools with `enabled=False` are silently dropped.
+The generator merges new tools into the existing config, preserving user-edited fields (`enabled`, `simulated`, `working_live`, `comments`, `sample_output`).
+
+This file is the tool-tester UI's status document. It does **not** gate the catalog: `enabled` is recorded and no longer read at import. Keeping a tool away from an agent is a change to that role's `write_tools` in `agent_roles.py`, which says which role and is visible in the generated manifest — the old gate was process-wide, changed what every role could see, and recorded neither.
 
 ---
 
@@ -387,7 +389,8 @@ When adding multiple related tools at once:
 
 ## Common gotchas
 
-- **The tool doesn't appear in `beamtimehero --help`.** You forgot to regenerate `tools_config.json`. The catalog filter drops anything not in the enabled-set.
+- **The tool doesn't appear in `beamtimehero --help`.** Check the `AUTONOMY_TOOL_DEFINITIONS` entry is actually in the list the package registers (`beamline_tools/tool_catalog/definitions.py`). `tools_config.json` does not gate the catalog, so regenerating it will not make a tool appear.
+- **The tool appears under `beamtimehero <tree>` but not under a role branch.** It is a mutating tool (`mutates: True`) that the role's `write_tools` does not list.
 - **Schema validation passes but the tool errors out at runtime.** Check that the SPEC-cmd key in `_ACTION` matches the string you pass to `audited_call(...)` / `spec_cmd.call(...)`. They have to be identical.
 - **`argparse: argument <command>: invalid choice: 'x'` under a role branch, but the tool exists.** It is a mutating tool the role does not list. Add it to that role's `write_tools` in `agent_roles.py`; an unlisted mutating tool is dropped from the branch, not carried-and-refused.
 - **`SurfaceError: write tool 'x' does not mutate`** at import. The name is in a role's `write_tools` but its lineage entry says `mutates: False`. Fix the lineage entry, or drop it from the write set — every tool on the branch is callable without being listed.
