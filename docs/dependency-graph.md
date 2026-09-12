@@ -76,7 +76,7 @@ This package is now thin: most of what used to live here comes from
 
 | Module | Depends on | Purpose |
 |---|---|---|
-| `agent_roles.py` | upstream `beamtimehero_cli.spec_control.phases` | Per-agent-role motor + spec-write allowlists (autonomy policy) |
+| `agent_roles.py` | upstream `beamtimehero_cli.agent_surface`, `beamtimehero_cli.spec_control.phases` | `SURFACES`: one `AgentSurface` per role (motors, write tools, phase) |
 | `audited_call.py` (wrapper) | upstream `beamtimehero_cli.audited_call` | Thin re-export; phase/exp state mirrored via `orchestration.runtime_state` |
 | `config.py` (wrapper) | upstream `beamtimehero_cli.config` | Re-exports upstream config + adds CONTEXT_DIR, PLANS_DIR |
 | `spec_control/__init__.py` | upstream spec_control + autonomy spec_cmd | Re-exports upstream transport/clients/phases + autonomy `spec_cmd` |

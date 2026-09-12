@@ -9,7 +9,7 @@ of truth for the CAT-8 tool argument surface:
     dispatch (boundary validation — handlers keep their dict interface).
 
 Schema-vocabulary constraint: the generated parameter schemas are
-consumed by upstream's ``beamtimehero_cli.cli.__main__.add_arg`` to
+consumed by upstream's ``beamtimehero_cli.cli.api.add_arg`` to
 build argparse flags, which understands ONLY ``type`` (string / integer
 / number / boolean / array / object), ``description``, ``default``,
 ``enum``, and the ``required`` list. :func:`to_function_schema` emits

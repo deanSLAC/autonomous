@@ -8,7 +8,7 @@ param's JSON type (absent = intentionally untyped, e.g. the int-or-list
 `reps_per_spot`), enum values, and schema defaults.
 
 A second test pins the schema vocabulary to what upstream's
-`beamtimehero_cli.cli.__main__.add_arg` understands — type / description
+`beamtimehero_cli.cli.api.add_arg` understands — type / description
 / default / enum + the required list. No $defs/$ref/anyOf/title/items.
 """
 

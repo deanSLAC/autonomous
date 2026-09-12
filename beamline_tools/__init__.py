@@ -4,8 +4,9 @@ Most of what used to live in this package now comes from `beamtimehero_cli`
 (installed as an editable local dependency). This namespace retains only
 the autonomy-specific layer:
 
-  * `agent_roles` — per-agent-role motor + spec-write allowlists used by
-    `scripts/beamtimehero`.
+  * `agent_roles` — `SURFACES`: one `AgentSurface` per agent role. The CLI
+    branch, its restricted dispatch table and its motor-guarded executor
+    are generated from it by `build_surface()`.
   * `audited_call` — thin re-export of upstream `beamtimehero_cli.audited_call`
     (kept for import-compatibility).
   * `config` — re-exports upstream config + adds autonomy-only paths

@@ -29,7 +29,7 @@ June 2026; its full implementation is preserved on the
 ## Key invariants
 
 - **Nothing reaches SPEC without a justification.** spec-write leaves require a non-empty `--justification` and every action is written to `action_log` *before* dispatch. Even if SPEC hangs, the record exists.
-- **No free-form SPEC strings.** Agents choose from the whitelisted command catalog and per-role allowlisted motors (`beamline_tools/agent_roles.py`). Everything else is refused in Python before anything touches SPEC.
+- **No free-form SPEC strings.** Agents choose from the whitelisted command catalog and per-role allowlisted motors, declared as an `AgentSurface` per role in `beamline_tools/agent_roles.py`. A mutating tool the role does not list is absent from its CLI branch; a motor outside its set is refused by the surface's executor, before anything touches SPEC.
 - **Plan state lives in sqlite** (`ExperimentPlan.plan_json`), schema-validated on every write (`orchestration/planner/plan_schema.py`) — including writes from the LLM via the `update_plan` tool.
 - **Safety switches** (`beamline_tools/safety_switches.json`) gate every spec call, re-read per call — flip from the dashboard without restarting anything.
 

@@ -1,15 +1,57 @@
-"""Per-agent-role allowlists for the autonomous beamtimehero CLI.
+"""Per-agent-role CLI surfaces for the autonomous beamtimehero CLI.
 
-Permission enforcement for SPEC tool calls is *not* in `spec_cmd`. It is
-handled at the CLI layer in `scripts/beamtimehero`: each agent role has its
-own argparse branch that filters spec-write tools (via `spec_write_tools`)
-and validates motor arguments (via `agent_motor_allowed`). The agent's
-Claude permission line restricts its Bash invocations to that branch, so
-there is no global state it can flip to escape its scope.
+Each role — beamline aligner, sample aligner, data collector, sample
+surveyor — gets its own top-level branch of the `beamtimehero` CLI, and
+that branch *is* the enforcement. The agent's Claude permission line
+restricts its Bash invocations to the branch, the branch carries only the
+mutating tools the role may call, and the motor allow-list is enforced
+inside the branch's executor. There is no global state an agent can flip
+to widen its scope.
 
-Phase constants are imported from `beamtimehero_cli.spec_control.phases`
-(upstream); only the autonomy-specific *role policy* — which motors and
-which spec-write tools each role may invoke — lives here.
+This file used to state that policy as plain dicts and leave three other
+places to transcribe it: `scripts/beamtimehero` assembled the argparse
+branch and re-derived "is this a write tool?" from whether the schema
+required a `justification`; it then walked argparse internals to stamp
+the role onto the leaves it could find; and each agent's
+`.claude/agents/*.md` front matter restated the motor list in prose. The
+three drifted, which is the ordinary outcome of writing one fact down
+three times:
+
+  * the pasted motor lists in the prompt files did not match these sets;
+  * the `_agent_role` stamp reached four of the nine trees under a
+    branch, so leaves on the other five were never motor-checked;
+  * the `justification` heuristic classified four audited DB uploads as
+    harmless, so each role's write set named tools the filter ignored.
+
+Now the surface is *declared*, once, here.
+`beamtimehero_cli.agent_surface.build_surface()` generates the argparse
+branch, the restricted dispatch table, the motor-guarded executor, the
+`Bash(...)` permission pattern, the prompt fragment and a checked-in
+manifest from this declaration — see `scripts/render_agent_surfaces.py`.
+
+Read the fields as:
+
+  branches     All nine canonical trees, which is what the hand-built
+               branch already carried. A role's scope is not expressed by
+               hiding read tools; it is expressed by `write_tools` and
+               `motors`.
+  write_tools  Tool *names* this role may mutate with. Every other
+               mutating tool is dropped from the branch entirely rather
+               than carried-and-refused: a tool an agent can see in
+               `--help` is a tool it will try, and advertising moves it
+               may not make trains the model to ignore its own scope.
+               "Mutating" is the declared `mutates` flag in
+               `tool_catalog/lineage.py`, not an inference from the
+               argument schema.
+  motors       Enforced as a before-hook on the surface's executor, so a
+               harness that calls the executor directly is guarded too —
+               which the old CLI-level check was not.
+  phase        Recorded on the manifest and in the prompt fragment. Not
+               gating; phase enforcement lives in
+               `beamtimehero_cli.spec_control.phases`.
+
+Phase constants are imported from upstream; only the autonomy-specific
+role policy lives here.
 """
 
 from __future__ import annotations
@@ -24,7 +66,7 @@ from beamtimehero_cli.spec_control.phases import (
 )
 
 # ---------------------------------------------------------------------------
-# Motor sets — referenced by AGENT_ROLES below.
+# Motor sets.
 # ---------------------------------------------------------------------------
 
 _BL_ALIGN_MOTORS: Set[str] = {
@@ -46,21 +88,49 @@ _COLLECTION_MOTORS: Set[str] = _SAMPLE_ALIGN_MOTORS
 
 
 # ---------------------------------------------------------------------------
-# Agent roles — enforced at the beamtimehero CLI level.
-#
-# Each role maps to (a) the phase it is associated with (recorded on
-# action-log rows; not used for gating), (b) the motor allowlist the
-# agent may target, (c) the spec-write tools the agent may invoke. The
-# CLI's `run_tool_leaf` (upstream) is wrapped with the motor allowlist
-# check before dispatch; the agent branch's argparse `choices` enforces
-# the spec-write tool list at parse time.
+# The nine canonical trees. Shared by every role: see `branches` above.
 # ---------------------------------------------------------------------------
 
-AGENT_ROLES: dict[str, dict] = {
-    "blaligner": {
-        "phase": PHASE_BL_ALIGN,
-        "motors": _BL_ALIGN_MOTORS,
-        "spec_write_tools": frozenset({
+_ALL_BRANCHES: tuple[str, ...] = (
+    "tool", "db", "spec-read", "spec-write", "spec-file",
+    "s3df", "slack", "xrs", "exafs",
+)
+
+
+def _surface(
+    name: str,
+    *,
+    phase: str,
+    motors: Set[str],
+    write_tools: Set[str],
+) -> AgentSurface:
+    """One role's surface, with the shared fields filled in.
+
+    `description` is the branch's `--help` line. It is worded exactly as
+    the hand-built branch worded it, so the migration reads as a no-op to
+    anyone running `beamtimehero --help`.
+    """
+    return AgentSurface(
+        name=name,
+        description=(
+            f"Agent scope: {name} (phase={phase}). "
+            "Filters spec-write tools and validates motor args."
+        ),
+        layout="nested",
+        branches=_ALL_BRANCHES,
+        write_tools=frozenset(write_tools),
+        motors=frozenset(motors),
+        include_ref=True,
+        phase=phase,
+    )
+
+
+SURFACES: dict[str, AgentSurface] = {
+    "blaligner": _surface(
+        "blaligner",
+        phase=PHASE_BL_ALIGN,
+        motors=_BL_ALIGN_MOTORS,
+        write_tools={
             "align_beamline", "peak_mono_pitch", "calibrate_mono",
             "select_element", "move_motor", "move_motor_relative",
             "run_motor_scan", "run_motor_scan_relative", "run_diagonal_scan",
@@ -73,36 +143,39 @@ AGENT_ROLES: dict[str, dict] = {
             "set_m2_stripe", "set_anchor", "tracking",
             "request_gap_ownership", "abort_current_scan",
             "record_alignment_flux",
-        }),
-    },
-    "samplealigner": {
-        "phase": PHASE_SAMPLE_ALIGN,
-        "motors": _SAMPLE_ALIGN_MOTORS,
-        "spec_write_tools": frozenset({
+        },
+    ),
+    "samplealigner": _surface(
+        "samplealigner",
+        phase=PHASE_SAMPLE_ALIGN,
+        motors=_SAMPLE_ALIGN_MOTORS,
+        write_tools={
             "select_element", "move_motor", "move_motor_relative",
             "run_motor_scan", "run_motor_scan_relative", "run_diagonal_scan",
             "fit_emission_peak", "mv_energy", "shutter", "set_filter",
             "safely_remove_filters", "set_gain", "set_vortex_roi",
             "open_data_file", "plotselect", "tracking", "abort_current_scan",
             "upload_sample_alignment_results",
-        }),
-    },
-    "collector": {
-        "phase": PHASE_COLLECTION,
-        "motors": _COLLECTION_MOTORS,
-        "spec_write_tools": frozenset({
+        },
+    ),
+    "collector": _surface(
+        "collector",
+        phase=PHASE_COLLECTION,
+        motors=_COLLECTION_MOTORS,
+        write_tools={
             "select_element", "run_xas", "run_emiss_scan", "run_collection",
             "fit_emission_peak", "move_motor", "move_motor_relative",
             "run_motor_scan", "run_motor_scan_relative", "mv_energy",
             "shutter", "set_filter", "safely_remove_filters", "set_gain",
             "set_vortex_roi", "open_data_file", "plotselect", "tracking",
             "abort_current_scan", "record_completed_scan",
-        }),
-    },
-    "surveyor": {
-        "phase": PHASE_COLLECTION,
-        "motors": _COLLECTION_MOTORS,
-        "spec_write_tools": frozenset({
+        },
+    ),
+    "surveyor": _surface(
+        "surveyor",
+        phase=PHASE_COLLECTION,
+        motors=_COLLECTION_MOTORS,
+        write_tools={
             "select_element", "run_xas", "run_emiss_scan",
             "fit_emission_peak", "move_motor", "move_motor_relative",
             "run_motor_scan", "run_motor_scan_relative", "mv_energy",
@@ -110,78 +183,9 @@ AGENT_ROLES: dict[str, dict] = {
             "set_vortex_roi", "open_data_file", "plotselect", "tracking",
             "abort_current_scan",
             "upload_sample_survey_results",
-        }),
-    },
+        },
+    ),
 }
 
 
-# ---------------------------------------------------------------------------
-# Agent surfaces — the same policy, declared once.
-#
-# `AGENT_ROLES` above states each role's scope; `scripts/beamtimehero`
-# turns it into an argparse branch, a spec-write filter and a motor check;
-# and each agent's `.claude/agents/*.md` front matter states the shell
-# permission that lets it reach that branch. Three spellings of one fact,
-# agreeing by hand — and they did not always agree: the motor lists pasted
-# into four prompt files drifted, and the `_agent_role` stamp reached four
-# of the nine trees under each branch, so leaves on the other five were
-# never motor-checked at all.
-#
-# An `AgentSurface` is the declaration. `build_surface(spec, catalogue)`
-# generates the branch, the restricted dispatch table, the guarded
-# executor, the `Bash(...)` permission pattern, the prompt fragment and a
-# checked-in manifest from it. Read the fields as:
-#
-#   branches     all nine canonical trees, which is what
-#                `build_catalog_subtrees` already pre-created under every
-#                role. A role's scope is not expressed by hiding read
-#                tools; it is expressed by `write_tools` and `motors`.
-#   write_tools  the tools this role may *mutate* with, by name. Every
-#                other mutating tool is dropped from the branch entirely
-#                rather than carried-and-refused: a tool an agent can see
-#                in `--help` is a tool it will try.
-#   motors       enforced in the executor, so a harness that calls the
-#                executor directly is guarded too.
-#   phase        recorded on the manifest and in the prompt; not gating.
-#
-# `description` is the branch's `--help` line, kept verbatim from the
-# hand-built branch it replaces so the migration is a no-op for anyone
-# reading `beamtimehero --help`.
-# ---------------------------------------------------------------------------
-
-def _surface(role_name: str, role_def: dict) -> AgentSurface:
-    return AgentSurface(
-        name=role_name,
-        description=(
-            f"Agent scope: {role_name} (phase={role_def['phase']}). "
-            "Filters spec-write tools and validates motor args."
-        ),
-        layout="nested",
-        branches=(
-            "tool", "db", "spec-read", "spec-write", "spec-file",
-            "s3df", "slack", "xrs", "exafs",
-        ),
-        write_tools=frozenset(role_def["spec_write_tools"]),
-        motors=frozenset(role_def["motors"]),
-        include_ref=True,
-        phase=role_def["phase"],
-    )
-
-
-SURFACES: dict[str, AgentSurface] = {
-    role_name: _surface(role_name, role_def)
-    for role_name, role_def in AGENT_ROLES.items()
-}
-
-
-def agent_motor_allowed(role: str, motor: str) -> bool:
-    """Return True if `motor` is on `role`'s motor allowlist.
-
-    Unknown roles return False (no implicit fall-through).
-    """
-    role_def = AGENT_ROLES.get(role)
-    if role_def is None:
-        return False
-    return motor in role_def["motors"]
-
-
+__all__ = ["SURFACES"]

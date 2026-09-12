@@ -80,23 +80,28 @@ For commands with structured args:
 
 For motor-bearing commands (`umv`, `mv`, `dscan`, ...), set `needs_motor_allow=True` and `motor_arg_index=0`.
 
-### File 2 — Agent-role allowlist (`beamline_tools/agent_roles.py`)
+### File 2 — Agent surface (`beamline_tools/agent_roles.py`)
 
-If the new command is a write-tool an agent role should be allowed to invoke, add it to that role's `spec_write_tools` frozenset in `beamline_tools/agent_roles.py`.
+If the new command is a write-tool an agent role should be allowed to invoke, add it to that role's `write_tools` set in `SURFACES`.
 
-Each agent role (`blaligner`, `samplealigner`, `collector`, `surveyor`) has:
-- `spec_write_tools` — frozenset of SPEC command names the role may call.
-- `motors` — set of motor mnemonics the role may move.
+Each role (`blaligner`, `samplealigner`, `collector`, `surveyor`) is one `AgentSurface`:
+- `write_tools` — tool names the role may *mutate* with. A mutating tool not listed here is dropped from the role's branch entirely, so it is a parse error rather than a runtime refusal.
+- `motors` — motor mnemonics the role may move, enforced in the surface's executor.
+- `branches` — all nine canonical trees, for every role. Scope is expressed by `write_tools` and `motors`, not by hiding read tools.
+
+"Mutating" is the `mutates` flag in `lineage.py`, so a new write tool needs `mutates: True` there (File 5) or `write_tools` will refuse it at import with "does not mutate".
 
 ```python
-AGENT_ROLES = {
-    "blaligner": {
-        "spec_write_tools": frozenset({
+SURFACES = {
+    "blaligner": _surface(
+        "blaligner",
+        phase=PHASE_BL_ALIGN,
+        motors=_BL_ALIGN_MOTORS,
+        write_tools={
             ...,
-            "mvpinhole",   # ← add here
-        }),
-        "motors": {...},
-    },
+            "mv_pinhole",   # ← add here
+        },
+    ),
     ...
 }
 ```
@@ -384,7 +389,8 @@ When adding multiple related tools at once:
 
 - **The tool doesn't appear in `beamtimehero --help`.** You forgot to regenerate `tools_config.json`. The catalog filter drops anything not in the enabled-set.
 - **Schema validation passes but the tool errors out at runtime.** Check that the SPEC-cmd key in `_ACTION` matches the string you pass to `audited_call(...)` / `spec_cmd.call(...)`. They have to be identical.
-- **The dispatcher refuses with "command 'X' is only allowed for role(s): ..."** You didn't add the tool to the right agent role's `spec_write_tools` frozenset in `agent_roles.py`.
+- **`argparse: argument <command>: invalid choice: 'x'` under a role branch, but the tool exists.** It is a mutating tool the role does not list. Add it to that role's `write_tools` in `agent_roles.py`; an unlisted mutating tool is dropped from the branch, not carried-and-refused.
+- **`SurfaceError: write tool 'x' does not mutate`** at import. The name is in a role's `write_tools` but its lineage entry says `mutates: False`. Fix the lineage entry, or drop it from the write set — every tool on the branch is callable without being listed.
 - **Mock-mode runs hang or 404.** You didn't add a `_MockScreen.inject` branch in upstream's `transport.py`. The fallthrough `return f"ok: {cmd}"` works for trivial commands, but anything that returns parsed structured data needs a tailored branch.
 - **`_refuse_rerun_if_already_done` keeps firing in tests.** That helper checks `action_log` for the same command + experiment. Tests that share an experiment ID across cases will trip it. Use a fresh experiment per test, or skip the guard for development.
 
@@ -396,10 +402,11 @@ For a new SPEC-bound tool:
 
 - [ ] Read the SPEC macro under `/usr/local/lib/spec.d/`
 - [ ] Upstream `spec_cmd.py`: `CommandSpec` in `_ACTION` (or `_READ`)
-- [ ] `agent_roles.py`: tool name in the relevant role's `spec_write_tools` frozenset (+ motor in `motors` if needed)
+- [ ] `agent_roles.py`: tool name in the relevant role's `write_tools` set in `SURFACES` (+ motor in `motors` if needed)
 - [ ] `definitions.py`: schema in `AUTONOMY_TOOL_DEFINITIONS` + `AUTONOMY_TOOL_CATEGORIES` entry
 - [ ] `tools.py`: `t_*` function using `audited_call()` + `_AUTONOMY_DISPATCH` entry
-- [ ] `lineage.py`: metadata entry in `_AUTONOMY_LINEAGE` with non-None `spec_command`
+- [ ] `lineage.py`: metadata entry in `_AUTONOMY_LINEAGE` with non-None `spec_command` and `mutates: True` for a write tool
+- [ ] `scripts/render_agent_surfaces.py` re-run, so the manifests and the agent prompt blocks match
 - [ ] Upstream `transport.py`: `_MockScreen.inject` branch
 - [ ] `unit_test_spec_tools.py`: `Case` + `KNOWN_MACROS` entry
 - [ ] Run `scripts/generate_tools_config.py`
