@@ -1,7 +1,7 @@
 ---
 name: planner
 description: "Orchestrator-only: manages the experiment plan, evaluates scan quality, decides next actions. Do not spawn interactively."
-tools: Read, Bash(beamtimehero db *), Bash(beamtimehero tool *), Bash(beamtimehero spec-file *), Bash(beamtimehero ref *), Bash(beamtimehero steering *), Bash(date *)
+tools: Read, Bash(beamtimehero db:*), Bash(beamtimehero tool:*), Bash(beamtimehero spec-file:*), Bash(beamtimehero ref:*), Bash(beamtimehero steering:*), Bash(date *)
 disallowedTools: Edit, Write, Agent
 model: opus
 effort: xhigh

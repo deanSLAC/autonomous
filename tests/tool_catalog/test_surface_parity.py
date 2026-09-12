@@ -24,6 +24,7 @@ hidden from `--help`.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -34,7 +35,13 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from beamline_tools.agent_roles import SURFACES  # noqa: E402
-from beamtimehero_cli.agent_surface import Catalogue, build_surface  # noqa: E402
+from beamtimehero_cli.agent_surface import (  # noqa: E402
+    MANIFEST_VERSION,
+    Catalogue,
+    build_surface,
+)
+
+SURFACE_DIR = REPO_ROOT / "beamline_tools" / "surfaces"
 
 ROLES = sorted(SURFACES)
 
@@ -78,6 +85,55 @@ def test_restricted_dispatch_holds_only_carried_paths(catalogue, role):
     assert dropped, f"{role} carries the whole catalogue — the filter did nothing"
     for path in dropped:
         assert path not in build.dispatch
+
+
+@pytest.mark.parametrize("role", ROLES)
+def test_manifest_matches_the_checked_in_artifact(catalogue, role):
+    """The surface a role resolves to, as a reviewable file.
+
+    This is what the old-vs-new parser comparison became once the
+    hand-written branch was deleted. A widening — a motor added, a write
+    tool added, a tool appearing on a tree a role carries — shows up as a
+    diff in `beamline_tools/surfaces/<role>.manifest.json` at review time,
+    which is the property the plan's acceptance rule was really after: not
+    that the surface never changes, but that it cannot change quietly.
+
+    Regenerate with `python scripts/render_agent_surfaces.py`.
+    """
+    path = SURFACE_DIR / f"{role}.manifest.json"
+    assert path.exists(), f"missing {path.name} — run scripts/render_agent_surfaces.py"
+    checked_in = json.loads(path.read_text())
+    generated = build_surface(SURFACES[role], catalogue).manifest()
+    # Round-trip through JSON: the generated manifest holds tuples where
+    # the file holds lists, and `==` on the parsed forms is the comparison
+    # the file is actually asserting.
+    assert json.loads(json.dumps(generated, sort_keys=True)) == checked_in
+
+
+@pytest.mark.parametrize("role", ROLES)
+def test_manifest_records_what_was_not_validated(catalogue, role):
+    """`motors_validated` must be recorded, and off here.
+
+    There is no enumerable motor list away from the beamline host, and
+    the transport mock's 22 names are missing 8 of the bl-aligner's — so
+    a build that claimed to have validated motors would either be lying
+    or would fail on every developer machine. The manifest says which
+    happened instead of leaving it unstated.
+    """
+    manifest = json.loads((SURFACE_DIR / f"{role}.manifest.json").read_text())
+    assert manifest["manifest_version"] == MANIFEST_VERSION
+    assert manifest["motors_validated"] is False
+    assert manifest["surface"]["motors"] == sorted(SURFACES[role].motors)
+    assert manifest["surface"]["write_tools"] == sorted(SURFACES[role].write_tools)
+
+
+@pytest.mark.parametrize("role", ROLES)
+def test_manifest_round_trips_through_the_spec(catalogue, role):
+    """The `surface` block reconstructs the declaration it came from."""
+    from beamtimehero_cli.agent_surface import AgentSurface
+
+    manifest = json.loads((SURFACE_DIR / f"{role}.manifest.json").read_text())
+    assert AgentSurface.model_validate(manifest["surface"]) == SURFACES[role]
 
 
 @pytest.mark.parametrize("role", ROLES)

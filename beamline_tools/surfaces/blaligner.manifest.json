@@ -1,0 +1,5107 @@
+{
+  "bash_pattern": "Bash(beamtimehero blaligner:*)",
+  "manifest_version": 1,
+  "motors_validated": false,
+  "resolved": {
+    "known_trees": [
+      "blaligner",
+      "ref"
+    ],
+    "leaves": [
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "sample_holder_id",
+            "flag": "--sample-holder-id",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner db get-comprehensive-collection-plan",
+        "mutates": false,
+        "tool": "db/get_comprehensive_collection_plan"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner db get-experiment-config",
+        "mutates": false,
+        "tool": "db/get_experiment_config"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "holder_id",
+            "flag": "--holder-id",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner db get-holder-time-budget",
+        "mutates": false,
+        "tool": "db/get_holder_time_budget"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner db get-plan",
+        "mutates": false,
+        "tool": "db/get_plan"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner db get-remaining-beamtime",
+        "mutates": false,
+        "tool": "db/get_remaining_beamtime"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "sample_id",
+            "flag": "--sample-id",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner db get-scans-for-active-sample",
+        "mutates": false,
+        "tool": "db/get_scans_for_active_sample"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "experiment_id",
+            "flag": "--experiment-id",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner db get-scans-since-last-plan-update",
+        "mutates": false,
+        "tool": "db/get_scans_since_last_plan_update"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "limit",
+            "flag": "--limit",
+            "required": false,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner db get-staff-guidance",
+        "mutates": false,
+        "tool": "db/get_staff_guidance"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner db list-open-interventions",
+        "mutates": false,
+        "tool": "db/list_open_interventions"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "limit",
+            "flag": "--limit",
+            "required": false,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner db recent-actions",
+        "mutates": false,
+        "tool": "db/recent_actions"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "i0_gain",
+            "flag": "--i0-gain",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "i0_max_cps",
+            "flag": "--i0-max-cps",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "i1_gain",
+            "flag": "--i1-gain",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "i1_max_cps",
+            "flag": "--i1-max-cps",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner db record-alignment-flux",
+        "mutates": true,
+        "tool": "db/record_alignment_flux"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "sample_id",
+            "flag": "--sample-id",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "stats",
+            "flag": "--stats",
+            "required": true,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner db record-convergence-stats",
+        "mutates": false,
+        "tool": "db/record_convergence_stats"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "sample_id",
+            "flag": "--sample-id",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "trend",
+            "flag": "--trend",
+            "required": true,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner db record-observable-trend",
+        "mutates": false,
+        "tool": "db/record_observable_trend"
+      },
+      {
+        "args": [
+          {
+            "choices": [
+              "needs_more",
+              "reasonable",
+              "marginal",
+              "wasteful"
+            ],
+            "default": null,
+            "dest": "efficiency_verdict",
+            "flag": "--efficiency-verdict",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "note",
+            "flag": "--note",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "reps_completed",
+            "flag": "--reps-completed",
+            "required": false,
+            "type": "int"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "sample_id",
+            "flag": "--sample-id",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "snr_estimate",
+            "flag": "--snr-estimate",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": [
+              "queued",
+              "in_progress",
+              "done",
+              "skipped",
+              "failed"
+            ],
+            "default": null,
+            "dest": "status",
+            "flag": "--status",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner db record-sample-progress",
+        "mutates": false,
+        "tool": "db/record_sample_progress"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "beamtime_hours",
+            "flag": "--beamtime-hours",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "reason",
+            "flag": "--reason",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner db regenerate-plan",
+        "mutates": false,
+        "tool": "db/regenerate_plan"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "detail",
+            "flag": "--detail",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "crystal_install",
+              "sample_mount",
+              "foil_insert",
+              "hardware_reset",
+              "custom"
+            ],
+            "default": null,
+            "dest": "kind",
+            "flag": "--kind",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner db request-human-intervention",
+        "mutates": false,
+        "tool": "db/request_human_intervention"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "end_time",
+            "flag": "--end-time",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "hours_from_now",
+            "flag": "--hours-from-now",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "reason",
+            "flag": "--reason",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner db set-experiment-end-time",
+        "mutates": false,
+        "tool": "db/set_experiment_end_time"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": true,
+            "dest": "apply_to_existing",
+            "flag": "--apply-to-existing",
+            "required": false,
+            "type": "bool"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "count_time_s",
+            "flag": "--count-time-s",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "holder_id",
+            "flag": "--holder-id",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "hours_remaining",
+            "flag": "--hours-remaining",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": [
+              "xas",
+              "emiss"
+            ],
+            "default": null,
+            "dest": "mode",
+            "flag": "--mode",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "reason",
+            "flag": "--reason",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "reps",
+            "flag": "--reps",
+            "required": false,
+            "type": "int"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "stop_time",
+            "flag": "--stop-time",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner db set-holder-time-budget",
+        "mutates": false,
+        "tool": "db/set_holder_time_budget"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "count_time_s",
+            "flag": "--count-time-s",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": [
+              "xas",
+              "emiss"
+            ],
+            "default": null,
+            "dest": "mode",
+            "flag": "--mode",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "n_spots",
+            "flag": "--n-spots",
+            "required": false,
+            "type": "int"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "reason",
+            "flag": "--reason",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "reps",
+            "flag": "--reps",
+            "required": false,
+            "type": "int"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "reps_per_spot",
+            "flag": "--reps-per-spot",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "sample_id",
+            "flag": "--sample-id",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner db set-sample-time-budget",
+        "mutates": false,
+        "tool": "db/set_sample_time_budget"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "plan",
+            "flag": "--plan",
+            "required": true,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner db update-plan",
+        "mutates": false,
+        "tool": "db/update_plan"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "chi",
+            "flag": "--chi",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "collector_dir",
+            "flag": "--collector-dir",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": 1.0,
+            "dest": "dk",
+            "flag": "--dk",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e0",
+            "flag": "--e0",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "kmax",
+            "flag": "--kmax",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": 2.0,
+            "dest": "kmin",
+            "flag": "--kmin",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": 2,
+            "dest": "kweight",
+            "flag": "--kweight",
+            "required": false,
+            "type": "int"
+          },
+          {
+            "choices": null,
+            "default": 1.0,
+            "dest": "rbkg",
+            "flag": "--rbkg",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner exafs exafs-products",
+        "mutates": false,
+        "tool": "exafs/exafs_products"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "collector_dir",
+            "flag": "--collector-dir",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e0",
+            "flag": "--e0",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": 2,
+            "dest": "kweight",
+            "flag": "--kweight",
+            "required": false,
+            "type": "int"
+          },
+          {
+            "choices": null,
+            "default": 1.0,
+            "dest": "rbkg",
+            "flag": "--rbkg",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner exafs extract-chi",
+        "mutates": false,
+        "tool": "exafs/extract_chi"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "chi",
+            "flag": "--chi",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "collector_dir",
+            "flag": "--collector-dir",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": 1.0,
+            "dest": "dk",
+            "flag": "--dk",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e0",
+            "flag": "--e0",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "kmax",
+            "flag": "--kmax",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": 2.0,
+            "dest": "kmin",
+            "flag": "--kmin",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": 2,
+            "dest": "kweight",
+            "flag": "--kweight",
+            "required": false,
+            "type": "int"
+          },
+          {
+            "choices": null,
+            "default": 1.0,
+            "dest": "rbkg",
+            "flag": "--rbkg",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner exafs fourier-transform-chi",
+        "mutates": false,
+        "tool": "exafs/fourier_transform_chi"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "collector_dir",
+            "flag": "--collector-dir",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner exafs list-collector-scans",
+        "mutates": false,
+        "tool": "exafs/list_collector_scans"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "collector_dir",
+            "flag": "--collector-dir",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_names",
+            "flag": "--file-names",
+            "required": true,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": 2,
+            "dest": "kweight",
+            "flag": "--kweight",
+            "required": false,
+            "type": "int"
+          },
+          {
+            "choices": null,
+            "default": 1.0,
+            "dest": "rbkg",
+            "flag": "--rbkg",
+            "required": false,
+            "type": "float"
+          }
+        ],
+        "cli_path": "blaligner exafs overlay-chi-spectra",
+        "mutates": false,
+        "tool": "exafs/overlay_chi_spectra"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_number",
+            "flag": "--scan-number",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner s3df get-active-counter",
+        "mutates": false,
+        "tool": "s3df/get_active_counter"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner s3df get-latest-scan",
+        "mutates": false,
+        "tool": "s3df/get_latest_scan"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_number",
+            "flag": "--scan-number",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner s3df get-scan-deadtime",
+        "mutates": false,
+        "tool": "s3df/get_scan_deadtime"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": 20,
+            "dest": "limit",
+            "flag": "--limit",
+            "required": false,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner s3df list-scans",
+        "mutates": false,
+        "tool": "s3df/list_scans"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "normalize_by",
+            "flag": "--normalize-by",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_number",
+            "flag": "--scan-number",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner s3df plot-scan",
+        "mutates": false,
+        "tool": "s3df/plot_scan"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": 100,
+            "dest": "max_rows",
+            "flag": "--max-rows",
+            "required": false,
+            "type": "int"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "query",
+            "flag": "--query",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner s3df psql execute-readonly-sql",
+        "mutates": false,
+        "tool": "s3df/psql/execute_readonly_sql"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_number",
+            "flag": "--scan-number",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner s3df read-scan",
+        "mutates": false,
+        "tool": "s3df/read_scan"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner slack list-channels",
+        "mutates": false,
+        "tool": "slack/list_channels"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "channel_id",
+            "flag": "--channel-id",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "text",
+            "flag": "--text",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "thread_ts",
+            "flag": "--thread-ts",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner slack post-slack-message",
+        "mutates": false,
+        "tool": "slack/post_slack_message"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "channel_id",
+            "flag": "--channel-id",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": 20,
+            "dest": "limit",
+            "flag": "--limit",
+            "required": false,
+            "type": "int"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "oldest",
+            "flag": "--oldest",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner slack read-channel-messages",
+        "mutates": false,
+        "tool": "slack/read_channel_messages"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "channel_id",
+            "flag": "--channel-id",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "thread_ts",
+            "flag": "--thread-ts",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner slack read-thread-replies",
+        "mutates": false,
+        "tool": "slack/read_thread_replies"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "edge_step",
+              "divide_by_i0",
+              "raw"
+            ],
+            "default": "edge_step",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "spectra",
+            "flag": "--spectra",
+            "required": true,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "target_e0",
+            "flag": "--target-e0",
+            "required": false,
+            "type": "float"
+          }
+        ],
+        "cli_path": "blaligner spec-file align-spectra",
+        "mutates": false,
+        "tool": "spec-file/align_spectra"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_max",
+            "flag": "--e-max",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_min",
+            "flag": "--e-min",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "edge_step",
+              "divide_by_i0",
+              "raw"
+            ],
+            "default": "edge_step",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-file analyze-convergence",
+        "mutates": false,
+        "tool": "spec-file/analyze_convergence"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_max",
+            "flag": "--e-max",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_min",
+            "flag": "--e-min",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": true,
+            "dest": "include_poisson_floor",
+            "flag": "--include-poisson-floor",
+            "required": false,
+            "type": "bool"
+          },
+          {
+            "choices": [
+              "edge_step",
+              "divide_by_i0",
+              "raw"
+            ],
+            "default": "edge_step",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-file analyze-efficiency",
+        "mutates": false,
+        "tool": "spec-file/analyze_efficiency"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": 0.01,
+            "dest": "drift_threshold_frac",
+            "flag": "--drift-threshold-frac",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_max",
+            "flag": "--e-max",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_min",
+            "flag": "--e-min",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "edge_step",
+              "divide_by_i0",
+              "raw"
+            ],
+            "default": "edge_step",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": 0.01,
+            "dest": "sem_threshold_frac",
+            "flag": "--sem-threshold-frac",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": [
+              "max",
+              "min",
+              "mean",
+              "median",
+              "integral",
+              "argmax",
+              "argmin",
+              "height"
+            ],
+            "default": "max",
+            "dest": "statistic",
+            "flag": "--statistic",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-file analyze-feature-evolution",
+        "mutates": false,
+        "tool": "spec-file/analyze_feature_evolution"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_max",
+            "flag": "--e-max",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_min",
+            "flag": "--e-min",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "edge_step",
+              "divide_by_i0",
+              "raw"
+            ],
+            "default": "edge_step",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": 0.05,
+            "dest": "tol_mm",
+            "flag": "--tol-mm",
+            "required": false,
+            "type": "float"
+          }
+        ],
+        "cli_path": "blaligner spec-file analyze-per-spot",
+        "mutates": false,
+        "tool": "spec-file/analyze_per_spot"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "assume_dilute",
+            "flag": "--assume-dilute",
+            "required": false,
+            "type": "bool"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner spec-file assess-xas-quality",
+        "mutates": false,
+        "tool": "spec-file/assess_xas_quality"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_max",
+            "flag": "--e-max",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_min",
+            "flag": "--e-min",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "edge_step",
+              "divide_by_i0",
+              "raw"
+            ],
+            "default": "edge_step",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "equal",
+              "inverse_variance"
+            ],
+            "default": "equal",
+            "dest": "weighting",
+            "flag": "--weighting",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-file average-scans",
+        "mutates": false,
+        "tool": "spec-file/average_scans"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "edge_step",
+              "divide_by_i0",
+              "raw"
+            ],
+            "default": "edge_step",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "references",
+            "flag": "--references",
+            "required": true,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner spec-file compare-xas-to-references",
+        "mutates": false,
+        "tool": "spec-file/compare_xas_to_references"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "area",
+              "edge_step",
+              "mback"
+            ],
+            "default": "area",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner spec-file detect-per-scan-drift",
+        "mutates": false,
+        "tool": "spec-file/detect_per_scan_drift"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": true,
+            "dest": "align",
+            "flag": "--align",
+            "required": false,
+            "type": "bool"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name_a",
+            "flag": "--file-name-a",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name_b",
+            "flag": "--file-name-b",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "label_a",
+            "flag": "--label-a",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "label_b",
+            "flag": "--label-b",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "edge_step",
+              "divide_by_i0",
+              "raw"
+            ],
+            "default": "edge_step",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers_a",
+            "flag": "--scan-numbers-a",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers_b",
+            "flag": "--scan-numbers-b",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner spec-file difference-spectrum",
+        "mutates": false,
+        "tool": "spec-file/difference_spectrum"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "assume_dilute",
+            "flag": "--assume-dilute",
+            "required": false,
+            "type": "bool"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "area",
+              "edge_step",
+              "mback"
+            ],
+            "default": "area",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "pre_edge_e_max",
+            "flag": "--pre-edge-e-max",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "pre_edge_e_min",
+            "flag": "--pre-edge-e-min",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": 0,
+            "dest": "white_line_components",
+            "flag": "--white-line-components",
+            "required": false,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner spec-file extract-xas-descriptors",
+        "mutates": false,
+        "tool": "spec-file/extract_xas_descriptors"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner spec-file find-edge-e0",
+        "mutates": false,
+        "tool": "spec-file/find_edge_e0"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "area",
+              "edge_step",
+              "mback"
+            ],
+            "default": "area",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "pre_edge_e_max",
+            "flag": "--pre-edge-e-max",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "pre_edge_e_min",
+            "flag": "--pre-edge-e-min",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner spec-file fit-xas-pre-edge",
+        "mutates": false,
+        "tool": "spec-file/fit_xas_pre_edge"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "area",
+              "edge_step",
+              "mback"
+            ],
+            "default": "area",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": 0,
+            "dest": "white_line_components",
+            "flag": "--white-line-components",
+            "required": false,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner spec-file fit-xas-white-line",
+        "mutates": false,
+        "tool": "spec-file/fit_xas_white_line"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_number",
+            "flag": "--scan-number",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner spec-file get-active-counter",
+        "mutates": false,
+        "tool": "spec-file/get_active_counter"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner spec-file get-energy-calibration",
+        "mutates": false,
+        "tool": "spec-file/get_energy_calibration"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner spec-file get-latest-scan",
+        "mutates": false,
+        "tool": "spec-file/get_latest_scan"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_number",
+            "flag": "--scan-number",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner spec-file get-scan-deadtime",
+        "mutates": false,
+        "tool": "spec-file/get_scan_deadtime"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": 0.05,
+            "dest": "tol_mm",
+            "flag": "--tol-mm",
+            "required": false,
+            "type": "float"
+          }
+        ],
+        "cli_path": "blaligner spec-file group-scans-by-spot",
+        "mutates": false,
+        "tool": "spec-file/group_scans_by_spot"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner spec-file identify-edge",
+        "mutates": false,
+        "tool": "spec-file/identify_edge"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "assume_dilute",
+            "flag": "--assume-dilute",
+            "required": false,
+            "type": "bool"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "descriptors",
+            "flag": "--descriptors",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "area",
+              "edge_step",
+              "mback"
+            ],
+            "default": "area",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner spec-file interpret-coordination-geometry",
+        "mutates": false,
+        "tool": "spec-file/interpret_coordination_geometry"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "assume_dilute",
+            "flag": "--assume-dilute",
+            "required": false,
+            "type": "bool"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "descriptors",
+            "flag": "--descriptors",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "area",
+              "edge_step",
+              "mback"
+            ],
+            "default": "area",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner spec-file interpret-oxidation-state",
+        "mutates": false,
+        "tool": "spec-file/interpret_oxidation_state"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": 20,
+            "dest": "limit",
+            "flag": "--limit",
+            "required": false,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner spec-file list-scans",
+        "mutates": false,
+        "tool": "spec-file/list_scans"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": "I0",
+            "dest": "normalize_by",
+            "flag": "--normalize-by",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_number",
+            "flag": "--scan-number",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner spec-file normalize-scan",
+        "mutates": false,
+        "tool": "spec-file/normalize_scan"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "area",
+              "edge_step",
+              "mback"
+            ],
+            "default": "area",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner spec-file normalize-xas-intensity",
+        "mutates": false,
+        "tool": "spec-file/normalize_xas_intensity"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_names",
+            "flag": "--file-names",
+            "required": true,
+            "type": "json"
+          },
+          {
+            "choices": [
+              "edge_step",
+              "divide_by_i0",
+              "raw"
+            ],
+            "default": "edge_step",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-file plot-averaged-scans",
+        "mutates": false,
+        "tool": "spec-file/plot_averaged_scans"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_max",
+            "flag": "--e-max",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_min",
+            "flag": "--e-min",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "max",
+              "min",
+              "mean",
+              "median",
+              "integral",
+              "argmax",
+              "argmin",
+              "height"
+            ],
+            "default": "max",
+            "dest": "statistic",
+            "flag": "--statistic",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-file plot-feature-evolution",
+        "mutates": false,
+        "tool": "spec-file/plot_feature_evolution"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_max",
+            "flag": "--e-max",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_min",
+            "flag": "--e-min",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "edge_step",
+              "divide_by_i0",
+              "raw"
+            ],
+            "default": "edge_step",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-file plot-first-half-vs-second-half",
+        "mutates": false,
+        "tool": "spec-file/plot_first_half_vs_second_half"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_max",
+            "flag": "--e-max",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_min",
+            "flag": "--e-min",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "edge_step",
+              "divide_by_i0",
+              "raw"
+            ],
+            "default": "edge_step",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-file plot-running-average",
+        "mutates": false,
+        "tool": "spec-file/plot_running_average"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "normalize_by",
+            "flag": "--normalize-by",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_number",
+            "flag": "--scan-number",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner spec-file plot-scan",
+        "mutates": false,
+        "tool": "spec-file/plot_scan"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_max",
+            "flag": "--e-max",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_min",
+            "flag": "--e-min",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "edge_step",
+              "divide_by_i0",
+              "raw"
+            ],
+            "default": "edge_step",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-file plot-scan-stack",
+        "mutates": false,
+        "tool": "spec-file/plot_scan_stack"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_number",
+            "flag": "--scan-number",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner spec-file read-scan",
+        "mutates": false,
+        "tool": "spec-file/read_scan"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "assigned_reference_ev",
+            "flag": "--assigned-reference-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "notes",
+            "flag": "--notes",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner spec-file record-energy-calibration",
+        "mutates": false,
+        "tool": "spec-file/record_energy_calibration"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "assume_dilute",
+            "flag": "--assume-dilute",
+            "required": false,
+            "type": "bool"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "descriptors",
+            "flag": "--descriptors",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "area",
+              "edge_step",
+              "mback"
+            ],
+            "default": "area",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner spec-file summarize-sample-chemistry",
+        "mutates": false,
+        "tool": "spec-file/summarize_sample_chemistry"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner spec-read get-anchor",
+        "mutates": false,
+        "tool": "spec-read/get_anchor"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner spec-read get-beam-size",
+        "mutates": false,
+        "tool": "spec-read/get_beam_size"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner spec-read get-beam-status",
+        "mutates": false,
+        "tool": "spec-read/get_beam_status"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "count_time",
+            "flag": "--count-time",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-read get-counter",
+        "mutates": false,
+        "tool": "spec-read/get_counter"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "count_time",
+            "flag": "--count-time",
+            "required": false,
+            "type": "float"
+          }
+        ],
+        "cli_path": "blaligner spec-read get-counts",
+        "mutates": false,
+        "tool": "spec-read/get_counts"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner spec-read get-current-datafile",
+        "mutates": false,
+        "tool": "spec-read/get_current_datafile"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner spec-read get-element",
+        "mutates": false,
+        "tool": "spec-read/get_element"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner spec-read get-plotselected-counter",
+        "mutates": false,
+        "tool": "spec-read/get_plotselected_counter"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner spec-read get-scan-number",
+        "mutates": false,
+        "tool": "spec-read/get_scan_number"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner spec-read read-all-positions",
+        "mutates": false,
+        "tool": "spec-read/read_all_positions"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "motor",
+            "flag": "--motor",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-read read-motor-position",
+        "mutates": false,
+        "tool": "spec-read/read_motor_position"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write abort-current-scan",
+        "mutates": true,
+        "tool": "spec-write/abort_current_scan"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "energy",
+            "flag": "--energy",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": [
+              "0",
+              "1"
+            ],
+            "default": null,
+            "dest": "fine_x",
+            "flag": "--fine-x",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "0",
+              "1"
+            ],
+            "default": null,
+            "dest": "fine_z",
+            "flag": "--fine-z",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "0",
+              "1"
+            ],
+            "default": null,
+            "dest": "xtal_chg",
+            "flag": "--xtal-chg",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write align-beamline",
+        "mutates": true,
+        "tool": "spec-write/align_beamline"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write big-beam",
+        "mutates": true,
+        "tool": "spec-write/big_beam"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "tabulated_edge_ev",
+            "flag": "--tabulated-edge-ev",
+            "required": true,
+            "type": "float"
+          }
+        ],
+        "cli_path": "blaligner spec-write calibrate-mono",
+        "mutates": true,
+        "tool": "spec-write/calibrate_mono"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_number",
+            "flag": "--scan-number",
+            "required": false,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner spec-write fit-emission-peak",
+        "mutates": true,
+        "tool": "spec-write/fit_emission_peak"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": false,
+            "dest": "small_x",
+            "flag": "--small-x",
+            "required": false,
+            "type": "bool"
+          },
+          {
+            "choices": null,
+            "default": false,
+            "dest": "small_z",
+            "flag": "--small-z",
+            "required": false,
+            "type": "bool"
+          }
+        ],
+        "cli_path": "blaligner spec-write measure-beam-size",
+        "mutates": true,
+        "tool": "spec-write/measure_beam_size"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "motor",
+            "flag": "--motor",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "position",
+            "flag": "--position",
+            "required": true,
+            "type": "float"
+          }
+        ],
+        "cli_path": "blaligner spec-write move-motor",
+        "mutates": true,
+        "tool": "spec-write/move_motor"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "delta",
+            "flag": "--delta",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "motor",
+            "flag": "--motor",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write move-motor-relative",
+        "mutates": true,
+        "tool": "spec-write/move_motor_relative"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "energy_ev",
+            "flag": "--energy-ev",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write mv-energy",
+        "mutates": true,
+        "tool": "spec-write/mv_energy"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write mv-knife-clear",
+        "mutates": true,
+        "tool": "spec-write/mv_knife_clear"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write mv-knife-out",
+        "mutates": true,
+        "tool": "spec-write/mv_knife_out"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write mv-pinhole",
+        "mutates": true,
+        "tool": "spec-write/mv_pinhole"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write mv-plastic",
+        "mutates": true,
+        "tool": "spec-write/mv_plastic"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "filename",
+            "flag": "--filename",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write open-data-file",
+        "mutates": true,
+        "tool": "spec-write/open_data_file"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write peak-mono-pitch",
+        "mutates": true,
+        "tool": "spec-write/peak_mono_pitch"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write plotselect",
+        "mutates": true,
+        "tool": "spec-write/plotselect"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "cen",
+              "peak"
+            ],
+            "default": null,
+            "dest": "mode",
+            "flag": "--mode",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write post-scan-move",
+        "mutates": true,
+        "tool": "spec-write/post_scan_move"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write request-gap-ownership",
+        "mutates": true,
+        "tool": "spec-write/request_gap_ownership"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write reset-gap",
+        "mutates": true,
+        "tool": "spec-write/reset_gap"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "name",
+            "flag": "--name",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write run-align-shortcut",
+        "mutates": true,
+        "tool": "spec-write/run_align_shortcut"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "count_time",
+            "flag": "--count-time",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "delta",
+            "flag": "--delta",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": 8,
+            "dest": "delta_hi",
+            "flag": "--delta-hi",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": -8,
+            "dest": "delta_lo",
+            "flag": "--delta-lo",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "motor1",
+            "flag": "--motor1",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "motor2",
+            "flag": "--motor2",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "npoints",
+            "flag": "--npoints",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner spec-write run-diagonal-scan",
+        "mutates": true,
+        "tool": "spec-write/run_diagonal_scan"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "count_time",
+            "flag": "--count-time",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "end",
+            "flag": "--end",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "motor",
+            "flag": "--motor",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "npoints",
+            "flag": "--npoints",
+            "required": true,
+            "type": "int"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "start",
+            "flag": "--start",
+            "required": true,
+            "type": "float"
+          }
+        ],
+        "cli_path": "blaligner spec-write run-motor-scan",
+        "mutates": true,
+        "tool": "spec-write/run_motor_scan"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "count_time",
+            "flag": "--count-time",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "delta_end",
+            "flag": "--delta-end",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "delta_start",
+            "flag": "--delta-start",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "motor",
+            "flag": "--motor",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "npoints",
+            "flag": "--npoints",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner spec-write run-motor-scan-relative",
+        "mutates": true,
+        "tool": "spec-write/run_motor_scan_relative"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write safely-remove-filters",
+        "mutates": true,
+        "tool": "spec-write/safely_remove_filters"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write select-element",
+        "mutates": true,
+        "tool": "spec-write/select_element"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write set-anchor",
+        "mutates": true,
+        "tool": "spec-write/set_anchor"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "bitmask",
+            "flag": "--bitmask",
+            "required": true,
+            "type": "int"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write set-filter",
+        "mutates": true,
+        "tool": "spec-write/set_filter"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "gain_setting",
+            "flag": "--gain-setting",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "i0",
+              "i1",
+              "i2"
+            ],
+            "default": null,
+            "dest": "which",
+            "flag": "--which",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write set-gain",
+        "mutates": true,
+        "tool": "spec-write/set_gain"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "energy_ev",
+            "flag": "--energy-ev",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write set-m2-stripe",
+        "mutates": true,
+        "tool": "spec-write/set_m2_stripe"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "channel",
+            "flag": "--channel",
+            "required": false,
+            "type": "int"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "hi_ev",
+            "flag": "--hi-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "lo_ev",
+            "flag": "--lo-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": [
+              "auto",
+              "explicit"
+            ],
+            "default": null,
+            "dest": "mode",
+            "flag": "--mode",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write set-vortex-roi",
+        "mutates": true,
+        "tool": "spec-write/set_vortex_roi"
+      },
+      {
+        "args": [
+          {
+            "choices": [
+              "fsopen",
+              "fsclose",
+              "fson",
+              "fsoff"
+            ],
+            "default": null,
+            "dest": "command",
+            "flag": "--command",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "delay_s",
+            "flag": "--delay-s",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write shutter",
+        "mutates": true,
+        "tool": "spec-write/shutter"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write small-beam",
+        "mutates": true,
+        "tool": "spec-write/small_beam"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "enabled",
+            "flag": "--enabled",
+            "required": true,
+            "type": "bool"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write tracking",
+        "mutates": true,
+        "tool": "spec-write/tracking"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write xtal-align",
+        "mutates": true,
+        "tool": "spec-write/xtal_align"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "justification",
+            "flag": "--justification",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner spec-write zero-pinhole",
+        "mutates": true,
+        "tool": "spec-write/zero_pinhole"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": 50,
+            "dest": "quality",
+            "flag": "--quality",
+            "required": false,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner tool capture-sample-image",
+        "mutates": false,
+        "tool": "tool/capture_sample_image"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "macro",
+            "flag": "--macro",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "preload",
+            "flag": "--preload",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "timeout_s",
+            "flag": "--timeout-s",
+            "required": false,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner tool evaluate-spec-macro",
+        "mutates": false,
+        "tool": "tool/evaluate_spec_macro"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner tool get-counter-config",
+        "mutates": false,
+        "tool": "tool/get_counter_config"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": 100,
+            "dest": "lines",
+            "flag": "--lines",
+            "required": false,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner tool get-latest-log-entries",
+        "mutates": false,
+        "tool": "tool/get_latest_log_entries"
+      },
+      {
+        "args": [],
+        "cli_path": "blaligner tool get-motor-config",
+        "mutates": false,
+        "tool": "tool/get_motor_config"
+      },
+      {
+        "args": [
+          {
+            "choices": [
+              "diagnostic_pinhole"
+            ],
+            "default": null,
+            "dest": "kind",
+            "flag": "--kind",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner tool get-reference-image",
+        "mutates": false,
+        "tool": "tool/get_reference_image"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": "*",
+            "dest": "pattern",
+            "flag": "--pattern",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner tool list-files",
+        "mutates": false,
+        "tool": "tool/list_files"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": 20,
+            "dest": "limit",
+            "flag": "--limit",
+            "required": false,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner tool list-logs",
+        "mutates": false,
+        "tool": "tool/list_logs"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "text",
+            "flag": "--text",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner tool log-status-assessment",
+        "mutates": false,
+        "tool": "tool/log_status_assessment"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "labels",
+            "flag": "--labels",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "title",
+            "flag": "--title",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "x",
+            "flag": "--x",
+            "required": true,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "xlabel",
+            "flag": "--xlabel",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "y",
+            "flag": "--y",
+            "required": true,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "y2",
+            "flag": "--y2",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "y3",
+            "flag": "--y3",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "y4",
+            "flag": "--y4",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "ylabel",
+            "flag": "--ylabel",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner tool plot-data",
+        "mutates": false,
+        "tool": "tool/plot_data"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "text",
+            "flag": "--text",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner tool post-status-update",
+        "mutates": false,
+        "tool": "tool/post_status_update"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "path",
+            "flag": "--path",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner tool read-file",
+        "mutates": false,
+        "tool": "tool/read_file"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "content",
+            "flag": "--content",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "filename",
+            "flag": "--filename",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": false,
+            "dest": "overwrite",
+            "flag": "--overwrite",
+            "required": false,
+            "type": "bool"
+          }
+        ],
+        "cli_path": "blaligner tool save-plan",
+        "mutates": false,
+        "tool": "tool/save_plan"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": 50,
+            "dest": "max_results",
+            "flag": "--max-results",
+            "required": false,
+            "type": "int"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "query",
+            "flag": "--query",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner tool search-logs",
+        "mutates": false,
+        "tool": "tool/search_logs"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "content",
+            "flag": "--content",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "original_name",
+            "flag": "--original-name",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner tool write-macro",
+        "mutates": false,
+        "tool": "tool/write_macro"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "content",
+            "flag": "--content",
+            "required": true,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner tool write-summary",
+        "mutates": false,
+        "tool": "tool/write_summary"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counters",
+            "flag": "--counters",
+            "required": true,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "elastic_center_ev",
+            "flag": "--elastic-center-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_number",
+            "flag": "--scan-number",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner xrs align-crystals",
+        "mutates": false,
+        "tool": "xrs/align_crystals"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_hi",
+            "flag": "--edge-hi",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_lo",
+            "flag": "--edge-lo",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "elastic_center_ev",
+            "flag": "--elastic-center-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "constant",
+              "linear",
+              "pearson7"
+            ],
+            "default": "linear",
+            "dest": "model",
+            "flag": "--model",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner xrs assess-xrs-quality",
+        "mutates": false,
+        "tool": "xrs/assess_xrs_quality"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_max",
+            "flag": "--e-max",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "e_min",
+            "flag": "--e-min",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "elastic_center_ev",
+            "flag": "--elastic-center-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "none",
+              "area"
+            ],
+            "default": "none",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner xrs average-xrs-scans",
+        "mutates": false,
+        "tool": "xrs/average_xrs_scans"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "elastic_center_ev",
+            "flag": "--elastic-center-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_number",
+            "flag": "--scan-number",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner xrs build-loss-axis",
+        "mutates": false,
+        "tool": "xrs/build_loss_axis"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_number",
+            "flag": "--scan-number",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner xrs calibrate-energy-loss",
+        "mutates": false,
+        "tool": "xrs/calibrate_energy_loss"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_hi",
+            "flag": "--edge-hi",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_lo",
+            "flag": "--edge-lo",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "elastic_center_ev",
+            "flag": "--elastic-center-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "constant",
+              "linear",
+              "pearson7"
+            ],
+            "default": "linear",
+            "dest": "model",
+            "flag": "--model",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "references",
+            "flag": "--references",
+            "required": true,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner xrs compare-xrs-to-references",
+        "mutates": false,
+        "tool": "xrs/compare_xrs_to_references"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_hi",
+            "flag": "--edge-hi",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_lo",
+            "flag": "--edge-lo",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "elastic_center_ev",
+            "flag": "--elastic-center-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "constant",
+              "linear",
+              "pearson7"
+            ],
+            "default": "linear",
+            "dest": "model",
+            "flag": "--model",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner xrs extract-xrs-descriptors",
+        "mutates": false,
+        "tool": "xrs/extract_xrs_descriptors"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_hi",
+            "flag": "--edge-hi",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_lo",
+            "flag": "--edge-lo",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "elastic_center_ev",
+            "flag": "--elastic-center-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "feature_hi",
+            "flag": "--feature-hi",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "feature_lo",
+            "flag": "--feature-lo",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "groups",
+            "flag": "--groups",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": [
+              "constant",
+              "linear",
+              "pearson7"
+            ],
+            "default": "linear",
+            "dest": "model",
+            "flag": "--model",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "points",
+            "flag": "--points",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner xrs interpret-q-dependence",
+        "mutates": false,
+        "tool": "xrs/interpret_q_dependence"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "calibration",
+            "flag": "--calibration",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_hi",
+            "flag": "--edge-hi",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_lo",
+            "flag": "--edge-lo",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "elastic_center_ev",
+            "flag": "--elastic-center-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "constant",
+              "linear",
+              "pearson7"
+            ],
+            "default": "linear",
+            "dest": "model",
+            "flag": "--model",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner xrs interpret-xrs-oxidation-state",
+        "mutates": false,
+        "tool": "xrs/interpret_xrs_oxidation_state"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_hi",
+            "flag": "--edge-hi",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_lo",
+            "flag": "--edge-lo",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "elastic_center_ev",
+            "flag": "--elastic-center-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "constant",
+              "linear",
+              "pearson7"
+            ],
+            "default": "linear",
+            "dest": "model",
+            "flag": "--model",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner xrs normalize-xrs",
+        "mutates": false,
+        "tool": "xrs/normalize_xrs"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_hi",
+            "flag": "--edge-hi",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_lo",
+            "flag": "--edge-lo",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "elastic_center_ev",
+            "flag": "--elastic-center-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_names",
+            "flag": "--file-names",
+            "required": true,
+            "type": "json"
+          },
+          {
+            "choices": [
+              "constant",
+              "linear",
+              "pearson7"
+            ],
+            "default": "linear",
+            "dest": "model",
+            "flag": "--model",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "none",
+              "area"
+            ],
+            "default": "area",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          }
+        ],
+        "cli_path": "blaligner xrs overlay-xrs-spectra",
+        "mutates": false,
+        "tool": "xrs/overlay_xrs_spectra"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_hi",
+            "flag": "--edge-hi",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_lo",
+            "flag": "--edge-lo",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "elastic_center_ev",
+            "flag": "--elastic-center-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "constant",
+              "linear",
+              "pearson7"
+            ],
+            "default": "linear",
+            "dest": "model",
+            "flag": "--model",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "none",
+              "area"
+            ],
+            "default": "none",
+            "dest": "normalization",
+            "flag": "--normalization",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner xrs subtract-compton-background",
+        "mutates": false,
+        "tool": "xrs/subtract_compton_background"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counters",
+            "flag": "--counters",
+            "required": true,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "elastic_center_ev",
+            "flag": "--elastic-center-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": true,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": true,
+            "dest": "reject",
+            "flag": "--reject",
+            "required": false,
+            "type": "bool"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_number",
+            "flag": "--scan-number",
+            "required": true,
+            "type": "int"
+          }
+        ],
+        "cli_path": "blaligner xrs sum-crystals",
+        "mutates": false,
+        "tool": "xrs/sum_crystals"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "calibration",
+            "flag": "--calibration",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counter",
+            "flag": "--counter",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge",
+            "flag": "--edge",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_hi",
+            "flag": "--edge-hi",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "edge_lo",
+            "flag": "--edge-lo",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "elastic_center_ev",
+            "flag": "--elastic-center-ev",
+            "required": false,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "element",
+            "flag": "--element",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "file_name",
+            "flag": "--file-name",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": [
+              "constant",
+              "linear",
+              "pearson7"
+            ],
+            "default": "linear",
+            "dest": "model",
+            "flag": "--model",
+            "required": false,
+            "type": "str"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "scan_numbers",
+            "flag": "--scan-numbers",
+            "required": false,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner xrs summarize-xrs-chemistry",
+        "mutates": false,
+        "tool": "xrs/summarize_xrs_chemistry"
+      },
+      {
+        "args": [
+          {
+            "choices": null,
+            "default": null,
+            "dest": "counters",
+            "flag": "--counters",
+            "required": false,
+            "type": "json"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "incident_energy_ev",
+            "flag": "--incident-energy-ev",
+            "required": true,
+            "type": "float"
+          },
+          {
+            "choices": null,
+            "default": null,
+            "dest": "two_thetas",
+            "flag": "--two-thetas",
+            "required": true,
+            "type": "json"
+          }
+        ],
+        "cli_path": "blaligner xrs tag-crystal-q",
+        "mutates": false,
+        "tool": "xrs/tag_crystal_q"
+      }
+    ]
+  },
+  "surface": {
+    "aliases": {},
+    "branches": [
+      "tool",
+      "db",
+      "spec-read",
+      "spec-write",
+      "spec-file",
+      "s3df",
+      "slack",
+      "xrs",
+      "exafs"
+    ],
+    "description": "Agent scope: blaligner (phase=beamline_alignment). Filters spec-write tools and validates motor args.",
+    "exclusive": false,
+    "include_ref": true,
+    "layout": "nested",
+    "motors": [
+      "Bx",
+      "Bz",
+      "Sr",
+      "Sx",
+      "Sy",
+      "Sz",
+      "Tp",
+      "Tz",
+      "crystal",
+      "energy",
+      "filter",
+      "gap",
+      "m1pitch",
+      "m1vert",
+      "m2horz",
+      "m2vert",
+      "monhgap",
+      "monhtra",
+      "mono",
+      "monvgap",
+      "monvtra",
+      "pitcha",
+      "pitchb",
+      "s1hgap",
+      "s1htran",
+      "s1vgap",
+      "s1vtran"
+    ],
+    "name": "blaligner",
+    "phase": "beamline_alignment",
+    "tools": [],
+    "write_tools": [
+      "abort_current_scan",
+      "align_beamline",
+      "big_beam",
+      "calibrate_mono",
+      "fit_emission_peak",
+      "measure_beam_size",
+      "move_motor",
+      "move_motor_relative",
+      "mv_energy",
+      "mv_knife_clear",
+      "mv_knife_out",
+      "mv_pinhole",
+      "mv_plastic",
+      "open_data_file",
+      "peak_mono_pitch",
+      "plotselect",
+      "post_scan_move",
+      "record_alignment_flux",
+      "request_gap_ownership",
+      "reset_gap",
+      "run_align_shortcut",
+      "run_diagonal_scan",
+      "run_motor_scan",
+      "run_motor_scan_relative",
+      "safely_remove_filters",
+      "select_element",
+      "set_anchor",
+      "set_filter",
+      "set_gain",
+      "set_m2_stripe",
+      "set_vortex_roi",
+      "shutter",
+      "small_beam",
+      "tracking",
+      "xtal_align",
+      "zero_pinhole"
+    ]
+  }
+}

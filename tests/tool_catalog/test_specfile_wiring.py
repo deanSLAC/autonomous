@@ -39,11 +39,20 @@ def _config_tools() -> dict[str, dict]:
 
 def test_planner_agent_can_reach_spec_file_tree():
     """The planner's tool allowlist must include the spec-file tree — the
-    convergence AND chemistry tools live there and are otherwise unreachable."""
+    convergence AND chemistry tools live there and are otherwise unreachable.
+
+    Colon form. This assertion used to hard-code the space spelling,
+    `Bash(beamtimehero spec-file *)`, which is how the two spellings came
+    to coexist across six agent files with no rule about which: one of
+    them was pinned by a test and the rest were not.
+    `scripts/render_agent_surfaces.py` normalises every `beamtimehero`
+    pattern to the colon form and `test_agent_files_generated.py` keeps
+    it there.
+    """
     text = PLANNER_AGENT.read_text()
     tools_line = next(l for l in text.splitlines() if l.startswith("tools:"))
-    assert "beamtimehero spec-file *" in tools_line, (
-        "planner.md frontmatter must grant Bash(beamtimehero spec-file *)"
+    assert "Bash(beamtimehero spec-file:*)" in tools_line, (
+        "planner.md frontmatter must grant Bash(beamtimehero spec-file:*)"
     )
 
 

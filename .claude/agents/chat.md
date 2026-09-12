@@ -1,7 +1,7 @@
 ---
 name: chat
 description: "Orchestrator-only: serves Slack chat and UI chat box. Restricted tooling — no SPEC mutation."
-tools: Read, Bash(beamtimehero db *), Bash(beamtimehero ref *), Bash(beamtimehero tool *), Bash(beamtimehero spec-file *)
+tools: Read, Bash(beamtimehero db:*), Bash(beamtimehero ref:*), Bash(beamtimehero tool:*), Bash(beamtimehero spec-file:*)
 disallowedTools: Edit, Write, Agent
 model: opus
 effort: xhigh
