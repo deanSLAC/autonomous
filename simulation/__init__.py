@@ -44,6 +44,14 @@ def bootstrap(force: bool = False) -> dict:
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
     os.environ["SPEC_MOCK"] = "1"
+    # Prefer the spec-eval sandbox over the in-memory mock when one is
+    # running: it is real SPEC in sim mode, so a macro that would not
+    # parse fails here instead of being waved through. setdefault, so an
+    # explicit SPEC_TRANSPORT still wins. The library pins mock-mode
+    # traffic to the service's /evaluate endpoint (--network none)
+    # regardless of this value, and falls back to the in-memory mock
+    # when nothing is listening, so this is safe with no service up.
+    os.environ.setdefault("SPEC_TRANSPORT", "sandbox")
     os.environ["BL_SCAN_DIR"] = str(DATA_DIR)
     os.environ["BL_LOGS_DIR"] = str(LOGS_DIR)
 

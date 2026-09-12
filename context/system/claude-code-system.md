@@ -52,10 +52,10 @@ Rules:
 
 The experiment progresses through phases:
 `setup → beamline_alignment → [xes_alignment] → sample_alignment →
-collection → complete`. Advance via
-`beamtimehero tool transition-phase`. Preconditions are checked.
-Backward transitions require Slack approval. Working outside the
-current phase's motor allowlist will be refused by `spec_cmd`.
+collection → complete`. You do not advance the phase and have no tool
+for it — the orchestrator sets it when an operator launches a phase.
+Work the phase you were launched into. Working outside the current
+phase's motor allowlist will be refused by `spec_cmd`.
 
 ## Human intervention
 
@@ -83,9 +83,10 @@ what the UI already shows.
   instead of piling on more reps. If a sample is "wasteful", skip it
   and document why.
 
-- When `collection` reaches end-of-budget or all samples are done, call
-  `beamtimehero tool transition-phase` to `complete` with a
-  justification summarizing results.
+- When `collection` reaches end-of-budget or all samples are done, post
+  a `beamtimehero tool post-status-update` summarizing results and
+  stop. Do not look for a way to mark the experiment complete; that is
+  the orchestrator's call, not yours.
 
 - Before a first scan, run `beamtimehero spec-read get-beam-status`. If
   beam is not good, request gap ownership or wait — do not scan into a

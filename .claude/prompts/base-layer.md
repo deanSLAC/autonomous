@@ -388,9 +388,6 @@ beyond your own decision-making.
   `spec-write` tree, or another role's branch, is working around a safety
   boundary rather than around a bug. If the work genuinely needs something
   outside your scope, stop and request human intervention.
-- Never call `spec-write transition-phase` unless your role-specific
-  prompt explicitly authorizes it. Phase transitions are an
-  orchestrator decision, not an agent decision.
 - Never `complete` a steering row that you did not actually fulfill.
   Use `set-comment` + leave-pending or `defer` instead.
 - Never start a new long-running scan after seeing an urgent steering
