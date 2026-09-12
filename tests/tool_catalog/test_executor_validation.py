@@ -7,8 +7,13 @@ in `arg_models.ARG_MODELS` BEFORE dispatch:
   * invalid args → structured `{"ok": false, "error": "invalid
     arguments", "details": [...]}` envelope, handler NOT called;
   * extra/unknown args → pass through untouched (extra="allow");
-  * tools without a registered model (the 82 upstream ones) dispatch
+  * tools without a registered model (the ~101 upstream ones) dispatch
     unvalidated, exactly as before.
+
+The validation is now a `BeforeHook` on upstream's `make_executor`
+(`executor._validate_args_hook`) rather than an inline branch, which is
+what lets an agent surface install the identical check on its own
+restricted executor. The behaviour it pins is unchanged.
 """
 
 from __future__ import annotations
@@ -21,8 +26,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from beamline_tools.tool_catalog import tools  # noqa: E402
+from beamline_tools.tool_catalog import tools  # noqa: E402,F401 — registers CAT-8
 from beamline_tools.tool_catalog.executor import execute_tool  # noqa: E402
+from beamtimehero_cli.tool_catalog.tools_core import DISPATCH  # noqa: E402
 
 
 def _capture(calls):
@@ -34,8 +40,8 @@ def _capture(calls):
 
 def test_valid_args_dispatch_to_handler(monkeypatch):
     calls = []
-    monkeypatch.setitem(tools.DISPATCH, "record_sample_progress", _capture(calls))
-    text, images = execute_tool("record_sample_progress",
+    monkeypatch.setitem(DISPATCH, ("db", "record_sample_progress"), _capture(calls))
+    text, images = execute_tool(("db",), "record_sample_progress",
                                 {"sample_id": "s1", "status": "done"})
     assert json.loads(text) == {"ok": True}
     assert images == []
@@ -44,8 +50,8 @@ def test_valid_args_dispatch_to_handler(monkeypatch):
 
 def test_missing_required_field_returns_envelope_naming_field(monkeypatch):
     calls = []
-    monkeypatch.setitem(tools.DISPATCH, "record_sample_progress", _capture(calls))
-    text, images = execute_tool("record_sample_progress", {"status": "done"})
+    monkeypatch.setitem(DISPATCH, ("db", "record_sample_progress"), _capture(calls))
+    text, images = execute_tool(("db",), "record_sample_progress", {"status": "done"})
     body = json.loads(text)
     assert body["ok"] is False
     assert body["error"] == "invalid arguments"
@@ -56,8 +62,8 @@ def test_missing_required_field_returns_envelope_naming_field(monkeypatch):
 
 def test_wrong_type_returns_envelope(monkeypatch):
     calls = []
-    monkeypatch.setitem(tools.DISPATCH, "update_plan", _capture(calls))
-    text, _ = execute_tool("update_plan", {"plan": 42})
+    monkeypatch.setitem(DISPATCH, ("db", "update_plan"), _capture(calls))
+    text, _ = execute_tool(("db",), "update_plan", {"plan": 42})
     body = json.loads(text)
     assert body["ok"] is False
     assert body["error"] == "invalid arguments"
@@ -67,9 +73,9 @@ def test_wrong_type_returns_envelope(monkeypatch):
 
 def test_extra_args_pass_through_unchanged(monkeypatch):
     calls = []
-    monkeypatch.setitem(tools.DISPATCH, "record_sample_progress", _capture(calls))
+    monkeypatch.setitem(DISPATCH, ("db", "record_sample_progress"), _capture(calls))
     args = {"sample_id": "s1", "totally_unknown_arg": [1, 2, 3]}
-    text, _ = execute_tool("record_sample_progress", args)
+    text, _ = execute_tool(("db",), "record_sample_progress", args)
     assert json.loads(text) == {"ok": True}
     # Handler receives the ORIGINAL dict, extra key included.
     assert calls == [args]
@@ -77,16 +83,16 @@ def test_extra_args_pass_through_unchanged(monkeypatch):
 
 def test_none_arguments_validates_as_empty_dict(monkeypatch):
     calls = []
-    monkeypatch.setitem(tools.DISPATCH, "get_plan", _capture(calls))
-    text, _ = execute_tool("get_plan", None)
+    monkeypatch.setitem(DISPATCH, ("db", "get_plan"), _capture(calls))
+    text, _ = execute_tool(("db",), "get_plan", None)
     assert json.loads(text) == {"ok": True}
     assert calls == [{}]
 
 
 def test_none_arguments_on_required_tool_returns_envelope(monkeypatch):
     calls = []
-    monkeypatch.setitem(tools.DISPATCH, "update_plan", _capture(calls))
-    text, _ = execute_tool("update_plan", None)
+    monkeypatch.setitem(DISPATCH, ("db", "update_plan"), _capture(calls))
+    text, _ = execute_tool(("db",), "update_plan", None)
     body = json.loads(text)
     assert body["ok"] is False
     assert any(d.startswith("plan:") for d in body["details"])
@@ -96,15 +102,17 @@ def test_none_arguments_on_required_tool_returns_envelope(monkeypatch):
 def test_tools_without_model_skip_validation(monkeypatch):
     """Upstream tools (not in ARG_MODELS) must dispatch unvalidated."""
     calls = []
-    monkeypatch.setitem(tools.DISPATCH, "not_a_cat8_tool", _capture(calls))
-    text, _ = execute_tool("not_a_cat8_tool", {"anything": "goes"})
+    monkeypatch.setitem(DISPATCH, ("tool", "not_a_cat8_tool"), _capture(calls))
+    text, _ = execute_tool(("tool",), "not_a_cat8_tool", {"anything": "goes"})
     assert json.loads(text) == {"ok": True}
     assert calls == [{"anything": "goes"}]
 
 
-def test_three_arg_form_also_validates(monkeypatch):
+def test_validation_is_keyed_by_name_not_tree(monkeypatch):
+    """The arg model is looked up by tool name, so the same check applies
+    wherever a surface has placed the leaf."""
     calls = []
-    monkeypatch.setitem(tools.DISPATCH, "record_sample_progress", _capture(calls))
+    monkeypatch.setitem(DISPATCH, ("tool", "record_sample_progress"), _capture(calls))
     text, _ = execute_tool(("tool",), "record_sample_progress", {})
     body = json.loads(text)
     assert body["ok"] is False

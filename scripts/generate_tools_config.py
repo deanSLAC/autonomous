@@ -2,8 +2,12 @@
 """Generate beamline_tools/tools_config.json from the tool catalog.
 
 Reads TOOL_DEFINITIONS, TOOL_LINEAGE, and REFERENCE_DOCS to build the
-JSON config used by the tool-tester UI and the main app's enable/disable
-filtering.
+JSON config the tool-tester UI reads as its status document (simulated,
+working_live, comments, sample_output).
+
+`enabled` is still written and preserved, but nothing gates on it any
+more: what an agent may reach is declared per role in
+`beamline_tools/agent_roles.py`.
 
 Idempotent: re-running merges new tools and removes deleted ones while
 preserving user-edited fields (simulated, working_live, comments, sample_output, enabled).
@@ -32,33 +36,22 @@ try:
 except Exception as e:
     print(f"warning: orchestration import failed: {e}", file=sys.stderr)
 
-# Import raw (unfiltered) definitions — the generator must see ALL tools,
-# not just those currently enabled in tools_config.json.
-from beamline_tools.tool_catalog.definitions import (
-    AUTONOMY_TOOL_DEFINITIONS as _AUTONOMY_TOOLS,
-)
-from beamtimehero_cli.tool_catalog.cli import REFERENCE_DOCS
-from beamtimehero_cli.tool_catalog.definitions import (
-    AUTONOMY_TOOL_DEFINITIONS as _UPSTREAM_TOOLS,
-)
+# Importing this package registers autonomy's CAT-8 lineage, definitions and
+# (lazily) handlers into upstream's registries, in place. `TOOL_DEFINITIONS`
+# is therefore upstream's own list with the CAT-8 tools appended — every tool
+# the CLI can dispatch, and nothing filtered out: `tools_config.json` is the
+# tool-tester UI's status document, not a gate on the catalog.
+from beamline_tools.tool_catalog import TOOL_DEFINITIONS
 from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE
+from beamtimehero_cli.tool_catalog.cli import REFERENCE_DOCS
 
-# Delegate categorization to the SAME upstream function the CLI dispatch uses
-# (see scripts/beamtimehero), patched to see autonomy's db-tool lineage. This
-# keeps cli_path in tools_config.json consistent with the tree a tool actually
-# resolves under at runtime — notably the spec-file scan/analysis/chemistry
-# tools, which the old hand-rolled logic mislabeled as "tool".
-import beamtimehero_cli.tool_catalog.categorize as _cat_mod  # noqa: E402
-
-_cat_mod.TOOL_LINEAGE = TOOL_LINEAGE
-
-# Merge upstream (unfiltered) + autonomy (unfiltered) so the generator
-# sees every tool regardless of what tools_config.json currently enables.
-_UPSTREAM_NAMES = {d["function"]["name"] for d in _UPSTREAM_TOOLS}
-_AUTONOMY_NAMES = {d["function"]["name"] for d in _AUTONOMY_TOOLS}
-_EXTRA = [d for d in _AUTONOMY_TOOLS if d["function"]["name"] not in _UPSTREAM_NAMES]
-
-TOOL_DEFINITIONS = list(_UPSTREAM_TOOLS) + _EXTRA
+# Categorize with the SAME function the CLI dispatch uses, so cli_path in
+# tools_config.json matches the tree a tool actually resolves under at
+# runtime — notably the spec-file scan/analysis/chemistry tools, which the
+# old hand-rolled logic mislabeled as "tool". There is no
+# `categorize.TOOL_LINEAGE = ...` patch here any more: register_lineage()
+# updated the dict categorize() binds, so it already sees the CAT-8 rows.
+from beamtimehero_cli.tool_catalog.categorize import categorize
 
 CONFIG_PATH = ROOT / "beamline_tools" / "tools_config.json"
 
@@ -124,7 +117,7 @@ def _categorize(tool_def: dict) -> str:
     per-name CATEGORY_OVERRIDES that move the file-cache scan/analysis/chemistry
     tools into ``spec-file``.
     """
-    return "/".join(_cat_mod.categorize(tool_def))
+    return "/".join(categorize(tool_def))
 
 
 def _sample_value(prop: dict) -> object:

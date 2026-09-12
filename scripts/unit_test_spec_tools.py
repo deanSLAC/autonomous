@@ -87,8 +87,28 @@ from orchestration.plan_store.session import create_experiment  # noqa: E402
 from beamtimehero_cli.spec_control import phases  # noqa: E402
 from beamline_tools.spec_control import spec_cmd  # noqa: E402
 from beamtimehero_cli.spec_control.transport import _MockScreen  # noqa: E402
-from beamline_tools.tool_catalog.tools import DISPATCH  # noqa: E402
+import beamline_tools.tool_catalog.tools  # noqa: E402,F401 — registers CAT-8
 from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE  # noqa: E402
+from beamtimehero_cli.tool_catalog.tools_core import (  # noqa: E402
+    DISPATCH as _TREE_DISPATCH,
+)
+
+# This harness's cases name a tool, not a `(tree, ..., name)` path, so it
+# needs a name-keyed view of the dispatch table. The six leaf names that
+# exist on both `spec-file` and `s3df` therefore have to be resolved: this
+# is a beamline harness, so the spec-file handler wins and the s3df-only
+# leaves (psql etc.) still register. That preference used to live in
+# `beamline_tools/tool_catalog/tools.py`, where it silently applied to
+# every caller including the CLI; it belongs here, where the ambiguity is.
+DISPATCH: dict[str, callable] = {
+    key[-1]: handler
+    for key, handler in _TREE_DISPATCH.items()
+    if key[0] != "s3df"
+}
+for _key, _handler in _TREE_DISPATCH.items():
+    if _key[0] == "s3df":
+        DISPATCH.setdefault(_key[-1], _handler)
+del _key, _handler
 from orchestration import runtime_state  # noqa: E402
 
 

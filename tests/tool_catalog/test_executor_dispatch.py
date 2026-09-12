@@ -1,11 +1,17 @@
 """Smoke tests for tool-catalog dispatch.
 
-Pins execute_tool's contract (name-keyed + tree-keyed resolution, error
-envelopes) and the CAT-8 update_plan argument handling before the
-opencode-removal refactor. Object args MUST work as real dicts — that is
-what the `beamtimehero` CLI delivers (argparse json.loads at parse time)
-and what must keep working when the opencode JSON-string unwrap shims
-are removed.
+Pins `execute_tool`'s contract — tree-keyed resolution and the error
+envelopes — plus the CAT-8 `update_plan` argument handling. Object args
+MUST work as real dicts: that is what the `beamtimehero` CLI delivers
+(argparse `json.loads` at parse time).
+
+The table is upstream's `tools_core.DISPATCH`, keyed by
+`(tree, ..., name)`. Autonomy used to keep a name-keyed flatten of it,
+which forced a hand-coded "spec-file wins" rule for the six leaf names
+that exist on both `spec-file` and `s3df`. Registering into the tree-keyed
+table keeps those six pairs distinct, so the two tests at the bottom of
+this file changed from "the right handler won the collision" to "there is
+no collision".
 """
 
 from __future__ import annotations
@@ -18,48 +24,74 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from beamline_tools.tool_catalog import tools  # noqa: E402
+from beamline_tools.tool_catalog import tools  # noqa: E402,F401 — registers CAT-8
 from beamline_tools.tool_catalog.executor import execute_tool  # noqa: E402
+from beamtimehero_cli.tool_catalog.tools_core import DISPATCH  # noqa: E402
 
 
 def test_unknown_tool_returns_error_string():
-    text, images = execute_tool("definitely_not_a_tool", {})
-    assert "Unknown tool" in text
+    text, images = execute_tool(("tool",), "definitely_not_a_tool", {})
+    assert text == "Unknown tool: tool/definitely_not_a_tool"
     assert images == []
+
+
+def test_known_name_on_the_wrong_tree_is_unknown():
+    """The path is the identity: a real tool asked for on a tree it does
+    not live on is not silently resolved by name."""
+    text, _ = execute_tool(("spec-write",), "get_plan", {})
+    assert text == "Unknown tool: spec-write/get_plan"
 
 
 def test_handler_exception_is_contained(monkeypatch):
     def boom(args):
         raise RuntimeError("kaboom")
 
-    monkeypatch.setitem(tools.DISPATCH, "boom_tool", boom)
-    text, images = execute_tool("boom_tool", {})
-    assert text.startswith("Tool error (boom_tool)")
+    monkeypatch.setitem(DISPATCH, ("tool", "boom_tool"), boom)
+    text, images = execute_tool(("tool",), "boom_tool", {})
+    assert text.startswith("Tool error (tool/boom_tool)")
     assert "kaboom" in text
     assert images == []
 
 
-def test_name_keyed_dispatch_two_arg_form(monkeypatch):
+def test_tree_keyed_dispatch(monkeypatch):
     monkeypatch.setitem(
-        tools.DISPATCH, "echo_tool", lambda args: (json.dumps(args), []),
+        DISPATCH, ("tool", "echo_tool"), lambda args: (json.dumps(args), []),
     )
-    text, images = execute_tool("echo_tool", {"x": 1})
+    text, _ = execute_tool(("tool",), "echo_tool", {"x": 1})
     assert json.loads(text) == {"x": 1}
 
 
-def test_three_arg_form_resolves_by_name(monkeypatch):
+def test_bare_string_tree_is_accepted(monkeypatch):
+    """A single-segment branch may be passed as a plain string."""
     monkeypatch.setitem(
-        tools.DISPATCH, "echo_tool", lambda args: (json.dumps(args), []),
+        DISPATCH, ("tool", "echo_tool"), lambda args: (json.dumps(args), []),
     )
-    text, _ = execute_tool(("tool",), "echo_tool", {"y": 2})
+    text, _ = execute_tool("tool", "echo_tool", {"y": 2})
     assert json.loads(text) == {"y": 2}
 
 
+def test_nested_tree_dispatch(monkeypatch):
+    """Multi-segment branches (s3df psql) key on the whole path."""
+    monkeypatch.setitem(
+        DISPATCH, ("s3df", "psql", "probe"), lambda args: ("ok", []),
+    )
+    text, _ = execute_tool(("s3df", "psql"), "probe", {})
+    assert text == "ok"
+
+
 def test_cat8_tools_are_registered():
-    # A representative slice of the autonomy CAT-8 surface.
+    # A representative slice of the autonomy CAT-8 surface, on `db` —
+    # where `source: "autonomy_db"` puts it.
     for name in ("update_plan", "get_comprehensive_collection_plan",
                  "record_sample_progress"):
-        assert name in tools.DISPATCH, f"{name} missing from DISPATCH"
+        assert ("db", name) in DISPATCH, f"{name} missing from DISPATCH"
+
+
+def test_autonomy_handler_overrides_the_upstream_spec_write_leaf():
+    """A name-keyed registration replaces upstream's handler on whatever
+    branch the definition sits on — autonomy's measure_beam_size records
+    the result to the DB."""
+    assert DISPATCH[("spec-write", "measure_beam_size")] is tools.t_measure_beam_size
 
 
 def test_update_plan_accepts_dict_args(monkeypatch):
@@ -91,23 +123,23 @@ def test_update_plan_rejects_non_object_plan(monkeypatch):
     assert body["ok"] is False
 
 
-def test_spec_file_handlers_win_name_flatten():
-    """s3df duplicates six spec-file leaf names; the spec-file handler must
-    win the name-keyed flatten or beamline tool calls silently hit Postgres."""
-    from beamtimehero_cli.tool_catalog.tools_core import (
-        DISPATCH as TREE_DISPATCH,
-    )
+def test_spec_file_and_s3df_handlers_stay_distinct():
+    """s3df duplicates six spec-file leaf names. Both paths must resolve to
+    their own backend: on the beamline a spec-file call must read the SPEC
+    file, not silently hit Postgres."""
     for name in ("list_scans", "get_latest_scan", "read_scan",
                  "get_active_counter", "get_scan_deadtime", "plot_scan"):
-        assert tools.DISPATCH[name] is TREE_DISPATCH[("spec-file", name)], name
+        spec_file = DISPATCH.get(("spec-file", name))
+        s3df = DISPATCH.get(("s3df", name))
+        assert spec_file is not None, name
+        assert s3df is not None, name
+        assert spec_file is not s3df, name
 
 
 def test_s3df_only_leaves_still_registered():
-    from beamtimehero_cli.tool_catalog.tools_core import (
-        DISPATCH as TREE_DISPATCH,
-    )
-    s3df_only = {k[-1] for k in TREE_DISPATCH if k[0] == "s3df"} - {
-        k[-1] for k in TREE_DISPATCH if k[0] != "s3df"
+    s3df_only = {k[-1] for k in DISPATCH if k[0] == "s3df"} - {
+        k[-1] for k in DISPATCH if k[0] != "s3df"
     }
+    assert s3df_only, "expected at least the psql leaves to be s3df-only"
     for name in s3df_only:
-        assert name in tools.DISPATCH, name
+        assert any(k[0] == "s3df" and k[-1] == name for k in DISPATCH), name

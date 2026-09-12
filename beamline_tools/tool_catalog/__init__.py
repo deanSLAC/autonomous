@@ -1,71 +1,62 @@
 """Autonomous Beamline Agent tool system.
 
-Concatenates upstream's `beamtimehero_cli.tool_catalog` (CAT-0..CAT-7,
-CAT-9, CAT-10) with autonomy's CAT-8 orchestration overlay.
+Registers autonomy's CAT-8 orchestration overlay into upstream's
+`beamtimehero_cli.tool_catalog` (CAT-0..CAT-7, CAT-9, CAT-10) rather than
+concatenating a private copy beside it.
 
 Public surface:
 
-  * `TOOL_DEFINITIONS` — JSON-schema definitions for every tool the LLM can call.
+  * `TOOL_DEFINITIONS` — upstream's list, with autonomy's CAT-8 tools
+    appended. The *same list object* upstream holds, so `categorize()`,
+    `build_catalog_subtrees()` and `Catalogue.default()` all see the
+    whole catalog with nothing patched.
   * `TOOL_CATEGORIES` — CAT-0..CAT-10 groupings for the UI sidebar.
   * `CLI_TOOL_DEFINITION` — progressive-discovery CLI tool (TOOLS_MODE=cli).
-  * `execute_tool(name, args)` — dispatch to a tool's Python implementation.
+  * `execute_tool(tree, name, args)` — dispatch to a tool's Python
+    implementation.
+
+There is no enable/disable filter here any more. `tools_config.json`
+remains the tool-tester UI's status document (`simulated`,
+`working_live`, `comments`), but it is no longer a gate on what the
+catalog contains: a tool that an agent must not reach is now absent from
+that agent's surface (see `beamline_tools/agent_roles.py`), which is a
+statement about one role rather than a process-wide edit that silently
+changed what every role could see.
 """
 from __future__ import annotations
 
-import json
-import logging
-from pathlib import Path
-
+from beamtimehero_cli.tool_catalog import (
+    TOOL_DEFINITIONS,
+    register_definitions,
+)
 from beamtimehero_cli.tool_catalog.cli_tool import CLI_TOOL_DEFINITION
 from beamtimehero_cli.tool_catalog.definitions import (
     AUTONOMY_TOOL_CATEGORIES as _UPSTREAM_CATEGORIES,
-    AUTONOMY_TOOL_DEFINITIONS as _UPSTREAM_TOOLS,
 )
 
+# Importing this module registers autonomy's CAT-8 lineage entries into
+# upstream's TOOL_LINEAGE, and that must happen before the definitions
+# are registered below. `register_definitions()` dedupes by
+# `categorize(d) + (name,)`, and `categorize()` reads lineage to decide
+# that an `autonomy_db` tool belongs on `db`. With lineage registered
+# first the path check is exact; the other way round, every CAT-8
+# definition would be path-checked as `("tool", name)` — the wrong path,
+# so the duplicate guard would be approximate.
+from beamline_tools.tool_catalog import lineage as _lineage  # noqa: F401
 from beamline_tools.tool_catalog.definitions import (
     AUTONOMY_TOOL_CATEGORIES as _AUTONOMY_CATEGORIES,
     AUTONOMY_TOOL_DEFINITIONS as _AUTONOMY_TOOLS,
 )
 from beamline_tools.tool_catalog.executor import execute_tool
 
-_logger = logging.getLogger(__name__)
+register_definitions(_AUTONOMY_TOOLS)
 
-_TOOLS_CONFIG_PATH = Path(__file__).resolve().parent.parent / "tools_config.json"
-
-
-def _load_enabled_set() -> set[str] | None:
-    """Return the set of enabled tool names, or None if config is absent (fail-open)."""
-    if not _TOOLS_CONFIG_PATH.exists():
-        return None
-    try:
-        with open(_TOOLS_CONFIG_PATH) as f:
-            data = json.load(f)
-        return {t["name"] for t in data.get("tools", []) if t.get("enabled", True)}
-    except Exception:
-        _logger.warning("Could not read %s — all tools enabled", _TOOLS_CONFIG_PATH)
-        return None
-
-
-_enabled = _load_enabled_set()
-
-
-def _filter(defs: list[dict]) -> list[dict]:
-    if _enabled is None:
-        return list(defs)
-    return [d for d in defs if d["function"]["name"] in _enabled]
-
-
-# Concatenate upstream (CAT-0..CAT-7, CAT-9, CAT-10) and autonomy (CAT-8) tool defs.
-_BASE_TOOLS: list[dict] = list(_UPSTREAM_TOOLS) + list(_AUTONOMY_TOOLS)
-# Concatenate category groupings the same way, but let autonomy own CAT-8
-# (upstream ships a stale CAT-8 stub that references tools it does not define).
-_BASE_CATEGORIES = [
+# Category groupings concatenate the same way the definitions do, but
+# autonomy owns CAT-8: upstream ships a stale CAT-8 stub that references
+# tools it does not define.
+TOOL_CATEGORIES = [
     c for c in _UPSTREAM_CATEGORIES if not c[0].startswith("CAT-8")
 ] + list(_AUTONOMY_CATEGORIES)
-
-
-TOOL_DEFINITIONS: list[dict] = _filter(_BASE_TOOLS)
-TOOL_CATEGORIES = list(_BASE_CATEGORIES)
 
 
 __all__ = [

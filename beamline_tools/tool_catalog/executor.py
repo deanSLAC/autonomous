@@ -1,14 +1,25 @@
-"""Tool executor — dispatches tool calls to underlying beamline_tools modules.
+"""Autonomy's executor: upstream's, plus two hooks.
 
-Returns (result_text, images_b64) for each tool invocation.
+`beamtimehero_cli.tool_catalog.executor.make_executor()` produces the
+dispatch loop and the `Unknown tool: a/b` / `Tool error (a/b): e`
+envelopes. This module supplies the two things that are autonomy's:
 
-The CLI's ``execute_tool`` grew a leading ``tree`` argument in Phase 2 so
-the same tool name can coexist under different trees (``s3df.list_scans``
-vs. ``spec-file.list_scans``). Autonomy doesn't yet need that
-disambiguation — its DISPATCH is name-keyed and the autonomy-specific
-tool names are unique — so we accept both the new 3-arg form and the
-legacy 2-arg form and resolve by name. If a tree is given, we still try
-it first (in case the autonomy team later registers tree-keyed handlers).
+  * `_validate_args_hook` — a *before* hook that boundary-validates
+    CAT-8 arguments against their pydantic model and refuses with a
+    field-level `{"ok": false, ...}` envelope the LLM can act on.
+  * `_scan_capture_hook` — an *after* hook that files a ScanRecord for
+    scan-emitting actions.
+
+Both are exported because an agent surface needs them: `build_surface(
+spec, catalogue, before=(_validate_args_hook,), after=(_scan_capture_hook,))`
+installs the same two hooks on the restricted executor, behind the motor
+allow-list. That is the point of the hook shape — there is one definition
+of "validate, then dispatch, then capture", and the guarded and
+unguarded executors share it.
+
+`execute_tool(tree, name, arguments)` is the unrestricted form, over
+upstream's whole `(tree, ..., name)`-keyed table. The old 1- and 2-arg
+name-keyed forms are gone; nothing outside this repo's tests called them.
 """
 from __future__ import annotations
 
@@ -17,16 +28,18 @@ import logging
 
 from pydantic import ValidationError
 
+from beamtimehero_cli.tool_catalog.executor import make_executor
+
 logger = logging.getLogger(__name__)
 
 
-def _validate_args(name: str, arguments: dict) -> str | None:
+def _validate_args_hook(tree: tuple[str, ...], name: str, arguments: dict) -> str | None:
     """Boundary-validate CAT-8 tool arguments against their pydantic model.
 
     Returns an ``{"ok": false, ...}`` JSON envelope string on validation
     failure (field-level errors the LLM can act on), or ``None`` when the
-    arguments are valid or the tool has no registered model (the 82
-    upstream tools are dispatched unvalidated, as before).
+    arguments are valid or the tool has no registered model — the ~101
+    upstream tools are dispatched unvalidated, as before.
     """
     try:
         from beamline_tools.tool_catalog.arg_models import ARG_MODELS
@@ -52,54 +65,60 @@ def _validate_args(name: str, arguments: dict) -> str | None:
     return None
 
 
-def execute_tool(*posargs, **kw) -> tuple[str, list[str]]:
-    """Dispatch a tool call. Returns ``(result_text, images_b64)``.
+def _scan_capture_hook(tree: tuple[str, ...], name: str, text: str) -> None:
+    """Best-effort ScanRecord capture for scan-emitting actions.
 
-    Accepts either ``execute_tool(tree, name, arguments)`` (new CLI form)
-    or ``execute_tool(name, arguments)`` (legacy form).
+    An observer: it returns ``None`` so the tool's own result text is
+    what the caller sees. The cheap substring gate comes first so
+    non-action tools pay nothing.
     """
-    tree: tuple[str, ...] | None = None
-    if len(posargs) == 3:
-        tree_arg, name, arguments = posargs
-        tree = tuple(tree_arg) if not isinstance(tree_arg, str) else (tree_arg,)
-    elif len(posargs) == 2:
-        name, arguments = posargs
-    elif len(posargs) == 1:
-        name = posargs[0]
-        arguments = kw.get("arguments") or kw.get("args")
-    else:
-        raise TypeError(f"execute_tool: unexpected arg count: {len(posargs)}")
-
-    try:
-        from beamline_tools.tool_catalog.tools import DISPATCH
-    except Exception:
-        DISPATCH = {}
-
-    fn = None
-    if tree is not None:
-        # Defensive: if a future autonomy DISPATCH ever becomes tree-keyed,
-        # try that first before falling back to the name-only path.
-        fn = DISPATCH.get(tree + (name,)) if isinstance(next(iter(DISPATCH), None), tuple) else None
-    if fn is None:
-        fn = DISPATCH.get(name)
-    if fn is None:
-        return f"Unknown tool: {name}", []
-    # Boundary validation for CAT-8 tools only (name in ARG_MODELS).
-    # The handler still receives the ORIGINAL arguments dict.
-    error_envelope = _validate_args(name, arguments or {})
-    if error_envelope is not None:
-        return error_envelope, []
-    try:
-        text, imgs = fn(arguments or {})
-    except Exception as e:
-        logger.error("Tool %s failed: %s", name, e, exc_info=True)
-        return f"Tool error ({name}): {e}", []
-    # Best-effort ScanRecord capture for scan-emitting actions. Cheap
-    # substring gate first so non-action tools pay nothing.
     if isinstance(text, str) and '"action_id"' in text:
         try:
             from beamline_tools.scan_capture import capture_scan_record
             capture_scan_record(name, text)
         except Exception as e:  # noqa: BLE001
             logger.warning("scan_capture hook failed for %s: %s", name, e)
-    return text, list(imgs or [])
+    return None
+
+
+_EXECUTOR = None
+
+
+def _executor():
+    """Build the executor over upstream's DISPATCH, once.
+
+    Two reasons this is lazy rather than a module-level
+    ``execute_tool = make_executor(tools_core.DISPATCH, ...)``:
+
+    * Importing ``beamline_tools.tool_catalog.tools`` is what registers
+      the CAT-8 handlers, and that module imports ``beamline_tools``,
+      which imports this one. At module level the import is a cycle; on
+      first call it is not.
+    * ``tools_core`` pulls in matplotlib and the science stack (+0.5s,
+      ~700 modules). ``beamline_tools`` is imported by the UI server and
+      by ``orchestration``, neither of which dispatches a tool.
+
+    ``make_executor`` holds the table by reference and
+    ``register_handlers`` mutates it in place, so one executor stays
+    correct for the life of the process.
+    """
+    global _EXECUTOR
+    if _EXECUTOR is None:
+        from beamline_tools.tool_catalog import tools  # noqa: F401 — registers CAT-8
+        from beamtimehero_cli.tool_catalog.tools_core import DISPATCH
+
+        _EXECUTOR = make_executor(
+            DISPATCH,
+            before=(_validate_args_hook,),
+            after=(_scan_capture_hook,),
+        )
+    return _EXECUTOR
+
+
+def execute_tool(
+    tree: tuple[str, ...] | str,
+    name: str,
+    arguments: dict,
+) -> tuple[str, list[str]]:
+    """Dispatch a tool call. Returns ``(result_text, images_b64)``."""
+    return _executor()(tree, name, arguments)

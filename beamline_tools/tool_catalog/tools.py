@@ -2,9 +2,16 @@
 
 The ~101 upstream tool handlers (CAT-0..CAT-7, CAT-9, CAT-10) live in
 `beamtimehero_cli.tool_catalog.tools_core`. This module only defines
-the 22 CAT-8 orchestration tools that are autonomy-specific (plan
-edits, intervention requests, sample/holder budgets, etc.) and merges
-them into a single `DISPATCH` dict that the executor consumes.
+the 24 CAT-8 orchestration tools that are autonomy-specific (plan
+edits, intervention requests, sample/holder budgets, etc.) and
+registers them into upstream's `DISPATCH` via `register_handlers()`.
+
+There is no autonomy-side `DISPATCH` any more. There used to be: a
+name-keyed flatten of upstream's `(tree, ..., name)` table, which had to
+hand-code "the spec-file handler wins" for the six leaf names that exist
+on both `spec-file` and `s3df`. Registering into the tree-keyed table
+keeps the two paths distinct, so there is nothing to choose between.
+Read it as `beamtimehero_cli.tool_catalog.tools_core.DISPATCH`.
 
 Every SPEC-mutating tool here delegates to `audited_call()`, which
 looks up phase + experiment from `orchestration.runtime_state`
@@ -21,23 +28,8 @@ import logging
 from typing import Any, Optional
 
 from beamline_tools.audited_call import audited_call
-# Phase 2+: the CLI's DISPATCH is keyed by ``(tree, ..., name)``. The
-# autonomy executor and tests use name-keyed lookups, so flatten here.
-from beamtimehero_cli.tool_catalog.tools_core import DISPATCH as _UPSTREAM_DISPATCH_TREE
+from beamtimehero_cli.tool_catalog.tools_core import register_handlers
 from orchestration import runtime_state
-
-_UPSTREAM_DISPATCH: dict[str, callable] = {
-    key[-1]: handler
-    for key, handler in _UPSTREAM_DISPATCH_TREE.items()
-    if key[0] != "s3df"
-}
-# s3df duplicates six spec-file leaf names (list_scans, read_scan, ...).
-# On the beamline the spec-file handlers must win the name-keyed flatten;
-# s3df-only leaves (psql etc.) still register.
-for _key, _handler in _UPSTREAM_DISPATCH_TREE.items():
-    if _key[0] == "s3df":
-        _UPSTREAM_DISPATCH.setdefault(_key[-1], _handler)
-del _key, _handler
 
 # CAT-8 tools need the orchestration package. Import lazily so this
 # module still imports when `orchestration/` is absent (e.g. when
@@ -1248,8 +1240,23 @@ def t_regenerate_plan(args: dict) -> tuple[str, list[str]]:
 
 
 # ---------------------------------------------------------------------------
-# Dispatch table — merge upstream (CAT-0..CAT-7, CAT-9, CAT-10) with
-# autonomy (CAT-8).
+# Handler registration.
+#
+# Keyed by tool *name*, which is upstream's `_HANDLERS` shape: the handler
+# applies on whichever branch `categorize()` puts the definition on. Two
+# consequences that the old hand-rolled flatten had to spell out and this
+# gets for free:
+#
+#   * `measure_beam_size` here replaces upstream's
+#     ("spec-write", "measure_beam_size") — autonomy's version records the
+#     result to the DB.
+#   * s3df duplicates six spec-file leaf names (list_scans, read_scan,
+#     get_latest_scan, get_active_counter, get_scan_deadtime, plot_scan).
+#     Upstream registers the s3df versions branch-keyed in
+#     `_BRANCH_HANDLERS`, so the two paths stay distinct instead of one
+#     name shadowing the other. The old flatten kept only one handler per
+#     name and had to hand-code "spec-file wins"; with a tree-keyed table
+#     there is nothing to choose between.
 # ---------------------------------------------------------------------------
 
 _AUTONOMY_DISPATCH: dict[str, callable] = {
@@ -1280,5 +1287,8 @@ _AUTONOMY_DISPATCH: dict[str, callable] = {
     "regenerate_plan": t_regenerate_plan,
 }
 
-# Autonomy overrides take precedence; upstream supplies the other ~101 handlers.
-DISPATCH: dict[str, callable] = {**_UPSTREAM_DISPATCH, **_AUTONOMY_DISPATCH}
+# Merge into upstream's `(tree, ..., name)`-keyed DISPATCH, in place, and
+# rebuild it. Importing this module is what makes the CAT-8 handlers
+# reachable; `beamline_tools.tool_catalog.executor` does that import on
+# first use.
+register_handlers(_AUTONOMY_DISPATCH)

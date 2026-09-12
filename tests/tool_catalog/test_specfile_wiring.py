@@ -50,18 +50,21 @@ def test_planner_agent_can_reach_spec_file_tree():
 def test_spec_file_tools_categorize_consistently():
     """cli_path in tools_config must match where the CLI actually dispatches
     each tool (the generator delegates to the same categorize() as dispatch)."""
-    import beamtimehero_cli.tool_catalog.categorize as cat_mod
-    from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE
-    from beamline_tools.tool_catalog import TOOL_DEFINITIONS
+    from beamtimehero_cli.tool_catalog.categorize import categorize
 
-    cat_mod.TOOL_LINEAGE = TOOL_LINEAGE  # same patch scripts/beamtimehero applies
+    # Importing this package registers autonomy's lineage and definitions
+    # into upstream's, in place. There is no `cat_mod.TOOL_LINEAGE = ...`
+    # patch here any more, and none in `scripts/beamtimehero` or
+    # `scripts/generate_tools_config.py` either: categorize() reads the
+    # dict register_lineage() updated, so it already sees the CAT-8 rows.
+    from beamline_tools.tool_catalog import TOOL_DEFINITIONS
 
     # A few names (plot_scan, list_scans) have both a spec-file and an s3df
     # definition; both are valid runtime trees, so collect the set per name.
     trees_by_name: dict[str, set[str]] = {}
     for d in TOOL_DEFINITIONS:
         trees_by_name.setdefault(d["function"]["name"], set()).add(
-            "/".join(cat_mod.categorize(d))
+            "/".join(categorize(d))
         )
     cfg = _config_tools()
 
@@ -82,11 +85,14 @@ def test_spec_file_tools_categorize_consistently():
 def test_record_observable_trend_registered_and_dispatchable():
     from beamline_tools.tool_catalog.arg_models import ARG_MODELS
     from beamline_tools.tool_catalog.definitions import TOOL_DESCRIPTIONS
-    from beamline_tools.tool_catalog import tools as tools_mod
+    from beamline_tools.tool_catalog import tools as tools_mod  # noqa: F401
+    from beamtimehero_cli.tool_catalog.tools_core import DISPATCH
 
     assert "record_observable_trend" in ARG_MODELS
     assert "record_observable_trend" in TOOL_DESCRIPTIONS
-    assert "record_observable_trend" in tools_mod.DISPATCH
+    # DISPATCH is keyed by the whole `(tree, ..., name)` path; this tool is
+    # a db tool, which is the same fact the cli_path assertion below pins.
+    assert ("db", "record_observable_trend") in DISPATCH
 
     cfg = _config_tools()
     entry = cfg.get("record_observable_trend")
