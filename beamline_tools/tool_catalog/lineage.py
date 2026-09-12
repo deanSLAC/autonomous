@@ -223,7 +223,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
             "List pause-for-human requests that are still waiting for "
             "staff to resolve."
         ),
-        "python_func": "db.autonomy_client.list_open_interventions(experiment_id)",
+        "python_func": "orchestration.plan_store.client.list_open_interventions(experiment_id)",
         "spec_command": None,
         "output": "JSON array: [{id, kind, detail, created_at}, ...]",
         "source": "autonomy_db",
@@ -255,6 +255,20 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         "output": "JSON: {ok, samples_updated}",
         "source": "autonomy_db",
         "source_detail": "Stored under plan.holder_budgets; audit-logged as a plan_edit.",
+        "depends_on": [],
+    },
+    "get_holder_time_budget": {
+        "long_description": (
+            "Return the time budget for one or all sample holders: "
+            "beamtime_hours, stop_time (the absolute deadline) and "
+            "hours_remaining, computed against the clock at call time. "
+            "Read-only; omit holder_id to get every holder."
+        ),
+        "python_func": "orchestration.plan_store.session.list_sample_holders(experiment_id)",
+        "spec_command": None,
+        "output": "JSON array: [{holder_id, holder_name, beamtime_hours, stop_time, hours_remaining}, ...]",
+        "source": "autonomy_db",
+        "source_detail": "Reads the SampleHolder rows; the counterpart read of set_holder_time_budget.",
         "depends_on": [],
     },
     "regenerate_plan": {

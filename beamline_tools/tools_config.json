@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "generated_at": "2026-07-02T08:42:52.460877+00:00",
-    "total_tools": 127,
+    "generated_at": "2026-09-12T10:58:41.244366+00:00",
+    "total_tools": 160,
     "generator": "scripts/generate_tools_config.py"
   },
   "tools": [
@@ -41,18 +41,6 @@
       "sample_output": "CNT000  EPICS_SC  0  0  1  0x001  sec  Seconds\nCNT001  EPICS_SC  0  1  1  0x002  I0   I0\nCNT002  EPICS_SC  0  2  1  0x000  I1   I1\n...",
       "simulated": false,
       "working_live": true,
-      "comments": ""
-    },
-    {
-      "name": "get_holder_time_budget",
-      "cli_path": "tool",
-      "description": "Return the time budget for one or all holders: beamtime_hours, stop_time (absolute deadline), and hours_remaining (computed). Read-only.",
-      "when_to_use": "Return the time budget for one or all holders: beamtime_hours, stop_time (absolute deadline), and hours_remaining (computed). Read-only.",
-      "enabled": true,
-      "sample_input": {},
-      "sample_output": "",
-      "simulated": false,
-      "working_live": false,
       "comments": ""
     },
     {
@@ -257,6 +245,18 @@
       "comments": ""
     },
     {
+      "name": "get_holder_time_budget",
+      "cli_path": "db",
+      "description": "Return the time budget for one or all sample holders: beamtime_hours, stop_time (the absolute deadline) and hours_remaining, computed against the clock at call time. Read-only; omit holder_id to get every holder.",
+      "when_to_use": "Return the time budget for one or all holders: beamtime_hours, stop_time (absolute deadline), and hours_remaining (computed). Read-only.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "get_plan",
       "cli_path": "db",
       "description": "Return the live experiment plan \u2014 config, sample queue, holder budgets, and the beamtime budget.",
@@ -321,7 +321,7 @@
       "cli_path": "db",
       "description": "List pause-for-human requests that are still waiting for staff to resolve.",
       "when_to_use": "List pause-for-human requests still waiting.",
-      "enabled": false,
+      "enabled": true,
       "sample_input": {},
       "sample_output": "[{\"id\": \"intv_001\", \"kind\": \"sample_mount\", \"detail\": \"Mount holder B with Cu reference samples\", \"created_at\": \"2026-05-04T10:00:00Z\"}]",
       "simulated": false,
@@ -658,6 +658,20 @@
       "comments": ""
     },
     {
+      "name": "align_spectra",
+      "cli_path": "spec-file",
+      "description": "Cross-file energy registration check: fit each spectrum's E0 (derivative max), report the shift onto a common target E0, and return a before/after overlay. Shifts beyond \u00b110 eV are refused as glitch-latched. Report-only \u2014 nothing is written.",
+      "when_to_use": "Cross-file energy registration: find each spectrum's E0 (derivative maximum), report the shift that lands it on a common target (the FIRST spectrum's E0, or an explicit target_e0), and return a two-panel before/after overlay plot. A proposed shift beyond \u00b110 eV is REFUSED (glitch-latched E0, not mono drift) and that spectrum stays unshifted. Nothing is written \u2014 this REPORTS per-file {e0_before, shift_applied, e0_after}; quote the shifts in reports whenever absolute energies are compared across files. Run this BEFORE comparing edge positions across files or feeding compare_xas_to_references. Merged two-column ASCII files (e.g. MERGE/*.dat) are accepted.",
+      "enabled": true,
+      "sample_input": {
+        "spectra": []
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "analyze_convergence",
       "cli_path": "spec-file",
       "description": "Answer 'do I have enough scans?' via cosine similarity of each scan to the running mean, plus cumulative convergence and standard error.",
@@ -690,7 +704,7 @@
     {
       "name": "analyze_feature_evolution",
       "cli_path": "spec-file",
-      "description": "Per-rep scalar trace + convergence verdict for a feature defined by an energy window and a statistic. The agent identifies a feature on the spectrum (white-line peak, pre-edge shoulder, dip between oscillations, etc.) and passes the numeric eV bounds and the statistic that captures it. Returns running mean, running SEM, and a verdict (converged / marginal / needs_more) for that scalar. This is the publication-quality test: the feature SEM should be a small fraction of its mean and the running mean should be flat rep-over-rep.",
+      "description": "Per-rep scalar trace and convergence verdict for a feature the agent defines itself: it passes the numeric eV bounds and the statistic that captures the feature (white-line peak, pre-edge shoulder, the dip between two oscillations), and gets back the running mean, running SEM and a verdict. Energy-window agnostic on purpose \u2014 the caller owns the choice of window, so the tool does not have to know what technique it is looking at.",
       "when_to_use": "Per-rep scalar trace + convergence verdict for a feature defined by an energy window and a statistic. The agent identifies a feature on the spectrum (white-line peak, pre-edge shoulder, dip between oscillations, etc.) and passes the numeric eV bounds and the statistic that captures it. Returns running mean, running SEM, and a verdict (converged / marginal / needs_more) for that scalar. This is the publication-quality test: the feature SEM should be a small fraction of its mean and the running mean should be flat rep-over-rep.",
       "enabled": true,
       "sample_input": {
@@ -706,13 +720,27 @@
     {
       "name": "analyze_per_spot",
       "cli_path": "spec-file",
-      "description": "Run the full convergence/efficiency analysis SEPARATELY for each sample spot in the file (grouped by Sx/Sy/Sz), and report a between-spot vs within-spot heterogeneity F-statistic. F~1 = spots agree (safe to combine); F>>1 = spots disagree beyond shot noise (the combined average is a population mean, not a single chemistry \u2014 more reps won't fix it). Pass numeric e_min/e_max for the feature you care about (required).",
+      "description": "Run the convergence and efficiency analysis separately for each sample spot in the file (grouped by the recorded Sx/Sy/Sz), then report a between-spot versus within-spot heterogeneity F-statistic. F near 1 means the spots agree and combining them is safe; F much greater than 1 means they disagree beyond shot noise, so the combined average is a population mean over a heterogeneous sample rather than a better measurement of one spot.",
       "when_to_use": "Run the full convergence/efficiency analysis SEPARATELY for each sample spot in the file (grouped by Sx/Sy/Sz), and report a between-spot vs within-spot heterogeneity F-statistic. F~1 = spots agree (safe to combine); F>>1 = spots disagree beyond shot noise (the combined average is a population mean, not a single chemistry \u2014 more reps won't fix it). Pass numeric e_min/e_max for the feature you care about (required).",
       "enabled": true,
       "sample_input": {
         "file_name": "example",
         "e_min": 0.0,
         "e_max": 0.0
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "assess_xas_quality",
+      "cli_path": "spec-file",
+      "description": "Data-quality gate for the averaged spectrum: monochromator-glitch spike count, detector-saturation (flat-top white line) check, and an honest self-absorption risk statement. The XAS analogue of assess_xrs_quality. Self-absorption cannot be ruled out from the data alone for fluorescence-detected HERFD at unknown concentration, so intensity verdicts stay degraded until assume_dilute is asserted by the operator.",
+      "when_to_use": "Data-quality gate for the averaged spectrum: monochromator-glitch spike count, detector-saturation (flat-top white line) check, and the honest self-absorption risk statement, with quality flags. The XAS analogue of assess_xrs_quality; assert assume_dilute to lift the self-absorption degradation. Single responsibility: quality flags.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
       },
       "sample_output": "",
       "simulated": false,
@@ -732,10 +760,96 @@
       "comments": ""
     },
     {
+      "name": "compare_xas_to_references",
+      "cli_path": "spec-file",
+      "description": "XANES linear-combination fitting: non-negative least-squares fit of a target spectrum against measured reference spectra, returning speciation fractions with fit quality and a target/fit/residual plot. Per-file E0s are reported so a calibration offset between files is visible before the fractions are trusted. Accepts SPEC files, collector groups, and merged two-column ASCII spectra.",
+      "when_to_use": "Quantify speciation with XANES linear-combination fitting: non-negative (nnls) fit of a target spectrum against measured reference spectra \u2192 component fractions, fit R\u00b2, residual RMS, and a target/fit/residual plot. Target and references load like any multi-scan tool input (reps averaged after normalization), and already-merged two-column ASCII files (e.g. MERGE/*.dat) are accepted directly. LCF is only meaningful on a common energy calibration: per-file E0s are reported so an offset is visible, and a warning fires when the reference E0 spread exceeds ~1 eV \u2014 run align_spectra first when in doubt.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "references": []
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "detect_per_scan_drift",
+      "cli_path": "spec-file",
+      "description": "Beam-damage and photoreduction test: per-scan trends in E0, white-line height and energy, and pre-edge intensity, each with a monotonic-drift verdict (Kendall tau p<0.05 and |Theil-Sen total change| above twice the residual MAD). Catches the steady one-directional walk that a first-half/second-half split averages away. Needs at least four scans to say anything.",
+      "when_to_use": "Beam-damage / photoreduction test: per-scan trends in E0, white-line height/energy, and pre-edge intensity, each with a monotonic-drift verdict (Kendall tau p<0.05 AND |Theil-Sen total change| > 2x residual MAD) \u2014 the monotonic-drift signature a first-half/second-half split can hide. Needs >= 4 scans. Single responsibility: the drift test.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "difference_spectrum",
+      "cli_path": "spec-file",
+      "description": "A \u2212 B difference spectrum on a common interpolated grid, E0-aligned by default so a calibration offset does not masquerade as chemistry. Reports max |\u0394| and its energy plus RMS \u0394, with a two-panel overlay/difference plot.",
+      "when_to_use": "Difference spectrum A \u2212 B on a common interpolated energy grid, computed AFTER per-spectrum E0 alignment by default (align=false to difference the raw axes \u2014 then a calibration offset shows up as a derivative-shaped artifact). Returns max |\u0394| and its energy, RMS \u0394, the applied alignment shifts, and a two-panel plot (A and B overlaid; A \u2212 B). Use it to isolate a speciation change between two conditions. Merged two-column ASCII files (e.g. MERGE/*.dat) are accepted for either side.",
+      "enabled": true,
+      "sample_input": {
+        "file_name_a": "example",
+        "file_name_b": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "extract_xas_descriptors",
       "cli_path": "spec-file",
-      "description": "Deterministic numeric descriptors from the averaged, normalized XANES spectrum of a file: E0 (derivative-max AND half-step, with uncertainties), white-line fit (energy/height/area), Wilke-style pre-edge fit (centroid, integrated intensity, component count, fit quality), per-scan descriptor trends (drift/beam-damage test), glitch/saturation/self-absorption quality flags, and full provenance (normalization, baseline model, fit windows). For 3d K-edges a core-hole re-broadened pre-edge fit is included so conventional-XANES calibrations apply validly to HERFD data. Returns an annotated plot. This is the source of truth the interpret_* tools consume.",
+      "description": "The full descriptor bundle in one call \u2014 E0 under both definitions, the white-line fit, the Wilke-style pre-edge fit, per-scan descriptor trends, and the data-quality flags \u2014 plus an annotated figure that plots exactly the numbers the verdicts will use, so the interpretation can be audited at a glance. This is the artifact the interpret_* tools consume; pass it back to them to avoid recomputing.",
       "when_to_use": "Deterministic numeric descriptors from the averaged, normalized XANES spectrum of a file: E0 (derivative-max AND half-step, with uncertainties), white-line fit (energy/height/area), Wilke-style pre-edge fit (centroid, integrated intensity, component count, fit quality), per-scan descriptor trends (drift/beam-damage test), glitch/saturation/self-absorption quality flags, and full provenance (normalization, baseline model, fit windows). For 3d K-edges a core-hole re-broadened pre-edge fit is included so conventional-XANES calibrations apply validly to HERFD data. Returns an annotated plot. This is the source of truth the interpret_* tools consume.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "find_edge_e0",
+      "cli_path": "spec-file",
+      "description": "Locate the edge position of the averaged spectrum under two fixed definitions: the Savitzky-Golay derivative maximum (primary, with an uncertainty) and the half-step crossing (cross-check only). Single responsibility \u2014 it finds the edge and nothing else. The value is only as absolute as the session calibration; without one it is a relative marker.",
+      "when_to_use": "Edge position E0 of the averaged spectrum under both fixed definitions \u2014 Savitzky-Golay derivative-max (primary, with uncertainty) and the half-step crossing (cross-check only) \u2014 plus the grid step. Single responsibility: locate the edge. Absolute position chemistry still needs a session calibration (record_energy_calibration).",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "fit_xas_pre_edge",
+      "cli_path": "spec-file",
+      "description": "Wilke-style pre-edge fit of the averaged spectrum: a rising-edge atan baseline plus one to three pseudo-Voigts, returning centroid, integrated intensity, component count and BIC/fit quality with uncertainties. For 3d/4d/5d K-edges with a tabulated core-hole width the re-broadened variant is returned too \u2014 that, not the sharp HERFD fit, is the valid input to a conventional-XANES calibration such as Wilke 2001.",
+      "when_to_use": "Wilke-style pre-edge fit of the averaged spectrum: centroid, integrated intensity, component count, and BIC/fit-quality with uncertainties and full provenance. For 3d/4d/5d K-edges with a tabulated core-hole width, the core-hole re-broadened variant is also returned (the valid input for conventional-XANES centroid calibrations). Single responsibility: the pre-edge fit.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "fit_xas_white_line",
+      "cli_path": "spec-file",
+      "description": "White-line fit of the averaged spectrum: energy, height and area of the main line (selected by height) plus every fitted component. Component count defaults from the edge family \u2014 three for Ln/An L3 and An M edges, where the Ce(IV) doublet and U(VI) satellites are real structure rather than noise, one otherwise.",
+      "when_to_use": "White-line fit of the averaged spectrum: energy, height, and area of the main line (by height) plus the fitted components. Set white_line_components>1 (or leave 0=auto: 3 for Ln/An L3 and An M edges \u2014 Ce(IV) doublet / U(VI) satellites \u2014 else 1). Single responsibility: the white-line fit.",
       "enabled": true,
       "sample_input": {
         "file_name": "example"
@@ -763,7 +877,7 @@
     {
       "name": "get_energy_calibration",
       "cli_path": "spec-file",
-      "description": "Report the current session energy calibration: offset (eV), reference element/edge, age, and drift across all calibration records. Returns calibrated=false when none exists \u2014 interpretation tools then run in relative-only mode (no absolute oxidation states).",
+      "description": "Report the current session energy calibration: offset in eV, the reference element and edge it came from, its age, and the drift across all recorded calibrations. Returns calibrated=false when none exists, which is the signal that the interpretation tools will run relative-only and refuse absolute oxidation states.",
       "when_to_use": "Report the current session energy calibration: offset (eV), reference element/edge, age, and drift across all calibration records. Returns calibrated=false when none exists \u2014 interpretation tools then run in relative-only mode (no absolute oxidation states).",
       "enabled": true,
       "sample_input": {},
@@ -802,8 +916,22 @@
     {
       "name": "group_scans_by_spot",
       "cli_path": "spec-file",
-      "description": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful before convergence analysis when reps came from multiple spots \u2014 between-spot differences can pollute the combined cross-spot CV. Pair with analyze_per_spot.",
+      "description": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions \u2014 two scans are the same spot when all three agree within tol_mm. Worth running before any convergence analysis: reps collected at different spots make the cross-spot scatter look like poor convergence when it is really sample heterogeneity.",
       "when_to_use": "Cluster a file's scans by sample spot using the recorded Sx/Sy/Sz motor positions. Two scans are the same spot if their Sx, Sy, Sz all agree within tol_mm. Useful before convergence analysis when reps came from multiple spots \u2014 between-spot differences can pollute the combined cross-spot CV. Pair with analyze_per_spot.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "identify_edge",
+      "cli_path": "spec-file",
+      "description": "Answer 'what edge is this' before anything else runs: infer the absorber element and edge from the scan's energy window against the tabulated edge energies, then classify the interpretation family (3d/4d/5d K, Ln/An L3, 5d L3, An M4/M5) that decides which oxidation-state basis is even applicable. Labels only \u2014 no absolute-energy claim is made, since that needs a session calibration.",
+      "when_to_use": "What edge is this: auto-detect the absorber element/edge from the scan energy window (tabulated edge energies, labels only) and classify the interpretation family (3d/4d/5d K, Ln/An L3, 5d L3, An M4/M5). Single responsibility \u2014 the edge-identification step the descriptor tools and capstones share. Pass element+edge to override the auto-detect.",
       "enabled": true,
       "sample_input": {
         "file_name": "example"
@@ -816,12 +944,10 @@
     {
       "name": "interpret_coordination_geometry",
       "cli_path": "spec-file",
-      "description": "Hybrid coordination/site-symmetry verdict for 3d K-edges from the pre-edge intensity + component count on the Wilke 2001 centroid-vs-intensity envelope (weak pre-edge = centrosymmetric/octahedral; strong = non-centrosymmetric/tetrahedral; intermediate = 5-coordinate/distorted/mixed). Uses the core-hole re-broadened fit and area normalization; confidence is degraded under self-absorption risk, edge-step normalization, or non-Fe elements (envelope calibrated for Fe). For L3/M edges returns electronic-structure hints only. Same structured output contract as interpret_oxidation_state.",
-      "when_to_use": "Hybrid coordination/site-symmetry verdict for 3d K-edges from the pre-edge intensity + component count on the Wilke 2001 centroid-vs-intensity envelope (weak pre-edge = centrosymmetric/octahedral; strong = non-centrosymmetric/tetrahedral; intermediate = 5-coordinate/distorted/mixed). Uses the core-hole re-broadened fit and area normalization; confidence is degraded under self-absorption risk, edge-step normalization, or non-Fe elements (envelope calibrated for Fe). For L3/M edges returns electronic-structure hints only. Same structured output contract as interpret_oxidation_state.",
+      "description": "Coordination and site-symmetry verdict for 3d K-edges from pre-edge intensity and component count on the Wilke 2001 centroid-versus-intensity envelope: a weak pre-edge reads as centrosymmetric/octahedral, a strong one as non-centrosymmetric/tetrahedral, and the intermediate band as 5-coordinate, distorted, or mixed. Uses the re-broadened pre-edge, since the envelope is drawn from conventional-broadening data.",
+      "when_to_use": "Hybrid coordination/site-symmetry verdict for 3d K-edges from the pre-edge intensity + component count on the Wilke 2001 centroid-vs-intensity envelope (weak pre-edge = centrosymmetric/octahedral; strong = non-centrosymmetric/tetrahedral; intermediate = 5-coordinate/distorted/mixed). Uses the core-hole re-broadened fit and area normalization; confidence is degraded under self-absorption risk, edge-step normalization, or non-Fe elements (envelope calibrated for Fe). For L3/M edges returns electronic-structure hints only. Same structured output contract as interpret_oxidation_state. Composes find_edge_e0 + normalize_xas_intensity + fit_xas_pre_edge; pass a precomputed `descriptors` artifact (from extract_xas_descriptors) to run only the verdict and skip recomputation.",
       "enabled": true,
-      "sample_input": {
-        "file_name": "example"
-      },
+      "sample_input": {},
       "sample_output": "",
       "simulated": false,
       "working_live": false,
@@ -830,12 +956,10 @@
     {
       "name": "interpret_oxidation_state",
       "cli_path": "spec-file",
-      "description": "Hybrid oxidation-state verdict from the file's averaged spectrum, on the family-appropriate basis: 3d K-edge -> pre-edge centroid (Wilke 2001, applied to the re-broadened spectrum) + calibrated edge shift; Ce L3 -> Ce(IV) final-state doublet deconvolution; U M4 -> peak-position/satellite method (Bes 2016); 5d L3 -> white-line trend. Returns {estimate, range, confidence, basis, descriptors_used, calibration_context, flags, caveats, narration} \u2014 all numbers from fits, none invented. REFUSES an absolute estimate when no session energy calibration exists (record_energy_calibration first); shape-based signatures (Ce doublet, U(VI) satellites) still work uncalibrated.",
-      "when_to_use": "Hybrid oxidation-state verdict from the file's averaged spectrum, on the family-appropriate basis: 3d K-edge -> pre-edge centroid (Wilke 2001, applied to the re-broadened spectrum) + calibrated edge shift; Ce L3 -> Ce(IV) final-state doublet deconvolution; U M4 -> peak-position/satellite method (Bes 2016); 5d L3 -> white-line trend. Returns {estimate, range, confidence, basis, descriptors_used, calibration_context, flags, caveats, narration} \u2014 all numbers from fits, none invented. REFUSES an absolute estimate when no session energy calibration exists (record_energy_calibration first); shape-based signatures (Ce doublet, U(VI) satellites) still work uncalibrated.",
+      "description": "Oxidation-state verdict on the basis the edge family actually supports: 3d K-edges via the pre-edge centroid on the Wilke 2001 CII axis (applied to the re-broadened spectrum) plus the calibrated edge shift; Ce L3 via the Ce(IV) final-state doublet; U M4 via the peak-position/satellite method. Refuses an absolute state without a session calibration and reports a relative comparison instead, and degrades confidence when a quality flag or a calibration-domain mismatch stands.",
+      "when_to_use": "Hybrid oxidation-state verdict from the file's averaged spectrum, on the family-appropriate basis: 3d K-edge -> pre-edge centroid (Wilke 2001, applied to the re-broadened spectrum) + calibrated edge shift; Ce L3 -> Ce(IV) final-state doublet deconvolution; U M4 -> peak-position/satellite method (Bes 2016); 5d L3 -> white-line trend. Returns {estimate, range, confidence, basis, descriptors_used, calibration_context, flags, caveats, narration} \u2014 all numbers from fits, none invented. REFUSES an absolute estimate when no session energy calibration exists (record_energy_calibration first); shape-based signatures (Ce doublet, U(VI) satellites) still work uncalibrated. Composes the atomic tools find_edge_e0, normalize_xas_intensity, fit_xas_pre_edge and fit_xas_white_line; pass a precomputed `descriptors` artifact (from extract_xas_descriptors) to run only the verdict and skip the load/normalize/fit recomputation.",
       "enabled": true,
-      "sample_input": {
-        "file_name": "example"
-      },
+      "sample_input": {},
       "sample_output": "",
       "simulated": false,
       "working_live": false,
@@ -869,6 +993,20 @@
       "comments": ""
     },
     {
+      "name": "normalize_xas_intensity",
+      "cli_path": "spec-file",
+      "description": "Normalize the averaged spectrum and report only how it was done \u2014 method, window, scale factor, and the reason if a method degraded. 'area' (the HERFD default, Bugarin & Glatzel) is preferred for intensity comparisons; 'mback' is the physics-based background; 'edge_step' is the upstream flat-anchored variant. Provenance-only by design, so a downstream intensity number can always be traced to the normalization that produced it.",
+      "when_to_use": "Normalize the averaged spectrum and report the provenance only (method, window, scale/reason). 'area' (default, Bugarin/Glatzel 2024 \u2014 preferred for HERFD intensities), 'mback' (Weng/Penner-Hahn 2005 physics-based background, degrades gracefully if the fit fails), or 'edge_step' (upstream flat-anchor). Single responsibility: the normalization choice the intensity descriptors depend on.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example"
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
       "name": "plot_averaged_scans",
       "cli_path": "spec-file",
       "description": "Edge-step normalize every scan in each given SPEC file, average, and overlay all samples on one plot with std-dev shading. The go-to cross-sample comparison plot.",
@@ -885,7 +1023,7 @@
     {
       "name": "plot_feature_evolution",
       "cli_path": "spec-file",
-      "description": "Plot a single per-rep scalar (the chosen statistic over [e_min, e_max]) versus rep number, with running mean and \u00b1SEM band. The visual companion to analyze_feature_evolution. Use to confirm a feature has flatlined; a still-trending trace means the feature is not yet converged.",
+      "description": "Plot one per-rep scalar \u2014 the chosen statistic over [e_min, e_max] \u2014 against rep number, with the running mean and a \u00b1SEM band. The visual companion to analyze_feature_evolution: use it to confirm a feature has actually flatlined, since a still-trending trace means it has not converged whatever the summary statistic says.",
       "when_to_use": "Plot a single per-rep scalar (the chosen statistic over [e_min, e_max]) versus rep number, with running mean and \u00b1SEM band. The visual companion to analyze_feature_evolution. Use to confirm a feature has flatlined; a still-trending trace means the feature is not yet converged.",
       "enabled": true,
       "sample_input": {
@@ -901,7 +1039,7 @@
     {
       "name": "plot_first_half_vs_second_half",
       "cli_path": "spec-file",
-      "description": "Compare the average of the first half of reps to the second half, with SEM bands. Reports max |\u0394|/SEM. <2\u03c3: halves agree, sample is stationary. >3\u03c3 at any feature: the halves disagree, more reps may not help (drift, damage, or heterogeneity). This is the strongest single-glance test for whether the sample is publication-clean.",
+      "description": "Compare the average of the first half of the reps to the second half with SEM bands, reporting max |delta|/SEM. Under 2 sigma the halves agree and the sample is stationary; over 3 sigma at any feature they disagree and more reps will not help, because the cause is drift, damage, or heterogeneity rather than noise. The strongest single-glance stationarity test available.",
       "when_to_use": "Compare the average of the first half of reps to the second half, with SEM bands. Reports max |\u0394|/SEM. <2\u03c3: halves agree, sample is stationary. >3\u03c3 at any feature: the halves disagree, more reps may not help (drift, damage, or heterogeneity). This is the strongest single-glance test for whether the sample is publication-clean.",
       "enabled": true,
       "sample_input": {
@@ -915,7 +1053,7 @@
     {
       "name": "plot_running_average",
       "cli_path": "spec-file",
-      "description": "Plot the running average across reps as it evolves (one line per cumulative subset, color-progressed by rep #), with the final \u00b1SEM band. Shows whether the running mean is still changing rep-over-rep at the feature of interest.",
+      "description": "Plot the running average across reps as it evolves \u2014 one line per cumulative subset, colour-progressed by rep number \u2014 with the final \u00b1SEM band. Shows whether the running mean is still moving rep-over-rep at the feature of interest, which is the question 'have I collected enough' actually reduces to.",
       "when_to_use": "Plot the running average across reps as it evolves (one line per cumulative subset, color-progressed by rep #), with the final \u00b1SEM band. Shows whether the running mean is still changing rep-over-rep at the feature of interest.",
       "enabled": true,
       "sample_input": {
@@ -944,7 +1082,7 @@
     {
       "name": "plot_scan_stack",
       "cli_path": "spec-file",
-      "description": "Overlay all reps of one sample on a single axis, color-progressed by rep order. Use to visually judge whether reps scatter symmetrically around a stable mean (converged), are still drifting in one direction (more reps needed or evolving sample), or are being burned away (damage). Pass numeric e_min/e_max to crop to the feature you care about.",
+      "description": "Overlay every rep of one sample on a single axis, colour-progressed by rep order. The fastest visual read on what the reps are doing: symmetric scatter about a stable mean is converged, a steady one-directional walk means more reps or an evolving sample, and a monotonic collapse means the sample is being burned away.",
       "when_to_use": "Overlay all reps of one sample on a single axis, color-progressed by rep order. Use to visually judge whether reps scatter symmetrically around a stable mean (converged), are still drifting in one direction (more reps needed or evolving sample), or are being burned away (damage). Pass numeric e_min/e_max to crop to the feature you care about.",
       "enabled": true,
       "sample_input": {
@@ -973,7 +1111,7 @@
     {
       "name": "record_energy_calibration",
       "cli_path": "spec-file",
-      "description": "Register a session energy calibration from a MEASURED reference foil/compound scan. Computes the reference's E0 (fixed definition: Savitzky-Golay smoothed derivative maximum) and stores the offset to the assigned reference energy, with timestamp. Run this after calibrate_mono / at session start and after any mono/crystal change. Interpretation tools REFUSE absolute oxidation-state estimates until a calibration is recorded (mono offset/drift is eV-scale \u2014 the same size as the valence signal).",
+      "description": "Register a session energy calibration from a measured reference foil or compound scan: computes the reference's E0 under the fixed definition (Savitzky-Golay smoothed derivative maximum), stores the offset to the assigned reference energy with a timestamp, and unlocks the absolute-energy claims the interpretation tools otherwise refuse. Run it at session start and after any mono recalibration.",
       "when_to_use": "Register a session energy calibration from a MEASURED reference foil/compound scan. Computes the reference's E0 (fixed definition: Savitzky-Golay smoothed derivative maximum) and stores the offset to the assigned reference energy, with timestamp. Run this after calibrate_mono / at session start and after any mono/crystal change. Interpretation tools REFUSE absolute oxidation-state estimates until a calibration is recorded (mono offset/drift is eV-scale \u2014 the same size as the valence signal).",
       "enabled": true,
       "sample_input": {
@@ -989,12 +1127,10 @@
     {
       "name": "summarize_sample_chemistry",
       "cli_path": "spec-file",
-      "description": "Capstone chemical interpretation of a sample's averaged spectrum: runs extract_xas_descriptors + interpret_oxidation_state + interpret_coordination_geometry, adds a per-scan drift verdict (monotonic E0/white-line/pre-edge trends \u2014 the photoreduction/beam-damage signature a half-split misses), and returns one consolidated narration paragraph plus the annotated descriptor plot. Use after convergence analysis to record the chemistry of each sample; feed drift verdicts into skip/extend decisions.",
-      "when_to_use": "Capstone chemical interpretation of a sample's averaged spectrum: runs extract_xas_descriptors + interpret_oxidation_state + interpret_coordination_geometry, adds a per-scan drift verdict (monotonic E0/white-line/pre-edge trends \u2014 the photoreduction/beam-damage signature a half-split misses), and returns one consolidated narration paragraph plus the annotated descriptor plot. Use after convergence analysis to record the chemistry of each sample; feed drift verdicts into skip/extend decisions.",
+      "description": "Capstone chemical interpretation of a sample: composes extract_xas_descriptors, interpret_oxidation_state, interpret_coordination_geometry and detect_per_scan_drift, and returns one narration paragraph plus the annotated descriptor figure. Includes the drift check on purpose \u2014 a photoreduction trend invalidates the oxidation verdict it would otherwise sit next to.",
+      "when_to_use": "Capstone chemical interpretation of a sample's averaged spectrum: composes extract_xas_descriptors + interpret_oxidation_state + interpret_coordination_geometry + detect_per_scan_drift (monotonic E0/white-line/pre-edge trends \u2014 the photoreduction/beam-damage signature a half-split misses), and returns one consolidated narration paragraph plus the annotated descriptor plot. Pass a precomputed `descriptors` artifact (from extract_xas_descriptors) to run only the verdicts and skip recomputation (the plot is then omitted, since the numeric curves are not carried in the JSON). Use after convergence analysis to record the chemistry of each sample; feed drift verdicts into skip/extend decisions.",
       "enabled": true,
-      "sample_input": {
-        "file_name": "example"
-      },
+      "sample_input": {},
       "sample_output": "",
       "simulated": false,
       "working_live": false,
@@ -1684,7 +1820,7 @@
     {
       "name": "execute_readonly_sql",
       "cli_path": "s3df/psql",
-      "description": "Run a read-only SELECT against the S3DF metadata Postgres. Rejects write keywords; truncates at max_rows.",
+      "description": "Run a read-only SELECT against the S3DF scan-metadata Postgres, for the deployments where bldata_converter populates it instead of reading SPEC files directly. Write keywords are rejected rather than escaped, and the result set is truncated at max_rows so a careless query cannot flood an agent's context.",
       "when_to_use": "Run a read-only SELECT against the S3DF metadata Postgres. Rejects write keywords; truncates at max_rows.",
       "enabled": true,
       "sample_input": {
@@ -1698,7 +1834,7 @@
     {
       "name": "list_channels",
       "cli_path": "slack",
-      "description": "List public Slack channels the bot belongs to.",
+      "description": "List the public Slack channels the bot has been invited to. Run it first to resolve a human channel name to the channel_id the other Slack tools require.",
       "when_to_use": "List public Slack channels the bot belongs to.",
       "enabled": true,
       "sample_input": {},
@@ -1710,7 +1846,7 @@
     {
       "name": "post_slack_message",
       "cli_path": "slack",
-      "description": "Post a message to a Slack channel or thread reply.",
+      "description": "Post a message to a Slack channel, or reply in a thread by passing thread_ts. The one outward-facing tool in the catalog: it is the route by which an agent reaches a human, so the message is sent as written.",
       "when_to_use": "Post a message to a Slack channel or thread reply.",
       "enabled": true,
       "sample_input": {
@@ -1725,7 +1861,7 @@
     {
       "name": "read_channel_messages",
       "cli_path": "slack",
-      "description": "Read recent messages from a Slack channel.",
+      "description": "Read recent messages from a Slack channel so an agent can pick up staff instructions or context left outside the tool loop. Read-only; the oldest cursor bounds how far back it reaches.",
       "when_to_use": "Read recent messages from a Slack channel.",
       "enabled": true,
       "sample_input": {
@@ -1739,7 +1875,7 @@
     {
       "name": "read_thread_replies",
       "cli_path": "slack",
-      "description": "Read all replies in a Slack thread (parent + children).",
+      "description": "Read every reply in a Slack thread, parent message included \u2014 the follow-up to read_channel_messages when a channel message has a reply_count and the actual decision is inside the thread.",
       "when_to_use": "Read all replies in a Slack thread (parent + children).",
       "enabled": true,
       "sample_input": {
@@ -1756,6 +1892,30 @@
       "cli_path": "ref",
       "description": "Action-log schema and how each CLI invocation is recorded.",
       "when_to_use": "When operator asks about action-log schema and how each cli invocation is recorded.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "agent-integration",
+      "cli_path": "ref",
+      "description": "How to drive this CLI from an LLM agent: the two integration modes, the schema export, and why it is safe to hand a model.",
+      "when_to_use": "When operator asks about how to drive this cli from an llm agent: the two integration modes, the schema export, and why it is safe to hand a model.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "counter-selection",
+      "cli_path": "ref",
+      "description": "Load-bearing convention: multi-scan tools must accept an explicit signal counter and normalization mode; why auto-select + edge-step fails off-XAS (e.g. XRS).",
+      "when_to_use": "When operator asks about load-bearing convention: multi-scan tools must accept an explicit signal counter and normalization mode; why auto-select + edge-step fails off-xas (e.g. xrs).",
       "enabled": true,
       "sample_input": {},
       "sample_output": "",
@@ -1782,6 +1942,287 @@
       "when_to_use": "When operator asks about agent profiles: curated per-agent cli surfaces over the master catalog.",
       "enabled": true,
       "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "xrs-analysis",
+      "cli_path": "ref",
+      "description": "X-ray Raman (XRS) analysis: the energy-loss reduction pipeline and interpretation tools on the dedicated `xrs` branch, and why the XAS tools are wrong for XRS by construction.",
+      "when_to_use": "When operator asks about x-ray raman (xrs) analysis: the energy-loss reduction pipeline and interpretation tools on the dedicated `xrs` branch, and why the xas tools are wrong for xrs by construction.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "align_crystals",
+      "cli_path": "xrs",
+      "description": "Report the per-crystal alignment and outlier-rejection decisions without summing: for each channel, its SNR, how far its shape deviates from the channel-median spectrum, and whether it would be kept. Use it to inspect the analyzer array before sum_crystals commits to a set \u2014 a dead or misaligned crystal is much easier to see here than in the sum.",
+      "when_to_use": "Report per-crystal alignment and outlier-rejection decisions WITHOUT summing: for each channel, its SNR and how far its shape deviates from the channel-median spectrum, and whether it would be kept. Use to inspect the analyzer array before sum_crystals.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "scan_number": 1,
+        "counters": []
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "assess_xrs_quality",
+      "cli_path": "xrs",
+      "description": "Quality gate for a reduced XRS edge: SNR measured on the edge feature rather than the Compton-dominated whole spectrum, the elastic-line energy resolution, and a verdict of publication, usable, marginal, or noise-limited. Measuring SNR on the feature matters here \u2014 whole-spectrum SNR in XRS is dominated by the Compton profile and flatters the data.",
+      "when_to_use": "Quality gate for a reduced XRS edge: SNR measured on the edge feature (not the Compton-dominated whole spectrum), the elastic-line energy resolution, and a verdict (publication / usable / marginal / noise_limited). Averages reps and Compton-subtracts if edge_lo/edge_hi given.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "average_xrs_scans",
+      "cli_path": "xrs",
+      "description": "Average repeated XRS scans on the energy-loss axis: load each rep on the chosen counter, divide by I0, re-reference to the elastic line, interpolate onto a common loss grid, and average with a per-point SEM. The XRS analogue of average_scans, and deliberately not the same: it does not edge-step-normalize and does not align on an E0, neither of which exists here.",
+      "when_to_use": "Average repeated XRS scans on the energy-loss axis: load each rep on the chosen counter, divide by I0, re-reference to the elastic line, interpolate onto a common loss grid, and average with per-point SEM. This is the XRS analogue of average_scans \u2014 it does NOT edge-step-normalize and does NOT align by find_e0. Optionally area-normalizes. Returns spectrum summary + plot.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "build_loss_axis",
+      "cli_path": "xrs",
+      "description": "Convert one scan's incident-energy axis to energy loss (omega = incident minus elastic centre) and plot signal/I0 against loss. Uses the recorded elastic calibration unless an explicit centre is given; with neither, the axis stays mono energy and says so in a flag rather than pretending. The single-scan companion to average_xrs_scans.",
+      "when_to_use": "Convert one scan's incident-energy axis to energy loss (\u03c9 = incident \u2212 elastic center) and plot signal/I0 vs loss. Uses the recorded elastic calibration unless elastic_center_ev is given; without either, the axis stays mono energy (flagged). Single-scan companion to average_xrs_scans.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "scan_number": 1
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "calibrate_energy_loss",
+      "cli_path": "xrs",
+      "description": "Fit the elastic (Rayleigh) line of an elastic scan \u2014 an 'ascan mono' with the analyzer fixed \u2014 to set the zero of energy loss and measure the instrumental energy resolution from its FWHM, then record it for the file. Run this first for any XRS work: it is the loss-axis anchor that replaces find_e0, and nothing downstream has an absolute axis without it.",
+      "when_to_use": "Fit the elastic (Rayleigh) line of an elastic scan (an `ascan mono` with the analyzer fixed) to set the ZERO of energy loss (\u03c9=0) and the instrumental energy resolution (elastic FWHM), and record it for the file. Run this FIRST for XRS \u2014 it is the loss-axis anchor that replaces find_e0. Returns elastic_center_ev + resolution_fwhm_ev and a fit plot.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "scan_number": 1
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "compare_xrs_to_references",
+      "cli_path": "xrs",
+      "description": "Non-negative linear-combination fit of a reduced XRS spectrum against reference spectra, returning phase or valence fractions. References may be other files or explicit arrays. Valid against XANES references only in the low-q dipole regime, where the XRS transition matrix element matches the absorption one \u2014 outside it the comparison is not physically justified.",
+      "when_to_use": "Linear-combination fit (non-negative) of a reduced XRS spectrum to reference spectra \u2192 phase/valence fractions. References may be other files ({name,file_name,scan_numbers}) or explicit arrays ({name,loss,intensity}). Valid against XANES references in the low-q dipole regime. If edge_lo/edge_hi are given, everything is Compton-subtracted and area-normalized first.",
+      "enabled": true,
+      "sample_input": {
+        "references": []
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "exafs_products",
+      "cli_path": "exafs",
+      "description": "Capstone EXAFS reduction in one call: merge reps, normalize, extract chi(k), Fourier transform, and report |chi(R)| with the first-shell apparent distance, returning both the extraction and R-space plots. Composes extract_chi and fourier_transform_chi and takes their arguments through; a precomputed chi artifact skips the extraction stage.",
+      "when_to_use": "Capstone EXAFS reduction: merge reps \u2192 normalize \u2192 chi(k) \u2192 FT \u2192 |chi(R)| + first-shell apparent distance, with extraction and R-space plots. Composes extract_chi + fourier_transform_chi in one call; pass their arguments through. Accepts a precomputed chi artifact to skip the extraction stage.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "extract_chi",
+      "cli_path": "exafs",
+      "description": "Extract EXAFS chi(k) from repeated scans: merge the reps (short or aborted sweeps dropped, glitches masked), find E0, apply Athena-style pre/post-edge polynomial normalization, and remove the post-edge background with a quick-look AUTOBK spline whose knot budget comes from R_bkg. Returns the chi(k) arrays as an artifact the Fourier tools accept directly, so the pipeline is not re-run per call.",
+      "when_to_use": "Extract EXAFS chi(k) from repeated scans: merge reps (short/aborted sweeps dropped, glitches masked), find E0, apply Athena-style pre/post-edge polynomial normalization, and remove the post-edge background with a quick-look AUTOBK spline (knot budget from R_bkg). Returns E0, edge step, chi(k) arrays (reusable as the chi artifact by the FT tools) and a two-panel extraction plot. Quick-look background \u2014 cross-check against Larch/Athena for publication.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "extract_xrs_descriptors",
+      "cli_path": "xrs",
+      "description": "Extract the measurable descriptors of a reduced XRS edge: edge onset (the loss-axis inflection), pre-edge peak position and area, white line, integrated edge area, and feature SNR. Averages the reps and Compton-subtracts first when an edge window is given. Returns the numbers plus an annotated plot showing where each one was measured.",
+      "when_to_use": "Extract measurable descriptors from a reduced XRS edge: edge onset (loss-axis inflection), pre-edge peak (position + area), white line, integrated edge area, and feature SNR. Averages reps and (if edge_lo/edge_hi are given) Compton-subtracts first. Returns the numbers + an annotated plot.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "fourier_transform_chi",
+      "cli_path": "exafs",
+      "description": "Fourier transform chi(k) into R space in the Ifeffit convention with a Hanning window, returning |chi(R)| and the first-shell apparent distance. The R axis is phase-uncorrected: peaks sit roughly 0.3-0.5 A below true bond lengths, and every axis label says so, because a figure must not invite that misreading. Accepts the chi artifact from extract_chi, or the same load arguments to run the extraction first.",
+      "when_to_use": "Fourier transform chi(k) to R-space (Ifeffit convention, Hanning window): |chi(R)| with the first-shell apparent distance marked. The R axis is PHASE-UNCORRECTED \u2014 peaks sit ~0.3-0.5 \u00c5 below true bond lengths. Pass the chi artifact from extract_chi to skip recomputation, or the same load arguments to run the full pipeline first.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "interpret_q_dependence",
+      "cli_path": "xrs",
+      "description": "Classify a feature's momentum-transfer behaviour: dipole (low q, XANES-like) versus monopole/quadrupole (intensity rising with q). Takes either points you already have, or scan groups from one file plus an edge and feature window, in which case the tool does the reduction itself. This is the discriminator XAS cannot provide at all, and the reason XRS is worth the count rate.",
+      "when_to_use": "Classify a feature's momentum-transfer (q) behavior: dipole (low q, XANES-like) vs monopole/quadrupole (rising with q). Pass either points=[{q,value}] (area-normalized feature intensities you already have) or groups=[{q,scan_numbers}] from one file plus edge_lo/edge_hi and a feature window \u2014 the tool reduces each group, Compton-subtracts, area-normalizes, and integrates the feature. \u22653 q points needed.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "interpret_xrs_oxidation_state",
+      "cli_path": "xrs",
+      "description": "Oxidation-state and covalency read from a reduced XRS edge. Reports the edge-onset shift \u2014 absolute only with an elastic plus reference calibration, otherwise explicitly relative \u2014 and, for an O K-edge, the pre-edge covalency / oxygen-redox indicator. For a 3d metal L-edge it returns guidance on the L3/L2 branching ratio rather than a number it cannot justify.",
+      "when_to_use": "Oxidation-state / covalency read from a reduced XRS edge. Reports the edge-onset shift (absolute only with an elastic + reference calibration; otherwise relative), and for an O K-edge the pre-edge covalency / oxygen-redox indicator; for a 3d metal L-edge, guidance on the L3/L2 branching ratio. Follows the verdict contract with honest confidence gating.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "list_collector_scans",
+      "cli_path": "exafs",
+      "description": "List the scan groups in a directory of SSRL 'EXAFS Data Collector' ASCII files \u2014 the DAQ format of SSRL XAS stations such as BL 4-3, one of several formats across SSRL's stations, and the only one this tool reads. One row per group (sample stem plus scan number) with its sweep numbers. Run it first to discover valid group names for the EXAFS tools.",
+      "when_to_use": "List the scan groups in a directory of SSRL 'EXAFS Data Collector' ASCII files (the DAQ format of SSRL XAS stations like BL 4-3 \u2014 one of many formats across SSRL's stations; this tool reads only that one): one row per group (sample stem + scan number) with its sweep numbers. Use this first to discover the file_name keys the other exafs tools take when reading Data Collector files.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "normalize_xrs",
+      "cli_path": "xrs",
+      "description": "Full XRS reduction to a comparable edge: average the reps, subtract the Compton background, and area-normalize over the edge window. This is what produces the final per-atom-comparable XRS spectrum. Area normalization only \u2014 an f-sum/absolute scale is a documented future extension, not something this silently approximates.",
+      "when_to_use": "Full XRS reduction to a comparable edge: average reps \u2192 subtract the Compton background \u2192 area-normalize over the edge window. Use this to produce the final per-atom-comparable XRS spectrum (area normalization; f-sum/absolute is a future extension). Same inputs as subtract_compton_background but normalization defaults to 'area'.",
+      "enabled": true,
+      "sample_input": {
+        "edge_lo": 0.0,
+        "edge_hi": 0.0
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "overlay_chi_spectra",
+      "cli_path": "exafs",
+      "description": "Extract and overlay chi(k)*k^w for several scan groups on one plot \u2014 the k-space comparison view for an operando or potential series, or a sample against its standards. Every group runs the same extract_chi pipeline with shared counter, R_bkg and k-weight settings, so a difference in the overlay is a difference in the data rather than in the processing.",
+      "when_to_use": "Extract and overlay chi(k)\u00b7k^w for several scan groups on one plot \u2014 the comparison view for operando/potential series or sample vs standards in k-space. Each group runs the full extract_chi pipeline with shared counter/rbkg/kweight settings.",
+      "enabled": true,
+      "sample_input": {
+        "file_names": []
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "overlay_xrs_spectra",
+      "cli_path": "xrs",
+      "description": "Overlay reduced XRS spectra from several files \u2014 samples, states of charge, q-bins \u2014 on the energy-loss axis with identical processing: each file averaged, Compton-subtracted when an edge window is given, and area-normalized before plotting. The XRS analogue of plot_averaged_scans_overlay.",
+      "when_to_use": "Overlay reduced XRS spectra from multiple files (samples, states of charge, q-bins) on the energy-loss axis with consistent processing. Each file is averaged, optionally Compton-subtracted (if edge_lo/edge_hi given) and area-normalized, then plotted together. The XRS analogue of plot_averaged_scans.",
+      "enabled": true,
+      "sample_input": {
+        "file_names": []
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "subtract_compton_background",
+      "cli_path": "xrs",
+      "description": "Average the reps, then fit and subtract the Compton/valence background under the edge \u2014 the XRS replacement for XAS pre/post-edge normalization. The background is fitted to flank points strictly outside the [edge_lo, edge_hi] loss window, so the feature itself never influences the baseline that is subtracted from it.",
+      "when_to_use": "Average XRS reps, then fit and subtract the Compton/valence background under the edge \u2014 the XRS replacement for XAS pre/post-edge normalization (the feature is a bump on a sloping Compton profile, not a step). Fits the background to flank points OUTSIDE [edge_lo, edge_hi] (energy-loss eV) and subtracts. Returns the isolated edge + a two-panel plot.",
+      "enabled": true,
+      "sample_input": {
+        "edge_lo": 0.0,
+        "edge_hi": 0.0
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "sum_crystals",
+      "cli_path": "xrs",
+      "description": "Energy-align several analyzer-crystal / SDD-ROI channels of one scan onto a common loss grid \u2014 each channel carries its own calibration \u2014 reject the outliers (low SNR, or a shape deviating from the channel median), and sum. The crystals Bragg-focus onto the SDD and the ROI gates the signal, so they are one spectrometer and summing them is the intended use, not an averaging shortcut.",
+      "when_to_use": "Energy-align multiple analyzer-crystal / SDD-ROI channels of ONE scan onto a common loss grid (each channel has its own calibration), reject outlier channels (low SNR or shape deviating from the channel median), and sum. The crystals Bragg-focus onto the SDD and the ROI gates the signal \u2014 they work together. Returns the summed spectrum, which channels were dropped and why, and a plot.",
+      "enabled": true,
+      "sample_input": {
+        "file_name": "example",
+        "scan_number": 1,
+        "counters": []
+      },
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "summarize_xrs_chemistry",
+      "cli_path": "xrs",
+      "description": "Capstone XRS interpretation: the oxidation and covalency verdict plus the quality gate, one narration paragraph, and the annotated descriptor plot. Averages the reps, Compton-subtracts over the edge window, extracts descriptors and interprets. The XRS analogue of summarize_sample_chemistry.",
+      "when_to_use": "Capstone XRS interpretation: oxidation/covalency verdict + quality + one narration paragraph and the annotated descriptor plot. Averages reps, Compton-subtracts (edge_lo/edge_hi), extracts descriptors, and interprets. The XRS analogue of summarize_sample_chemistry.",
+      "enabled": true,
+      "sample_input": {},
+      "sample_output": "",
+      "simulated": false,
+      "working_live": false,
+      "comments": ""
+    },
+    {
+      "name": "tag_crystal_q",
+      "cli_path": "xrs",
+      "description": "Compute the momentum transfer q for each analyzer crystal from the incident energy and the crystal scattering angles, q = (4*pi/lambda)*sin(theta), and label each with its regime. Low q approximates the dipole limit and reads like XANES; high q turns on monopole and quadrupole transitions. Use it to group crystals into q-bins before q-resolved analysis.",
+      "when_to_use": "Compute the momentum transfer q (\u00c5\u207b\u00b9) for each analyzer crystal from the incident energy and the crystal scattering angles 2\u03b8: q = (4\u03c0/\u03bb)\u00b7sin(\u03b8). Low q \u2248 dipole (XANES-like); high q turns on monopole/quadrupole transitions. Use to group crystals into q-bins for q-resolved analysis.",
+      "enabled": true,
+      "sample_input": {
+        "incident_energy_ev": 0.0,
+        "two_thetas": []
+      },
       "sample_output": "",
       "simulated": false,
       "working_live": false,

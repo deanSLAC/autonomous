@@ -104,7 +104,7 @@ class StaffCoordinator:
                 if cur is None:
                     continue
                 status = cur.get("status")
-                if status and status != "pending":
+                if status and status != "waiting":
                     return {
                         "id": row.id,
                         "status": status,

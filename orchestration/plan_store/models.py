@@ -466,7 +466,7 @@ class InterventionRequest(SQLModel, table=True):
     resolved_at: Optional[datetime] = None
     kind: str = Field(index=True)  # "crystal_install" | "sample_mount" | "foil_insert" | "gap_ownership" | "custom"
     detail: str
-    status: str = Field(default="waiting", index=True)  # waiting | resolved | denied | timed_out
+    status: str = Field(default="waiting", index=True)  # waiting | resolved | denied | timed_out | reset
     resolver: Optional[str] = None
     resolver_note: Optional[str] = None
     slack_channel: Optional[str] = None
