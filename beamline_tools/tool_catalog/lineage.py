@@ -22,6 +22,19 @@ Schema per entry:
         to the running SPEC session. ``None`` for tools that don't touch
         SPEC. Tools with a non-None value appear in the "SPEC-bound"
         section of the page.
+    mutates : bool
+        Whether the tool requires a ``justification`` argument and is
+        written to the action log before it runs. Declared, not inferred:
+        upstream's ``categorize()`` reads this flag to place a tool on
+        ``spec-write``, and an agent surface's ``write_tools`` filter
+        drops every mutating tool a role has not been granted. Note that
+        it is *not* the same question as "does this touch SPEC": all 24
+        CAT-8 tools have ``spec_command: None``, and the four that upload
+        deliverables to the autonomy DB (``record_completed_scan``,
+        ``record_alignment_flux``, ``upload_sample_alignment_results``,
+        ``upload_sample_survey_results``) are audited writes all the
+        same. They stay on the ``db`` tree because ``source ==
+        "autonomy_db"`` is checked before ``mutates``.
     output : str
         One-line description of what the tool returns.
     source : str
@@ -46,9 +59,10 @@ Schema per entry:
 from __future__ import annotations
 
 from beamtimehero_cli.tool_catalog.lineage import (
-    TOOL_LINEAGE as _UPSTREAM_LINEAGE,
+    TOOL_LINEAGE,
     build_detailed_tool,
     extract_inputs,
+    register_lineage,
 )
 
 
@@ -65,6 +79,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "orchestrator.staff_guidance.coordinator.request_intervention(...)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {resolved, note, resolver}",
         "source": "autonomy_db",
         "source_detail": "Intervention row stored in autonomy DB; notification dispatched to Slack bridge.",
@@ -78,6 +93,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "orchestrator.loop.get_orchestrator().slack_status_post(text)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {posted}",
         "source": "slack",
         "source_detail": "Also emits a dashboard WebSocket event.",
@@ -91,6 +107,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "open(logs/status_assessments_<experiment_id>.jsonl, 'a').write(record)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {logged, path, spawn}",
         "source": "filesystem",
         "source_detail": "Writes one JSON record per call to logs/status_assessments_<experiment_id>.jsonl.",
@@ -104,6 +121,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "orchestrator.planner.replace_plan(experiment_id, new_plan)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {ok}",
         "source": "autonomy_db",
         "source_detail": "Writes the plan JSON onto the experiment row.",
@@ -117,6 +135,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "orchestrator.planner.record_convergence_stats(experiment_id, sample_id, stats)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {ok}",
         "source": "autonomy_db",
         "source_detail": "Writes convergence_stats onto a sample entry in the plan JSON.",
@@ -130,6 +149,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "orchestrator.planner.record_observable_trend(experiment_id, sample_id, trend)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {ok}",
         "source": "autonomy_db",
         "source_detail": "Writes observable_trend onto a sample entry in the plan JSON.",
@@ -143,6 +163,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "orchestrator.planner.record_sample_progress(experiment_id, sample_id, ...)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {ok}",
         "source": "autonomy_db",
         "source_detail": "Patches a single sample row inside the plan JSON.",
@@ -155,6 +176,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "db.autonomy_client.get_plan(experiment_id)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: the full plan object",
         "source": "autonomy_db",
         "source_detail": "Read-only query against the autonomy SQLite DB.",
@@ -175,6 +197,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
             "+ SampleHolder + SamplePosition rows"
         ),
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {experiment, elements[], sample_holders[{samples[]}]}",
         "source": "autonomy_db",
         "source_detail": "Read-only query against the autonomy SQLite DB.",
@@ -188,6 +211,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "orchestrator.planner.snapshot(experiment_id)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {remaining_hours, end_time}",
         "source": "autonomy_db",
         "source_detail": "end_time lives on Experiment; this tool just subtracts now().",
@@ -201,6 +225,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "orchestrator.plan_store.session.set_experiment_end_time(...)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {ok, end_time, remaining_hours}",
         "source": "autonomy_db",
         "source_detail": "Audit-logged as a plan_edit.",
@@ -213,6 +238,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "db.autonomy_client.list_guidance(experiment_id, limit)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON array: [{timestamp, author, text}, ...]",
         "source": "autonomy_db",
         "source_detail": "Guidance rows persisted to the autonomy DB.",
@@ -225,6 +251,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "orchestration.plan_store.client.list_open_interventions(experiment_id)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON array: [{id, kind, detail, created_at}, ...]",
         "source": "autonomy_db",
         "source_detail": "Sibling table to request_human_intervention.",
@@ -238,6 +265,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "orchestrator.planner.set_sample_time_budget(experiment_id, sample_id, ...)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {ok}",
         "source": "autonomy_db",
         "source_detail": "Also logs a plan_edit audit row.",
@@ -252,6 +280,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "orchestrator.planner.set_holder_time_budget(experiment_id, holder_id, ...)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {ok, samples_updated}",
         "source": "autonomy_db",
         "source_detail": "Stored under plan.holder_budgets; audit-logged as a plan_edit.",
@@ -266,6 +295,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "orchestration.plan_store.session.list_sample_holders(experiment_id)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON array: [{holder_id, holder_name, beamtime_hours, stop_time, hours_remaining}, ...]",
         "source": "autonomy_db",
         "source_detail": "Reads the SampleHolder rows; the counterpart read of set_holder_time_budget.",
@@ -280,6 +310,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "orchestrator.planner.rebuild_plan_preserving_progress(experiment_id, ...)",
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {ok, sample_count}",
         "source": "autonomy_db",
         "source_detail": "Rewrites the plan JSON in place.",
@@ -297,6 +328,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
             "ExperimentPlan.updated_at)"
         ),
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {ok, plan_updated_at, count, scans:[{scan_number, sample_id, sample_name, technique, filter_setting, count_time, timestamp, spec_datafile}]}",
         "source": "autonomy_db",
         "source_detail": "Joins CollectionScan with SamplePosition for sample_name.",
@@ -313,6 +345,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
             "plan_store.session.get_collection_scans_for_sample(active_sample_id)"
         ),
         "spec_command": None,
+        "mutates": False,
         "output": "JSON: {ok, sample_id, sample_name, count, scans:[...]}",
         "source": "autonomy_db",
         "source_detail": "Reads plan_json to detect the active sample, then joins SamplePosition.",
@@ -327,6 +360,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "plan_store.session.submit_sample_alignment_results(results)",
         "spec_command": None,
+        "mutates": True,
         "output": "JSON: {ok, updated:[sample_ids], count}",
         "source": "autonomy_db",
         "source_detail": (
@@ -346,6 +380,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
         ),
         "python_func": "plan_store.session.submit_survey_results(results)",
         "spec_command": None,
+        "mutates": True,
         "output": "JSON: {ok, updated:[sample_ids], count}",
         "source": "autonomy_db",
         "source_detail": (
@@ -368,6 +403,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
             "plan_store.client.get_plan(experiment_id)"
         ),
         "spec_command": None,
+        "mutates": False,
         "output": (
             "JSON: {ok, sample_holder_id, sample_holder_name, samples:["
             "{sample_id, sample_name, element_symbol, total_spots, "
@@ -395,6 +431,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
             "filter_setting, count_time)"
         ),
         "spec_command": None,
+        "mutates": True,
         "output": "JSON: {ok, scan_id, sample_id, sample_name, scan_number, technique}",
         "source": "autonomy_db",
         "source_detail": (
@@ -420,6 +457,7 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
             "i0_max_cps, i0_gain, i1_max_cps, i1_gain)"
         ),
         "spec_command": None,
+        "mutates": True,
         "output": "JSON: {ok, experiment_id, recorded:{...}}",
         "source": "autonomy_db",
         "source_detail": (
@@ -431,10 +469,23 @@ _AUTONOMY_LINEAGE: dict[str, dict] = {
 }
 
 
-# Merge upstream's lineage (CAT-0..CAT-7, CAT-9 plus shared recent_actions /
-# evaluate_spec_macro entries) with autonomy's CAT-8 entries. Autonomy keys
-# win on collision so any future overrides take precedence.
-TOOL_LINEAGE: dict[str, dict] = {**_UPSTREAM_LINEAGE, **_AUTONOMY_LINEAGE}
+# Register autonomy's CAT-8 entries into upstream's TOOL_LINEAGE, in place.
+#
+# In place matters, and it is why this replaced a `{**upstream, **autonomy}`
+# merge. `beamtimehero_cli.tool_catalog.categorize` binds the upstream dict
+# object at import, so a *new* merged dict was invisible to categorize() —
+# which is exactly why `scripts/beamtimehero` and two other sites had to
+# monkey-patch `categorize.TOOL_LINEAGE` to make the CAT-8 tools land on the
+# `db` tree. register_lineage() updates the bound object, so there is nothing
+# left to patch. It also validates every entry against
+# LINEAGE_REQUIRED_KEYS first and raises one ValueError listing all the
+# problems, so a malformed entry fails at import rather than rendering as a
+# blank row on the catalog page.
+#
+# `TOOL_LINEAGE` below is upstream's dict, re-exported so the historical
+# spelling `from beamline_tools.tool_catalog.lineage import TOOL_LINEAGE`
+# keeps working and keeps meaning "every tool, upstream and autonomy".
+register_lineage(_AUTONOMY_LINEAGE)
 
 
 __all__ = [
