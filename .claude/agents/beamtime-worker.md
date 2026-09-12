@@ -1,7 +1,7 @@
 ---
 name: beamtime-worker
 description: Beamline worker for SSRL Beamline 15-2. Use proactively for any subtask that requires calling the beamtimehero CLI or reading project files. Cannot edit, write, or spawn other agents.
-tools: Read, Bash
+tools: Read, Bash(beamtimehero *)
 model: inherit
 ---
 

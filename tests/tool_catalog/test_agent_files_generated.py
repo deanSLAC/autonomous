@@ -123,13 +123,33 @@ def test_canonical_tree_agents_use_the_colon_form(name):
 RESEARCH_PATTERN = "Bash(beamtimehero research:*)"
 
 #: Every agent definition that names a `beamtimehero` pattern at all.
-#: `beamtime-worker.md` carries a bare `Bash` and is out of scope here
-#: (flagged when the surfaces landed, not fixed by this change).
 PATTERNED_AGENTS = (
     "planner.md", "chat.md", "control.md", "tester.md",
     "bl-aligner.md", "sample-aligner.md", "sample-surveyor.md",
-    "data-collection.md",
+    "data-collection.md", "beamtime-worker.md",
 )
+
+
+def test_no_agent_carries_an_unscoped_bash():
+    """A `Bash` with no pattern is arbitrary shell on the SPEC machine.
+
+    `beamtime-worker.md` used to carry exactly that while its own body told
+    it to read `chat.md` and keep to a "beamtimehero-only shell" — so the
+    containment was prompt-only, on the one agent other agents spawn
+    proactively. Every grant in this directory has to hold at the harness
+    level, because an agent that ignores its prompt is precisely the case
+    the grant exists for.
+    """
+    offenders = []
+    for path in sorted(AGENT_DIR.glob("*.md")):
+        line = _tools_line(path.name)
+        for tool in (t.strip() for t in line.split(",")):
+            if tool == "Bash":
+                offenders.append(path.name)
+    assert not offenders, (
+        f"unscoped `Bash` in {offenders} — name the commands it may run, "
+        f"e.g. `Bash(beamtimehero *)`"
+    )
 
 
 def test_the_planner_is_granted_the_research_branch():
