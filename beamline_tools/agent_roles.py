@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Set
 
+from beamtimehero_cli.agent_surface import AgentSurface
 from beamtimehero_cli.spec_control.phases import (
     PHASE_BL_ALIGN,
     PHASE_COLLECTION,
@@ -111,6 +112,65 @@ AGENT_ROLES: dict[str, dict] = {
             "upload_sample_survey_results",
         }),
     },
+}
+
+
+# ---------------------------------------------------------------------------
+# Agent surfaces — the same policy, declared once.
+#
+# `AGENT_ROLES` above states each role's scope; `scripts/beamtimehero`
+# turns it into an argparse branch, a spec-write filter and a motor check;
+# and each agent's `.claude/agents/*.md` front matter states the shell
+# permission that lets it reach that branch. Three spellings of one fact,
+# agreeing by hand — and they did not always agree: the motor lists pasted
+# into four prompt files drifted, and the `_agent_role` stamp reached four
+# of the nine trees under each branch, so leaves on the other five were
+# never motor-checked at all.
+#
+# An `AgentSurface` is the declaration. `build_surface(spec, catalogue)`
+# generates the branch, the restricted dispatch table, the guarded
+# executor, the `Bash(...)` permission pattern, the prompt fragment and a
+# checked-in manifest from it. Read the fields as:
+#
+#   branches     all nine canonical trees, which is what
+#                `build_catalog_subtrees` already pre-created under every
+#                role. A role's scope is not expressed by hiding read
+#                tools; it is expressed by `write_tools` and `motors`.
+#   write_tools  the tools this role may *mutate* with, by name. Every
+#                other mutating tool is dropped from the branch entirely
+#                rather than carried-and-refused: a tool an agent can see
+#                in `--help` is a tool it will try.
+#   motors       enforced in the executor, so a harness that calls the
+#                executor directly is guarded too.
+#   phase        recorded on the manifest and in the prompt; not gating.
+#
+# `description` is the branch's `--help` line, kept verbatim from the
+# hand-built branch it replaces so the migration is a no-op for anyone
+# reading `beamtimehero --help`.
+# ---------------------------------------------------------------------------
+
+def _surface(role_name: str, role_def: dict) -> AgentSurface:
+    return AgentSurface(
+        name=role_name,
+        description=(
+            f"Agent scope: {role_name} (phase={role_def['phase']}). "
+            "Filters spec-write tools and validates motor args."
+        ),
+        layout="nested",
+        branches=(
+            "tool", "db", "spec-read", "spec-write", "spec-file",
+            "s3df", "slack", "xrs", "exafs",
+        ),
+        write_tools=frozenset(role_def["spec_write_tools"]),
+        motors=frozenset(role_def["motors"]),
+        include_ref=True,
+        phase=role_def["phase"],
+    )
+
+
+SURFACES: dict[str, AgentSurface] = {
+    role_name: _surface(role_name, role_def)
+    for role_name, role_def in AGENT_ROLES.items()
 }
 
 
