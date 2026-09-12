@@ -159,6 +159,10 @@ def test_watcher_returns_once_row_is_resolved(harness):
     assert result["status"] == "resolved"
     assert result["resolver"] == "staff_jane"
     assert result["id"] == "intv-1"
+    # The row dict names the column resolver_note; this outcome contract names
+    # it note. Reading the wrong one reported None on every cross-process
+    # resolve while the in-process path carried the real text.
+    assert result["note"] == "holder B mounted"
     assert harness["polls"] >= 3, "watcher returned before the row changed"
     assert harness["resolved"] == [], "no timeout resolution should be written"
 

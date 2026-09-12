@@ -109,7 +109,12 @@ class StaffCoordinator:
                         "id": row.id,
                         "status": status,
                         "resolver": cur.get("resolver") or "unknown",
-                        "note": cur.get("note"),
+                        # The row dict exposes the column as ``resolver_note``
+                        # (plan_store/client.py:402); the outcome contract this
+                        # function returns calls it ``note``, matching the
+                        # in-process ``waiter.outcome`` below. Reading "note"
+                        # here always yielded None.
+                        "note": cur.get("resolver_note"),
                     }
 
         try:
