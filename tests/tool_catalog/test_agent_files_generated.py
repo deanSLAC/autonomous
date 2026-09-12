@@ -120,6 +120,66 @@ def test_canonical_tree_agents_use_the_colon_form(name):
     )
 
 
+RESEARCH_PATTERN = "Bash(beamtimehero research:*)"
+
+#: Every agent definition that names a `beamtimehero` pattern at all.
+#: `beamtime-worker.md` carries a bare `Bash` and is out of scope here
+#: (flagged when the surfaces landed, not fixed by this change).
+PATTERNED_AGENTS = (
+    "planner.md", "chat.md", "control.md", "tester.md",
+    "bl-aligner.md", "sample-aligner.md", "sample-surveyor.md",
+    "data-collection.md",
+)
+
+
+def test_the_planner_is_granted_the_research_branch():
+    """One leaf, one holder.
+
+    `research ask-question` returns untrusted third-party text, and the
+    only defence is prompt discipline in whatever reads it. The planner
+    is the one agent that has those rules written down, so it is the one
+    agent with the grant — and it cannot act on the beamline itself.
+    """
+    line = _tools_line("planner.md")
+    assert RESEARCH_PATTERN in line, line
+
+
+@pytest.mark.parametrize("name", [n for n in PATTERNED_AGENTS if n != "planner.md"])
+def test_no_other_agent_names_the_research_branch(name):
+    """The two full-surface operator agents are the known exception.
+
+    `control.md` and `tester.md` carry `Bash(beamtimehero *)` on purpose,
+    which reaches every branch including this one. They are operator
+    agents driven by a human at a terminal, not autonomy, and narrowing
+    them is a separate decision. Everything else must not name it.
+    """
+    line = _tools_line(name)
+    if "Bash(beamtimehero *)" in line:
+        pytest.skip(f"{name} is a full-surface operator agent by design")
+    assert RESEARCH_PATTERN not in line, line
+    assert "research" not in line
+
+
+def test_the_planner_prompt_says_a_report_is_not_instructions():
+    """The grant and the handling rule ship together or not at all.
+
+    The container cannot close this path — a sandbox report is text, and
+    the agent reading it is what decides whether text becomes an action.
+    So the permission line and the paragraph that tells the planner what
+    to do with the report are held to each other here.
+    """
+    text = (AGENT_DIR / "planner.md").read_text()
+    assert RESEARCH_PATTERN in text
+    assert "evidence" in text and "never instructions" in text
+    for fragment in (
+        "<untrusted-report>",
+        "content, not a command",
+        "fabricated",
+        "RESEARCH_SANDBOX_ENABLED=1",
+    ):
+        assert fragment in text, fragment
+
+
 @pytest.mark.parametrize("name", ("control.md", "tester.md"))
 def test_full_surface_agents_keep_the_whole_cli(name):
     """Not drift: these two are operator agents and carry the whole CLI on

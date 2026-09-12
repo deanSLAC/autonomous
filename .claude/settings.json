@@ -9,6 +9,7 @@
       "Bash(beamtimehero spec-read:*)",
       "Bash(beamtimehero spec-write:*)",
       "Bash(beamtimehero steering:*)",
+      "Bash(beamtimehero research:*)",
       "Bash(beamtimehero blaligner:*)",
       "Bash(beamtimehero samplealigner:*)",
       "Bash(beamtimehero collector:*)",

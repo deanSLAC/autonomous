@@ -31,10 +31,11 @@ manifest from this declaration — see `scripts/render_agent_surfaces.py`.
 
 Read the fields as:
 
-  branches     All nine canonical trees, which is what the hand-built
-               branch already carried. A role's scope is not expressed by
-               hiding read tools; it is expressed by `write_tools` and
-               `motors`.
+  branches     The nine canonical trees the hand-built branch already
+               carried. A role's scope is not expressed by hiding read
+               tools; it is expressed by `write_tools` and `motors`. The
+               one tree deliberately left off is `research` — see the
+               comment on `_ALL_BRANCHES`.
   write_tools  Tool *names* this role may mutate with. Every other
                mutating tool is dropped from the branch entirely rather
                than carried-and-refused: a tool an agent can see in
@@ -88,7 +89,26 @@ _COLLECTION_MOTORS: Set[str] = _SAMPLE_ALIGN_MOTORS
 
 
 # ---------------------------------------------------------------------------
-# The nine canonical trees. Shared by every role: see `branches` above.
+# The nine canonical trees these four roles share: see `branches` above.
+#
+# The library has ten. `research` is deliberately not here.
+#
+# That branch holds one leaf, `research ask-question`, which runs a
+# sandboxed agent with web access and returns its report. The report is
+# untrusted third-party text — the sandbox reads the open web, so a page
+# can carry text aimed at whatever reads the report — and the only
+# defence against that is prompt discipline in the agent that reads it.
+# Exactly one agent has been given that discipline, in writing: the
+# planner, which is permissioned by the `tools:` line in
+# `.claude/agents/planner.md` rather than by a surface, and which does
+# not move motors at all.
+#
+# `AgentSurface` has no `exclude` field, and correctly so: a branch named
+# here is a branch granted in full. So "the planner and nobody else" has
+# to be expressed by the tree the tool lives on, and adding "research" to
+# this tuple would silently grant it to all four beamline roles at once.
+# If a role ever does need it, add it to that role's own `branches` and
+# write the same handling rules into that agent's prompt first.
 # ---------------------------------------------------------------------------
 
 _ALL_BRANCHES: tuple[str, ...] = (

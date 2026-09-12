@@ -101,19 +101,44 @@ def test_role_write_set_is_carried(catalogue, role):
 
 
 @pytest.mark.parametrize("role", ROLES)
-def test_role_carries_every_read_tool_in_the_catalog(catalogue, role):
+def test_role_carries_every_read_tool_on_a_branch_it_has(catalogue, role):
     """A role's scope is its writes and its motors, not a curated read list.
 
-    All nine canonical trees are on every role's `branches`, so the only
-    tools a role does not carry are mutating tools it has not been
-    granted. A read tool going missing would mean a tree was dropped from
+    Within the branches a role declares, the only tools it does not carry
+    are mutating tools it has not been granted. A read tool going missing
+    from a branch the role has would mean the tree was dropped from
     `branches`, which is a scope decision that has to be deliberate.
+
+    Scoped to the declared branches because one tree is deliberately off
+    all four roles: `research`, whose single leaf returns untrusted
+    third-party text and is granted to the planner alone. See the comment
+    on `agent_roles._ALL_BRANCHES`.
     """
     build = build_surface(SURFACES[role], catalogue)
     carried = {tool.path for tool in build.tools}
+    declared = set(SURFACES[role].branches)
     reads = {
-        path for path, tool in catalogue.index().items() if not tool.mutates
+        path for path, tool in catalogue.index().items()
+        if not tool.mutates and path[0] in declared
     }
     assert reads <= carried, sorted(
         "/".join(path) for path in (reads - carried)
     )
+
+
+@pytest.mark.parametrize("role", ROLES)
+def test_no_role_reaches_the_research_sandbox(catalogue, role):
+    """The reason `research` is its own tree, asserted rather than assumed.
+
+    `AgentSurface` has no `exclude` field: a branch on `branches` is
+    granted in full. So the only thing keeping the research sandbox off
+    these four agents is that the leaf does not share a branch with
+    anything they need — and the only thing keeping *that* true is this
+    test. If it fails, either a role gained `"research"` or the leaf moved
+    onto a shared tree; both need the prompt rules in
+    `.claude/agents/planner.md` written into that agent first.
+    """
+    build = build_surface(SURFACES[role], catalogue)
+    assert "research" not in {tool.tree[0] for tool in build.tools}
+    assert "research" not in SURFACES[role].branches
+    assert "research" not in build.manifest()["surface"]["branches"]
