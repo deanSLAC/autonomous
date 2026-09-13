@@ -1,0 +1,25 @@
+# The commit of ../beamtimehero_cli this repo is pinned to.
+#
+# The toolbelt is an editable install (`-e ../beamtimehero_cli`), so
+# `import beamtimehero_cli` resolves into that sibling checkout's working
+# tree: whatever is checked out there is what autonomy runs, with no
+# reinstall and no diff on this side. Unpinned, a `git pull` in another
+# repo changes this one's behaviour and the commit that explains a
+# breakage lives somewhere else entirely.
+#
+# MANUALLY ADVANCED. To bump: move the sibling checkout to the new commit,
+# run `venv/bin/python -m pytest tests/ -q`, and only then write the SHA
+# here. Keep it in step with chemcat's BEAMTIMEHERO_CLI_REF (its
+# .github/workflows/ci.yaml and build-push.yaml) — both repos consume the
+# same toolbelt, and drift between the two pins is the thing a pin exists
+# to catch.
+#
+# Verified by scripts/check_cli_pin.py at start-up and by
+# tests/test_cli_pin.py. Override for one run with BEAMTIMEHERO_CLI_REF,
+# which takes any ref: BEAMTIMEHERO_CLI_REF=HEAD accepts whatever is
+# checked out, which is what you want while developing upstream.
+#
+# 2026-09-13: daad45c, the same commit chemcat pins. At or above 0.5.0,
+# which adds agent_surface — scripts/beamtimehero and agent_roles.py both
+# import it, so an older pin does not start.
+daad45c3c7109c5ef379d3ff468e80ef4469fb91

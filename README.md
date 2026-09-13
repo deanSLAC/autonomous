@@ -72,7 +72,11 @@ autonomous/
 
 The generic tool surface (CAT-0..7, 9, 10), SPEC file reading, log parsing, and
 analysis live in the shared editable dependency
-[`../beamtimehero_cli`](../beamtimehero_cli) (`pip install -e`).
+[`../beamtimehero_cli`](../beamtimehero_cli) (`pip install -e`), pinned to the
+commit in [`beamtimehero_cli.pin`](beamtimehero_cli.pin) and checked at start-up
+by `scripts/check_cli_pin.py`. Because the install is editable, that sibling
+checkout *is* what runs here; the pin is what stops an unrelated push to it
+from changing this repo's behaviour. Advancing it is manual — see the pin file.
 
 ## URLs (default port 5005)
 

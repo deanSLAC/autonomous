@@ -2,11 +2,12 @@
 # Launch the Autonomous Beamline Agent.
 #
 #   1. Python venv + dependencies
-#   2. SQLite tables
-#   3. Symlink scripts/beamtimehero → venv/bin/beamtimehero so claude code
+#   2. beamtimehero_cli pinned-commit check (beamtimehero_cli.pin)
+#   3. SQLite tables
+#   4. Symlink scripts/beamtimehero → venv/bin/beamtimehero so claude code
 #      can invoke the unified CLI as a plain command.
-#   4. Verify the `claude` binary is on PATH.
-#   5. FastAPI on :5005. claude -p is spawned as a subprocess per turn —
+#   5. Verify the `claude` binary is on PATH.
+#   6. FastAPI on :5005. claude -p is spawned as a subprocess per turn —
 #      no persistent harness server. LLM_GATEWAY={slac,stanford,default}
 #      picks the upstream claude code talks to.
 
@@ -30,6 +31,13 @@ source venv/bin/activate
 echo "[start] installing requirements…"
 pip install --quiet --upgrade pip
 pip install --quiet -r requirements.txt
+
+# The toolbelt is an editable install of a sibling checkout, so what is
+# checked out there is what we run. Refuse to launch on an unverified
+# commit — see beamtimehero_cli.pin for the bump procedure and the
+# BEAMTIMEHERO_CLI_REF escape hatch.
+echo "[start] checking beamtimehero_cli pin…"
+python scripts/check_cli_pin.py
 
 echo "[start] initializing DB…"
 python -c "from orchestration.plan_store.init_db import init_db; init_db()"
