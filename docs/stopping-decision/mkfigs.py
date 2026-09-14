@@ -81,20 +81,16 @@ def fig_reps():
     ax.set_ylabel('normalised absorption  μ(E)')
     ax.axhline(0, color='#cfc9bb', lw=0.8, zorder=1)
     ax.axhline(1, color='#cfc9bb', lw=0.8, zorder=1)
-    ax.annotate('pre-edge region — normalised to 0', (7082, -0.10), fontsize=8,
-                color=MUTE, ha='left', va='center')
-    ax.annotate('post-edge region — normalised to 1', (7220, 1.30), fontsize=8,
+    ax.annotate('pre-edge region:\nnormalised to 0', (7083, 0.46), fontsize=8.5,
+                color=INK, ha='left', va='center', linespacing=1.35)
+    ax.annotate('', xy=(7090, 0.045), xytext=(7090, 0.29),
+                arrowprops=dict(arrowstyle='-', color=MUTE, lw=0.7))
+    ax.annotate('post-edge region: normalised to 1', (7220, 1.30), fontsize=8,
                 color=MUTE, ha='right', va='center')
     ax.annotate('white line', (7131, 1.72), fontsize=8.5, color=INK, ha='center',
                 va='center', fontweight='bold')
     ax.annotate('', xy=(7131, 1.60), xytext=(7131, 1.68),
                 arrowprops=dict(arrowstyle='-', color=MUTE, lw=0.8))
-    ax.annotate('pre-edge peak', (7104, 0.44), fontsize=8, color=MUTE, ha='center')
-    ax.annotate('', xy=(7113.0, 0.24), xytext=(7107, 0.41),
-                arrowprops=dict(arrowstyle='-', color=MUTE, lw=0.7))
-    ax.annotate('EXAFS oscillations', (7178, 0.72), fontsize=8, color=MUTE, ha='center')
-    ax.annotate('', xy=(7172, 0.93), xytext=(7176, 0.78),
-                arrowprops=dict(arrowstyle='-', color=MUTE, lw=0.7))
     sm = plt.cm.ScalarMappable(cmap=REPRAMP, norm=plt.Normalize(1, 6))
     cb = fig.colorbar(sm, ax=ax, pad=0.014, aspect=24, ticks=[1, 6])
     cb.set_label('rep number', fontsize=8.5, color=MUTE)
@@ -182,7 +178,7 @@ def fig_perpoint():
                 capsize=1.8, zorder=3)
     ax.plot(ew, mu, lw=1.7, color=BLUE, zorder=4)
     ax.set_ylabel('μ₁₂(E)')
-    ax.set_title('a — merged spectrum with the between-rep scatter sₙ(E)')
+    ax.set_title('a: merged spectrum with the between-rep dispersion sₙ(E)')
     ax.set_ylim(0.88, 1.72)
     ax.annotate('thin lines: the 12 individual reps\nbars: ± sₙ(E)',
                 (0.018, 0.94), xycoords='axes fraction', ha='left', va='top',
@@ -203,7 +199,7 @@ def fig_perpoint():
                 color=MUTE, ha='center', rotation=90, va='top')
     ax.set_xlabel('E  (eV)')
     ax.set_ylabel('relative SEM  (%)')
-    ax.set_title('b — the same thing as a relative error at each energy')
+    ax.set_title('b: the same thing as a relative error at each energy')
     ax.set_xlim(ew[0], ew[-1])
     save(fig, 'fig4-perpoint')
 
@@ -226,7 +222,7 @@ def fig_c4():
                     color=INK, ha=ha, va='top')
     ax.set_ylim(0.745, 1.035)
     ax.set_xlabel('number of reps  n'); ax.set_ylabel('c₄(n) = E[s] / σ')
-    ax.set_title('a — the bias factor')
+    ax.set_title('a: the bias factor')
 
     ax = style(axes[1], grid='both')
     e, reps = A['energy'], A['reps']
@@ -246,14 +242,14 @@ def fig_c4():
     ax.plot(ns2, cor, lw=1.7, color=BLUE, marker='o', ms=3.6, mfc='white', mew=1.1,
             zorder=5, label='s / c₄(n)')
     ax.set_xlabel('number of reps  n'); ax.set_ylabel('SEM  (% of signal)')
-    ax.set_title('b — effect on the measured curve')
+    ax.set_title('b: effect on the measured curve')
     ax.set_ylim(0.75, 3.05)
     ax.legend(loc='upper right', handlelength=1.8)
     save(fig, 'fig5-c4')
 
 
 # ---------------------------------------------------------------- fig 6 / 7
-def _floor_fig(d, name, xt):
+def _floor_fig(d, name, xt, departure=True):
     fig, axes = plt.subplots(1, 2, figsize=(7.1, 3.0),
                              gridspec_kw={'width_ratios': [1.45, 1], 'wspace': 0.28})
     eff = d['eff']
@@ -275,7 +271,7 @@ def _floor_fig(d, name, xt):
     ax.yaxis.set_major_formatter(FixedFormatter([f'{v:g}' for v in yt]))
     ax.minorticks_off()
     ax.set_xlabel('reps merged  n'); ax.set_ylabel('% of signal')
-    ax.set_title('a — SEM(n) against the floor  (log–log)')
+    ax.set_title('a: SEM(n) against the floor  (log–log)')
     ax.annotate('floor(n) ∝ 1/√n', (ns[-1], fl[-1] * 0.80), fontsize=8, color=MUTE,
                 ha='right', va='top')
     ax.annotate(f'target {d["target"]:.1f} %', (ns[0] * 1.02, d['target'] * 1.08),
@@ -300,30 +296,36 @@ def _floor_fig(d, name, xt):
     ax = style(axes[1], grid='both')
     ratio = sem / fl
     base = float(np.nanmedian(ratio[1:4]))
-    ax.axhspan(0, base * 1.25, color='#f3f7fd', zorder=1)
+    if departure:
+        ax.axhspan(0, base * 1.25, color='#f3f7fd', zorder=1)
     ax.plot(ns, ratio, lw=1.7, color=VIOLET, marker='o', ms=3.8, mfc='white',
             mew=1.1, zorder=5)
     ax.axhline(1.0, color=MUTE, lw=1.0, ls=(0, (5, 3)), zorder=3)
-    ax.axhline(base * 1.25, color=ORANGE, lw=1.1, ls=(0, (2, 2.5)), zorder=4)
-    ax.annotate('departure threshold\n1.25 × opening ratio',
-                (ns[-1], base * 1.25 * 1.05), fontsize=7.8, color=ORANGE,
-                ha='right', va='bottom', linespacing=1.35)
-    ax.annotate('photon-limited', (ns[0], base * 1.25 * 0.965), fontsize=7.8,
-                color=MUTE, ha='left', va='top')
+    if departure:
+        ax.axhline(base * 1.25, color=ORANGE, lw=1.1, ls=(0, (2, 2.5)), zorder=4)
+        ax.annotate('departure threshold\n1.25 × opening ratio',
+                    (ns[-1], base * 1.25 * 1.05), fontsize=7.8, color=ORANGE,
+                    ha='right', va='bottom', linespacing=1.35)
+        ax.annotate('photon-limited', (ns[0], base * 1.25 * 0.965), fontsize=7.8,
+                    color=MUTE, ha='left', va='top')
+    else:
+        ax.annotate('photon-limited', (0.02, 0.97), xycoords='axes fraction',
+                    fontsize=7.8, color=MUTE, ha='left', va='top')
     ax.set_xlabel('reps merged  n'); ax.set_ylabel('SEM(n) / floor(n)')
-    ax.set_title('b — ratio to the floor')
+    ax.set_title('b: ratio to the floor')
     ax.set_xticks(xt)
     # Scale to the series. A clean series lives in a narrow band just above 1
     # and a departure runs to twice the floor; a shared axis renders one of the
     # two as a flat line, and on the clean series it is the individual points
     # crossing 1 -- the thing the panel exists to show -- that disappear.
-    ax.set_ylim(min(0.92, float(np.nanmin(ratio)) - 0.03),
-                max(float(np.nanmax(ratio)), base * 1.25) * 1.12)
+    top = max(float(np.nanmax(ratio)), base * 1.25) if departure \
+        else float(np.nanmax(ratio))
+    ax.set_ylim(min(0.92, float(np.nanmin(ratio)) - 0.03), top * 1.12)
     save(fig, name)
 
 
 def fig_floor():
-    _floor_fig(A, 'fig6-floor-A', [1, 2, 3, 4, 6, 8, 12])
+    _floor_fig(A, 'fig6-floor-A', [1, 2, 3, 4, 6, 8, 12], departure=False)
     _floor_fig(B, 'fig7-floor-B', [1, 2, 3, 4, 6, 8, 10, 14])
 
 
@@ -331,8 +333,8 @@ def fig_floor():
 def fig_trend():
     from scipy import stats as st
     fig, axes = plt.subplots(1, 2, figsize=(7.1, 3.05), gridspec_kw={'wspace': 0.26})
-    for ax, d, ttl in [(axes[0], A, 'a — series A: stationary'),
-                       (axes[1], C, 'b — series C: photoreduction')]:
+    for ax, d, ttl in [(axes[0], A, 'a: series A, stationary'),
+                       (axes[1], C, 'b: series C, photoreduction')]:
         style(ax, grid='both')
         x = d['scalar']; n = x.size; r = np.arange(1, n + 1)
         mean = x.mean()
@@ -386,15 +388,15 @@ def fig_trap():
         return r, y
 
     ax = prep(axes[0]) or axes[0]
-    ra, ya = curve(ax, A, BLUE, 'o', 'series A — stationary')
-    rc, yc = curve(ax, C, ORANGE, 's', 'series C — photoreduction')
+    ra, ya = curve(ax, A, BLUE, 'o', 'series A: stationary')
+    rc, yc = curve(ax, C, ORANGE, 's', 'series C: photoreduction')
     ax.set_ylabel('running SEM of xₙ   (% of running mean)')
-    ax.set_title('a — precision alone cannot separate them')
+    ax.set_title('a: precision alone cannot separate them')
     ax.annotate('1 % target', (12.4, 1.10), fontsize=8, color=RED, ha='right',
                 va='bottom')
-    ax.annotate('A — stationary', (ra[-1], ya[-1] * 0.76), fontsize=8.2,
+    ax.annotate('A: stationary', (ra[-1], ya[-1] * 0.76), fontsize=8.2,
                 color=BLUE, va='top', ha='right', fontweight='bold')
-    ax.annotate('C — photoreduced', (rc[-1], yc[-1] * 1.28), fontsize=8.2,
+    ax.annotate('C: photoreduced', (rc[-1], yc[-1] * 1.28), fontsize=8.2,
                 color=ORANGE, va='bottom', ha='right', fontweight='bold')
     worst = np.nanmax(np.r_[ya[1:], yc[1:]])
     ax.annotate(f'neither comes within {1.0 / worst:.0f}× of the target\n'
@@ -410,7 +412,7 @@ def fig_trap():
     ax.annotate('1.25 × the tail minimum', (1.75, lo * 1.25 * 0.90), fontsize=7.8,
                 color=ORANGE, ha='left', va='top')
     ax.set_ylabel('running SEM of xₙ   (%)')
-    ax.set_title('b — the rising-SEM veto')
+    ax.set_title('b: the rising-SEM veto')
     ax.annotate('sem_is_rising = true', (12.4, 0.068), fontsize=8.2, color=VIOLET,
                 ha='right', va='bottom', fontweight='bold')
     ax.annotate('spot disturbed\nat rep 10', (10.0, 0.78), fontsize=8.2, color=MUTE,

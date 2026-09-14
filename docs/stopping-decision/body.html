@@ -1,20 +1,18 @@
-<h1>Deciding when a scan series is finished</h1>
-<p class="sub">The statistics that separate <em>we have enough data</em> from
-<em>more data will not help</em>, for repeated X-ray absorption scans.</p>
+<h1>Knowing when you have enough spectra</h1>
+<p class="sub">The statistics that guide whether to continue collecting, move
+to the next sample, or pause to investigate an issue.</p>
 
 <p class="lede">A sample is measured by running the same energy scan several times
 and averaging the results. Averaging <i>n</i> repetitions reduces random noise
 by &radic;(n), so before every additional repetition
-there is a decision to make: is the next scan worth the beam time it costs?
-This document sets out the calculation that answers that question – what is
-computed, from what, and in what order the results have to be read.</p>
+there is a decision to make: is the next scan worth the beam time it costs?</p>
 
-<p>Three separate conditions have to hold before the answer is <em>no more are
-needed</em>, and no single statistic tests all three:</p>
+<p>Three separate conditions need to be checked:</p>
 
 <ol class="lead">
   <li>the repetitions are repetitions of <em>the same thing</em> – the sample has
-    not changed under the beam, and the instrument has not moved;</li>
+    not changed under the beam, and beamline and sample are still in proper
+    position;</li>
   <li>the residual dispersion is still <em>photon-limited</em>, so that averaging
     is still buying something;</li>
   <li>the uncertainty on the merged spectrum has reached the level the science
@@ -23,8 +21,7 @@ needed</em>, and no single statistic tests all three:</p>
 
 <p>Conditions 1 and 2 are the ones that are easy to miss, because a measurement
 that fails either of them still <em>looks</em> like it is converging. The rest
-of this document builds up the quantities needed to test all three, then states
-the order in which they must be evaluated.</p>
+of this document builds up the quantities needed to test all three.</p>
 
 <p class="note-inline">Every figure below is produced by running the analysis
 described here on four simulated scan series with known defects. Series A is a
@@ -33,25 +30,49 @@ partway through; series C is progressively photoreduced; series D is bumped once
 late. Every plotted number is the output of the implementation cited in the
 footnote, not an illustration drawn by hand.</p>
 
-<h2><span class="n">1</span>The data</h2>
+<nav class="toc" aria-label="Contents">
+  <div class="toc-h">Contents</div>
+  <ol>
+    <li><span class="n">1</span><a href="#s1">The data</a></li>
+    <li><span class="n">2</span><a href="#s2">The feature window</a></li>
+    <li><span class="n">3</span><a href="#s3">The merged spectrum and its standard error</a></li>
+    <li><span class="n">4</span><a href="#s4">The small-sample correction <i>c</i><sub>4</sub>(<i>n</i>)</a></li>
+    <li><span class="n">5</span><a href="#s5">The counting-statistics floor</a></li>
+    <li><span class="n">6</span><a href="#s6">Departure from the floor</a></li>
+    <li><span class="n">7</span><a href="#s7">Testing whether the sample changed</a></li>
+    <li><span class="n">8</span><a href="#s8">Two further checks on the stack</a></li>
+    <li><span class="n">9</span><a href="#s9">Projecting the cost of finishing</a></li>
+    <li><span class="n">10</span><a href="#s10">Conclusion</a></li>
+    <li><span class="n">11</span><a href="#s11">Symbols</a></li>
+    <li><span class="n">12</span><a href="#s12">Parameters and their defaults</a></li>
+    <li><span class="n"></span><a href="#refs">References</a></li>
+  </ol>
+</nav>
+<h2 id="s1"><span class="n">1</span>The data</h2>
 
 <p>One <em class="term">scan repetition</em> is
 one pass of the monochromator across the energy range, recording detector counts
 at each energy point. A series of <i>n</i> reps on one sample position gives a
-stack of <i>n</i> spectra measured on a common energy grid. Nothing below
-depends on how the absorption was detected – transmission, total fluorescence
-yield and high-energy-resolution fluorescence detection<sup><a href="#r9">9</a></sup>
-all produce the same object, a stack of spectra on a shared energy axis.</p>
+stack of <i>n</i> spectra measured on a common energy grid.</p>
+
+<p>What follows is written for <strong>photon-counting fluorescence
+detection</strong>. Total fluorescence yield and high-energy-resolution
+fluorescence detection<sup><a href="#r9">9</a></sup> produce the same object
+– a stack of spectra on a shared energy axis – and both give a counted number
+of photons per point, which is what the counting-statistics floor of §5 is
+built from. Transmission is outside this scope: there the absorption is
+<i>&mu;</i>&nbsp;=&nbsp;ln(<i>I</i><sub>0</sub>/<i>I</i><sub>1</sub>), whose
+counting error propagates differently and diverges as
+<i>&mu;</i>&nbsp;&rarr;&nbsp;0. So is EXAFS, whose noise is judged in <i>k</i>
+or <i>R</i> space and not as a per-point relative error on
+<i>&mu;</i>(<i>E</i>).</p>
 
 <p>Each rep is <em class="term">edge-step normalised</em> before anything else
 happens: the pre-edge background is subtracted and the spectrum is scaled so
 that the pre-edge region sits at 0 and the post-edge region at 1, making the
-absorption edge exactly one unit tall.<sup><a href="#r1">1</a></sup> Two
-consequences matter here. First, reps taken at different sample thicknesses or
-concentrations become directly comparable, so the stack can be averaged.
-Second – and this drives the whole of §2 – the flat regions of the spectrum now
-have near-zero dispersion <em>by construction</em>, not because they were measured
-well.</p>
+absorption edge exactly one unit tall.<sup><a href="#r1">1</a></sup> This
+allows us to directly compare reps taken at different sample thicknesses or
+concentrations, so the stack can be averaged.</p>
 
 {{FIG1}}
 <p class="cap"><b>Figure 1.</b> Six reps of an Fe K-edge spectrum on one sample
@@ -59,19 +80,18 @@ position, after edge-step normalisation. The reps agree on the shape of the
 spectrum and disagree in the noise. Everything that follows is a way of
 quantifying that disagreement and deciding when it has become small enough.</p>
 
-<h2><span class="n">2</span>The feature window</h2>
+<h2 id="s2"><span class="n">2</span>The feature window</h2>
 
-<p>Convergence is not a property of a whole spectrum; it is a property of the
-part of the spectrum a result depends on. The <em class="term">feature
-window</em> <span class="m">[<i>E</i><sub>min</sub>,
-<i>E</i><sub>max</sub>]</span> is the energy range bracketing that part –
-typically the white line, sometimes a pre-edge peak, an edge position, or a
-named EXAFS oscillation.</p>
+<p>Convergence is considered not as a property of a whole spectrum, but as a
+property of a specific feature within the spectrum – by default the white line,
+but can be configured to another feature of interest. The
+<em class="term">feature window</em> <span class="m">[<i>E</i><sub>min</sub>,
+<i>E</i><sub>max</sub>]</span> is the energy range bracketing that
+feature.</p>
 
-<p>A window of roughly 10&ndash;20&nbsp;eV, chosen to start
-a few eV below where the feature begins to rise and to end a few eV above where
-it returns to the local baseline, isolates the part of the spectrum that carries
-information.</p>
+<p>The window should start a few eV below where the feature begins to rise and
+to end a few eV above where it returns to the local baseline, isolating the part
+of the spectrum that carries information.</p>
 
 <p>The window has two jobs, and they disagree at its edges. It has to bracket
 the whole feature, shoulders included, because the per-rep value of §7 is
@@ -91,7 +111,12 @@ the window in the context of the whole spectrum. Right: the same reps inside the
 window, where the disagreement that Figure 1 compresses into a thin band becomes
 the whole picture. Shaded strips at each end mark the trimmed points.</p>
 
-<h2><span class="n">3</span>The merged spectrum and its standard error</h2>
+<div class="hnote">
+  <b>Human note:</b> it seems unlikely trimming one point or "5%" is going to
+  do anything substantial. This will need to be tested.
+</div>
+
+<h2 id="s3"><span class="n">3</span>The merged spectrum and its standard error</h2>
 
 <p>The <em class="term">merge</em> of the first <i>n</i> reps is their
 point-by-point mean:</p>
@@ -176,9 +201,11 @@ SEM(<i>n</i>) &nbsp;=&nbsp; 100%&nbsp;&times;&nbsp;
 the mean over the trimmed feature window. SEM(<i>n</i>) is a percentage, and it
 is undefined at <i>n</i>&nbsp;=&nbsp;1.</p>
 
-<p>Dividing by the local signal is what makes the number portable: a 1%
-relative error means the same thing on a dilute sample as on a concentrated one.
-It is also why the window matters so much. Outside the window,
+<p>Edge-step normalisation has already made samples of different thickness and
+concentration comparable, so that is not what the division does. What it does
+is express the uncertainty as a fraction of the feature it is measured on, so
+that a 1% target means the same thing for a small pre-edge peak as for a tall
+white line. It is also why the window matters so much. Outside the window,
 <i>&mu;</i><sub><i>n</i></sub>(<i>E</i>)&nbsp;&rarr;&nbsp;0 in the pre-edge
 region, and a ratio with a vanishing denominator would dominate the average
 while carrying no information.</p>
@@ -192,14 +219,15 @@ thin traces behind it. <b>(b)</b> The same quantity divided by
 signal, giving a relative error at each energy. Its average over the untrimmed
 points is SEM(12)&nbsp;=&nbsp;0.92%.</p>
 
-<h2><span class="n">4</span>The small-sample correction <i>c</i><sub>4</sub>(<i>n</i>)</h2>
+<h2 id="s4"><span class="n">4</span>The small-sample correction <i>c</i><sub>4</sub>(<i>n</i>)</h2>
 
-<p>Bessel's correction removes the bias in <i>s</i><sup>2</sup>. A second bias
-survives it, because averaging and taking a square root do not commute. The
-square root is concave, so the average of &radic;(<i>s</i><sup>2</sup>) falls
-below &radic;(average of <i>s</i><sup>2</sup>) &ndash; Jensen's inequality &ndash;
-and <i>s</i> is therefore a biased estimate of <i>&sigma;</i> even though
-<i>s</i><sup>2</sup> is an unbiased estimate of <i>&sigma;</i><sup>2</sup>. For
+<p>Bessel's correction removes the bias in <i>s</i><sup>2</sup> (the sample
+standard deviation squared). A second bias survives it, because averaging and
+taking a square root do not commute. The square root is concave, so the average
+of &radic;(<i>s</i><sup>2</sup>) falls below &radic;(average of
+<i>s</i><sup>2</sup>) &ndash; Jensen's inequality. So <i>s</i> is a biased
+estimate of <i>&sigma;</i> even though <i>s</i><sup>2</sup> is an unbiased
+estimate of <i>&sigma;</i><sup>2</sup> (the variance). For
 normally distributed data the shortfall has a closed form:<sup><a href="#r2">2</a></sup></p>
 
 <div class="eq"><span class="lbl">expected value of the sample standard deviation</span>
@@ -218,10 +246,18 @@ computed.<sup><a href="#r3">3</a></sup></p>
 <p>The bias is severe exactly where scan series live. The sample standard
 deviation reads 20% low at <i>n</i>&nbsp;=&nbsp;2, 8% low at
 <i>n</i>&nbsp;=&nbsp;4, and is still 2% low at <i>n</i>&nbsp;=&nbsp;14. Dividing
-by <i>c</i><sub>4</sub>(<i>n</i>) removes it. The correction is applied wherever
+by <i>c</i><sub>4</sub>(<i>n</i>) removes it. The same small-sample problem is
+recognised in the IXAS committee's recommendations, which handle it by
+tabulating confidence bounds on <i>s</i>/<i>&sigma;</i> rather than by
+correcting the bias: at four scans they give
+0.27<i>&sigma;</i>&nbsp;&le;&nbsp;<i>s</i>&nbsp;&le;&nbsp;1.76<i>&sigma;</i>,
+which is worth keeping in view alongside the point correction, since it is the
+spread of the estimate rather than its
+offset.<sup><a href="#r11">11</a></sup> The correction is applied wherever
 a standard deviation is divided by &radic;(<i>n</i>) in what follows, both to
 the spectrum-level curve SEM(<i>n</i>) of §3 and to the running standard error
-of the per-rep feature value in §7.</p>
+of the per-rep feature value in §7. It cancels out of the projection in §9,
+for the reason given there.</p>
 
 {{FIG5}}
 <p class="cap"><b>Figure 5.</b> <b>(a)</b> <i>c</i><sub>4</sub>(<i>n</i>) against
@@ -233,7 +269,7 @@ wrong reading of the plot. Dividing by <i>c</i><sub>4</sub>(<i>n</i>) removes
 the offset and the curve sits on the floor, where a clean photon-limited
 measurement belongs.</p>
 
-<h2><span class="n">5</span>The counting-statistics floor</h2>
+<h2 id="s5"><span class="n">5</span>The counting-statistics floor</h2>
 
 <p>X-ray detection is photon counting. Photons arrive independently, so the
 number recorded in a fixed interval follows a Poisson distribution, whose
@@ -266,8 +302,36 @@ collected and divided by their number.</p>
 
 <p>The decisive property of floor(<i>n</i>) is that it is computed from the
 recorded counts and <strong>not</strong> from the dispersion between reps. It is an
-independent, absolute reference. That turns an unanswerable question – "is
-0.92% a good number?" – into a readable one:</p>
+independent, absolute reference. There are three cases to consider for the
+comparison:</p>
+
+<div class="note">
+  <b>This comparison is the community's recommendation.</b> The International
+  XAFS Society's Standards and Criteria Committee proposed in 2000 that the
+  measured scan-to-scan dispersion and the counting-statistics expectation both
+  be computed, and then compared against each
+  other.<sup><a href="#r11">11</a></sup> Its Eq. (9) is
+  SEM<sub><i>n</i></sub>(<i>E</i>) as defined in §3, with the same insistence
+  that the 1/[<i>M</i>(<i>M</i>&minus;1)] prefactor be used <em>&ldquo;to ensure
+  that the results of this estimate be representative of the uncertainty in
+  &#10216;&chi;&#10217; (as opposed to the spread within the set of
+  measurements)&rdquo;</em>. Its Eqs. (7)&ndash;(8) are floor(<i>n</i>),
+  computed from <em>&ldquo;the actual number of photon counts&rdquo;</em> &ndash;
+  for fluorescence, up to an incident-flux term
+  1/<i>N</i><sub>0</sub> that is negligible while
+  <i>N</i><sub>0</sub>&nbsp;&gg;&nbsp;<i>N</i><sub>f</sub>. And it states that
+  <em>&ldquo;only then will the estimate from Eq. (9) be directly comparable to
+  those obtained with Eqs. (5-8)&rdquo;</em>. The recommendation is a reporting
+  standard, applied once to a finished dataset; what follows applies it after
+  every rep.
+</div>
+
+<p class="note-inline">The same committee notes that XAFS noise is usually
+<em>not</em> limited by photon statistics, being dominated instead by
+systematic measurement error. That is not in tension with anything here. The
+floor is used as a reference to measure against, not as a level anyone expects
+to reach, which is why §6 tests the ratio against its own opening trend rather
+than against unity.</p>
 
 <ul>
   <li><strong>SEM(<i>n</i>) tracking floor(<i>n</i>)</strong> – the only thing
@@ -277,12 +341,11 @@ independent, absolute reference. That turns an unanswerable question – "is
     between reps exceeds what photon statistics can account for. Something
     other than counting noise is contributing.</li>
   <li><strong>SEM(<i>n</i>) persistently well below floor(<i>n</i>)</strong>
-    – the two quantities are describing different data, almost always because
-    the counts came from a different detector channel than the spectrum. Note
-    the word <em>persistently</em>: <i>s</i><sub><i>n</i></sub> is itself an
-    estimate from a handful of reps, so the ratio scatters about 1 by roughly
-    10% at small <i>n</i>, and individual points below 1 are ordinary.
-    A whole series sitting below the floor is not.</li>
+    &ndash; an input is wrong: either the SEM or the floor has
+    been miscalculated. Note the word <em>persistently</em>:
+    <i>s</i><sub><i>n</i></sub> is itself an estimate from a handful of reps.
+    So at small <i>n</i>, individual points below 1 are possible. A whole
+    series sitting below the floor is not.</li>
 </ul>
 
 <div class="note">
@@ -296,7 +359,7 @@ independent, absolute reference. That turns an unanswerable question – "is
   floor(<i>n</i>) as computed is a slight <em>under</em>-estimate of the true
   achievable error – a genuine lower bound, which is what a floor should be, and
   the reason a ratio sitting below 1 across a whole series indicates a
-  mismatched input rather than a measurement that beat physics.
+  mismatched input.
 </div>
 
 {{FIG6}}
@@ -306,17 +369,19 @@ floor is a straight line of slope &minus;&frac12;, and the measured SEM lies on
 it. <b>(b)</b> The same information as the ratio SEM(<i>n</i>)/floor(<i>n</i>),
 which stays between 0.95 and 1.05 at every rep count – variation about 1, not
 a trend away from it. The one point that falls below the floor, at
-<i>n</i>&nbsp;=&nbsp;4, is the scatter of a standard deviation estimated from
-four reps rather than a measurement that beat physics. Nothing but photon count
-is limiting this measurement; the 1% target is met at rep 10.</p>
+<i>n</i>&nbsp;=&nbsp;4, is the dispersion of a standard deviation estimated from
+four reps. Nothing but photon count is limiting this measurement; the 1% target
+is met at rep 10.</p>
 
-<h2><span class="n">6</span>Departure from the floor</h2>
+<h2 id="s6"><span class="n">6</span>Departure from the floor</h2>
 
-<p>The rep count at which the measured curve leaves the floor and stays away
-from it is the quantity <code>plateau_from_rep</code>. It is located as
+<p>In some cases the evolution of the SEM can break off a trendline and form a
+plateau. The scan repetition number at which it begins to diverge is significant
+for understanding which scan reps are usable in data analysis. It is located as
 follows. Let <i>r</i>(<i>n</i>)&nbsp;=&nbsp;SEM(<i>n</i>)/floor(<i>n</i>). A
-baseline <i>r</i><sub>0</sub> is taken as the median of the first three defined
-values of <i>r</i>, before something plausibly would have gone wrong. The onset is
+baseline <i>r</i><sub>0</sub> – the <em class="term">opening trend</em> – is
+taken as the median of the first three defined values of <i>r</i>, before
+something plausibly would have gone wrong. The onset is
 the smallest <i>n</i> for which</p>
 
 <div class="eq"><span class="lbl">departure criterion</span>
@@ -335,43 +400,41 @@ before the onset are still good data.</p>
 
 {{FIG7}}
 <p class="cap"><b>Figure 7.</b> Series B – the sample position was disturbed
-after rep 5. The ratio opens at 1.30 and settles to 1.10&ndash;1.16 over reps
-3&ndash;5; from rep 6 it jumps to 1.97 and climbs to 2.49, staying above 1.9 for
+after rep 5. The ratio opens at 1.3 and settles to about 1.1 over reps
+3&ndash;5; from rep 6 it jumps to 2.0 and climbs to 2.5, staying above 1.9 for
 the remaining nine reps. That is a sustained departure rather than a fluctuation, so
-it is flagged: <code>plateau_from_rep&nbsp;=&nbsp;6</code>. Reps 1&ndash;5 are a
-clean measurement; reps 6&ndash;14 are a measurement of something else.</p>
+it is flagged as a departure at rep 6. Reps 1&ndash;5 are a clean measurement;
+reps 6&ndash;14 are a measurement of something else.</p>
 
 <h3>What a departure does and does not mean</h3>
 
-<p>It is worth being precise here, because the natural reading is slightly
-wrong. SEM(<i>n</i>) continues to fall as
+<p>A possibly counter-intuitive note: SEM(<i>n</i>) continues to fall as
 1/&radic;(<i>n</i>) after the departure – visibly so in
 Figure 7. Additional reps do keep making the merged spectrum more
-<em>precise</em>. What has changed is what the merged spectrum is precise
-<em>about</em>.</p>
+<em>precise</em>. But the ability to interpret the merged spectrum could be
+lost.</p>
 
 <p>Two situations produce a departure, and the ratio test cannot tell them
 apart:</p>
 
 <ul>
-  <li><strong>Excess random dispersion</strong> – unstable incident flux,
-    detector dead-time fluctuation, a beam spot wandering over a heterogeneous
-    sample. The merge remains an estimate of a single quantity, but each rep is
-    buying less than it should. The correct response is to fix the instability,
+  <li><strong>Excess random dispersion</strong> &ndash; unstable incident flux, a
+    beam spot wandering over a heterogeneous sample. The merge remains an
+    estimate of a single quantity, but each rep is buying less than it should. The correct response is to fix the instability,
     not to pay &radic;(<i>n</i>) for it.</li>
   <li><strong>A change in the sample or the instrument</strong> – a step in the
     optics, a spot move, beam damage. The merge is now an average over two or
     more distinct states, and it converges to a weighted mean that corresponds to
-    none of them. Its SEM shrinks toward zero and describes nothing.</li>
+    neither of them.</li>
 </ul>
 
-<p>In both cases the merge has stopped being photon-limited, which is enough to
-justify stopping and diagnosing. Distinguishing them is the job of §7.</p>
+<p>In both cases the average spectra have stopped being photon-limited, which is
+enough to justify stopping and diagnosing. Distinguishing them is the job of §7.</p>
 
-<h2><span class="n">7</span>Stationarity: testing whether the sample changed</h2>
+<h2 id="s7"><span class="n">7</span>Testing whether the sample changed</h2>
 
 <p>A series is <em class="term">stationary</em> if the quantity being measured
-holds still while it is measured, so that the reps vary about a fixed value.
+is preserved while it is measured, so that the reps vary about a fixed value.
 It is <em class="term">drifting</em> if that quantity is systematically moving.
 At a beamline the usual causes are photoreduction or other beam damage pulling
 the white line down, the beam spot walking off the sample, monochromator energy
@@ -383,7 +446,7 @@ temperature.<sup><a href="#r5">5</a></sup></p>
 assumes every rep samples the same underlying quantity. If it is moving, SEM
 still falls as 1/&radic;(<i>n</i>), and the analysis
 reports an ever more precise estimate of a number that corresponds to no actual
-state of the sample. <strong>Precision rises while meaning falls.</strong></p>
+state of the sample.</p>
 
 <h3>The per-rep feature value</h3>
 
@@ -432,8 +495,11 @@ normal approximation, in which the concordance excess
 <em class="term">distribution-free</em>: it assumes nothing about the shape of
 the noise and does not require the drift to be linear. Because it uses only the
 direction of each pairwise comparison and not the magnitude, one wild rep cannot
-manufacture a trend. It needs at least four reps to have any power; below that
-the correct output is <em>unknown</em>, not <em>no trend</em>.</p>
+manufacture a trend. It needs at least five reps to have any power at the
+default <i>&alpha;</i>: with four reps the most extreme ordering attainable has
+a two-sided p of 0.083, so no four-rep series can clear
+p&nbsp;&lt;&nbsp;0.05. Below five the correct output is <em>unknown</em>, not
+<em>no trend</em>.</p>
 
 <h3>Theil&ndash;Sen: how large is it?</h3>
 
@@ -482,7 +548,7 @@ materiality threshold. <b>(b)</b> Series C is being photoreduced:
 
 <div class="note">
   <b>The complementarity is the point.</b> Series C tracks the counting floor for
-  its whole length – SEM(<i>n</i>)/floor(<i>n</i>) stays between 1.05 and 1.18,
+  its whole length – SEM(<i>n</i>)/floor(<i>n</i>) stays between 1.05 and 1.2,
   never approaching the 25% departure threshold, and the merge meets its 1%
   target at rep 12. On the §5 test alone it is
   a textbook photon-limited measurement. It is also a sample that lost 2%
@@ -503,9 +569,21 @@ happens only when later reps disagree with earlier ones.</p>
 
 <p>It is treated as an automatic veto on a converged verdict. The test compares
 the last value of the running SEM against the smallest value in the final third
-of the series, requiring at least six reps and a rise of more than 25%
+of the series, requiring at least eight reps and a rise of more than 50%
 before firing – comparing against a window minimum rather than the immediately
 preceding point so that one noisy rep does not trip it.</p>
+
+<p>The threshold has to be set against the sampling noise of the statistic it
+tests, which is why it is looser than the other margins here. The running
+standard error of the feature value is estimated from a single number per rep,
+so it carries <i>n</i>&nbsp;&minus;&nbsp;1 degrees of freedom and a relative
+standard deviation near 1/&radic;(2(<i>n</i>&minus;1)) – 38% at
+<i>n</i>&nbsp;=&nbsp;4, 27% at <i>n</i>&nbsp;=&nbsp;8. A 25% margin sits inside
+the noise of its own statistic, and taking the minimum over the final third as
+the denominator biases the ratio upward besides. Two standard deviations of the
+statistic is 1&nbsp;+&nbsp;2/&radic;(2(<i>n</i>&minus;1)), which runs from 1.53
+at <i>n</i>&nbsp;=&nbsp;8 to 1.37 at <i>n</i>&nbsp;=&nbsp;16; 50% is the single
+fixed value closest to that band over the useful range.</p>
 
 {{FIG9}}
 <p class="cap"><b>Figure 9.</b> <b>(a)</b> Running SEM of the feature value for
@@ -517,7 +595,7 @@ here (<i>&tau;</i>&nbsp;=&nbsp;+0.06, p&nbsp;=&nbsp;0.84) because a single
 late step is not monotone – but the running SEM turns back up, which repeats of
 one measurement cannot do, and the veto fires.</p>
 
-<h2><span class="n">8</span>Two further checks on the stack</h2>
+<h2 id="s8"><span class="n">8</span>Two further checks on the stack</h2>
 
 <h3>Between-position heterogeneity</h3>
 
@@ -553,27 +631,67 @@ normalised, differences in thickness or concentration between positions have
 already been absorbed – what remains is a difference in spectral
 <em>shape</em>.</p>
 
-<h3>Outlier screening, and a caution</h3>
+<h3>Screening single reps</h3>
 
-<p>Each rep can be compared against the merge by cosine similarity, the
-normalised inner product of the two spectra treated as vectors:</p>
+<p>A single bad rep in an otherwise clean stack escapes every test so far. The
+trend test uses only the direction of pairwise comparisons, so one wild rep
+cannot move it; the floor comparison absorbs that rep into a dispersion
+averaged over the whole stack; and the veto reads the shape of the running
+error rather than individual reps. Identifying one rep as inconsistent with the
+others needs a comparison against the counting error expected at each point,
+which §5 has already computed.</p>
 
-<div class="eq"><span class="lbl">cosine similarity</span>
-cos&nbsp;<i>&theta;</i> &nbsp;=&nbsp; ( <b>a</b> &middot; <b>b</b> ) /
-( &#8214;<b>a</b>&#8214; &middot; &#8214;<b>b</b>&#8214; )</div>
+<div class="eq"><span class="lbl">leave-one-out reduced chi-square, per rep</span>
+<i>&chi;</i><sup>2</sup><sub><i>i</i></sub> &nbsp;=&nbsp; (1/<i>m</i>)
+&nbsp;&sum;<sub><i>E</i>&nbsp;&isin;&nbsp;window</sub>&nbsp;
+[ <i>y</i><sub><i>i</i></sub>(<i>E</i>) &minus;
+<i>&mu;</i><sub>&minus;<i>i</i></sub>(<i>E</i>) ]<sup>2</sup> &nbsp;/&nbsp;
+<i>&sigma;</i><sub>floor</sub>(<i>E</i>)<sup>2</sup></div>
 
-<p>A rep scoring below 0.95 against the merge is worth looking at. Beyond that,
-the metric can be dominated by the overall amplitude of the vectors rather than
-by the differences between them: across the four series used in this document –
-including series B, where the sample position was lost, and series D, where the
-measurement was disturbed – the lowest similarity of any individual rep to the
-merge is 0.9993, and the cumulative-average similarity is at least 0.999995 in
-every case, making it difficult to use as a stopping criterion.</p>
+<p class="where"><i>&mu;</i><sub>&minus;<i>i</i></sub> is the merge of every rep
+except <i>i</i>, <i>m</i> the number of retained window points, and
+<i>&sigma;</i><sub>floor</sub>(<i>E</i>)&nbsp;=&nbsp;&radic;(<i>N</i><sub><i>i</i></sub>(<i>E</i>))/&Delta;<i>&mu;</i>
+the counting error at energy <i>E</i> in the units of the normalised spectrum,
+with &Delta;<i>&mu;</i> the edge step in counts. Leaving rep <i>i</i> out of the
+mean it is measured against removes the correlation between a rep and its own
+contribution to that mean.</p>
 
-<h2><span class="n">9</span>Projecting the cost of finishing</h2>
+<p>The expected value is 1 for a rep whose disagreement with the others is pure
+counting noise, so the scale carries meaning without a calibration step. Series
+A returns a median of 0.94 over its twelve reps, and its spread of 0.67 to 1.48
+is what 33 retained window points imply, the reduced statistic having a
+standard deviation of &radic;(2/<i>m</i>)&nbsp;=&nbsp;0.25. Series C, which is
+being photoreduced, sits a little higher at a median of 1.17 and puts no single
+rep forward: progressive damage is a trend, and §7 owns it.</p>
+
+<p>Series B is the case the screen exists for. Its first five reps return 0.87
+to 1.39, at the counting limit. Rep 6 returns 15.4, and the reps after it stay
+between 1.9 and 15.8. A statistic that never looks at the series as a whole
+locates the disturbance to the rep, and agrees with the departure onset that §6
+finds from an entirely different quantity.</p>
+
+<p>A rep above 3 is flagged for inspection. That threshold comes from the
+observed spread rather than from the <i>&chi;</i><sup>2</sup> distribution:
+across the three series without a step change the largest single value is 1.59,
+so 3 leaves room for the dispersion of the estimate while still catching eight
+of the nine disturbed reps in series B. What it does not catch is a single late
+disturbance whose rep is only mildly inconsistent – series D's rep 10 is
+the largest in its series at 1.44, which is inside the clean spread. The
+rising-SEM veto is what covers that case.</p>
+
+<p>One property matters for reading the output. Each rep is measured against
+the merge of the others, so what the statistic finds is the side of a split
+that is in the minority. When a disturbance takes over most of the stack, the
+reps it flags are the clean ones. It locates the split and does not say which
+side of it is the good measurement; the departure onset of §6 is what settles
+that.</p>
+
+
+
+<h2 id="s9"><span class="n">9</span>Projecting the cost of finishing</h2>
 
 <p>When a series is stationary, photon-limited, and still short of its target,
-the remaining question is arithmetic. SEM falls as
+the remaining question is how much beam time the target costs. SEM falls as
 <i>k</i>/&radic;(<i>n</i>), so the total rep count needed
 to reach a target <i>T</i> scales as the square of how far away it currently
 is:</p>
@@ -582,9 +700,25 @@ is:</p>
 <i>n</i><sub>required</sub> &nbsp;=&nbsp; &#8968; <i>n</i> &middot;
 ( SEM(<i>n</i>) / <i>T</i> )<sup>2</sup> &#8969;</div>
 
-<p>The square is what makes this worth computing rather than guessing. Halving
-the remaining error costs four times the beam time. A series at 1.4% with
-a 1% target needs twice its current rep count; the same series with a
+<p class="where">&#8968;&nbsp;&middot;&nbsp;&#8969; is the ceiling: round up to
+the next whole rep.</p>
+
+<p>No <i>c</i><sub>4</sub> appears here, and its absence is worth a line,
+because §4 asked for the correction wherever a standard deviation is divided by
+&radic;(<i>n</i>). The target is tested against the reported SEM, which carries
+1/<i>c</i><sub>4</sub> at the projected rep count as well as at the current one,
+so the two corrections divide out. Written exactly, the requirement is the
+smallest <i>m</i> for which
+<i>c</i><sub>4</sub>(<i>m</i>)&radic;(<i>m</i>)&nbsp;&ge;&nbsp;<i>c</i><sub>4</sub>(<i>n</i>)&radic;(<i>n</i>)&nbsp;&middot;&nbsp;SEM(<i>n</i>)/<i>T</i>,
+and for <i>n</i>&nbsp;&gtrsim;&nbsp;5 that agrees with the expression above to
+within a rep. Below five reps it does not: at <i>n</i>&nbsp;=&nbsp;2 the simple
+form over-predicts by three reps, because SEM(2) is inflated by
+1/<i>c</i><sub>4</sub>(2)&nbsp;=&nbsp;1.25 while the rep count it is being
+projected onto is not. The projection is not worth quoting before about five
+reps.</p>
+
+<p>Halving the remaining error costs four times the beam time. A series at 1.4%
+with a 1% target needs twice its current rep count; the same series with a
 0.5% target needs eight times.</p>
 
 {{FIG10}}
@@ -600,12 +734,11 @@ incident flux, or an explicitly relaxed target – <strong>not</strong> more rep
 of the same length, which is the one option the arithmetic has already ruled
 out.</p>
 
-<h2><span class="n">10</span>The decision, in order</h2>
+<h2 id="s10"><span class="n">10</span>Conclusion</h2>
 
-<p>After each rep, three questions. The order is not cosmetic: questions 1 and 2
-identify the cases in which additional data is worthless, and question 3 is the
-only one whose answer can ever be <em>keep collecting</em>. Asking 3 first will
-sign off a sample that is being destroyed, because a destroyed sample passes it.</p>
+<p>After each scan, there are 3 questions to answer. Questions 1 and 2 identify
+the cases in which additional data is worthless. Question 3 resolves whether we
+have the required precision.</p>
 
 <table>
   <thead>
@@ -616,14 +749,14 @@ sign off a sample that is being destroyed, because a destroyed sample passes it.
       <td class="q">1. Is it still the same sample?</td>
       <td>Mann&ndash;Kendall p&nbsp;&lt;&nbsp;0.05 <em>and</em> Theil&ndash;Sen
         total excursion &gt;&nbsp;1%; <em>or</em> the running SEM has
-        risen by more than 25% off its recent minimum</td>
+        risen by more than 50% off its recent minimum</td>
       <td class="act">Stop and diagnose. More reps sharpen a moving target.
         Check for beam damage and spot drift.</td>
     </tr>
     <tr class="stop">
       <td class="q">2. Is it still photon-limited?</td>
       <td>SEM(<i>n</i>)/floor(<i>n</i>) has risen 25% above its opening
-        value and stayed there – <code>plateau_from_rep</code> is set</td>
+        trend and stayed there – forming a plateau on the SEM trend</td>
       <td class="act">Stop and diagnose. The dispersion exceeds what photon
         statistics can account for. The reps before the onset are the clean
         data.</td>
@@ -634,22 +767,20 @@ sign off a sample that is being destroyed, because a destroyed sample passes it.
       <td class="act">Stop. The requested statistics have been achieved;
         further reps buy precision nothing downstream can use.</td>
     </tr>
-    <tr class="go">
-      <td class="q">If none of the above</td>
-      <td>On the floor, stationary, still above target</td>
-      <td class="act">Continue. Reps still buy signal-to-noise as
-        1/&radic;(<i>n</i>); compare
-        <i>n</i><sub>required</sub> against the time remaining.</td>
-    </tr>
   </tbody>
 </table>
+
+<p>If none of the above holds &ndash; the series is on the floor, stationary and
+still above target &ndash; collection continues. Reps still buy signal-to-noise
+as 1/&radic;(<i>n</i>), and <i>n</i><sub>required</sub> is what to compare
+against the time remaining.</p>
 
 <p>A fifth outcome sits outside the sequence: if the positions being averaged are
 chemically heterogeneous (<i>F</i>&nbsp;&gt;&nbsp;5), the series has no single answer to
 converge to, and the choice is between reporting a population average and
 analysing the positions separately.</p>
 
-<h2><span class="n">11</span>Symbols</h2>
+<h2 id="s11"><span class="n">11</span>Symbols</h2>
 
 <dl class="syms">
   <div><dt><i>n</i></dt><dd>Number of reps merged so far.</dd></div>
@@ -690,11 +821,43 @@ analysing the positions separately.</p>
     reps were in random order.</dd></div>
   <div><dt><i>F</i></dt><dd>Ratio of between-position to within-position
     variance, averaged over the window.</dd></div>
+    <div><dt><i>&chi;</i><sup>2</sup><sub><i>i</i></sub></dt><dd>Reduced
+    chi-square of rep <i>i</i> against the merge of the others, in units of the
+    counting error. Expectation 1 for a rep limited by photon statistics.</dd></div>
   <div><dt><i>T</i></dt><dd>The SEM target: the relative uncertainty the science
     requires on the merged spectrum.</dd></div>
 </dl>
 
-<h2><span class="n">12</span>Parameters and their defaults</h2>
+<h2 id="s12"><span class="n">12</span>Parameters and their defaults</h2>
+
+<h3>How these defaults were chosen</h3>
+
+<p>The values below come from three different kinds of reasoning, and it is
+worth being explicit about which, because they do not carry equal weight.</p>
+
+<p>A few follow from the arithmetic and cannot sensibly be anything else. The
+minimum of two reps is where a dispersion estimate first exists; five is where
+the trend criterion can first reach p&nbsp;&lt;&nbsp;0.05; eight is where the
+rising-SEM comparison has a window to work in. Others are set by tying one
+number to another already chosen: the trend materiality threshold is the same
+1% as the SEM target on purpose, since a drift smaller than the precision being
+demanded is not a drift worth stopping for. The rising-SEM factor is set
+against the sampling noise of the statistic it tests, as §7 describes.</p>
+
+<p>The rest &ndash; the SEM target itself, the departure margin, the window
+trim, the heterogeneity bands, the screening threshold &ndash; are working
+values. They were chosen to behave sensibly on the four reference series used
+throughout this document and on the scans that motivated the analysis, which
+is enough to show that each test responds to the defect it was built for. It
+is not enough to fix the value. Establishing how large a defect has to be
+before a test notices it, and how often a test fires when nothing is wrong,
+needs many more series than four, with known ground truth &ndash; which in
+practice means a retrospective pass over archived multi-rep beamtime and a
+period of running the analysis alongside human judgement in the field.</p>
+
+<p>Until that has been done, treat the second group as starting points. They
+are recorded here, in one table, rather than buried in the code precisely so
+that changing one is a deliberate act with a visible history.</p>
 
 <table class="params">
   <thead><tr><th>Parameter</th><th>Default</th><th>What it controls</th></tr></thead>
@@ -707,7 +870,7 @@ analysing the positions separately.</p>
       <td>Fraction of window points excluded from the averages, minimum one
         point per end.</td></tr>
     <tr><td class="q">Departure margin</td><td class="v">1.25&nbsp;&times;</td>
-      <td>Rise in SEM/floor above its opening value that counts as leaving the
+      <td>Rise in SEM/floor above its opening trend that counts as leaving the
         floor.</td></tr>
     <tr><td class="q">Trend p-value</td><td class="v">0.05</td>
       <td>Mann&ndash;Kendall two-sided p below which a monotone trend is called
@@ -715,18 +878,24 @@ analysing the positions separately.</p>
     <tr><td class="q">Trend materiality</td><td class="v">1%</td>
       <td>Total Theil&ndash;Sen excursion, as a fraction of the mean, above which
         a significant trend is also called material.</td></tr>
-    <tr><td class="q">Rising-SEM factor</td><td class="v">1.25&nbsp;&times;</td>
+    <tr><td class="q">Rising-SEM factor</td><td class="v">1.5&nbsp;&times;</td>
       <td>Rise of the running SEM above the minimum of the final third that
-        triggers the veto. Requires <i>n</i>&nbsp;&ge;&nbsp;6.</td></tr>
+        triggers the veto. Set against the sampling noise of that statistic,
+        which is why it is the loosest margin here. Requires
+        <i>n</i>&nbsp;&ge;&nbsp;8.</td></tr>
     <tr><td class="q">Heterogeneity bands</td><td class="v">2, 5</td>
       <td><i>F</i>&nbsp;&lt;&nbsp;2 homogeneous; 2&ndash;5 borderline;
         &gt;&nbsp;5 heterogeneous.</td></tr>
-    <tr><td class="q">Outlier similarity</td><td class="v">0.95</td>
-      <td>Cosine similarity to the merge below which a rep is flagged for
-        inspection.</td></tr>
-    <tr><td class="q">Minimum reps</td><td class="v">2</td>
-      <td>Below two reps no dispersion estimate exists and none of the above is
-        defined.</td></tr>
+    
+        <tr><td class="q">Rep screening</td><td class="v">3</td>
+      <td>Leave-one-out reduced chi-square above which a single rep is flagged
+        for inspection. Set from the observed spread of clean series, not from
+        the chi-square distribution.</td></tr>
+    <tr><td class="q">Minimum reps</td><td class="v">2 / 5 / 8</td>
+      <td>Two reps before any dispersion estimate exists, so before that
+        nothing above is defined. Five before the trend criterion can reach
+        p&nbsp;&lt;&nbsp;0.05. Eight before the rising-SEM veto is
+        evaluated.</td></tr>
   </tbody>
 </table>
 
@@ -780,17 +949,28 @@ analysing the positions separately.</p>
     algorithms for scientific computing in Python. <i>Nature Methods</i>
     <b>17</b>, 261&ndash;272. Provides the <span class="m">kendalltau</span> and
     <span class="m">theilslopes</span> implementations used here.</li>
+  <li id="r11">International XAFS Society, Standards and Criteria Committee
+    (2000). <i>Error Reporting Recommendations: A Report of the Standards and
+    Criteria Committee</i>. Adopted 26 July 2000. Available from the
+    committee's report index at
+    <span class="m">ixs.iit.edu/subcommittee_reports/sc/</span>. Recommends
+    that the scan-to-scan dispersion (its Eq. 9) and the counting-statistics
+    estimate (its Eqs. 7&ndash;8) both be computed and compared, and tabulates
+    the reliability of a standard deviation estimated from <i>M</i> scans.</li>
 </ol>
 
 <footer>
   <p>Implementation:
-  <code>beamtimehero_cli/science/statistics/</code> –
+  <a href="https://github.com/slaclab/beamtimehero_cli"><code>beamtimehero_cli</code></a>,
+  in <code>science/statistics/</code> –
   <code>efficiency.py</code> (merge SEM, counting floor, departure onset,
   projection), <code>features.py</code> (per-rep feature value, trend tests,
-  heterogeneity <i>F</i>), <code>policy.py</code> (the parameter defaults in
-  §12), and <code>science/fitting/similarity.py</code> (cosine similarity).
+  heterogeneity <i>F</i>), and <code>policy.py</code> (the parameter defaults in
+  §12).
   Kendall's <i>&tau;</i>, its p-value and the Theil&ndash;Sen slope are
   evaluated with SciPy.<sup><a href="#r10">10</a></sup>
   Figures generated by running those modules on the four synthetic series
-  described in the introduction.</p>
+  described in the introduction. The per-rep screening statistic of §8 is
+  <code>screen_reps</code> in <code>efficiency.py</code>; the values quoted for
+  it are its output on those same four series.</p>
 </footer>

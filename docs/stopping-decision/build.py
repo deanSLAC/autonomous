@@ -97,6 +97,21 @@ CSS = """
   p.cap b { color: var(--ink); font-weight: 600; }
   p.cap i { font-style: italic; }
 
+  /* table of contents */
+  nav.toc { margin: 30px 0 8px; padding: 17px 20px 14px;
+            background: var(--panel); border: 1px solid var(--hair);
+            border-radius: 3px; }
+  nav.toc .toc-h { font-family: var(--fig-font); font-size: 10.5px;
+                   color: var(--mute); text-transform: uppercase;
+                   letter-spacing: 0.1em; margin-bottom: 11px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0;
+               columns: 2; column-gap: 34px; font-size: 16px; }
+  nav.toc li { margin: 0 0 7px; break-inside: avoid; line-height: 1.35; }
+  nav.toc li .n { color: var(--accent); font-variant-numeric: tabular-nums;
+                  display: inline-block; width: 22px; font-weight: 600; }
+  nav.toc a { color: var(--body); border-bottom: 0; }
+  nav.toc a:hover { border-bottom: 1px solid rgba(140,21,21,0.3); }
+
   /* notes */
   .note {
     background: var(--panel); border: 1px solid var(--rule);
@@ -105,6 +120,13 @@ CSS = """
     font-size: 16.5px; line-height: 1.55;
   }
   .note b { color: var(--accent); font-weight: 600; }
+  .hnote {
+    background: #fdf4f1; border: 1px solid #eed3cb;
+    border-left: 3px solid #b8503f;
+    padding: 14px 19px; margin: 24px 0; border-radius: 0 3px 3px 0;
+    font-size: 16.5px; line-height: 1.55;
+  }
+  .hnote b { color: #a3402f; font-weight: 600; }
   p.note-inline { font-size: 15.5px; color: var(--mute);
                   border-left: 2px solid var(--rule); padding-left: 16px;
                   margin: 24px 0; line-height: 1.55; }
@@ -176,7 +198,7 @@ html = f"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Deciding when a scan series is finished</title>
+<title>Knowing when you have enough spectra</title>
 <style>{CSS}</style>
 </head>
 <body>
